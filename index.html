@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rajib Tutorial</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & base ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0F1923;
+      --bg2:       #0D1F38;
+      --card:      #1A2535;
+      --card2:     #202f42;
+      --accent:    #4A9EFF;
+      --accent2:   #7B5CF5;
+      --green:     #34C98A;
+      --red:       #FF6B6B;
+      --text:      #E8EDF2;
+      --sub:       #8A9BB0;
+      --border:    rgba(138,155,176,.18);
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    button { cursor: pointer; font-family: inherit; }
+    input  { font-family: inherit; }
+    a      { text-decoration: none; color: inherit; }
+
+    /* ── Scrollbar ─────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--card2); border-radius: 3px; }
+
+    /* ── Navbar ────────────────────────────────────────── */
+    .navbar {
+      position: sticky; top: 0; z-index: 100;
+      background: linear-gradient(180deg, var(--bg2) 0%, rgba(13,31,56,.92) 100%);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+    }
+    .navbar-brand { display: flex; align-items: center; gap: 10px; }
+    .navbar-logo {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 800; color: #fff;
+    }
+    .navbar-title { font-size: 18px; font-weight: 700; }
+    .navbar-actions { display: flex; align-items: center; gap: 10px; position: relative; }
+    .btn-menu {
+      background: none; border: none;
+      width: 38px; height: 38px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text); font-size: 20px; transition: background .2s;
+    }
+    .btn-menu:hover { background: var(--card2); }
+
+    /* ── Dropdown menu ─────────────────────────────────── */
+    .dropdown {
+      position: absolute; top: 48px; right: 0;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; min-width: 200px;
+      box-shadow: 0 12px 32px rgba(0,0,0,.45);
+      overflow: hidden; z-index: 200;
+      animation: fadeIn .15s ease;
+    }
+    .dropdown.hidden { display: none; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    .dropdown-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 18px; cursor: pointer; transition: background .15s;
+      font-size: 14px; font-weight: 500;
+    }
+    .dropdown-item:hover { background: var(--card2); }
+    .dropdown-item svg { flex-shrink: 0; }
+    .dropdown-divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+    /* ── Page overlay system ───────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Hero section ──────────────────────────────────── */
+    .hero {
+      padding: 64px 24px 48px;
+      text-align: center;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(74,158,255,.12) 0%, transparent 70%);
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: rgba(74,158,255,.12); border: 1px solid rgba(74,158,255,.3);
+      border-radius: 20px; padding: 6px 14px; font-size: 12px; color: var(--accent);
+      font-weight: 600; margin-bottom: 20px;
+    }
+    .hero h1 { font-size: clamp(28px, 5vw, 48px); font-weight: 800; line-height: 1.2; margin-bottom: 14px; }
+    .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero p { font-size: 16px; color: var(--sub); max-width: 500px; margin: 0 auto 32px; line-height: 1.6; }
+    .hero-stats { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; }
+    .stat { text-align: center; }
+    .stat-num { font-size: 26px; font-weight: 800; color: var(--accent); }
+    .stat-label { font-size: 12px; color: var(--sub); margin-top: 2px; }
+
+    /* ── Section ───────────────────────────────────────── */
+    .section { padding: 0 24px 60px; max-width: 960px; margin: 0 auto; }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px; padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-title { font-size: 18px; font-weight: 700; }
+    .section-count { font-size: 13px; color: var(--sub); }
+
+    /* ── Course grid ───────────────────────────────────── */
+    .course-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .course-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 18px; overflow: hidden; cursor: pointer;
+      transition: transform .2s, box-shadow .2s, border-color .2s;
+    }
+    .course-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.3); border-color: rgba(74,158,255,.3); }
+    .course-thumb {
+      height: 140px;
+      background: linear-gradient(135deg, rgba(74,158,255,.2), rgba(123,92,245,.2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 48px; position: relative;
+    }
+    .course-thumb-badge {
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(0,0,0,.5); backdrop-filter: blur(4px);
+      border-radius: 8px; padding: 3px 9px; font-size: 11px; color: var(--accent);
+    }
+    .course-body { padding: 16px; }
+    .course-tag { font-size: 11px; color: var(--accent2); font-weight: 600; margin-bottom: 5px; }
+    .course-name { font-size: 15px; font-weight: 700; margin-bottom: 5px; line-height: 1.3; }
+    .course-meta { font-size: 12px; color: var(--sub); margin-bottom: 12px; }
+    .course-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 10px; border-top: 1px solid var(--border);
+    }
+    .course-vid-count { font-size: 12px; color: var(--accent); font-weight: 600; }
+    .btn-watch {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; border-radius: 8px; padding: 7px 14px;
+      font-size: 12px; font-weight: 600; color: #fff;
+      transition: opacity .2s;
+    }
+    .btn-watch:hover { opacity: .85; }
+
+    /* ── Loading / empty ───────────────────────────────── */
+    .loader { text-align: center; padding: 60px 20px; color: var(--sub); }
+    .loader .spin {
+      width: 40px; height: 40px; border: 3px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin .8s linear infinite; margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty { text-align: center; padding: 60px 20px; }
+    .empty-icon { font-size: 56px; margin-bottom: 14px; }
+    .empty p { color: var(--sub); font-size: 15px; }
+
+    /* ── Video list page ───────────────────────────────── */
+    .page-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .btn-back {
+      background: var(--card2); border: none; border-radius: 50%;
+      width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+      color: var(--text); transition: background .2s; flex-shrink: 0;
+    }
+    .btn-back:hover { background: rgba(74,158,255,.2); }
+    .page-header-info h2 { font-size: 17px; font-weight: 700; }
+    .page-header-info p  { font-size: 12px; color: var(--sub); }
+
+    .video-list { padding: 16px 24px; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+    .video-item {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px 16px;
+      display: flex; align-items: center; gap: 14px; cursor: pointer;
+      transition: background .2s, border-color .2s;
+    }
+    .video-item:hover { background: var(--card2); border-color: rgba(74,158,255,.3); }
+    .video-num {
+      width: 36px; height: 36px; background: rgba(74,158,255,.15);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: var(--accent); flex-shrink: 0;
+    }
+    .video-info { flex: 1; min-width: 0; }
+    .video-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .video-dur { font-size: 11px; color: var(--sub); margin-top: 3px; }
+    .video-play { color: var(--accent); font-size: 26px; flex-shrink: 0; }
+
+    /* ── Video player page ─────────────────────────────── */
+    .player-wrap {
+      background: #000; width: 100%;
+      aspect-ratio: 16/9; max-height: 60vh;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .player-wrap iframe { width: 100%; height: 100%; border: none; }
+    .player-wrap video  { width: 100%; height: 100%; background: #000; }
+    .player-info { padding: 20px 24px; max-width: 760px; margin: 0 auto; }
+    .player-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .player-meta  { font-size: 13px; color: var(--sub); }
+
+    /* ── Modal backdrop ────────────────────────────────── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 500; padding: 20px; animation: fadeIn .15s ease;
+    }
+    .modal-backdrop.hidden { display: none; }
+    .modal {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 28px; width: 100%; max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+    .modal-sub   { font-size: 13px; color: var(--sub); margin-bottom: 24px; }
+    .field-label { font-size: 12px; color: var(--sub); font-weight: 600; margin-bottom: 7px; display: block; }
+    .field-wrap  { position: relative; margin-bottom: 16px; }
+    .field-wrap input {
+      width: 100%; background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: 12px; padding: 12px 44px 12px 14px;
+      color: var(--text); font-size: 15px; outline: none;
+      transition: border-color .2s;
+    }
+    .field-wrap input:focus { border-color: var(--accent2); }
+    .field-wrap input.error { border-color: var(--red); }
+    .toggle-pw {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--sub); font-size: 18px; cursor: pointer;
+    }
+    .error-msg { font-size: 12px; color: var(--red); margin-top: -10px; margin-bottom: 14px; display: flex; align-items: center; gap: 5px; }
+    .error-msg.hidden { display: none; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+    .btn-cancel {
+      background: none; border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 18px; color: var(--sub); font-size: 14px; font-weight: 500;
+      transition: background .2s;
+    }
+    .btn-cancel:hover { background: var(--card2); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      border: none; border-radius: 10px; padding: 10px 22px;
+      color: #fff; font-size: 14px; font-weight: 600; transition: opacity .2s;
+    }
+    .btn-primary:hover { opacity: .85; }
+    .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Admin panel ───────────────────────────────────── */
+    .admin-wrap { max-width: 820px; margin: 0 auto; padding: 24px; }
+    .admin-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
+      padding-bottom: 20px; border-bottom: 1px solid var(--border);
+    }
+    .admin-badge {
+      background: rgba(123,92,245,.2); border: 1px solid rgba(123,92,245,.35);
+      border-radius: 8px; padding: 4px 12px; font-size: 12px; color: var(--accent2); font-weight: 600;
+    }
+    .admin-tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--card); border-radius: 12px; padding: 4px; }
+    .tab-btn {
+      flex: 1; background: none; border: none; border-radius: 9px;
+      padding: 10px; color: var(--sub); font-size: 14px; font-weight: 600;
+      transition: background .2s, color .2s;
+    }
+    .tab-btn.active { background: var(--card2); color: var(--accent); }
+
+    /* Admin course list */
+    .admin-course-list { display: flex; flex-direction: column; gap: 10px; }
+    .admin-course-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .admin-course-icon {
+      width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0;
+      background: rgba(74,158,255,.15);
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
+    }
+    .admin-course-info { flex: 1; min-width: 0; }
+    .admin-course-info strong { font-size: 15px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .admin-course-info span   { font-size: 12px; color: var(--sub); }
+    .admin-course-actions { display: flex; gap: 6px; }
+    .btn-icon {
+      background: none; border: none; border-radius: 8px;
+      width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+      transition: background .15s; font-size: 16px;
+    }
+    .btn-icon.edit   { color: var(--accent); } .btn-icon.edit:hover   { background: rgba(74,158,255,.15); }
+    .btn-icon.delete { color: var(--red);    } .btn-icon.delete:hover { background: rgba(255,107,107,.15); }
+
+    /* FAB */
+    .fab {
+      position: fixed; bottom: 28px; right: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; border-radius: 50%;
+      width: 56px; height: 56px; font-size: 26px; color: #fff;
+      box-shadow: 0 8px 24px rgba(74,158,255,.35);
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .fab:hover { transform: scale(1.08); box-shadow: 0 12px 30px rgba(74,158,255,.45); }
+    .fab.hidden { display: none; }
+
+    /* Admin video list */
+    .admin-video-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .admin-video-item {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .admin-video-num {
+      width: 32px; height: 32px; background: rgba(52,201,138,.15);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: var(--green); flex-shrink: 0;
+    }
+    .admin-video-info { flex: 1; min-width: 0; }
+    .admin-video-info strong { font-size: 13px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .admin-video-info span   { font-size: 11px; color: var(--sub); }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 22px; font-size: 14px; font-weight: 500;
+      box-shadow: 0 8px 24px rgba(0,0,0,.35); z-index: 999;
+      transition: opacity .3s; pointer-events: none;
+    }
+    .toast.hidden { opacity: 0; }
+
+    /* form fields in modal */
+    .form-row { margin-bottom: 14px; }
+    .form-row label { font-size: 12px; color: var(--sub); font-weight: 600; display: block; margin-bottom: 6px; }
+    .form-row input, .form-row select, .form-row textarea {
+      width: 100%; background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 10px 13px; color: var(--text);
+      font-size: 14px; outline: none; transition: border-color .2s; font-family: inherit;
+    }
+    .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: var(--accent); }
+    .form-row select option { background: var(--card); }
+    .form-row textarea { resize: vertical; min-height: 70px; }
+
+    /* Confirm dialog */
+    .confirm-modal .modal-title { color: var(--red); }
+    .confirm-modal .btn-primary { background: var(--red); }
+
+    @media (max-width: 600px) {
+      .hero { padding: 40px 16px 32px; }
+      .hero-stats { gap: 20px; }
+      .section { padding: 0 16px 40px; }
+      .navbar { padding: 0 14px; }
+      .admin-wrap { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     NAVBAR
+══════════════════════════════════════════════════════════ -->
+<nav class="navbar">
+  <div class="navbar-brand">
+    <div class="navbar-logo">R</div>
+    <span class="navbar-title">Rajib Tutorial</span>
+  </div>
+  <div class="navbar-actions">
+    <button class="btn-menu" id="menuBtn" title="Menu" onclick="toggleMenu()">⋮</button>
+    <div class="dropdown hidden" id="mainMenu">
+      <div class="dropdown-item" onclick="openAdminLogin()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7B5CF5" stroke-width="2"><path d="M12 2l9 9-9 9-9-9 9-9z"/><circle cx="12" cy="11" r="3"/></svg>
+        <span style="color:#E8EDF2">Admin Login</span>
+      </div>
+      <hr class="dropdown-divider"/>
+      <div class="dropdown-item" onclick="closeMenu()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A9BB0" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span style="color:#8A9BB0">EEE Related Courses</span>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: HOME (course list)
+══════════════════════════════════════════════════════════ -->
+<div class="page active" id="pageHome">
+  <div class="hero">
+    <div class="hero-badge">🎓 EEE Related Courses</div>
+    <h1>Learn with <span>Rajib Tutorial</span></h1>
+    <p>Electrical & Electronic Engineering related courses with video lectures.</p>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-num" id="statCourses">—</div><div class="stat-label">Courses</div></div>
+      <div class="stat"><div class="stat-num" id="statVideos">—</div><div class="stat-label">Videos</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">All Courses</span>
+      <span class="section-count" id="courseCount"></span>
+    </div>
+    <div id="courseListWrap">
+      <div class="loader"><div class="spin"></div><p>Loading courses…</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: VIDEO LIST
+══════════════════════════════════════════════════════════ -->
+<div class="page" id="pageVideos">
+  <div class="page-header">
+    <button class="btn-back" onclick="goHome()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    </button>
+    <div class="page-header-info">
+      <h2 id="videoPageTitle">Course</h2>
+      <p id="videoPageSub">0 videos</p>
+    </div>
+  </div>
+  <div class="video-list" id="videoListWrap"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: PLAYER
+══════════════════════════════════════════════════════════ -->
+<div class="page" id="pagePlayer">
+  <div class="page-header">
+    <button class="btn-back" onclick="goVideoList()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    </button>
+    <div class="page-header-info">
+      <h2 id="playerPageTitle">Video</h2>
+    </div>
+  </div>
+  <div class="player-wrap" id="playerWrap"></div>
+  <div class="player-info">
+    <div class="player-title" id="playerTitle"></div>
+    <div class="player-meta"  id="playerMeta"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE: ADMIN
+══════════════════════════════════════════════════════════ -->
+<div class="page" id="pageAdmin">
+  <div class="admin-wrap">
+    <div class="admin-header">
+      <button class="btn-back" onclick="goHome()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      </button>
+      <div style="flex:1">
+        <div style="font-size:18px;font-weight:700">Admin Panel</div>
+        <div style="font-size:12px;color:var(--sub)">Rajib Tutorial</div>
+      </div>
+      <div class="admin-badge">Admin</div>
+    </div>
+
+    <div class="admin-tabs" id="adminTabs">
+      <button class="tab-btn active" onclick="switchAdminTab('courses')">📚 Courses</button>
+      <button class="tab-btn"        onclick="switchAdminTab('videos')">🎬 Videos</button>
+    </div>
+
+    <!-- Courses tab -->
+    <div id="adminTabCourses">
+      <div id="adminCourseListWrap">
+        <div class="loader"><div class="spin"></div><p>Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- Videos tab -->
+    <div id="adminTabVideos" style="display:none">
+      <div class="form-row" style="margin-bottom:16px">
+        <label>Select Course</label>
+        <select id="adminCourseSelect" onchange="loadAdminVideos()">
+          <option value="">— Select a course —</option>
+        </select>
+      </div>
+      <div id="adminVideoListWrap"></div>
+    </div>
+  </div>
+  <button class="fab" id="fabBtn" onclick="onFabClick()">+</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODALS
+══════════════════════════════════════════════════════════ -->
+
+<!-- Admin Login -->
+<div class="modal-backdrop hidden" id="modalAdminLogin">
+  <div class="modal">
+    <div class="modal-title">
+      <span style="font-size:22px">🔐</span> Admin Login
+    </div>
+    <div class="modal-sub">Admin panel এ প্রবেশ করুন</div>
+    <label class="field-label">Password</label>
+    <div class="field-wrap">
+      <input type="password" id="adminPwInput" placeholder="Enter password" oninput="clearPwError()" onkeydown="if(event.key==='Enter')checkAdminLogin()" />
+      <button class="toggle-pw" onclick="togglePwVis()" id="togglePwBtn">👁</button>
+    </div>
+    <div class="error-msg hidden" id="pwError">❌ Incorrect password</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modalAdminLogin')">Cancel</button>
+      <button class="btn-primary" onclick="checkAdminLogin()">🔓 Login</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Course -->
+<div class="modal-backdrop hidden" id="modalCourse">
+  <div class="modal">
+    <div class="modal-title" id="modalCourseTitle">📚 New Course</div>
+    <div class="modal-sub" id="modalCourseSub">Course তথ্য দিন</div>
+    <input type="hidden" id="editCourseId" />
+    <div class="form-row"><label>Course Name *</label><input type="text" id="cCourseName" placeholder="e.g. Rajib EEE Course" /></div>
+    <div class="form-row"><label>Course Title *</label><input type="text" id="cTitle" placeholder="e.g. Circuit Analysis 2025" /></div>
+    <div class="form-row">
+      <label>Class</label>
+      <select id="cClass">
+        <option value="">Select class</option>
+        <option>Class 9</option><option>Class 10</option><option>SSC</option>
+        <option>Class 11</option><option>Class 12</option><option>HSC</option>
+        <option>Diploma</option><option>BSc</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Subject</label>
+      <select id="cSubject">
+        <option value="">Select subject</option>
+        <option>Physics</option><option>Math</option><option>Chemistry</option>
+        <option>Circuit Analysis</option><option>Electronics</option><option>Electrical Machines</option>
+        <option>Power Systems</option><option>Digital Electronics</option><option>ICT</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Description</label><textarea id="cDesc" placeholder="Short course description…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modalCourse')">Cancel</button>
+      <button class="btn-primary" onclick="saveCourse()">Save Course</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Video -->
+<div class="modal-backdrop hidden" id="modalVideo">
+  <div class="modal">
+    <div class="modal-title" id="modalVideoTitle">🎬 Add Video</div>
+    <div class="modal-sub">Video তথ্য দিন</div>
+    <input type="hidden" id="editVideoId" />
+    <div class="form-row"><label>Video Title *</label><input type="text" id="vTitle" placeholder="e.g. Lesson 1 — Ohm's Law" /></div>
+    <div class="form-row">
+      <label>Video URL *</label>
+      <input type="url" id="vUrl" placeholder="YouTube / Cloudinary / Direct link" />
+    </div>
+    <div class="form-row"><label>Duration (minutes)</label><input type="number" id="vDur" placeholder="e.g. 25" min="0" /></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modalVideo')">Cancel</button>
+      <button class="btn-primary" onclick="saveVideo()">Save Video</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm delete -->
+<div class="modal-backdrop hidden" id="modalConfirm">
+  <div class="modal confirm-modal">
+    <div class="modal-title">🗑️ <span id="confirmTitle">Delete?</span></div>
+    <div class="modal-sub" id="confirmMsg">এটা permanently delete হবে।</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modalConfirm')">Cancel</button>
+      <button class="btn-primary" onclick="confirmAction()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast hidden" id="toast"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     FIREBASE + APP LOGIC
+══════════════════════════════════════════════════════════ -->
+<script type="module">
+import { initializeApp }                        from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, getDoc }
+                                                from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ── Firebase config (same project as Android app) ──────────
+const firebaseConfig = {
+  apiKey:            "AIzaSyDummy_REPLACE_ME",
+  authDomain:        "REPLACE_ME.firebaseapp.com",
+  projectId:         "REPLACE_ME",
+  storageBucket:     "REPLACE_ME.appspot.com",
+  messagingSenderId: "000000000000",
+  appId:             "1:000000000000:web:0000000000000000"
+};
+
+// ────────────────────────────────────────────────────────────
+//  IMPORTANT: raseledutools — উপরের firebaseConfig তে
+//  তোমার actual Firebase project values বসাও।
+//  Firebase Console → Project Settings → Your apps → Web app
+// ────────────────────────────────────────────────────────────
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// ── State ───────────────────────────────────────────────────
+let allCourses       = [];
+let currentCourse    = null;
+let currentVideo     = null;
+let adminLoggedIn    = false;
+let activeAdminTab   = "courses";
+let pendingDeleteFn  = null;
+
+// ── Page routing ────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  window.scrollTo(0, 0);
+  document.getElementById("fabBtn").classList.toggle("hidden", id !== "pageAdmin");
+}
+
+window.goHome = function() {
+  if (currentCourse) { currentCourse = null; showPage("pageHome"); }
+  else showPage("pageHome");
+};
+window.goVideoList = function() {
+  if (currentCourse) showPage("pageVideos");
+  else showPage("pageHome");
+};
+
+// ── Load courses ────────────────────────────────────────────
+async function loadCourses() {
+  try {
+    const snap = await getDocs(collection(db, "tutorial_courses"));
+    allCourses = [];
+    snap.forEach(d => {
+      const data = d.data();
+      const videos = (data.videos || []).map(v => ({
+        id: v.id || "", title: v.title || "",
+        cloudinaryUrl: v.cloudinaryUrl || v.url || "",
+        durationMinutes: v.durationMinutes || 0
+      }));
+      allCourses.push({ id: d.id, ...data, videos });
+    });
+    renderCourses();
+    updateStats();
+  } catch(e) {
+    document.getElementById("courseListWrap").innerHTML =
+      `<div class="empty"><div class="empty-icon">⚠️</div><p>Firebase config আপডেট করো।<br/><small style="color:var(--sub)">index.html এ firebaseConfig set করো</small></p></div>`;
+  }
+}
+
+function updateStats() {
+  const totalVideos = allCourses.reduce((s, c) => s + (c.videos?.length || 0), 0);
+  document.getElementById("statCourses").textContent = allCourses.length;
+  document.getElementById("statVideos").textContent  = totalVideos;
+  document.getElementById("courseCount").textContent  = `${allCourses.length} courses`;
+}
+
+function renderCourses() {
+  const wrap = document.getElementById("courseListWrap");
+  if (!allCourses.length) {
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">📚</div><p>No courses yet.<br/><small style="color:var(--sub)">Admin panel থেকে course যোগ করো।</small></p></div>`;
+    return;
+  }
+  const emojis = ["⚡","🔌","💡","🛠️","📐","🔋","📡","🌐","⚙️","🔧"];
+  wrap.innerHTML = `<div class="course-grid">${allCourses.map((c, i) => `
+    <div class="course-card" onclick="openCourse('${c.id}')">
+      <div class="course-thumb">
+        <span>${emojis[i % emojis.length]}</span>
+        <span class="course-thumb-badge">${c.videos?.length || 0} videos</span>
+      </div>
+      <div class="course-body">
+        ${c.courseName ? `<div class="course-tag">${esc(c.courseName)}</div>` : ""}
+        <div class="course-name">${esc(c.title || c.id)}</div>
+        <div class="course-meta">${[c.className, c.subject].filter(Boolean).join(" • ") || "EEE Course"}</div>
+        <div class="course-footer">
+          <span class="course-vid-count">▶ ${c.videos?.length || 0} videos</span>
+          <button class="btn-watch" onclick="event.stopPropagation();openCourse('${c.id}')">Watch →</button>
+        </div>
+      </div>
+    </div>`).join("")}</div>`;
+}
+
+window.openCourse = function(courseId) {
+  currentCourse = allCourses.find(c => c.id === courseId);
+  if (!currentCourse) return;
+  document.getElementById("videoPageTitle").textContent = currentCourse.title || currentCourse.id;
+  document.getElementById("videoPageSub").textContent   = `${currentCourse.videos?.length || 0} videos`;
+  renderVideoList();
+  showPage("pageVideos");
+};
+
+function renderVideoList() {
+  const videos = currentCourse?.videos || [];
+  const wrap   = document.getElementById("videoListWrap");
+  if (!videos.length) {
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">🎬</div><p>No videos yet.</p></div>`;
+    return;
+  }
+  wrap.innerHTML = videos.map((v, i) => `
+    <div class="video-item" onclick="playVideo('${v.id}')">
+      <div class="video-num">${i + 1}</div>
+      <div class="video-info">
+        <div class="video-title">${esc(v.title)}</div>
+        ${v.durationMinutes ? `<div class="video-dur">⏱ ${v.durationMinutes} min</div>` : ""}
+      </div>
+      <div class="video-play">▶</div>
+    </div>`).join("");
+}
+
+window.playVideo = function(videoId) {
+  currentVideo = currentCourse?.videos?.find(v => v.id === videoId);
+  if (!currentVideo) return;
+  document.getElementById("playerPageTitle").textContent = currentVideo.title;
+  document.getElementById("playerTitle").textContent     = currentVideo.title;
+  document.getElementById("playerMeta").textContent      = currentVideo.durationMinutes
+    ? `⏱ ${currentVideo.durationMinutes} min` : "";
+
+  const wrap = document.getElementById("playerWrap");
+  const url  = currentVideo.cloudinaryUrl || "";
+  if (!url) {
+    wrap.innerHTML = `<div style="color:#FF6B6B;padding:20px;text-align:center">⚠️ Video URL missing</div>`;
+  } else if (url.includes("youtube.com") || url.includes("youtu.be")) {
+    const vid = url.match(/(?:v=|youtu\.be\/)([^&?\/]+)/)?.[1] || "";
+    wrap.innerHTML = `<iframe src="https://www.youtube.com/embed/${vid}?autoplay=1" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+  } else {
+    wrap.innerHTML = `<video controls autoplay src="${url}"></video>`;
+  }
+  showPage("pagePlayer");
+};
+
+// ── Navbar menu ─────────────────────────────────────────────
+window.toggleMenu = function() {
+  document.getElementById("mainMenu").classList.toggle("hidden");
+};
+window.closeMenu = function() {
+  document.getElementById("mainMenu").classList.add("hidden");
+};
+document.addEventListener("click", e => {
+  if (!e.target.closest(".navbar-actions")) closeMenu();
+});
+
+// ── Admin login ─────────────────────────────────────────────
+const ADMIN_PW = "1111";
+
+window.openAdminLogin = function() {
+  closeMenu();
+  if (adminLoggedIn) { showAdminPanel(); return; }
+  document.getElementById("adminPwInput").value = "";
+  clearPwError();
+  openModal("modalAdminLogin");
+  setTimeout(() => document.getElementById("adminPwInput").focus(), 100);
+};
+
+window.checkAdminLogin = function() {
+  const pw = document.getElementById("adminPwInput").value;
+  if (pw === ADMIN_PW) {
+    adminLoggedIn = true;
+    closeModal("modalAdminLogin");
+    showAdminPanel();
+  } else {
+    document.getElementById("pwError").classList.remove("hidden");
+    document.getElementById("adminPwInput").classList.add("error");
+    document.getElementById("adminPwInput").value = "";
+    document.getElementById("adminPwInput").focus();
+  }
+};
+
+window.clearPwError = function() {
+  document.getElementById("pwError").classList.add("hidden");
+  document.getElementById("adminPwInput").classList.remove("error");
+};
+
+window.togglePwVis = function() {
+  const inp = document.getElementById("adminPwInput");
+  inp.type = inp.type === "password" ? "text" : "password";
+  document.getElementById("togglePwBtn").textContent = inp.type === "password" ? "👁" : "🙈";
+};
+
+function showAdminPanel() {
+  showPage("pageAdmin");
+  loadAdminCourses();
+  populateAdminCourseSelect();
+}
+
+// ── Admin tabs ───────────────────────────────────────────────
+window.switchAdminTab = function(tab) {
+  activeAdminTab = tab;
+  document.querySelectorAll(".tab-btn").forEach((b, i) =>
+    b.classList.toggle("active", (i === 0 && tab === "courses") || (i === 1 && tab === "videos"))
+  );
+  document.getElementById("adminTabCourses").style.display = tab === "courses" ? "" : "none";
+  document.getElementById("adminTabVideos").style.display  = tab === "videos"  ? "" : "none";
+};
+
+// ── FAB ──────────────────────────────────────────────────────
+window.onFabClick = function() {
+  if (activeAdminTab === "courses") openAddCourse();
+  else openAddVideo();
+};
+
+// ── Admin: Course CRUD ───────────────────────────────────────
+async function loadAdminCourses() {
+  const wrap = document.getElementById("adminCourseListWrap");
+  wrap.innerHTML = `<div class="loader"><div class="spin"></div><p>Loading…</p></div>`;
+  await loadCourses();
+  renderAdminCourses();
+}
+
+function renderAdminCourses() {
+  const wrap = document.getElementById("adminCourseListWrap");
+  if (!allCourses.length) {
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">📚</div><p>No courses. + বাটন চাপো।</p></div>`;
+    return;
+  }
+  wrap.innerHTML = `<div class="admin-course-list">${allCourses.map(c => `
+    <div class="admin-course-card">
+      <div class="admin-course-icon">📚</div>
+      <div class="admin-course-info">
+        <strong>${esc(c.title || c.id)}</strong>
+        <span>${esc(c.courseName || "")} ${[c.className, c.subject].filter(Boolean).join(" • ")}</span>
+        <span style="color:var(--accent);font-size:11px">▶ ${c.videos?.length || 0} videos</span>
+      </div>
+      <div class="admin-course-actions">
+        <button class="btn-icon edit"   onclick="openEditCourse('${c.id}')">✏️</button>
+        <button class="btn-icon delete" onclick="deleteCourseConfirm('${c.id}')">🗑️</button>
+      </div>
+    </div>`).join("")}</div>`;
+}
+
+window.openAddCourse = function() {
+  document.getElementById("editCourseId").value = "";
+  document.getElementById("modalCourseTitle").textContent = "📚 New Course";
+  document.getElementById("modalCourseSub").textContent   = "Course তথ্য দিন";
+  ["cCourseName","cTitle","cDesc"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("cClass").value   = "";
+  document.getElementById("cSubject").value = "";
+  openModal("modalCourse");
+};
+
+window.openEditCourse = function(courseId) {
+  const c = allCourses.find(x => x.id === courseId);
+  if (!c) return;
+  document.getElementById("editCourseId").value  = c.id;
+  document.getElementById("cCourseName").value   = c.courseName || "";
+  document.getElementById("cTitle").value        = c.title || "";
+  document.getElementById("cClass").value        = c.className || "";
+  document.getElementById("cSubject").value      = c.subject || "";
+  document.getElementById("cDesc").value         = c.description || "";
+  document.getElementById("modalCourseTitle").textContent = "✏️ Edit Course";
+  document.getElementById("modalCourseSub").textContent   = c.title;
+  openModal("modalCourse");
+};
+
+window.saveCourse = async function() {
+  const courseName = document.getElementById("cCourseName").value.trim();
+  const title      = document.getElementById("cTitle").value.trim();
+  if (!courseName || !title) { showToast("Course Name ও Title দিন ⚠️"); return; }
+  const editId = document.getElementById("editCourseId").value;
+  const data   = {
+    courseName,
+    title,
+    className:   document.getElementById("cClass").value,
+    subject:     document.getElementById("cSubject").value,
+    description: document.getElementById("cDesc").value.trim()
+  };
+  try {
+    if (editId) {
+      await updateDoc(doc(db, "tutorial_courses", editId), data);
+      showToast("Course updated ✓");
+    } else {
+      const id = "course_" + Date.now().toString(36);
+      await setDoc(doc(db, "tutorial_courses", id), { ...data, videos: [] });
+      showToast("Course created ✓");
+    }
+    closeModal("modalCourse");
+    await loadAdminCourses();
+    populateAdminCourseSelect();
+  } catch(e) { showToast("Error: " + e.message); }
+};
+
+window.deleteCourseConfirm = function(courseId) {
+  const c = allCourses.find(x => x.id === courseId);
+  document.getElementById("confirmTitle").textContent = "Delete Course?";
+  document.getElementById("confirmMsg").textContent   = `"${c?.title || courseId}" permanently delete হবে।`;
+  pendingDeleteFn = async () => {
+    await deleteDoc(doc(db, "tutorial_courses", courseId));
+    showToast("Deleted"); closeModal("modalConfirm");
+    await loadAdminCourses(); populateAdminCourseSelect();
+  };
+  openModal("modalConfirm");
+};
+
+// ── Admin: Video CRUD ────────────────────────────────────────
+function populateAdminCourseSelect() {
+  const sel = document.getElementById("adminCourseSelect");
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">— Select a course —</option>` +
+    allCourses.map(c => `<option value="${c.id}" ${c.id === cur ? "selected" : ""}>${esc(c.title || c.id)}</option>`).join("");
+}
+
+window.loadAdminVideos = function() {
+  const courseId = document.getElementById("adminCourseSelect").value;
+  const course   = allCourses.find(c => c.id === courseId);
+  const wrap     = document.getElementById("adminVideoListWrap");
+  if (!course) { wrap.innerHTML = ""; return; }
+  if (!course.videos?.length) {
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">🎬</div><p>No videos. + বাটন চাপো।</p></div>`;
+    return;
+  }
+  wrap.innerHTML = `<div class="admin-video-list">${course.videos.map((v, i) => `
+    <div class="admin-video-item">
+      <div class="admin-video-num">${i + 1}</div>
+      <div class="admin-video-info">
+        <strong>${esc(v.title)}</strong>
+        <span>${v.cloudinaryUrl ? (v.cloudinaryUrl.length > 50 ? v.cloudinaryUrl.slice(0, 50) + "…" : v.cloudinaryUrl) : "No URL"}</span>
+        ${v.durationMinutes ? `<span style="color:var(--accent)">⏱ ${v.durationMinutes} min</span>` : ""}
+      </div>
+      <div class="admin-course-actions">
+        <button class="btn-icon edit"   onclick="openEditVideo('${courseId}','${v.id}')">✏️</button>
+        <button class="btn-icon delete" onclick="deleteVideoConfirm('${courseId}','${v.id}')">🗑️</button>
+      </div>
+    </div>`).join("")}</div>`;
+};
+
+window.openAddVideo = function() {
+  const courseId = document.getElementById("adminCourseSelect").value;
+  if (!courseId && activeAdminTab === "videos") { showToast("আগে course select করো"); return; }
+  document.getElementById("editVideoId").value = "";
+  document.getElementById("vTitle").value = "";
+  document.getElementById("vUrl").value   = "";
+  document.getElementById("vDur").value   = "";
+  document.getElementById("modalVideoTitle").textContent = "🎬 Add Video";
+  openModal("modalVideo");
+};
+
+window.openEditVideo = function(courseId, videoId) {
+  const course = allCourses.find(c => c.id === courseId);
+  const video  = course?.videos?.find(v => v.id === videoId);
+  if (!video) return;
+  document.getElementById("editVideoId").value  = videoId;
+  document.getElementById("vTitle").value       = video.title || "";
+  document.getElementById("vUrl").value         = video.cloudinaryUrl || "";
+  document.getElementById("vDur").value         = video.durationMinutes || "";
+  document.getElementById("modalVideoTitle").textContent = "✏️ Edit Video";
+  // store courseId for save
+  document.getElementById("modalVideo").dataset.courseId = courseId;
+  openModal("modalVideo");
+};
+
+window.saveVideo = async function() {
+  const title    = document.getElementById("vTitle").value.trim();
+  const url      = document.getElementById("vUrl").value.trim();
+  if (!title || !url) { showToast("Title ও URL দিন ⚠️"); return; }
+
+  // determine which course
+  const editVid  = document.getElementById("editVideoId").value;
+  const courseId = document.getElementById("modalVideo").dataset.courseId
+                || document.getElementById("adminCourseSelect").value;
+  if (!courseId) { showToast("Course select করো"); return; }
+
+  const course = allCourses.find(c => c.id === courseId);
+  if (!course) return;
+
+  const dur = parseInt(document.getElementById("vDur").value) || 0;
+  let videos = [...(course.videos || [])];
+
+  if (editVid) {
+    videos = videos.map(v => v.id === editVid
+      ? { ...v, title, cloudinaryUrl: url, durationMinutes: dur }
+      : v);
+  } else {
+    videos.push({ id: "vid_" + Date.now().toString(36), title, cloudinaryUrl: url, durationMinutes: dur });
+  }
+
+  try {
+    await updateDoc(doc(db, "tutorial_courses", courseId), { videos });
+    showToast(editVid ? "Video updated ✓" : "Video added ✓");
+    closeModal("modalVideo");
+    document.getElementById("modalVideo").dataset.courseId = "";
+    await loadAdminCourses();
+    document.getElementById("adminCourseSelect").value = courseId;
+    loadAdminVideos();
+  } catch(e) { showToast("Error: " + e.message); }
+};
+
+window.deleteVideoConfirm = function(courseId, videoId) {
+  const course = allCourses.find(c => c.id === courseId);
+  const video  = course?.videos?.find(v => v.id === videoId);
+  document.getElementById("confirmTitle").textContent = "Delete Video?";
+  document.getElementById("confirmMsg").textContent   = `"${video?.title || videoId}" delete হবে।`;
+  pendingDeleteFn = async () => {
+    const updated = course.videos.filter(v => v.id !== videoId);
+    await updateDoc(doc(db, "tutorial_courses", courseId), { videos: updated });
+    showToast("Deleted"); closeModal("modalConfirm");
+    await loadAdminCourses();
+    document.getElementById("adminCourseSelect").value = courseId;
+    loadAdminVideos();
+  };
+  openModal("modalConfirm");
+};
+
+window.confirmAction = function() { pendingDeleteFn && pendingDeleteFn(); };
+
+// ── Modals helper ────────────────────────────────────────────
+window.openModal  = function(id) { document.getElementById(id).classList.remove("hidden"); };
+window.closeModal = function(id) { document.getElementById(id).classList.add("hidden"); };
+document.querySelectorAll(".modal-backdrop").forEach(m => {
+  m.addEventListener("click", e => { if (e.target === m) m.classList.add("hidden"); });
+});
+
+// ── Toast ────────────────────────────────────────────────────
+let toastTimer;
+window.showToast = function(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.remove("hidden");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add("hidden"), 2500);
+};
+
+// ── Escape HTML ──────────────────────────────────────────────
+function esc(s) {
+  return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── Boot ─────────────────────────────────────────────────────
+loadCourses();
+</script>
+</body>
+</html>
