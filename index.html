@@ -8,6 +8,21 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* ── CONTENT PROTECTION ── */
+body,p,h1,h2,h3,h4,span,div,.cc-name,.cc-meta,.vtitle,.player-title,.player-meta,
+.sidebar-brand,.nav-item,.course-nav-item,.vinfo,.mc-info{
+  -webkit-user-select:none;
+  -moz-user-select:none;
+  -ms-user-select:none;
+  user-select:none;
+}
+/* Input fields রাখা হলো selectable */
+input,textarea{
+  -webkit-user-select:text;
+  -moz-user-select:text;
+  -ms-user-select:text;
+  user-select:text;
+}
 :root{
   --bg:#0F1923; --bg2:#0D1F38; --card:#1A2535; --card2:#1f2f45;
   --accent:#4A9EFF; --purple:#7B5CF5; --green:#34C98A; --red:#FF6B6B;
@@ -258,7 +273,15 @@ button{cursor:pointer}
   aspect-ratio:16/9;max-height:55vh;
   display:flex;align-items:center;justify-content:center;position:relative;
 }
-.player-area iframe{width:100%;height:100%;border:none}
+.player-area iframe{width:100%;height:100%;border:none;pointer-events:none}
+/* Transparent overlay over iframe — allows play/pause via click but blocks right-click */
+.player-area .iframe-shield{
+  position:absolute;inset:0;z-index:10;
+  background:transparent;cursor:default;
+}
+/* Click-through for play — we re-enable pointer events on iframe after first interaction */
+.player-area.unlocked iframe{pointer-events:auto}
+.player-area.unlocked .iframe-shield{display:none}
 .player-placeholder{text-align:center;color:var(--sub);padding:40px}
 .player-placeholder .pp-ico{font-size:56px;margin-bottom:12px}
 .player-info{padding:18px 20px}
@@ -587,6 +610,80 @@ button{cursor:pointer}
 <!-- ═══════════════════════════════════════════════════════
      FIREBASE + LOGIC
 ═══════════════════════════════════════════════════════ -->
+<!-- ═══ CONTENT PROTECTION ═══ -->
+<script>
+/* Right-click prevent */
+document.addEventListener('contextmenu', function(e){
+  // Admin modal input গুলোতে allow করা হবে না — সব block
+  e.preventDefault();
+  return false;
+}, true);
+
+/* Keyboard shortcuts block */
+document.addEventListener('keydown', function(e){
+  // Ctrl+C, Ctrl+A, Ctrl+U (view source), Ctrl+S (save), Ctrl+P (print)
+  if(e.ctrlKey && ['c','a','u','s','p','x','v'].includes(e.key.toLowerCase())){
+    e.preventDefault();
+    return false;
+  }
+  // Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+Shift+C (devtools)
+  if(e.ctrlKey && e.shiftKey && ['i','j','c'].includes(e.key.toLowerCase())){
+    e.preventDefault();
+    return false;
+  }
+  // F12 (devtools)
+  if(e.key === 'F12'){
+    e.preventDefault();
+    return false;
+  }
+  // PrintScreen — cannot truly block but we try
+  if(e.key === 'PrintScreen'){
+    e.preventDefault();
+    return false;
+  }
+}, true);
+
+/* Copy event block */
+document.addEventListener('copy', function(e){
+  e.preventDefault();
+  return false;
+}, true);
+
+/* Cut event block */
+document.addEventListener('cut', function(e){
+  e.preventDefault();
+  return false;
+}, true);
+
+/* Drag block (prevents dragging text) */
+document.addEventListener('dragstart', function(e){
+  e.preventDefault();
+  return false;
+}, true);
+
+/* Touch long press select block (mobile) */
+document.addEventListener('selectstart', function(e){
+  // Allow in input/textarea
+  if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'){
+    return true;
+  }
+  e.preventDefault();
+  return false;
+}, true);
+
+/* DevTools size detection (basic) */
+(function devToolsDetect(){
+  const threshold = 160;
+  function check(){
+    if(window.outerWidth - window.innerWidth > threshold ||
+       window.outerHeight - window.innerHeight > threshold){
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0F1923;color:#8A9BB0;font-family:Inter,sans-serif;font-size:16px;text-align:center;padding:20px;">⛔ Developer tools বন্ধ করুন এবং page reload করুন।</div>';
+    }
+  }
+  setInterval(check, 1000);
+})();
+</script>
+
 <script type="module">
 import { initializeApp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -768,9 +865,10 @@ window.playVideo = function(vid){
   renderVlist();
 
   const area  = document.getElementById("playerArea");
+  area.classList.remove("unlocked");
   const embed = ytEmbed(curVideo.url||"");
   if(embed){
-    area.innerHTML=`<iframe src="${embed}" allow="autoplay;fullscreen;accelerometer;gyroscope;picture-in-picture" allowfullscreen></iframe>`;
+    area.innerHTML=`<iframe src="${embed}" allow="autoplay;fullscreen;accelerometer;gyroscope;picture-in-picture" allowfullscreen></iframe><div class="iframe-shield" onclick="this.closest('.player-area').classList.add('unlocked')"></div>`;
   } else if(curVideo.url){
     area.innerHTML=`<video controls autoplay src="${esc(curVideo.url)}" style="width:100%;height:100%;background:#000"></video>`;
   } else {
