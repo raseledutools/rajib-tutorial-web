@@ -24,6 +24,7 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private ProgressBar progressBar;
     private SwipeRefreshLayout swipeRefresh;
+    private UpdateChecker updateChecker;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -42,6 +43,10 @@ public class MainActivity extends AppCompatActivity {
         swipeRefresh = findViewById(R.id.swipeRefresh);
         webView      = findViewById(R.id.webView);
 
+        // ── Update checker — app open হলে background এ check করবে ──
+        updateChecker = new UpdateChecker(this);
+        updateChecker.checkForUpdate();
+
         // ── WebView settings ──
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -57,9 +62,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
         // ── Pull-to-refresh conflict fix ──
-        // WebView scroll position দেখে SwipeRefresh enable/disable করা হচ্ছে
         webView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
-            // শুধু একদম top এ (scrollY == 0) থাকলেই pull-to-refresh কাজ করবে
             swipeRefresh.setEnabled(scrollY == 0);
         });
 
@@ -76,7 +79,6 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
                 swipeRefresh.setRefreshing(false);
-                // নতুন page load হলে top এ আছি, তাই enable করি
                 swipeRefresh.setEnabled(true);
             }
 

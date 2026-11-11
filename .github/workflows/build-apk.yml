@@ -7,6 +7,13 @@ on:
       - 'android/**'
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create GitHub Release with APK?'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['true', 'false']
 
 jobs:
   build:
@@ -34,11 +41,26 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
+      - name: Get version info
+        id: version
+        run: |
+          CODE=$(grep "versionCode" android/app/build.gradle | grep -o '[0-9]*' | head -1)
+          NAME=$(grep "versionName" android/app/build.gradle | grep -o '"[^"]*"' | tr -d '"')
+          echo "code=$CODE" >> $GITHUB_OUTPUT
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "tag=v$CODE" >> $GITHUB_OUTPUT
+          echo "Version: $NAME (code: $CODE)"
+
       - name: Build Debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle_output.txt; exit ${PIPESTATUS[0]}
 
-      - name: Push error log to repo on failure
+      - name: Rename APK
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             RajibTutorial.apk
+
+      - name: Push error log on failure
         if: failure()
         run: |
           cp /tmp/gradle_output.txt gradle-error.txt
@@ -50,22 +72,42 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload APK on success
+      - name: Upload APK artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: RajibTutorial-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: RajibTutorial.apk
           retention-days: 30
 
-      - name: Save APK to repo on success
+      - name: Save APK to repo root
         if: success()
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk RajibTutorial.apk
           git config user.email "ci@github.com"
           git config user.name "GitHub CI"
           git add RajibTutorial.apk
-          git commit -m "ci: update APK [skip ci]" || echo "no change"
+          git commit -m "ci: update APK v${{ steps.version.outputs.name }} [skip ci]" || echo "no change"
           git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── GitHub Release তৈরি ──
+      # workflow_dispatch এ release=true দিলে অথবা tag push করলে release হবে
+      - name: Create GitHub Release
+        if: success() && (github.event.inputs.release == 'true' || startsWith(github.ref, 'refs/tags/'))
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Rajib Tutorial ${{ steps.version.outputs.name }}"
+          body: |
+            ## Rajib Tutorial ${{ steps.version.outputs.name }}
+            
+            **নতুন আপডেট!** নিচের APK download করুন এবং install করুন।
+            
+            - Version Code: ${{ steps.version.outputs.code }}
+            - Version Name: ${{ steps.version.outputs.name }}
+          files: RajibTutorial.apk
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
