@@ -1,7 +1,6 @@
 package com.rajibtutorial;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -31,10 +30,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // ══════════════════════════════════════════
-        // FLAG_SECURE — screenshot ও screen record
-        // সম্পূর্ণ black হয়ে যাবে
-        // ══════════════════════════════════════════
+        // FLAG_SECURE — screenshot ও screen record block
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
             WindowManager.LayoutParams.FLAG_SECURE
@@ -42,9 +38,9 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        progressBar   = findViewById(R.id.progressBar);
-        swipeRefresh  = findViewById(R.id.swipeRefresh);
-        webView       = findViewById(R.id.webView);
+        progressBar  = findViewById(R.id.progressBar);
+        swipeRefresh = findViewById(R.id.swipeRefresh);
+        webView      = findViewById(R.id.webView);
 
         // ── WebView settings ──
         WebSettings settings = webView.getSettings();
@@ -58,8 +54,14 @@ public class MainActivity extends AppCompatActivity {
         settings.setSupportZoom(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setMediaPlaybackRequiresUserGesture(false);
-        // Mixed content allow (GitHub Pages = HTTPS, তাই দরকার নেই কিন্তু safety)
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+
+        // ── Pull-to-refresh conflict fix ──
+        // WebView scroll position দেখে SwipeRefresh enable/disable করা হচ্ছে
+        webView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+            // শুধু একদম top এ (scrollY == 0) থাকলেই pull-to-refresh কাজ করবে
+            swipeRefresh.setEnabled(scrollY == 0);
+        });
 
         // ── WebViewClient ──
         webView.setWebViewClient(new WebViewClient() {
@@ -74,27 +76,26 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
                 swipeRefresh.setRefreshing(false);
+                // নতুন page load হলে top এ আছি, তাই enable করি
+                swipeRefresh.setEnabled(true);
             }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
-                // YouTube বা external link → browser এ খুলবে
                 if (url.contains("youtube.com") || url.contains("youtu.be")) {
                     startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
                     return true;
                 }
-                // নিজের site এর link → WebView এই খুলবে
                 if (url.startsWith("https://raseledutools.github.io")) {
                     return false;
                 }
-                // অন্য সব external → browser
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
                 return true;
             }
         });
 
-        // ── WebChromeClient (progress bar) ──
+        // ── WebChromeClient ──
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onProgressChanged(WebView view, int newProgress) {
@@ -117,7 +118,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Back button — WebView history navigate করবে
     @Override
     public void onBackPressed() {
         if (webView.canGoBack()) {
@@ -127,7 +127,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // State save করা হচ্ছে rotate/resume এর জন্য
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
