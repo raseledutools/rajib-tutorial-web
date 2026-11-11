@@ -24,33 +24,33 @@ jobs:
           cache: gradle
 
       - name: Create local.properties
-        run: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
-          echo "SDK: $ANDROID_SDK_ROOT"
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
 
       - name: Accept Android licenses
-        run: |
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      - name: Build Debug APK
+      - name: Build Debug APK (with error log)
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
-
-      - name: Rename APK
         run: |
-          mv android/app/build/outputs/apk/debug/app-debug.apk \
-             android/app/build/outputs/apk/debug/RajibTutorial.apk || true
-          ls -lh android/app/build/outputs/apk/debug/
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle_output.txt
+          # Exit code preserve করি
+          test ${PIPESTATUS[0]} -eq 0
 
-      - name: Upload APK
+      - name: Save build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-error-log
+          path: /tmp/gradle_output.txt
+          retention-days: 1
+
+      - name: Upload APK on success
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: RajibTutorial-APK
-          path: android/app/build/outputs/apk/debug/RajibTutorial.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
-
-      - name: Done
-        run: echo "✅ APK ready to download from Artifacts!"
