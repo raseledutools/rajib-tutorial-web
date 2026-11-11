@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Full screen, no title bar, dark status bar -->
+    <style name="Theme.RajibTutorial" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">#0F1923</item>
+        <item name="android:navigationBarColor">#0F1923</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
