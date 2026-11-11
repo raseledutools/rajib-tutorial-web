@@ -11,26 +11,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-/* ── CONTENT PROTECTION ── */
-body,p,h1,h2,h3,h4,span,div,.cc-name,.cc-meta,.vtitle,.player-title,.player-meta,
-.sidebar-brand,.nav-item,.course-nav-item,.vinfo,.mc-info{
-  -webkit-user-select:none;
-  -moz-user-select:none;
-  -ms-user-select:none;
-  user-select:none;
-}
-input,textarea{
-  -webkit-user-select:text;
-  -moz-user-select:text;
-  -ms-user-select:text;
-  user-select:text;
-}
-/* iframe shield */
-.player-area iframe{pointer-events:none}
-.player-area .iframe-shield{position:absolute;inset:0;z-index:10;background:transparent;cursor:default}
-.player-area.unlocked iframe{pointer-events:auto}
-.player-area.unlocked .iframe-shield{display:none}
-
 :root{
   --bg:#FFFFFF; --bg2:#FBF8F6; --card:#FFFFFF; --card2:#F3EEEA;
   --accent:#E8365D; --accent2:#C81E4E; --accent-soft:rgba(232,54,93,.10);
@@ -527,31 +507,6 @@ body{color:var(--text)}
   body { display: none !important; }
 }
 </style>
-<!-- ═══ CONTENT PROTECTION ═══ -->
-<script>
-document.addEventListener('contextmenu',function(e){e.preventDefault();return false;},true);
-document.addEventListener('keydown',function(e){
-  if(e.ctrlKey&&['c','a','u','s','p','x'].includes(e.key.toLowerCase())){e.preventDefault();return false;}
-  if(e.ctrlKey&&e.shiftKey&&['i','j','c'].includes(e.key.toLowerCase())){e.preventDefault();return false;}
-  if(e.key==='F12'){e.preventDefault();return false;}
-  if(e.key==='PrintScreen'){e.preventDefault();return false;}
-},true);
-document.addEventListener('copy',function(e){e.preventDefault();return false;},true);
-document.addEventListener('cut',function(e){e.preventDefault();return false;},true);
-document.addEventListener('dragstart',function(e){e.preventDefault();return false;},true);
-document.addEventListener('selectstart',function(e){
-  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return true;
-  e.preventDefault();return false;
-},true);
-(function(){
-  var t=160;
-  setInterval(function(){
-    if(window.outerWidth-window.innerWidth>t||window.outerHeight-window.innerHeight>t){
-      document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0F1923;color:#8A9BB0;font-family:Inter,sans-serif;font-size:16px;text-align:center;padding:20px;">⛔ Developer tools বন্ধ করুন এবং page reload করুন।</div>';
-    }
-  },1000);
-})();
-</script>
 </head>
 <body>
 
@@ -1296,7 +1251,7 @@ window.playVideo=async function(vid){
   renderVlist();
   const area=$("playerArea"),embed=ytEmbed(curVideo.url||"");
   if(embed){
-    area.classList.remove('unlocked');area.innerHTML=`<iframe src="${embed}" allow="autoplay;encrypted-media;accelerometer;gyroscope;picture-in-picture" allowfullscreen></iframe><div class="iframe-shield" onclick="this.closest('.player-area').classList.add('unlocked')"></div>`;
+    area.innerHTML=`<iframe src="${embed}" allow="autoplay;encrypted-media;accelerometer;gyroscope;picture-in-picture" allowfullscreen></iframe>`;
   }else if(curVideo.url){
     area.innerHTML=`<video controls autoplay src="${esc(curVideo.url)}" style="width:100%;height:100%;background:#000"></video>`;
   }else{
