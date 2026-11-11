@@ -35,33 +35,23 @@ jobs:
         run: chmod +x android/gradlew
 
       - name: Build Debug APK
-        id: build
         working-directory: android
-        run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace > /tmp/gradle_output.txt 2>&1
-          echo "exit_code=$?" >> $GITHUB_OUTPUT
-        continue-on-error: true
+        run: ./gradlew assembleDebug --no-daemon
 
-      - name: Push error log to repo if failed
-        if: steps.build.outputs.exit_code != '0'
-        run: |
-          cp /tmp/gradle_output.txt gradle-error.txt
-          git config user.email "ci@github.com"
-          git config user.name "GitHub CI"
-          git add gradle-error.txt
-          git commit -m "ci: gradle error log [skip ci]"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload APK if success
-        if: steps.build.outputs.exit_code == '0'
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: RajibTutorial-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
-      - name: Fail job if build failed
-        if: steps.build.outputs.exit_code != '0'
-        run: exit 1
+      - name: Save APK to repo root (direct download)
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk RajibTutorial.apk
+          git config user.email "ci@github.com"
+          git config user.name "GitHub CI"
+          git add RajibTutorial.apk
+          git commit -m "ci: update APK [skip ci]" || echo "no change"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
