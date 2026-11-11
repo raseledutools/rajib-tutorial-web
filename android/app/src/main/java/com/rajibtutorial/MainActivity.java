@@ -2,6 +2,7 @@ package com.rajibtutorial;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
@@ -12,6 +13,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -26,6 +28,11 @@ public class MainActivity extends AppCompatActivity {
     private SwipeRefreshLayout swipeRefresh;
     private UpdateChecker updateChecker;
 
+    // Full-screen video support
+    private View customView;
+    private WebChromeClient.CustomViewCallback customViewCallback;
+    private FrameLayout fullscreenContainer;
+
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,11 +46,12 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        progressBar  = findViewById(R.id.progressBar);
-        swipeRefresh = findViewById(R.id.swipeRefresh);
-        webView      = findViewById(R.id.webView);
+        progressBar       = findViewById(R.id.progressBar);
+        swipeRefresh      = findViewById(R.id.swipeRefresh);
+        webView           = findViewById(R.id.webView);
+        fullscreenContainer = findViewById(R.id.fullscreenContainer);
 
-        // ── Update checker — app open হলে background এ check করবে ──
+        // ── Update checker ──
         updateChecker = new UpdateChecker(this);
         updateChecker.checkForUpdate();
 
@@ -97,14 +105,57 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // ── WebChromeClient ──
+        // ── WebChromeClient — full-screen video support ──
         webView.setWebChromeClient(new WebChromeClient() {
+
             @Override
             public void onProgressChanged(WebView view, int newProgress) {
                 progressBar.setProgress(newProgress);
                 if (newProgress == 100) {
                     progressBar.setVisibility(View.GONE);
                 }
+            }
+
+            @Override
+            public void onShowCustomView(View view, CustomViewCallback callback) {
+                if (customView != null) {
+                    callback.onCustomViewHidden();
+                    return;
+                }
+                customView = view;
+                customViewCallback = callback;
+
+                // Hide normal content, show fullscreen container
+                swipeRefresh.setVisibility(View.GONE);
+                fullscreenContainer.setVisibility(View.VISIBLE);
+                fullscreenContainer.addView(view);
+
+                // Go landscape + true fullscreen
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                );
+            }
+
+            @Override
+            public void onHideCustomView() {
+                if (customView == null) return;
+
+                fullscreenContainer.removeView(customView);
+                fullscreenContainer.setVisibility(View.GONE);
+                swipeRefresh.setVisibility(View.VISIBLE);
+
+                customViewCallback.onCustomViewHidden();
+                customView = null;
+                customViewCallback = null;
+
+                // Restore portrait + normal UI
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
             }
         });
 
@@ -122,6 +173,11 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
+        // Full-screen mode e back press = exit fullscreen
+        if (customView != null) {
+            webView.getWebChromeClient().onHideCustomView();
+            return;
+        }
         if (webView.canGoBack()) {
             webView.goBack();
         } else {
