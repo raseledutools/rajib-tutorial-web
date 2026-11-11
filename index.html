@@ -499,6 +499,13 @@ body{color:var(--text)}
   .player-info{flex-direction:column;align-items:flex-start}
 }
 
+/* ── Fullscreen video overlay ───────────────────────────── */
+#fsOverlay{display:none;position:fixed;inset:0;z-index:9999;background:#000}
+#fsOverlay.show{display:block}
+#fsOverlay iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+#fsCloseBtn{position:absolute;top:12px;left:12px;z-index:10000;width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;color:#fff}
+#fsCloseBtn svg{width:20px;height:20px}
+
 /* ── Screen capture prevention ──────────────────────────── */
 @media screen {
   .player-area, .player-area *, .player-panel {
@@ -859,6 +866,13 @@ body{color:var(--text)}
 </div>
 
 <div class="toast h" id="toast"></div>
+
+<!-- Fullscreen video overlay (phone) -->
+<div id="fsOverlay">
+  <button id="fsCloseBtn" onclick="closeFsOverlay()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+  </button>
+</div>
 
 
 <!-- Device Settings modal -->
@@ -1404,15 +1418,37 @@ window.closeM=id=>$(id).classList.add("hidden");
 document.querySelectorAll(".modal-bg").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.add("hidden")}));
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){document.querySelectorAll(".modal-bg").forEach(m=>m.classList.add("hidden"));closeSidebar()}});
 
-// ─── Fullscreen ──────────────────────────────────────────
+// ─── Fullscreen overlay (works on Android WebView) ───────
 window.toggleFullscreen=function(){
-  const area=$("playerArea"),isFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
-  if(!isFs){(area.requestFullscreen||area.webkitRequestFullscreen)?.call(area)}
-  else{(document.exitFullscreen||document.webkitExitFullscreen)?.call(document)}
+  if(!curVideo?.url) return;
+  const embed=ytEmbed(curVideo.url);
+  if(!embed) return;
+  openFsOverlay(embed);
 };
-function onFsChange(){const isFs=!!(document.fullscreenElement||document.webkitFullscreenElement);$("fsLabel").textContent=isFs?"Exit":"Fullscreen"}
-document.addEventListener("fullscreenchange",onFsChange);
-document.addEventListener("webkitfullscreenchange",onFsChange);
+
+function openFsOverlay(embedUrl){
+  const ov=$("fsOverlay");
+  const old=ov.querySelector("iframe");
+  if(old) old.remove();
+  const fr=document.createElement("iframe");
+  fr.src=embedUrl;
+  fr.setAttribute("allow","autoplay;encrypted-media;accelerometer;gyroscope;picture-in-picture;fullscreen");
+  fr.setAttribute("allowfullscreen","");
+  ov.appendChild(fr);
+  ov.classList.add("show");
+  try{ screen.orientation.lock("landscape").catch(()=>{}); }catch(e){}
+  setTimeout(()=>window.scrollTo(0,1),100);
+  $("fsLabel").textContent="Exit";
+}
+
+window.closeFsOverlay=function(){
+  const ov=$("fsOverlay");
+  const fr=ov.querySelector("iframe");
+  if(fr) fr.remove();
+  ov.classList.remove("show");
+  try{ screen.orientation.unlock(); }catch(e){}
+  $("fsLabel").textContent="Fullscreen";
+};
 
 
 // ─── Premium membership ──────────────────────────────────
