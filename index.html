@@ -1418,7 +1418,11 @@ window.closeM=id=>$(id).classList.add("hidden");
 document.querySelectorAll(".modal-bg").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.add("hidden")}));
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){document.querySelectorAll(".modal-bg").forEach(m=>m.classList.add("hidden"));closeSidebar()}});
 
-// ─── Fullscreen overlay (works on Android WebView) ───────
+// ─── Fullscreen — Java bridge via custom URL scheme ──────
+// Java (shouldOverrideUrlLoading) catches rtapp://fullscreen & rtapp://exitfullscreen
+// and calls setRequestedOrientation accordingly.
+// Web side just shows/hides the overlay and signals Java.
+
 window.toggleFullscreen=function(){
   if(!curVideo?.url) return;
   const embed=ytEmbed(curVideo.url);
@@ -1436,9 +1440,9 @@ function openFsOverlay(embedUrl){
   fr.setAttribute("allowfullscreen","");
   ov.appendChild(fr);
   ov.classList.add("show");
-  try{ screen.orientation.lock("landscape").catch(()=>{}); }catch(e){}
-  setTimeout(()=>window.scrollTo(0,1),100);
   $("fsLabel").textContent="Exit";
+  // Signal Java → rotate to landscape
+  try{ location.href="rtapp://fullscreen"; }catch(e){}
 }
 
 window.closeFsOverlay=function(){
@@ -1446,8 +1450,9 @@ window.closeFsOverlay=function(){
   const fr=ov.querySelector("iframe");
   if(fr) fr.remove();
   ov.classList.remove("show");
-  try{ screen.orientation.unlock(); }catch(e){}
   $("fsLabel").textContent="Fullscreen";
+  // Signal Java → restore portrait
+  try{ location.href="rtapp://exitfullscreen"; }catch(e){}
 };
 
 
