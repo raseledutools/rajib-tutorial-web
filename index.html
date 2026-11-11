@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Rajib Tutorial</title>
+<title>Rajib Tutorial | Diploma in Electrical Engineering (EEE) Courses</title>
+<meta name="description" content="Rajib Tutorial offers structured video courses, live classes and live exams for Diploma in Electrical &amp; Electronic Engineering (EEE) students."/>
+<meta name="theme-color" content="#FFFFFF"/>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23141413'/%3E%3Cg stroke='%23D97757' stroke-width='7' stroke-linecap='round'%3E%3Cpath d='M50 18v64M18 50h64M27 27l46 46M73 27L27 73'/%3E%3C/g%3E%3C/svg%3E"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
@@ -16,461 +19,656 @@ body,p,h1,h2,h3,h4,span,div,.cc-name,.cc-meta,.vtitle,.player-title,.player-meta
   -ms-user-select:none;
   user-select:none;
 }
-/* Input fields রাখা হলো selectable */
 input,textarea{
   -webkit-user-select:text;
   -moz-user-select:text;
   -ms-user-select:text;
   user-select:text;
 }
+/* iframe shield */
+.player-area iframe{pointer-events:none}
+.player-area .iframe-shield{position:absolute;inset:0;z-index:10;background:transparent;cursor:default}
+.player-area.unlocked iframe{pointer-events:auto}
+.player-area.unlocked .iframe-shield{display:none}
+
 :root{
-  --bg:#0F1923; --bg2:#0D1F38; --card:#1A2535; --card2:#1f2f45;
-  --accent:#4A9EFF; --purple:#7B5CF5; --green:#34C98A; --red:#FF6B6B;
-  --text:#E8EDF2; --sub:#8A9BB0; --border:rgba(138,155,176,.15);
-  --sidebar-w:280px;
+  --bg:#FFFFFF; --bg2:#FBF8F6; --card:#FFFFFF; --card2:#F3EEEA;
+  --accent:#E8365D; --accent2:#C81E4E; --accent-soft:rgba(232,54,93,.10);
+  --green:#17915A; --red:#D6483A;
+  --text:#1E1B18; --sub:#6C665F; --border:rgba(30,27,24,.10);
+  --shadow:0 1px 2px rgba(30,27,24,.04),0 4px 14px rgba(30,27,24,.05);
+  --sidebar-w:272px;
 }
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;overflow-x:hidden}
-button,input,select,textarea{font-family:inherit}
-button{cursor:pointer}
-::-webkit-scrollbar{width:5px}
-::-webkit-scrollbar-track{background:transparent}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font-family:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+svg{display:block;flex-shrink:0}
+::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-thumb{background:var(--card2);border-radius:3px}
+.hidden{display:none!important}
 
-/* ═══════════════════════════════════════════════════════
-   SIDEBAR
-═══════════════════════════════════════════════════════ */
-.sidebar{
-  width:var(--sidebar-w);flex-shrink:0;
-  background:var(--card);
-  border-right:1px solid var(--border);
-  display:flex;flex-direction:column;
-  height:100vh;position:sticky;top:0;overflow:hidden;
-  transition:width .3s ease;
-  z-index:200;
-}
-.sidebar-top{
-  padding:20px 16px 14px;
-  border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:10px;flex-shrink:0;
-}
-.sidebar-logo{
-  width:38px;height:38px;border-radius:10px;flex-shrink:0;
-  background:linear-gradient(135deg,var(--accent),var(--purple));
-  display:flex;align-items:center;justify-content:center;
-  font-size:17px;font-weight:800;color:#fff;
-}
-.sidebar-brand{font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden}
-.sidebar-brand small{display:block;font-size:11px;color:var(--sub);font-weight:400}
-
-/* Nav links */
-.sidebar-nav{flex:1;overflow-y:auto;padding:12px 10px}
-.nav-label{font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.08em;text-transform:uppercase;padding:8px 8px 4px}
-.nav-item{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 10px;border-radius:10px;cursor:pointer;
-  font-size:13px;font-weight:500;color:var(--sub);
-  transition:background .15s,color .15s;
-  white-space:nowrap;overflow:hidden;
-}
-.nav-item:hover{background:var(--card2);color:var(--text)}
-.nav-item.active{background:rgba(74,158,255,.15);color:var(--accent)}
-.nav-item .ni{font-size:17px;flex-shrink:0;width:22px;text-align:center}
-.nav-item .nt{flex:1;overflow:hidden;text-overflow:ellipsis}
-.nav-item .nbadge{
-  background:rgba(74,158,255,.2);color:var(--accent);
-  font-size:10px;font-weight:700;border-radius:6px;padding:1px 6px;flex-shrink:0;
-}
-
-/* Course list in sidebar */
-.sidebar-courses{padding:0 10px 8px}
-.course-nav-item{
-  display:flex;align-items:center;gap:9px;
-  padding:8px 10px;border-radius:9px;cursor:pointer;
-  font-size:12px;font-weight:500;color:var(--sub);
-  transition:background .15s,color .15s;
-  white-space:nowrap;overflow:hidden;
-}
-.course-nav-item:hover{background:var(--card2);color:var(--text)}
-.course-nav-item.active{background:rgba(74,158,255,.12);color:var(--accent)}
-.course-nav-dot{width:7px;height:7px;border-radius:50%;background:var(--border);flex-shrink:0}
-.course-nav-item.active .course-nav-dot{background:var(--accent)}
-
-/* Sidebar bottom — admin area */
-.sidebar-bottom{
-  border-top:1px solid var(--border);
-  padding:12px 10px;flex-shrink:0;
-}
-.btn-admin-login{
-  display:flex;align-items:center;gap:10px;
-  width:100%;padding:11px 10px;border-radius:10px;
-  background:rgba(123,92,245,.12);border:1px solid rgba(123,92,245,.25);
-  color:var(--purple);font-size:13px;font-weight:600;
-  transition:background .2s,border-color .2s;
-}
-.btn-admin-login:hover{background:rgba(123,92,245,.2);border-color:rgba(123,92,245,.45)}
-.btn-admin-login .ai{font-size:17px}
-
-/* Admin logged-in section in sidebar */
-.admin-sidebar{display:none;padding:0 10px 4px}
+/* SIDEBAR */
+.sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh;position:fixed;left:0;top:0;transform:translateX(-100%);z-index:200;transition:transform .3s cubic-bezier(.4,0,.2,1),box-shadow .3s}
+.sidebar.open{transform:none;box-shadow:12px 0 40px rgba(60,20,25,.28)}
+.sidebar-top{padding:20px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.sidebar-logo{width:40px;height:40px;border-radius:11px;background:#FFF1EB;border:1px solid rgba(232,54,93,.25);display:flex;align-items:center;justify-content:center}
+.sidebar-brand{font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.sidebar-brand small{display:block;font-size:11px;color:var(--sub);font-weight:500;letter-spacing:.02em}
+.sidebar-nav{flex:1;overflow-y:auto;padding:14px 12px}
+.nav-label{font-size:10.5px;font-weight:700;color:var(--sub);letter-spacing:.1em;text-transform:uppercase;padding:12px 10px 6px}
+.nav-item,.course-nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--sub);transition:background .15s,color .15s;white-space:nowrap;overflow:hidden}
+.nav-item:hover,.course-nav-item:hover{background:var(--card);color:var(--text)}
+.nav-item.active,.course-nav-item.active{background:var(--accent-soft);color:var(--accent2)}
+.nav-item svg{width:18px;height:18px}
+.course-nav-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6;margin:0 6px 0 6px}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--red);margin-left:auto;box-shadow:0 0 0 0 rgba(239,107,91,.6);animation:pulse 1.8s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(239,107,91,0)}100%{box-shadow:0 0 0 0 rgba(239,107,91,0)}}
+.admin-sidebar{display:none;padding:12px;border-top:1px solid var(--border)}
 .admin-sidebar.show{display:block}
-.admin-section-label{font-size:10px;font-weight:700;color:var(--purple);letter-spacing:.08em;text-transform:uppercase;padding:8px 8px 4px;display:flex;align-items:center;gap:5px}
-.btn-admin-action{
-  display:flex;align-items:center;gap:10px;
-  width:100%;padding:9px 10px;border-radius:9px;
-  background:none;border:none;
-  color:var(--sub);font-size:12px;font-weight:500;
-  transition:background .15s,color .15s;text-align:left;
-  margin-bottom:2px;
-}
-.btn-admin-action:hover{background:var(--card2);color:var(--text)}
-.btn-admin-action .ai2{font-size:16px;width:22px;text-align:center;flex-shrink:0}
-.btn-logout{color:var(--red)!important}
-.btn-logout:hover{background:rgba(255,107,107,.1)!important}
+.admin-section-label{font-size:10.5px;font-weight:700;color:var(--accent2);letter-spacing:.1em;text-transform:uppercase;padding:0 6px 8px}
+.btn-admin-action{width:100%;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;background:var(--card);color:var(--text);font-size:13px;font-weight:500;margin-bottom:6px;border:1px solid var(--border)}
+.btn-admin-action:hover{border-color:var(--accent)}
+.btn-admin-action svg{width:16px;height:16px}
+.btn-logout{color:var(--red)}
+.sidebar-bottom{padding:14px 12px;border-top:1px solid var(--border)}
+.btn-admin-login{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:10px;border:1px solid var(--border);color:var(--sub);font-size:13px;font-weight:600;transition:.15s}
+.btn-admin-login:hover{color:var(--text);border-color:var(--accent)}
+.btn-admin-login svg{width:15px;height:15px}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(30,27,24,.35);z-index:150}
+.sidebar-overlay.show{display:block}
 
-/* ═══════════════════════════════════════════════════════
-   MOBILE overlay
-═══════════════════════════════════════════════════════ */
-.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:199}
-@media(max-width:720px){
-  .sidebar{position:fixed;left:0;top:0;height:100%;transform:translateX(-100%);transition:transform .3s ease}
-  .sidebar.open{transform:translateX(0)}
-  .sidebar-overlay.show{display:block}
-  .topbar{display:flex!important}
-  .main{margin-left:0!important}
-}
+/* TOPBAR (mobile) */
+.topbar{display:flex;position:sticky;top:0;height:56px;background:rgba(255,255,255,.88);backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;gap:12px;padding:0 24px;z-index:100}
+.tb-left{display:flex;align-items:center;gap:12px;min-width:0}
+#userArea{position:relative;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.userchip{display:flex;align-items:center;gap:9px;padding:5px 12px 5px 5px;border-radius:999px;border:1px solid var(--border);background:var(--card);cursor:pointer;transition:border-color .15s}
+.userchip:hover{border-color:var(--accent)}
+.av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#E8956F,#C81E4E);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}
+.un{font-size:13px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pro{font-size:10px;font-weight:800;letter-spacing:.08em;background:linear-gradient(135deg,#E8956F,#E8365D);color:#fff;padding:3px 8px;border-radius:6px}
+.umenu{position:absolute;top:calc(100% + 8px);right:0;min-width:220px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:0 16px 40px rgba(30,27,24,.16);z-index:300}
+.um-name{font-size:14px;font-weight:700}
+.um-sub{font-size:12px;color:var(--sub);margin:3px 0 12px;line-height:1.5}
+.um-btn{width:100%;padding:9px;border-radius:9px;border:1px solid var(--border);font-size:13px;font-weight:600;color:var(--red)}
+.um-btn:hover{border-color:var(--red)}
+.btn-premium{display:flex;align-items:center;gap:7px;padding:8px 16px;border-radius:999px;background:linear-gradient(135deg,#E8956F,#E8365D);color:#fff;font-size:12.5px;font-weight:800;box-shadow:0 4px 12px rgba(232,54,93,.28)}
+.btn-premium svg{width:14px;height:14px}
+.btn-login{padding:8px 16px;border-radius:999px;border:1px solid var(--border);font-size:12.5px;font-weight:600}
+.btn-login:hover{border-color:var(--accent)}
+.gate-ico{width:56px;height:56px;border-radius:50%;background:var(--accent-soft);color:var(--accent2);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+.gate-ico svg{width:26px;height:26px}
+.gate-info{font-size:13px;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:6px;line-height:1.55;white-space:pre-line}
+.col-acts{display:flex;flex-direction:column;gap:10px;margin-top:20px}
+.col-acts button{width:100%}
+.manage-card.single{border-radius:13px;margin-bottom:10px}
+.badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;display:inline-block}
+.badge.ok{background:rgba(76,195,138,.15);color:var(--green)}
+.badge.exp{background:rgba(239,107,91,.15);color:var(--red)}
+.plans{display:grid;gap:10px;margin-bottom:16px}
+.plan{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1.5px solid var(--border);border-radius:12px;cursor:pointer;transition:.15s}
+.plan:hover{border-color:rgba(232,54,93,.5)}
+.plan input{accent-color:#E8365D;width:17px;height:17px}
+.plan.sel{border-color:var(--accent);background:var(--accent-soft)}
+.plan .pn{font-size:14px;font-weight:700}
+.plan .ps{font-size:11.5px;color:var(--sub);margin-top:2px}
+.plan .pp{margin-left:auto;font-size:16px;font-weight:800;color:var(--accent2)}
+.plan .save{font-size:10px;font-weight:800;background:rgba(76,195,138,.16);color:var(--green);padding:2px 7px;border-radius:5px;margin-left:8px;vertical-align:middle}
+.btn-bkash{display:flex;align-items:center;justify-content:center;gap:9px;padding:13px;border-radius:11px;background:#E2136E;color:#fff;font-size:14px;font-weight:800;transition:.15s}
+.btn-bkash:hover{background:#c40f5f}
+.btn-bkash:disabled{opacity:.65;cursor:wait}
+.pay-note{font-size:11.5px;color:var(--sub);text-align:center;line-height:1.6;margin-top:14px}
+.pay-note a,.link-btn{color:var(--accent2);font-weight:600;text-decoration:underline;cursor:pointer}
+.ca-box{max-height:210px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:6px}
+.ca-item{display:flex;align-items:flex-start;gap:10px;padding:9px 8px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;line-height:1.4}
+.ca-item:hover{background:var(--card)}
+.ca-item input{accent-color:#E8365D;width:16px;height:16px;margin-top:1px;flex-shrink:0}
+.ca-item small{display:block;font-size:11px;color:var(--sub);font-weight:400;margin-top:2px}
+.ca-all{border-bottom:1px solid var(--border);border-radius:8px 8px 0 0;margin-bottom:4px;font-weight:700;color:var(--accent2)}
+.ca-empty{padding:12px;font-size:12.5px;color:var(--sub)}
+.lock-ico{width:14px;height:14px;color:var(--sub);flex-shrink:0}
+.btn-hamburger{display:none;width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border)}
+.btn-hamburger svg{width:20px;height:20px}
+.topbar-title{font-size:15px;font-weight:700}
 
-/* ═══════════════════════════════════════════════════════
-   TOPBAR (mobile only)
-═══════════════════════════════════════════════════════ */
-.topbar{
-  display:none;position:fixed;top:0;left:0;right:0;z-index:198;
-  background:var(--bg2);border-bottom:1px solid var(--border);
-  height:56px;padding:0 16px;
-  align-items:center;gap:12px;
-  backdrop-filter:blur(10px);
-}
-.btn-hamburger{
-  background:none;border:none;color:var(--text);font-size:22px;
-  width:38px;height:38px;display:flex;align-items:center;justify-content:center;
-  border-radius:8px;flex-shrink:0;
-}
-.topbar-title{font-size:16px;font-weight:700;flex:1}
-
-/* ═══════════════════════════════════════════════════════
-   MAIN CONTENT
-═══════════════════════════════════════════════════════ */
-.main{flex:1;overflow-y:auto;height:100vh;display:flex;flex-direction:column}
-@media(max-width:720px){.main{padding-top:56px;height:auto;min-height:100vh}}
-
-/* ── Page switching ── */
+/* MAIN */
+.main{flex:1;min-width:0}
 .view{display:none}
 .view.active{display:block}
 
-/* ═══════════════════════════════════════════════════════
-   HOME VIEW
-═══════════════════════════════════════════════════════ */
-.home-hero{
-  padding:48px 32px 32px;
-  background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(74,158,255,.1) 0%,transparent 70%);
-  text-align:center;
-}
-.hero-badge{
-  display:inline-flex;align-items:center;gap:6px;
-  background:rgba(74,158,255,.1);border:1px solid rgba(74,158,255,.25);
-  border-radius:20px;padding:5px 14px;font-size:12px;color:var(--accent);
-  font-weight:600;margin-bottom:16px;
-}
-.home-hero h1{font-size:clamp(24px,4vw,42px);font-weight:800;line-height:1.2;margin-bottom:10px}
-.home-hero h1 span{background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.home-hero p{color:var(--sub);font-size:15px;max-width:460px;margin:0 auto 28px;line-height:1.6}
-.hero-stats{display:flex;gap:28px;justify-content:center;flex-wrap:wrap}
-.stat{text-align:center}
-.stat-n{font-size:28px;font-weight:800;color:var(--accent)}
-.stat-l{font-size:11px;color:var(--sub);margin-top:2px}
+/* HERO */
+.home-hero{position:relative;padding:64px 48px 52px;border-bottom:1px solid var(--border);background:radial-gradient(900px 380px at 88% -10%,rgba(232,54,93,.14),transparent 62%),linear-gradient(180deg,#FFF8F5 0%,#FFFFFF 100%)}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--accent2);background:var(--accent-soft);border:1px solid rgba(232,54,93,.30);padding:6px 14px;border-radius:999px;letter-spacing:.02em}
+.hero-badge svg{width:14px;height:14px}
+.home-hero h1{font-size:clamp(30px,4.6vw,52px);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin:20px 0 14px;max-width:760px}
+.home-hero h1 span{color:var(--accent)}
+.home-hero p{font-size:16px;line-height:1.7;color:var(--sub);max-width:620px}
+.hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.btn-live{display:inline-flex;align-items:center;gap:10px;padding:14px 24px;border-radius:12px;font-size:14.5px;font-weight:700;transition:transform .15s,box-shadow .15s,background .15s}
+.btn-live svg{width:19px;height:19px}
+.btn-live.primary{background:var(--accent);color:#fff;box-shadow:0 8px 22px rgba(232,54,93,.30)}
+.btn-live.primary:hover{background:#C9633F;transform:translateY(-2px)}
+.btn-live.outline{border:1.5px solid var(--accent);color:var(--accent2);background:transparent}
+.btn-live.outline:hover{background:var(--accent-soft);transform:translateY(-2px)}
+.btn-live.ghost{border:1px solid var(--border);color:var(--text)}
+.btn-live.ghost{background:#fff}
+.btn-live.ghost:hover{border-color:var(--sub)}
+.live-pill{font-size:10px;font-weight:800;letter-spacing:.08em;background:var(--red);color:#fff;padding:2px 7px;border-radius:5px;display:none}
+.btn-live.is-live .live-pill{display:inline-block}
+.live-info{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px 24px;font-size:12.5px;color:var(--sub)}
+.live-info b{color:var(--text);font-weight:600}
+.hero-stats{display:flex;gap:40px;margin-top:38px;padding-top:28px;border-top:1px solid var(--border);max-width:560px}
+.stat-n{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.stat-l{font-size:12px;color:var(--sub);margin-top:2px;font-weight:500}
 
-/* Course grid */
-.courses-section{padding:0 28px 48px;max-width:1000px;width:100%}
-.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
-.sec-title{font-size:16px;font-weight:700}
-.course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-.course-card{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:16px;overflow:hidden;cursor:pointer;
-  transition:transform .2s,box-shadow .2s,border-color .2s;
-}
-.course-card:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.3);border-color:rgba(74,158,255,.3)}
-.cc-thumb{
-  height:120px;
-  background:linear-gradient(135deg,rgba(74,158,255,.18),rgba(123,92,245,.18));
-  display:flex;align-items:center;justify-content:center;font-size:40px;position:relative;
-}
-.cc-vcount{
-  position:absolute;bottom:8px;right:8px;
-  background:rgba(0,0,0,.55);backdrop-filter:blur(4px);
-  border-radius:7px;padding:2px 8px;font-size:11px;color:var(--accent);font-weight:600;
-}
-.cc-body{padding:14px}
-.cc-tag{font-size:11px;color:var(--purple);font-weight:600;margin-bottom:4px}
-.cc-name{font-size:14px;font-weight:700;margin-bottom:4px;line-height:1.3}
-.cc-meta{font-size:11px;color:var(--sub);margin-bottom:10px}
-.cc-foot{display:flex;align-items:center;justify-content:space-between;padding-top:9px;border-top:1px solid var(--border)}
-.cc-vids{font-size:11px;color:var(--accent);font-weight:600}
-.btn-watch{
-  background:linear-gradient(135deg,var(--accent),var(--purple));
-  border:none;border-radius:7px;padding:6px 12px;
-  font-size:11px;font-weight:600;color:#fff;transition:opacity .2s;
-}
-.btn-watch:hover{opacity:.85}
+/* COURSES */
+.courses-section{padding:40px 48px 24px}
+.sec-hdr{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:24px}
+.sec-title{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.sec-sub{font-size:13px;color:var(--sub);margin-top:4px}
+.filters{display:flex;gap:10px;flex-wrap:wrap}
+.search-box{position:relative}
+.search-box svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--sub)}
+.search-box input,.filters select{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;outline:none;transition:border-color .15s}
+.search-box input{padding-left:36px;width:230px}
+.search-box input:focus,.filters select:focus{border-color:var(--accent)}
+.filters select option{background:#fff}
+.course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:20px}
+.course-card{background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;display:flex;flex-direction:column}
+.course-card:hover{transform:translateY(-4px);border-color:rgba(232,54,93,.55);box-shadow:0 16px 36px rgba(30,27,24,.10)}
+.cc-thumb{height:132px;position:relative;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 20%,rgba(232,54,93,.22),transparent 60%),linear-gradient(135deg,#FFF4EE,#FDE6DB)}
+.cc-thumb svg{width:46px;height:46px;color:var(--accent)}
+.cc-vcount{position:absolute;top:12px;right:12px;font-size:11px;font-weight:600;background:rgba(255,255,255,.9);border:1px solid var(--border);padding:4px 10px;border-radius:999px;color:var(--text)}
+.cc-body{padding:18px;display:flex;flex-direction:column;flex:1}
+.cc-tag{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent2);margin-bottom:8px}
+.cc-name{font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:1.35}
+.cc-meta{font-size:12.5px;color:var(--sub);margin-top:6px}
+.cc-desc{font-size:12.5px;color:var(--sub);line-height:1.6;margin-top:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cc-foot{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:18px}
+.cc-vids{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px}
+.cc-vids svg{width:14px;height:14px}
+.btn-watch{font-size:12.5px;font-weight:700;color:var(--accent2);display:flex;align-items:center;gap:6px}
+.btn-watch svg{width:14px;height:14px;transition:transform .15s}
+.course-card:hover .btn-watch svg{transform:translateX(3px)}
+.empty{text-align:center;padding:60px 20px;color:var(--sub)}
+.empty svg{width:42px;height:42px;margin:0 auto 14px;opacity:.5}
+.empty p{font-size:14px;line-height:1.7}
+.loader{text-align:center;padding:60px;color:var(--sub);font-size:13px}
+.spin{width:30px;height:30px;border:3px solid var(--card2);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.footer{padding:28px 48px 36px;border-top:1px solid var(--border);margin-top:28px;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;font-size:12.5px;color:var(--sub)}
 
-/* Loading / empty */
-.loader{text-align:center;padding:60px 20px;color:var(--sub)}
-.spin{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px}
-@keyframes spin{to{transform:rotate(360deg)}}
-.empty{text-align:center;padding:60px 20px}
-.empty-ico{font-size:52px;margin-bottom:12px}
-.empty p{color:var(--sub);font-size:14px}
-
-/* ═══════════════════════════════════════════════════════
-   COURSE VIEW (video list + player)
-═══════════════════════════════════════════════════════ */
-.course-view-wrap{display:flex;gap:0;height:100%;min-height:calc(100vh - 56px)}
-@media(min-width:721px){.course-view-wrap{height:100vh}}
-
-/* video list panel */
-.vlist-panel{
-  width:340px;flex-shrink:0;
-  border-right:1px solid var(--border);
-  display:flex;flex-direction:column;overflow:hidden;
-}
-.vlist-header{padding:16px 16px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
-.vlist-header h2{font-size:15px;font-weight:700;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vlist-header p{font-size:12px;color:var(--sub)}
+/* COURSE VIEW */
+.course-view-wrap{display:flex;min-height:calc(100vh - 56px)}
+.vlist-panel{width:340px;flex-shrink:0;border-right:1px solid var(--border);background:var(--bg2);display:flex;flex-direction:column;height:calc(100vh - 56px);position:sticky;top:56px}
+.vlist-header{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.btn-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--sub);margin-bottom:12px}
+.btn-back:hover{color:var(--accent2)}
+.btn-back svg{width:14px;height:14px}
+.vlist-header h2{font-size:17px;font-weight:700;letter-spacing:-.01em;line-height:1.35}
+.vlist-header p{font-size:12px;color:var(--sub);margin-top:4px}
 .vlist-scroll{flex:1;overflow-y:auto;padding:10px}
-.vlist-item{
-  display:flex;align-items:center;gap:11px;
-  padding:10px 10px;border-radius:11px;cursor:pointer;
-  transition:background .15s;margin-bottom:4px;
-}
-.vlist-item:hover{background:var(--card2)}
-.vlist-item.playing{background:rgba(74,158,255,.13);border:1px solid rgba(74,158,255,.2)}
-.vnum{
-  width:32px;height:32px;border-radius:50%;flex-shrink:0;
-  background:rgba(74,158,255,.12);
-  display:flex;align-items:center;justify-content:center;
-  font-size:12px;font-weight:700;color:var(--accent);
-}
+.vlist-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:11px;cursor:pointer;transition:background .15s;border:1px solid transparent}
+.vlist-item:hover{background:var(--card)}
+.vlist-item.playing{background:var(--accent-soft);border-color:rgba(232,54,93,.3)}
+.vnum{width:30px;height:30px;border-radius:8px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--sub);flex-shrink:0}
 .vlist-item.playing .vnum{background:var(--accent);color:#fff}
 .vinfo{flex:1;min-width:0}
-.vtitle{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vdur{font-size:11px;color:var(--sub);margin-top:2px}
-.vplay-ico{font-size:20px;color:var(--sub);flex-shrink:0}
-.vlist-item.playing .vplay-ico{color:var(--accent)}
+.vtitle{font-size:13px;font-weight:600;line-height:1.4}
+.vdur{font-size:11.5px;color:var(--sub);margin-top:3px}
+.player-panel{flex:1;min-width:0;padding:28px}
+.player-area{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:16px;overflow:hidden;border:1px solid var(--border)}
+.player-area iframe{position:absolute;left:0;width:100%;top:-60px;height:calc(100% + 120px);border:0}
+.player-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--sub);font-size:14px}
+.pp-ico{width:64px;height:64px;border-radius:50%;background:var(--accent-soft);color:var(--accent2);display:flex;align-items:center;justify-content:center}
+.pp-ico svg{width:26px;height:26px}
+.player-info{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px}
+.player-title{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.player-meta{font-size:12.5px;color:var(--sub);margin-top:4px}
+.btn-fullscreen{display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;border:1px solid var(--border);font-size:12.5px;font-weight:600;white-space:nowrap}
+.btn-fullscreen:hover{border-color:var(--accent);color:var(--accent2)}
+.btn-fullscreen svg{width:15px;height:15px}
 
-/* player panel */
-.player-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
-.player-area{
-  background:#000;width:100%;
-  aspect-ratio:16/9;max-height:55vh;
-  display:flex;align-items:center;justify-content:center;position:relative;
-}
-.player-area iframe{width:100%;height:100%;border:none;pointer-events:none}
-/* Transparent overlay over iframe — allows play/pause via click but blocks right-click */
-.player-area .iframe-shield{
-  position:absolute;inset:0;z-index:10;
-  background:transparent;cursor:default;
-}
-/* Click-through for play — we re-enable pointer events on iframe after first interaction */
-.player-area.unlocked iframe{pointer-events:auto}
-.player-area.unlocked .iframe-shield{display:none}
-.player-placeholder{text-align:center;color:var(--sub);padding:40px}
-.player-placeholder .pp-ico{font-size:56px;margin-bottom:12px}
-.player-info{padding:18px 20px}
-.player-title{font-size:18px;font-weight:700;margin-bottom:6px}
-.player-meta{font-size:13px;color:var(--sub)}
-
-@media(max-width:860px){
-  .vlist-panel{width:100%;border-right:none;border-bottom:1px solid var(--border)}
-  .course-view-wrap{flex-direction:column}
-  .player-area{max-height:50vw}
-  .vlist-scroll{max-height:220px}
-}
-
-/* ═══════════════════════════════════════════════════════
-   MODALS
-═══════════════════════════════════════════════════════ */
-.modal-bg{
-  position:fixed;inset:0;background:rgba(0,0,0,.72);
-  display:flex;align-items:center;justify-content:center;
-  z-index:900;padding:20px;animation:fadeIn .15s ease;
-}
-.modal-bg.hidden{display:none}
-@keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-.modal{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:20px;padding:26px;width:100%;max-width:420px;
-  box-shadow:0 20px 56px rgba(0,0,0,.55);
-}
-.modal-title{font-size:17px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:9px}
-.modal-sub{font-size:12px;color:var(--sub);margin-bottom:20px}
-.fl{margin-bottom:14px}
-.fl label{font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:6px}
-.fl input,.fl select,.fl textarea{
-  width:100%;background:var(--bg);border:1.5px solid var(--border);
-  border-radius:10px;padding:10px 13px;color:var(--text);
-  font-size:14px;outline:none;transition:border-color .2s;
-}
-.fl input:focus,.fl select:focus,.fl textarea:focus{border-color:var(--accent)}
-.fl input.has-err{border-color:var(--red)}
-.fl select option{background:var(--card)}
-.fl textarea{resize:vertical;min-height:68px}
-.pw-wrap{position:relative}
-.pw-wrap input{padding-right:42px}
-.btn-eye{position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--sub);font-size:17px}
-.err-msg{font-size:12px;color:var(--red);margin-top:-9px;margin-bottom:12px;display:flex;align-items:center;gap:5px}
-.err-msg.h{display:none}
-.modal-acts{display:flex;gap:9px;justify-content:flex-end;margin-top:4px}
-.btn-cancel{background:none;border:1px solid var(--border);border-radius:9px;padding:9px 16px;color:var(--sub);font-size:13px;font-weight:500;transition:background .15s}
-.btn-cancel:hover{background:var(--card2)}
-.btn-ok{background:linear-gradient(135deg,var(--purple),var(--accent));border:none;border-radius:9px;padding:9px 20px;color:#fff;font-size:13px;font-weight:600;transition:opacity .2s}
-.btn-ok:hover{opacity:.87}
-.btn-ok:disabled{opacity:.4;cursor:not-allowed}
-.btn-ok.red{background:var(--red)}
-
-/* ═══════════════════════════════════════════════════════
-   TOAST
-═══════════════════════════════════════════════════════ */
-.toast{
-  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
-  background:var(--card2);border:1px solid var(--border);
-  border-radius:12px;padding:11px 22px;font-size:13px;font-weight:500;
-  box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:999;
-  transition:opacity .3s;pointer-events:none;white-space:nowrap;
-}
-.toast.h{opacity:0}
-
-/* ═══════════════════════════════════════════════════════
-   ADMIN MANAGE VIEW (full page list)
-═══════════════════════════════════════════════════════ */
-.manage-wrap{padding:24px 28px;max-width:800px}
-.manage-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
-.manage-hdr h2{font-size:18px;font-weight:700}
-.btn-add{
-  background:linear-gradient(135deg,var(--accent),var(--purple));
-  border:none;border-radius:10px;padding:9px 18px;
-  color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;
-  transition:opacity .2s;
-}
-.btn-add:hover{opacity:.87}
-.manage-list{display:flex;flex-direction:column;gap:9px}
-.manage-card{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:13px;padding:13px 15px;
-  display:flex;align-items:center;gap:12px;
-}
-.mc-icon{width:42px;height:42px;border-radius:9px;background:rgba(74,158,255,.13);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
-.mc-info{flex:1;min-width:0}
-.mc-info strong{font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* MANAGE */
+.manage-wrap{padding:36px 48px;max-width:960px}
+.manage-hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:24px}
+.manage-hdr h2{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.manage-hdr .grp{display:flex;gap:10px;flex-wrap:wrap}
+.btn-add,.btn-add-sm,.btn-ok,.btn-cancel,.btn-secondary{border-radius:10px;font-size:13px;font-weight:700;padding:10px 18px;transition:.15s}
+.btn-add,.btn-ok{background:var(--accent);color:#fff}
+.btn-add:hover,.btn-ok:hover{background:#C9633F}
+.btn-secondary{border:1px solid var(--accent);color:var(--accent2)}
+.btn-secondary:hover{background:var(--accent-soft)}
+.btn-add-sm{padding:7px 13px;font-size:12px;background:var(--accent-soft);color:var(--accent2)}
+.btn-cancel{border:1px solid var(--border);color:var(--sub)}
+.btn-ok.red{background:var(--red);color:#fff}
+.manage-card{display:flex;align-items:center;gap:14px;padding:14px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);border-radius:13px 13px 0 0}
+.mc-icon{width:42px;height:42px;border-radius:11px;background:var(--accent-soft);color:var(--accent2);display:flex;align-items:center;justify-content:center}
+.mc-icon svg{width:20px;height:20px}
+.mc-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.mc-info strong{font-size:14px}
 .mc-info span{font-size:12px;color:var(--sub)}
-.mc-acts{display:flex;gap:5px;flex-shrink:0}
-.btn-ic{background:none;border:none;border-radius:7px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:15px;transition:background .15s}
-.btn-ic.e{color:var(--accent)} .btn-ic.e:hover{background:rgba(74,158,255,.13)}
-.btn-ic.d{color:var(--red)}    .btn-ic.d:hover{background:rgba(255,107,107,.13)}
+.mc-acts{display:flex;gap:6px}
+.btn-ic{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--sub)}
+.btn-ic svg{width:15px;height:15px}
+.btn-ic.e:hover{color:var(--accent2);border-color:var(--accent)}
+.btn-ic.d:hover{color:var(--red);border-color:var(--red)}
+.vsub{padding:0 14px 14px;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 13px 13px;margin-bottom:12px}
+.vsub-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
+.vsub-title{font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.06em}
+.vmanage-item{display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px solid var(--border)}
+.vm-num{width:26px;height:26px;border-radius:7px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--sub)}
+.vm-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.vm-info strong{font-size:13px}
+.vm-info span{font-size:11.5px;color:var(--sub);word-break:break-all}
 
-/* video manage sub-section */
-.vsub-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px;border-top:1px solid var(--border);margin-top:4px}
-.vsub-title{font-size:14px;font-weight:700;color:var(--accent)}
-.btn-add-sm{background:rgba(52,201,138,.15);border:none;border-radius:8px;padding:6px 13px;color:var(--green);font-size:12px;font-weight:600;transition:background .15s}
-.btn-add-sm:hover{background:rgba(52,201,138,.25)}
-.vmanage-list{display:flex;flex-direction:column;gap:7px;margin-bottom:4px}
-.vmanage-item{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px}
-.vm-num{width:28px;height:28px;border-radius:50%;background:rgba(52,201,138,.13);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--green);flex-shrink:0}
-.vm-info{flex:1;min-width:0}
-.vm-info strong{font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vm-info span{font-size:11px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;display:block;white-space:nowrap}
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(30,27,24,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:500}
+.modal{background:var(--card);border:1px solid var(--border);box-shadow:0 24px 60px rgba(30,27,24,.18);border-radius:18px;padding:26px;width:100%;max-width:440px;max-height:92vh;overflow-y:auto}
+.modal-title{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.modal-sub{font-size:13px;color:var(--sub);margin:4px 0 20px;line-height:1.5}
+.modal h4{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent2);margin:6px 0 10px}
+.fl{margin-bottom:14px}
+.fl label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-bottom:6px}
+.fl input,.fl select,.fl textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:11px 13px;font-size:13.5px;outline:none}
+.fl input:focus,.fl select:focus,.fl textarea:focus{border-color:var(--accent)}
+.fl textarea{min-height:76px;resize:vertical}
+.pw-wrap{position:relative}
+.btn-eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:30px;height:30px;color:var(--sub)}
+.btn-eye svg{width:17px;height:17px;margin:auto}
+.err-msg{font-size:12.5px;color:var(--red);margin-bottom:10px}
+.err-msg.h{display:none}
+.modal-acts{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:#1E1B18;color:#fff;border:1px solid transparent;padding:12px 20px;border-radius:11px;font-size:13px;font-weight:500;z-index:900;box-shadow:0 10px 30px rgba(30,27,24,.25)}
+.toast.h{display:none}
 
-@media(max-width:600px){
-  .manage-wrap{padding:16px}
-  .courses-section,.home-hero{padding-left:16px;padding-right:16px}
+/* SIDEBAR THEME: coral to deep rose + 3-line menu button */
+.sidebar{background:linear-gradient(180deg,#CF5A3A 0%,#B84A55 55%,#A33D66 100%);border-right:none;color:#fff}
+.sidebar-top{border-bottom:1px solid rgba(255,255,255,.18)}
+.sidebar-logo{background:#fff;border:none;box-shadow:0 4px 12px rgba(60,20,25,.25)}
+.sidebar-brand{color:#fff}
+.sidebar-brand small{color:rgba(255,255,255,.78)}
+.nav-label{color:rgba(255,255,255,.66)}
+.nav-item,.course-nav-item{color:rgba(255,255,255,.88)}
+.nav-item:hover,.course-nav-item:hover{background:rgba(255,255,255,.15);color:#fff}
+.nav-item.active,.course-nav-item.active{background:#fff;color:#B8453F;font-weight:600;box-shadow:0 4px 14px rgba(60,20,25,.2)}
+.live-dot{background:#fff;animation:pulseW 1.8s infinite}
+@keyframes pulseW{0%{box-shadow:0 0 0 0 rgba(255,255,255,.7)}70%{box-shadow:0 0 0 7px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
+.sidebar-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.3)}
+.admin-sidebar{border-top:1px solid rgba(255,255,255,.18)}
+.admin-section-label{color:#fff}
+.btn-admin-action{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.22)}
+.btn-admin-action:hover{background:rgba(255,255,255,.22);border-color:#fff}
+.btn-admin-action.btn-logout{color:#FFE1DB}
+.sidebar-bottom{border-top:1px solid rgba(255,255,255,.18)}
+.btn-admin-login{border:1px solid rgba(255,255,255,.4);color:#fff}
+.btn-admin-login:hover{background:rgba(255,255,255,.16);border-color:#fff;color:#fff}
+.btn-hamburger{display:flex;background:#fff;color:var(--text);transition:border-color .15s,color .15s,background .15s}
+.btn-hamburger:hover{border-color:var(--accent);color:var(--accent2);background:var(--accent-soft)}
+.btn-hamburger svg{width:20px;height:20px}
+
+/* VIBRANT PROFESSIONAL THEME */
+:root{--accent:#E8365D;--accent2:#C81E4E;--accent-soft:rgba(232,54,93,.09);--text:#14121A;--sub:#4D4858;--border:rgba(20,18,26,.12);--bg2:#FFF8FA;--card2:#F4EFF3;
+  --grad:linear-gradient(135deg,#F0446E 0%,#FF7A3D 100%);--glow:0 10px 26px rgba(240,68,110,.34);
+  --shadow:0 1px 3px rgba(20,18,26,.06),0 8px 22px rgba(20,18,26,.07)}
+body{color:var(--text)}
+/* sidebar */
+.sidebar{background:linear-gradient(180deg,#EC3B63 0%,#C2185B 52%,#7E1A62 100%)}
+.nav-item.active,.course-nav-item.active{color:#C81E4E;font-weight:700}
+/* top bar */
+.topbar{border-bottom:1px solid var(--border)}
+.topbar-title{font-size:16px;font-weight:800;letter-spacing:-.01em}
+.btn-hamburger{border:1.5px solid rgba(20,18,26,.18);color:var(--text)}
+.btn-login{border:1.5px solid var(--accent);color:var(--accent2);font-weight:700;background:#fff}
+.btn-login:hover{background:var(--accent-soft)}
+.btn-premium,.pro,.av{background:var(--grad);color:#fff}
+.btn-premium{box-shadow:var(--glow);font-weight:800;padding:9px 18px}
+.btn-premium:hover{filter:brightness(1.07)}
+/* hero */
+.home-hero{background:radial-gradient(720px 340px at 92% -5%,rgba(255,122,61,.24),transparent 65%),radial-gradient(700px 380px at 4% 105%,rgba(232,54,93,.16),transparent 65%),#FFF7F9;border-bottom:1px solid rgba(232,54,93,.14)}
+.hero-badge{background:#fff;color:var(--accent2);font-weight:700;border:1.5px solid rgba(232,54,93,.35);box-shadow:0 4px 14px rgba(232,54,93,.12)}
+.home-hero h1{color:var(--text);font-weight:800}
+.home-hero h1 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.home-hero p{color:#3E3A48;font-size:16.5px}
+.btn-live{font-weight:800}
+.btn-live.primary{background:var(--grad);color:#fff;box-shadow:var(--glow)}
+.btn-live.primary:hover{background:var(--grad);filter:brightness(1.07)}
+.btn-live.outline{border:2px solid var(--accent);color:var(--accent2);background:#fff}
+.btn-live.outline:hover{background:var(--grad);border-color:transparent;color:#fff}
+.btn-live.ghost{background:#1F1B2E;color:#fff;border:2px solid #1F1B2E}
+.btn-live.ghost:hover{background:#2E2842;border-color:#2E2842;color:#fff}
+.hero-stats{border-top:none;padding-top:0;gap:14px;flex-wrap:wrap;max-width:680px}
+.hero-stats>div{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px 24px;box-shadow:var(--shadow);min-width:130px}
+.stat-n{font-size:34px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;line-height:1.15}
+.stat-l{color:#3E3A48;font-weight:600;font-size:12.5px}
+/* catalogue */
+.sec-title{font-size:27px;font-weight:800;letter-spacing:-.02em;color:var(--text)}
+.sec-sub{color:var(--sub);font-weight:500}
+.search-box input,.filters select{border:1.5px solid rgba(20,18,26,.16);color:var(--text);font-weight:500}
+.search-box input:focus,.filters select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(232,54,93,.12)}
+.course-card{--cc:#E8365D;--cg:linear-gradient(135deg,#F0446E,#FF7A3D);border:1px solid rgba(20,18,26,.10);border-radius:18px}
+.course-grid .course-card:nth-child(4n+2){--cc:#6D4AF0;--cg:linear-gradient(135deg,#6D4AF0,#B24DF0)}
+.course-grid .course-card:nth-child(4n+3){--cc:#0E9F8E;--cg:linear-gradient(135deg,#0E9F8E,#2BC66B)}
+.course-grid .course-card:nth-child(4n+4){--cc:#2563EB;--cg:linear-gradient(135deg,#2563EB,#06B6D4)}
+.course-card:hover{border-color:var(--cc);box-shadow:0 18px 40px rgba(20,18,26,.14)}
+.cc-thumb{background:var(--cg);height:140px;overflow:hidden}
+.cc-thumb::before{content:"";position:absolute;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.16);right:-44px;top:-60px}
+.cc-thumb::after{content:"";position:absolute;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.10);left:-30px;bottom:-44px}
+.cc-thumb svg{color:#fff;width:52px;height:52px;position:relative;z-index:1;filter:drop-shadow(0 4px 10px rgba(0,0,0,.22))}
+.cc-vcount{background:#fff;color:var(--text);font-weight:700;z-index:2;border:none;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.cc-tag{color:var(--cc);font-weight:800}
+.cc-name{font-size:17.5px;font-weight:800;color:var(--text)}
+.cc-meta{color:#3E3A48;font-weight:600}
+.cc-desc{color:var(--sub)}
+.cc-vids{color:var(--sub);font-weight:600}
+.btn-watch{background:var(--cg);color:#fff;padding:9px 16px;border-radius:999px;font-weight:700;box-shadow:0 6px 16px rgba(20,18,26,.18)}
+.btn-watch svg{color:#fff}
+/* buttons / forms */
+.btn-add,.btn-ok{background:var(--grad);color:#fff;font-weight:800;box-shadow:0 6px 16px rgba(240,68,110,.28)}
+.btn-add:hover,.btn-ok:hover{background:var(--grad);filter:brightness(1.07)}
+.btn-ok.red{background:var(--red);box-shadow:none}
+.btn-secondary{border:1.5px solid var(--accent);color:var(--accent2);font-weight:700;background:#fff}
+.btn-cancel{border:1.5px solid rgba(20,18,26,.18);color:var(--text);font-weight:600}
+.fl label{color:#3E3A48;font-weight:700}
+.fl input,.fl select,.fl textarea{border:1.5px solid rgba(20,18,26,.16)}
+.fl input:focus,.fl select:focus,.fl textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(232,54,93,.12)}
+.modal-title{font-weight:800}
+.vlist-item.playing{border-color:rgba(232,54,93,.45)}
+.vlist-item.playing .vnum{background:var(--grad)}
+.plan.sel{border-color:var(--accent);background:var(--accent-soft)}
+.footer{color:#3E3A48;font-weight:500}
+
+/* INNER PAGES: admin, members, course player, modals */
+#viewManage,#viewMembers{background:linear-gradient(180deg,#FFF5F8 0,#fff 360px);min-height:calc(100vh - 56px)}
+.manage-wrap{max-width:1040px;margin:0 auto;padding:32px 40px 56px}
+.manage-hdr{position:relative;overflow:hidden;background:var(--grad);color:#fff;border-radius:22px;padding:30px 34px;margin-bottom:28px;box-shadow:var(--glow)}
+.manage-hdr::before{content:"";position:absolute;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.14);right:-70px;top:-110px}
+.manage-hdr::after{content:"";position:absolute;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.10);right:150px;bottom:-90px}
+.manage-hdr>*{position:relative;z-index:1}
+.manage-hdr h2{color:#fff;font-size:28px;font-weight:800;letter-spacing:-.02em}
+.manage-hdr h2::after{display:block;font-size:13.5px;font-weight:500;opacity:.92;margin-top:5px;letter-spacing:0}
+#viewManage .manage-hdr h2::after{content:"Create courses, add video lessons and manage live sessions"}
+#viewMembers .manage-hdr{background:linear-gradient(135deg,#5B3DF0 0%,#B24DF0 100%);box-shadow:0 10px 26px rgba(109,74,240,.35)}
+#viewMembers .manage-hdr h2::after{content:"Control who has Premium access and which courses they can watch"}
+.manage-hdr .btn-add{background:#fff;color:var(--accent2);box-shadow:0 6px 16px rgba(0,0,0,.18)}
+#viewMembers .manage-hdr .btn-add{color:#5B3DF0}
+.manage-hdr .btn-add:hover{background:#fff;filter:brightness(.97)}
+.manage-hdr .btn-secondary{background:rgba(255,255,255,.16);border:1.5px solid rgba(255,255,255,.75);color:#fff}
+.manage-hdr .btn-secondary:hover{background:rgba(255,255,255,.28)}
+.manage-card{border-radius:16px 16px 0 0;padding:16px 18px}
+.manage-card.single{border-radius:16px;margin-bottom:12px}
+.mc-icon{width:46px;height:46px;border-radius:13px;background:var(--grad);color:#fff;box-shadow:0 6px 14px rgba(240,68,110,.28)}
+.manage-card:nth-child(8n+3) .mc-icon{background:linear-gradient(135deg,#6D4AF0,#B24DF0);box-shadow:0 6px 14px rgba(109,74,240,.28)}
+.manage-card:nth-child(8n+5) .mc-icon{background:linear-gradient(135deg,#0E9F8E,#2BC66B);box-shadow:0 6px 14px rgba(14,159,142,.28)}
+.manage-card:nth-child(8n+7) .mc-icon{background:linear-gradient(135deg,#2563EB,#06B6D4);box-shadow:0 6px 14px rgba(37,99,235,.28)}
+.manage-card.single .mc-icon{background:linear-gradient(135deg,#6D4AF0,#B24DF0);box-shadow:0 6px 14px rgba(109,74,240,.28)}
+.mc-info strong{font-size:15.5px;font-weight:800;color:var(--text)}
+.mc-info span{color:var(--sub);font-weight:500}
+.vsub{border-radius:0 0 16px 16px;padding:0 18px 14px;margin-bottom:16px;box-shadow:var(--shadow)}
+.vsub-title{color:var(--accent2);font-weight:800}
+.vm-num{background:var(--accent-soft);color:var(--accent2);font-weight:800}
+.vm-info strong{font-weight:700}
+.btn-add-sm{background:var(--accent-soft);color:var(--accent2);font-weight:800;border:1px solid rgba(232,54,93,.25)}
+.btn-add-sm:hover{background:var(--grad);color:#fff;border-color:transparent}
+.btn-ic{border:1.5px solid rgba(20,18,26,.14);color:#3E3A48}
+.badge{font-weight:800}
+/* course player */
+.vlist-panel{background:#fff}
+.vlist-header{background:var(--grad);color:#fff;border-bottom:none;padding:22px 22px 20px}
+.vlist-header h2{color:#fff;font-weight:800;font-size:18px}
+.vlist-header p{color:rgba(255,255,255,.9);font-weight:600}
+.btn-back{color:#fff;background:rgba(255,255,255,.18);padding:6px 12px;border-radius:999px;font-weight:700}
+.btn-back:hover{background:rgba(255,255,255,.3);color:#fff}
+.vnum{background:var(--accent-soft);color:var(--accent2);font-weight:800}
+.vlist-item{border-radius:12px}
+.vlist-item:hover{background:var(--bg2);border-color:rgba(232,54,93,.2)}
+.vtitle{font-weight:700;color:var(--text)}
+.vdur{color:var(--sub);font-weight:600}
+.vlist-item.playing{background:var(--accent-soft)}
+.player-panel{background:linear-gradient(180deg,#FFF7F9 0,#fff 260px)}
+.player-area{background:#0F0C1A;border:none;box-shadow:0 18px 44px rgba(20,18,26,.22);border-radius:18px}
+.player-placeholder{color:#E6E1EE;font-weight:600;background:radial-gradient(500px 260px at 50% 40%,rgba(240,68,110,.28),transparent 70%),#0F0C1A}
+.pp-ico{background:var(--grad);color:#fff;box-shadow:var(--glow)}
+.player-title{font-size:21px;font-weight:800;color:var(--text)}
+.player-meta{color:var(--sub);font-weight:600}
+.btn-fullscreen{border:1.5px solid var(--accent);color:var(--accent2);font-weight:700;background:#fff}
+.btn-fullscreen:hover{background:var(--grad);color:#fff;border-color:transparent}
+/* modals */
+.modal{background-color:#fff;background-image:linear-gradient(135deg,#F0446E,#FF7A3D);background-size:100% 5px;background-repeat:no-repeat;padding-top:30px}
+.modal-title{font-size:20px;font-weight:800}
+.modal-sub{color:var(--sub)}
+.modal h4{color:var(--accent2);font-weight:800}
+.gate-ico{background:var(--grad);color:#fff;box-shadow:var(--glow)}
+.pay-note a,.link-btn{color:var(--accent2)}
+@media(max-width:600px){.manage-wrap{padding:20px 14px 40px}.manage-hdr{padding:22px 20px;border-radius:18px}.manage-hdr h2{font-size:23px}}
+
+/* LIVE CLASS / LIVE EXAM PAGES */
+#viewLive{--lg:linear-gradient(135deg,#F0446E 0%,#FF7A3D 100%);--lc:#E8365D;--lglow:0 12px 30px rgba(240,68,110,.35);--lsoft:rgba(232,54,93,.09);--lbg:#FFF5F8;background:linear-gradient(180deg,var(--lbg) 0,#fff 420px);min-height:calc(100vh - 56px)}
+#viewLive[data-type="exam"]{--lg:linear-gradient(135deg,#4F35E8 0%,#B24DF0 100%);--lc:#5B3DF0;--lglow:0 12px 30px rgba(91,61,240,.35);--lsoft:rgba(91,61,240,.09);--lbg:#F6F3FF}
+.lv-hero{position:relative;overflow:hidden;background:var(--lg);color:#fff;padding:34px 48px 52px}
+.lv-hero::before{content:"";position:absolute;width:380px;height:380px;border-radius:50%;background:rgba(255,255,255,.13);right:-90px;top:-150px}
+.lv-hero::after{content:"";position:absolute;width:230px;height:230px;border-radius:50%;background:rgba(255,255,255,.09);right:22%;bottom:-130px}
+.lv-hero>*{position:relative;z-index:1}
+.lv-tabs{display:flex;width:fit-content;gap:6px;padding:5px;border-radius:999px;background:rgba(255,255,255,.18);margin-bottom:30px}
+.lv-tabs button{display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:999px;font-size:13px;font-weight:700;color:#fff;transition:.15s}
+.lv-tabs button svg{width:16px;height:16px}
+.lv-tabs button:hover{background:rgba(255,255,255,.18)}
+.lv-tabs button.on{background:#fff;color:var(--lc);box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.lv-status{display:inline-flex;align-items:center;gap:9px;font-size:12px;font-weight:800;letter-spacing:.1em;padding:7px 15px;border-radius:999px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);margin-bottom:18px}
+.lv-status i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.6)}
+.lv-status.on{background:#fff;color:#D6183F;border-color:#fff}
+.lv-status.on i{background:#E5173F;animation:lvp 1.6s infinite}
+@keyframes lvp{0%{box-shadow:0 0 0 0 rgba(229,23,63,.6)}70%{box-shadow:0 0 0 8px rgba(229,23,63,0)}100%{box-shadow:0 0 0 0 rgba(229,23,63,0)}}
+.lv-hero h1{font-size:clamp(30px,4.4vw,48px);font-weight:800;letter-spacing:-.03em;line-height:1.12;max-width:760px}
+.lv-lead{font-size:16.5px;line-height:1.7;max-width:600px;margin-top:14px;opacity:.94;font-weight:500}
+.lv-time{display:inline-flex;align-items:center;gap:10px;margin-top:20px;padding:10px 18px;border-radius:12px;background:rgba(255,255,255,.18);font-weight:700;font-size:14.5px}
+.lv-time svg{width:19px;height:19px}
+.lv-actions{margin-top:28px}
+.lv-join{display:inline-flex;align-items:center;gap:11px;text-decoration:none;padding:16px 30px;border-radius:14px;background:#fff;color:var(--lc);font-size:15.5px;font-weight:800;box-shadow:0 12px 28px rgba(0,0,0,.22);transition:transform .15s,box-shadow .15s}
+.lv-join svg{width:19px;height:19px}
+.lv-join:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(0,0,0,.28)}
+.lv-join.off{background:rgba(255,255,255,.2);color:#fff;border:2px solid rgba(255,255,255,.7);box-shadow:none}
+.lv-join.off:hover{background:rgba(255,255,255,.3)}
+.lv-body{max-width:1040px;margin:0 auto;padding:0 40px 60px}
+.lv-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:-30px;position:relative;z-index:2}
+.lv-card{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--border);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow)}
+.lv-ico{width:46px;height:46px;border-radius:13px;background:var(--lg);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:var(--lglow)}
+.lv-ico svg{width:22px;height:22px}
+.lv-card small{display:block;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--sub)}
+.lv-card b{display:block;font-size:15px;font-weight:800;color:var(--text);margin-top:3px;line-height:1.35}
+.lv-player{position:relative;aspect-ratio:16/9;border-radius:20px;overflow:hidden;margin-top:26px;background:#0F0C1A;box-shadow:0 18px 44px rgba(20,18,26,.22)}
+.lv-player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.lv-empty{text-align:center;background:#fff;border:2px dashed rgba(20,18,26,.16);border-radius:20px;padding:42px 24px;margin-top:26px}
+.lv-empty-ico{width:62px;height:62px;border-radius:50%;background:var(--lsoft);color:var(--lc);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+.lv-empty-ico svg{width:28px;height:28px}
+.lv-empty h3{font-size:19px;font-weight:800}
+.lv-empty p{font-size:14px;line-height:1.7;color:var(--sub);max-width:460px;margin:8px auto 0;font-weight:500}
+.lv-h2{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:38px 0 16px}
+.lv-tips{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.lv-tip{display:flex;gap:14px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+.lv-n{width:32px;height:32px;border-radius:10px;background:var(--lsoft);color:var(--lc);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lv-tip b{font-size:14.5px;font-weight:800;display:block}
+.lv-tip p{font-size:13px;line-height:1.6;color:var(--sub);margin-top:4px;font-weight:500}
+@media(max-width:700px){.lv-tips{grid-template-columns:1fr}.lv-hero{padding:24px 20px 46px}.lv-body{padding:0 16px 44px}.lv-join{width:100%;justify-content:center}.lv-tabs{display:flex;width:100%}.lv-tabs button{flex:1;justify-content:center;padding:9px 8px}}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  body{display:block}
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%)}
+  .sidebar.open{transform:none}
+  .topbar{padding:0 14px}
+  .btn-hamburger{display:flex}
+  .un{max-width:90px}
+  .btn-login{display:none}
+  .home-hero{padding:40px 20px 36px}
+  .courses-section{padding:30px 20px 12px}
+  .footer{padding:24px 20px}
+  .manage-wrap{padding:26px 20px}
+  .course-view-wrap{flex-direction:column;min-height:0}
+  .vlist-panel{width:100%;height:auto;max-height:340px;position:static;border-right:none;border-bottom:1px solid var(--border);order:2}
+  .player-panel{padding:16px;order:1}
+  .search-box input{width:100%}
+  .search-box,.filters select{flex:1}
+  .btn-live{width:100%;justify-content:center}
+  .hero-stats{gap:28px}
+  .player-info{flex-direction:column;align-items:flex-start}
+}
+
+/* ── Screen capture prevention ──────────────────────────── */
+@media screen {
+  .player-area, .player-area *, .player-panel {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+  }
+}
+/* Blank out in screenshot mode (supported in some browsers) */
+@media print {
+  body { display: none !important; }
 }
 </style>
+<!-- ═══ CONTENT PROTECTION ═══ -->
+<script>
+document.addEventListener('contextmenu',function(e){e.preventDefault();return false;},true);
+document.addEventListener('keydown',function(e){
+  if(e.ctrlKey&&['c','a','u','s','p','x'].includes(e.key.toLowerCase())){e.preventDefault();return false;}
+  if(e.ctrlKey&&e.shiftKey&&['i','j','c'].includes(e.key.toLowerCase())){e.preventDefault();return false;}
+  if(e.key==='F12'){e.preventDefault();return false;}
+  if(e.key==='PrintScreen'){e.preventDefault();return false;}
+},true);
+document.addEventListener('copy',function(e){e.preventDefault();return false;},true);
+document.addEventListener('cut',function(e){e.preventDefault();return false;},true);
+document.addEventListener('dragstart',function(e){e.preventDefault();return false;},true);
+document.addEventListener('selectstart',function(e){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return true;
+  e.preventDefault();return false;
+},true);
+(function(){
+  var t=160;
+  setInterval(function(){
+    if(window.outerWidth-window.innerWidth>t||window.outerHeight-window.innerHeight>t){
+      document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0F1923;color:#8A9BB0;font-family:Inter,sans-serif;font-size:16px;text-align:center;padding:20px;">⛔ Developer tools বন্ধ করুন এবং page reload করুন।</div>';
+    }
+  },1000);
+})();
+</script>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════
-     SIDEBAR
-═══════════════════════════════════════════════════════ -->
+<!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
-
   <div class="sidebar-top">
-    <div class="sidebar-logo">R</div>
-    <div class="sidebar-brand">Rajib Tutorial<small>EEE Courses</small></div>
+    <div class="sidebar-logo">
+      <svg width="24" height="24" viewBox="0 0 100 100" fill="none" stroke="#E8365D" stroke-width="8" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg>
+    </div>
+    <div class="sidebar-brand">Rajib Tutorial<small>Diploma in EEE</small></div>
   </div>
 
   <nav class="sidebar-nav">
     <div class="nav-label">Menu</div>
     <div class="nav-item active" id="navHome" onclick="goHome()">
-      <span class="ni">🏠</span><span class="nt">Home</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
+      <span>Home</span>
     </div>
-    <div class="nav-label" style="margin-top:8px">Courses</div>
-    <div class="sidebar-courses" id="sidebarCourses">
-      <div style="padding:6px 8px;font-size:12px;color:var(--sub)">Loading…</div>
+    <div class="nav-item" onclick="openLive('class');closeSidebar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg>
+      <span>Live Class</span><i class="live-dot hidden" id="dotClass"></i>
     </div>
+    <div class="nav-item" onclick="openLive('exam');closeSidebar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>
+      <span>Live Exam</span><i class="live-dot hidden" id="dotExam"></i>
+    </div>
+    <div class="nav-label">Courses</div>
+    <div id="sidebarCourses"><div style="padding:6px 12px;font-size:12px;color:rgba(255,255,255,.75)">Loading…</div></div>
   </nav>
 
-  <!-- Admin logged-in section -->
   <div class="admin-sidebar" id="adminSidebar">
-    <div class="admin-section-label">🔐 Admin Panel</div>
-    <button class="btn-admin-action" onclick="goView('viewManage')">
-      <span class="ai2">📚</span> Manage Courses
+    <div class="admin-section-label">Admin Panel</div>
+    <button class="btn-admin-action" onclick="goView('viewManage');closeSidebar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/></svg> Manage Courses
+    </button>
+    <button class="btn-admin-action" onclick="openMembers();closeSidebar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 6.5 7 .9-5.2 4.8 1.4 7L12 17.8 5.8 21.2l1.4-7L2 9.4l7-.9z"/></svg> Premium Members
+    </button>
+    <button class="btn-admin-action" onclick="openLiveSettings();closeSidebar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg> Live &amp; Premium Settings
     </button>
     <button class="btn-admin-action btn-logout" onclick="adminLogout()">
-      <span class="ai2">🚪</span> Logout
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg> Logout
     </button>
   </div>
 
   <div class="sidebar-bottom">
     <button class="btn-admin-login" id="btnAdminLogin" onclick="openAdminLogin()">
-      <span class="ai">🔐</span> Admin Login
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Admin Login
     </button>
   </div>
 </aside>
-
-<!-- Mobile overlay -->
 <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
 
-<!-- ═══════════════════════════════════════════════════════
-     TOPBAR (mobile)
-═══════════════════════════════════════════════════════ -->
-<div class="topbar" id="topbar">
-  <button class="btn-hamburger" onclick="openSidebar()">☰</button>
-  <span class="topbar-title" id="topbarTitle">Rajib Tutorial</span>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════
-     MAIN
-═══════════════════════════════════════════════════════ -->
+<!-- MAIN -->
 <main class="main">
+  <header class="topbar">
+    <div class="tb-left">
+      <button class="btn-hamburger" onclick="openSidebar()" aria-label="Open menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <span class="topbar-title" id="topbarTitle">Rajib Tutorial</span>
+    </div>
+    <div id="userArea"></div>
+  </header>
 
   <!-- HOME -->
   <div class="view active" id="viewHome">
-    <div class="home-hero">
-      <div class="hero-badge">⚡ EEE Related Courses</div>
-      <h1>Learn with <span>Rajib Tutorial</span></h1>
-      <p>Electrical &amp; Electronic Engineering related video courses. Click any course to start watching.</p>
+    <section class="home-hero">
+      <div class="hero-badge">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h8l-1 8 10-12h-8z"/></svg>
+        Diploma in Electrical &amp; Electronic Engineering
+      </div>
+      <h1>Master Diploma EEE with <span>structured, expert-led</span> learning</h1>
+      <p>Comprehensive video courses, live classes and scheduled live exams designed for Diploma in EEE students across all eight semesters. Study at your own pace and measure your progress with confidence.</p>
+
+      <div class="hero-actions">
+        <button class="btn-live primary" id="btnLiveClass" onclick="openLive('class')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg>
+          Join Live Class <span class="live-pill">LIVE</span>
+        </button>
+        <button class="btn-live outline" id="btnLiveExam" onclick="openLive('exam')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>
+          Take Live Exam <span class="live-pill">LIVE</span>
+        </button>
+        <button class="btn-live ghost" onclick="document.getElementById('coursesAnchor').scrollIntoView()">Browse Courses</button>
+      </div>
+      <div class="live-info" id="liveInfo"></div>
+
       <div class="hero-stats">
-        <div class="stat"><div class="stat-n" id="statC">—</div><div class="stat-l">Courses</div></div>
-        <div class="stat"><div class="stat-n" id="statV">—</div><div class="stat-l">Videos</div></div>
+        <div><div class="stat-n" id="statC">–</div><div class="stat-l">Courses</div></div>
+        <div><div class="stat-n" id="statV">–</div><div class="stat-l">Video Lessons</div></div>
+        <div><div class="stat-n">8</div><div class="stat-l">Semesters Covered</div></div>
       </div>
-    </div>
-    <div class="courses-section">
+    </section>
+
+    <section class="courses-section" id="coursesAnchor">
       <div class="sec-hdr">
-        <span class="sec-title">All Courses</span>
-        <span style="font-size:12px;color:var(--sub)" id="cntLabel"></span>
+        <div>
+          <div class="sec-title">Course Catalogue</div>
+          <div class="sec-sub" id="cntLabel"></div>
+        </div>
+        <div class="filters">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" id="searchIn" placeholder="Search courses" oninput="setSearch(this.value)"/>
+          </div>
+          <select id="semFilter" onchange="setSem(this.value)"><option value="">All Semesters</option></select>
+        </div>
       </div>
-      <div id="courseGridWrap">
-        <div class="loader"><div class="spin"></div><p>Loading courses…</p></div>
-      </div>
-    </div>
+      <div id="courseGridWrap"><div class="loader"><div class="spin"></div>Loading courses…</div></div>
+    </section>
+
+    <footer class="footer">
+      <span>© <span id="yr"></span> Rajib Tutorial. All rights reserved.</span>
+      <span>Diploma in Electrical &amp; Electronic Engineering</span>
+    </footer>
   </div>
 
   <!-- COURSE + PLAYER -->
@@ -478,93 +676,101 @@ button{cursor:pointer}
     <div class="course-view-wrap">
       <div class="vlist-panel">
         <div class="vlist-header">
+          <button class="btn-back" onclick="goHome()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> All Courses
+          </button>
           <h2 id="cpTitle">Course</h2>
-          <p id="cpSub">0 videos</p>
+          <p id="cpSub">0 lessons</p>
         </div>
         <div class="vlist-scroll" id="vlistScroll"></div>
       </div>
       <div class="player-panel">
-        <div class="player-area" id="playerArea">
-          <div class="player-placeholder">
-            <div class="pp-ico">▶</div>
-            <p>Select a video to play</p>
-          </div>
-        </div>
+        <div class="player-area" id="playerArea"></div>
         <div class="player-info">
-          <div class="player-title" id="playerTitle">—</div>
-          <div class="player-meta"  id="playerMeta"></div>
+          <div>
+            <div class="player-title" id="playerTitle">–</div>
+            <div class="player-meta" id="playerMeta"></div>
+          </div>
+          <button class="btn-fullscreen" onclick="toggleFullscreen()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="fsSvg"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+            <span id="fsLabel">Fullscreen</span>
+          </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- MANAGE COURSES (admin) -->
+  <!-- LIVE CLASS / LIVE EXAM -->
+  <div class="view" id="viewLive"></div>
+
+  <!-- MANAGE (admin) -->
   <div class="view" id="viewManage">
     <div class="manage-wrap">
       <div class="manage-hdr">
-        <h2>📚 Manage Courses</h2>
-        <button class="btn-add" onclick="openAddCourse()">+ Add Course</button>
+        <h2>Manage Courses</h2>
+        <div class="grp">
+          <button class="btn-secondary" onclick="openLiveSettings()">Live &amp; Premium Settings</button>
+          <button class="btn-add" onclick="openAddCourse()">+ Add Course</button>
+        </div>
       </div>
-      <div id="manageCourseList">
-        <div class="loader"><div class="spin"></div><p>Loading…</p></div>
-      </div>
+      <div id="manageCourseList"><div class="loader"><div class="spin"></div>Loading…</div></div>
     </div>
   </div>
-
+  <!-- PREMIUM MEMBERS (admin) -->
+  <div class="view" id="viewMembers">
+    <div class="manage-wrap">
+      <div class="manage-hdr">
+        <h2>Premium Members</h2>
+        <div class="grp"><button class="btn-add" onclick="openAddMember()">+ Add Member</button></div>
+      </div>
+      <div id="memberList"></div>
+    </div>
+  </div>
 </main>
 
-<!-- ═══════════════════════════════════════════════════════
-     MODALS
-═══════════════════════════════════════════════════════ -->
-
-<!-- Admin Login -->
+<!-- MODALS -->
 <div class="modal-bg hidden" id="mLogin">
   <div class="modal">
-    <div class="modal-title">🔐 Admin Login</div>
-    <div class="modal-sub">Admin panel এ প্রবেশ করুন</div>
+    <div class="modal-title">Admin Login</div>
+    <div class="modal-sub">Enter the admin password to manage courses and live sessions.</div>
     <div class="fl">
       <label>Password</label>
       <div class="pw-wrap">
-        <input type="password" id="pwIn" placeholder="Enter password"
-               oninput="clearPwErr()" onkeydown="if(event.key==='Enter')doLogin()"/>
-        <button class="btn-eye" onclick="toggleEye()" id="eyeBtn">👁</button>
+        <input type="password" id="pwIn" placeholder="Enter password" oninput="clearPwErr()" onkeydown="if(event.key==='Enter')doLogin()"/>
+        <button class="btn-eye" onclick="toggleEye()" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
       </div>
     </div>
-    <div class="err-msg h" id="pwErr">❌ Incorrect password</div>
+    <div class="err-msg h" id="pwErr">Incorrect password. Please try again.</div>
     <div class="modal-acts">
       <button class="btn-cancel" onclick="closeM('mLogin')">Cancel</button>
-      <button class="btn-ok" onclick="doLogin()">🔓 Login</button>
+      <button class="btn-ok" onclick="doLogin()">Login</button>
     </div>
   </div>
 </div>
 
-<!-- Add / Edit Course -->
 <div class="modal-bg hidden" id="mCourse">
   <div class="modal">
-    <div class="modal-title" id="mCourseTitle">📚 New Course</div>
-    <div class="modal-sub">Course তথ্য দিন</div>
+    <div class="modal-title" id="mCourseTitle">New Course</div>
+    <div class="modal-sub">Enter the course details below.</div>
     <input type="hidden" id="editCId"/>
     <div class="fl"><label>Course Name *</label><input type="text" id="cName" placeholder="e.g. EEE Foundation Course"/></div>
-    <div class="fl"><label>Title *</label><input type="text" id="cTitle" placeholder="e.g. Circuit Analysis 2025"/></div>
+    <div class="fl"><label>Title *</label><input type="text" id="cTitle" placeholder="e.g. Basic Electricity &amp; Circuit Analysis"/></div>
     <div class="fl">
-      <label>Class</label>
-      <select id="cClass">
-        <option value="">— Select —</option>
-        <option>Class 9</option><option>Class 10</option><option>SSC</option>
-        <option>Class 11</option><option>Class 12</option><option>HSC</option>
-        <option>Diploma</option><option>BSc</option><option>Other</option>
-      </select>
+      <label>Semester</label>
+      <select id="cClass"></select>
     </div>
     <div class="fl">
       <label>Subject</label>
       <select id="cSubject">
-        <option value="">— Select —</option>
-        <option>Physics</option><option>Math</option><option>Circuit Analysis</option>
-        <option>Electronics</option><option>Electrical Machines</option>
-        <option>Power Systems</option><option>Digital Electronics</option><option>ICT</option><option>Other</option>
+        <option value="">Select subject</option>
+        <option>Basic Electricity</option><option>Electrical Circuits</option><option>Electronics</option>
+        <option>Digital Electronics</option><option>Electrical Machines</option><option>Power Systems</option>
+        <option>Power Electronics</option><option>Control Systems</option><option>Microprocessor &amp; Microcontroller</option>
+        <option>Measurement &amp; Instrumentation</option><option>Electrical Installation &amp; Wiring</option>
+        <option>Mathematics</option><option>Physics</option><option>Computer &amp; ICT</option><option>Other</option>
       </select>
     </div>
-    <div class="fl"><label>Description</label><textarea id="cDesc" placeholder="Short description…"></textarea></div>
+    <div class="fl"><label>Description</label><textarea id="cDesc" placeholder="Short description of the course…"></textarea></div>
     <div class="modal-acts">
       <button class="btn-cancel" onclick="closeM('mCourse')">Cancel</button>
       <button class="btn-ok" onclick="saveCourse()">Save</button>
@@ -572,18 +778,13 @@ button{cursor:pointer}
   </div>
 </div>
 
-<!-- Add / Edit Video -->
 <div class="modal-bg hidden" id="mVideo">
   <div class="modal">
-    <div class="modal-title" id="mVideoTitle">🎬 Add Video</div>
-    <div class="modal-sub">YouTube link paste করুন</div>
-    <input type="hidden" id="editVId"/>
-    <input type="hidden" id="editVCourse"/>
-    <div class="fl"><label>Video Title *</label><input type="text" id="vTitle" placeholder="e.g. Lesson 1 — Ohm's Law"/></div>
-    <div class="fl">
-      <label>YouTube Link *</label>
-      <input type="url" id="vUrl" placeholder="https://youtube.com/watch?v=...  or  youtu.be/..."/>
-    </div>
+    <div class="modal-title" id="mVideoTitle">Add Video</div>
+    <div class="modal-sub">Paste a YouTube link for this lesson.</div>
+    <input type="hidden" id="editVId"/><input type="hidden" id="editVCourse"/>
+    <div class="fl"><label>Video Title *</label><input type="text" id="vTitle" placeholder="e.g. Lesson 1: Ohm's Law"/></div>
+    <div class="fl"><label>YouTube Link *</label><input type="url" id="vUrl" placeholder="https://youtube.com/watch?v=… or youtu.be/…"/></div>
     <div class="fl"><label>Duration (minutes, optional)</label><input type="number" id="vDur" placeholder="e.g. 18" min="0"/></div>
     <div class="modal-acts">
       <button class="btn-cancel" onclick="closeM('mVideo')">Cancel</button>
@@ -592,11 +793,104 @@ button{cursor:pointer}
   </div>
 </div>
 
-<!-- Confirm delete -->
+<div class="modal-bg hidden" id="mLive">
+  <div class="modal">
+    <div class="modal-title">Live &amp; Premium Settings</div>
+    <div class="modal-sub">Set the links shown on the home page buttons. Leave a link empty when nothing is scheduled.</div>
+    <h4>Live Class</h4>
+    <div class="fl"><label>Title</label><input type="text" id="lcTitle" placeholder="e.g. Circuit Analysis: Thevenin's Theorem"/></div>
+    <div class="fl"><label>Schedule</label><input type="text" id="lcTime" placeholder="e.g. Every Friday, 8:00 PM"/></div>
+    <div class="fl"><label>Class Link</label><input type="url" id="lcUrl" placeholder="https://meet.google.com/… or YouTube live link"/></div>
+    <h4>Live Exam</h4>
+    <div class="fl"><label>Title</label><input type="text" id="leTitle" placeholder="e.g. Weekly Model Test 05"/></div>
+    <div class="fl"><label>Schedule</label><input type="text" id="leTime" placeholder="e.g. Saturday, 9:00 PM"/></div>
+    <div class="fl"><label>Exam Link</label><input type="url" id="leUrl" placeholder="https://…"/></div>
+    <h4>Premium</h4>
+    <div class="fl"><label>Support / Help Link (optional)</label><input type="url" id="pmUrl" placeholder="WhatsApp or Facebook link shown as “Need help?”"/></div>
+    <div class="fl"><label>Premium Info (shown in the Premium popup, optional)</label><textarea id="pmInfo" placeholder="e.g. Unlock every lesson, live class and exam with Premium."></textarea></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeM('mLive')">Cancel</button>
+      <button class="btn-ok" onclick="saveLive()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="mGate">
+  <div class="modal">
+    <div class="gate-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+    <div class="modal-title" id="gateTitle">Premium required</div>
+    <div class="modal-sub" id="gateSub">Video lessons are available to Premium members only. Contact admin on WhatsApp: 01566054963</div>
+    <div class="gate-info hidden" id="gateInfo"></div>
+    <div class="col-acts">
+      <button class="btn-ok" onclick="getPremium()">Become Premium</button>
+      <button class="btn-secondary" id="gateLogin" onclick="closeM('mGate');openMemberLogin()">I'm already Premium: Login</button>
+      <button class="btn-cancel" onclick="closeM('mGate')">Maybe later</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="mPay">
+  <div class="modal">
+    <div class="modal-title">Become Premium</div>
+    <div class="modal-sub">Choose a plan and pay securely with bKash. Your Premium access is activated automatically right after payment.</div>
+    <div class="plans" id="plans">
+      <label class="plan sel"><input type="radio" name="plan" value="1month" checked/><div><div class="pn">1 Month</div><div class="ps">Full access to all video lessons</div></div><div class="pp">৳50</div></label>
+      <label class="plan"><input type="radio" name="plan" value="6month"/><div><div class="pn">6 Months<span class="save">SAVE 40%</span></div><div class="ps">Best for a full semester</div></div><div class="pp">৳300</div></label>
+      <label class="plan"><input type="radio" name="plan" value="1year"/><div><div class="pn">1 Year<span class="save">BEST VALUE</span></div><div class="ps">Complete diploma preparation</div></div><div class="pp">৳500</div></label>
+    </div>
+    <div class="fl"><label>Your Name *</label><input type="text" id="payName" placeholder="Full name" autocomplete="name"/></div>
+    <div class="fl"><label>Mobile Number *</label><input type="tel" id="payMobile" placeholder="01XXXXXXXXX" autocomplete="tel"/></div>
+    <div class="err-msg h" id="payErr"></div>
+    <div class="col-acts" style="margin-top:6px">
+      <button class="btn-bkash" id="payBtn" onclick="startPayment()">Pay with bKash</button>
+      <button class="btn-cancel" onclick="closeM('mPay')">Cancel</button>
+    </div>
+    <div class="pay-note">Payment is processed securely by bKash. Already Premium? <a onclick="closeM('mPay');openMemberLogin()">Login</a><span id="payHelp"></span></div>
+    <div class="pay-note" style="margin-top:8px">যোগাযোগ: <a href="https://wa.me/8801566054963" target="_blank" rel="noopener">WhatsApp 01566054963</a></div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="mMemberLogin">
+  <div class="modal">
+    <div class="modal-title">Premium Login</div>
+    <div class="modal-sub">Enter the mobile number that has Premium access to log in.</div>
+    <div class="fl"><label>Mobile Number</label><input type="tel" id="lmMobile" placeholder="01XXXXXXXXX" autocomplete="tel" onkeydown="if(event.key==='Enter')doMemberLogin()"/></div>
+    <div class="err-msg h" id="lmErr"></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeM('mMemberLogin')">Cancel</button>
+      <button class="btn-ok" id="lmBtn" onclick="doMemberLogin()">Login</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="mMember">
+  <div class="modal">
+    <div class="modal-title" id="mMemberTitle">Add Premium Member</div>
+    <div class="modal-sub">This mobile number will be able to log in. Choose which courses the member can watch.</div>
+    <input type="hidden" id="editMid"/>
+    <div class="fl"><label>Name *</label><input type="text" id="mmName" placeholder="Student name"/></div>
+    <div class="fl"><label>Mobile Number *</label><input type="tel" id="mmMobile" placeholder="01XXXXXXXXX"/></div>
+    <div class="fl"><label>Valid Until (optional)</label><input type="date" id="mmExpiry"/></div>
+    <div class="fl"><label>Course Access</label><div class="ca-box" id="mmCourses"></div></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeM('mMember')">Cancel</button>
+      <button class="btn-ok" onclick="saveMember()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="mNotice">
+  <div class="modal">
+    <div class="modal-title" id="noticeTitle">Not scheduled</div>
+    <div class="modal-sub" id="noticeMsg" style="margin-bottom:0"></div>
+    <div class="modal-acts"><button class="btn-ok" onclick="closeM('mNotice')">Got it</button></div>
+  </div>
+</div>
+
 <div class="modal-bg hidden" id="mConfirm">
   <div class="modal">
-    <div class="modal-title">🗑️ <span id="confTitle">Delete?</span></div>
-    <div class="modal-sub" id="confMsg">permanently delete হবে।</div>
+    <div class="modal-title" id="confTitle">Delete?</div>
+    <div class="modal-sub" id="confMsg"></div>
     <div class="modal-acts">
       <button class="btn-cancel" onclick="closeM('mConfirm')">Cancel</button>
       <button class="btn-ok red" onclick="runConfirm()">Delete</button>
@@ -604,487 +898,906 @@ button{cursor:pointer}
   </div>
 </div>
 
-<!-- Toast -->
 <div class="toast h" id="toast"></div>
 
-<!-- ═══════════════════════════════════════════════════════
-     FIREBASE + LOGIC
-═══════════════════════════════════════════════════════ -->
-<!-- ═══ CONTENT PROTECTION ═══ -->
-<script>
-/* Right-click prevent */
-document.addEventListener('contextmenu', function(e){
-  // Admin modal input গুলোতে allow করা হবে না — সব block
-  e.preventDefault();
-  return false;
-}, true);
 
-/* Keyboard shortcuts block */
-document.addEventListener('keydown', function(e){
-  // Ctrl+C, Ctrl+A, Ctrl+U (view source), Ctrl+S (save), Ctrl+P (print)
-  if(e.ctrlKey && ['c','a','u','s','p','x','v'].includes(e.key.toLowerCase())){
-    e.preventDefault();
-    return false;
-  }
-  // Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+Shift+C (devtools)
-  if(e.ctrlKey && e.shiftKey && ['i','j','c'].includes(e.key.toLowerCase())){
-    e.preventDefault();
-    return false;
-  }
-  // F12 (devtools)
-  if(e.key === 'F12'){
-    e.preventDefault();
-    return false;
-  }
-  // PrintScreen — cannot truly block but we try
-  if(e.key === 'PrintScreen'){
-    e.preventDefault();
-    return false;
-  }
-}, true);
+<!-- Device Settings modal -->
+<div class="modal-bg hidden" id="mDeviceSettings">
+  <div class="modal">
+    <div class="modal-title">Device Settings</div>
+    <div class="modal-sub" id="dsMemberName">Member device management</div>
+    <input type="hidden" id="dsMemberId"/>
+    <div id="dsCurrentDevice" style="margin:12px 0;padding:12px;background:var(--bg2);border-radius:10px;font-size:13px"></div>
+    <h4 style="font-size:12px;font-weight:700;color:var(--sub);letter-spacing:.08em;text-transform:uppercase;margin:12px 0 6px">Allowed Devices</h4>
+    <div class="modal-sub" style="font-size:12px;margin-bottom:8px">শুধু এই device গুলো login করতে পারবে। Empty রাখলে যেকোনো device থেকে login করা যাবে (তবে একসময়ে শুধু একটি)।</div>
+    <div id="dsAllowedList" style="max-height:160px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:6px;margin-bottom:8px"></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeM('mDeviceSettings')">বন্ধ করুন</button>
+      <button class="btn-ok red" onclick="forceLogoutDevice()">Device Logout করুন</button>
+    </div>
+  </div>
+</div>
+<!-- Device conflict modal -->
+<div class="modal-bg hidden" id="mDeviceConflict">
+  <div class="modal">
+    <div class="gate-ico" style="background:linear-gradient(135deg,#F0446E,#FF7A3D)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    </div>
+    <div class="modal-title">অন্য একটি device-এ এই নম্বর দিয়ে login আছে</div>
+    <div class="modal-sub" id="deviceConflictMsg">এই mobile number টি এখন অন্য একটি device-এ সক্রিয়।<br/>আপনি কি আগের device-টি logout করতে চান এবং এখানে login করতে চান?</div>
+    <div class="col-acts">
+      <button class="btn-ok" id="deviceForceBtn" onclick="deviceForceLogin()">হ্যাঁ, এই device-এ login করুন</button>
+      <button class="btn-cancel" onclick="closeM('mDeviceConflict')">না, বাতিল করুন</button>
+    </div>
+  </div>
+</div>
 
-/* Copy event block */
-document.addEventListener('copy', function(e){
-  e.preventDefault();
-  return false;
-}, true);
-
-/* Cut event block */
-document.addEventListener('cut', function(e){
-  e.preventDefault();
-  return false;
-}, true);
-
-/* Drag block (prevents dragging text) */
-document.addEventListener('dragstart', function(e){
-  e.preventDefault();
-  return false;
-}, true);
-
-/* Touch long press select block (mobile) */
-document.addEventListener('selectstart', function(e){
-  // Allow in input/textarea
-  if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'){
-    return true;
-  }
-  e.preventDefault();
-  return false;
-}, true);
-
-/* DevTools size detection (basic) */
-(function devToolsDetect(){
-  const threshold = 160;
-  function check(){
-    if(window.outerWidth - window.innerWidth > threshold ||
-       window.outerHeight - window.innerHeight > threshold){
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0F1923;color:#8A9BB0;font-family:Inter,sans-serif;font-size:16px;text-align:center;padding:20px;">⛔ Developer tools বন্ধ করুন এবং page reload করুন।</div>';
-    }
-  }
-  setInterval(check, 1000);
-})();
-</script>
+<!-- Contact admin (not logged in) modal -->
+<div class="modal-bg hidden" id="mContactAdmin">
+  <div class="modal">
+    <div class="gate-ico" style="background:linear-gradient(135deg,#4F35E8,#B24DF0)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </div>
+    <div class="modal-title">Admin-কে Contact করুন</div>
+    <div class="modal-sub">Premium access পেতে নিচের WhatsApp নম্বরে যোগাযোগ করুন:</div>
+    <a href="https://wa.me/8801566054963" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:10px;margin:16px 0;padding:14px;background:#25D366;color:#fff;border-radius:12px;font-weight:800;font-size:15px;text-decoration:none">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2.062 22l4.934-1.354A9.956 9.956 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 11.999 2zM12 20c-1.613 0-3.12-.448-4.413-1.228l-.316-.188-3.283.9.927-3.183-.206-.325A7.958 7.958 0 0 1 4 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8z"/></svg>
+      WhatsApp: 01566054963
+    </a>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeM('mContactAdmin')">বন্ধ করুন</button>
+    </div>
+  </div>
+</div>
 
 <script type="module">
-import { initializeApp }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, doc,
-         setDoc, updateDoc, deleteDoc }
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ─── Firebase config ──────────────────────────────────────
-// 🔧 Replace with your actual Firebase project config:
-// Firebase Console → Project Settings → Your apps → Web → Config
 const firebaseConfig = {
-  apiKey:            "AIzaSyDUMMY_REPLACE_WITH_YOUR_KEY",
-  authDomain:        "REPLACE.firebaseapp.com",
-  projectId:         "REPLACE_PROJECT_ID",
-  storageBucket:     "REPLACE.appspot.com",
-  messagingSenderId: "000000000000",
-  appId:             "1:000:web:000000"
+  apiKey:     "AIzaSyDGd3KAo45UuqmeGFALziz_oKm3htEASHY",
+  authDomain: "mywebtools-f8d53.firebaseapp.com",
+  projectId:  "mywebtools-f8d53"
 };
-// ──────────────────────────────────────────────────────────
-
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 
-// ─── State ────────────────────────────────────────────────
-let courses      = [];
-let curCourse    = null;
-let curVideo     = null;
-let adminIn      = false;
-let pendingDelFn = null;
-
-// ─── UTILS ───────────────────────────────────────────────
-function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;") }
-
-let toastT;
-window.showToast = s => {
-  const t=document.getElementById("toast");
-  t.textContent=s; t.classList.remove("h");
-  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.add("h"),2600);
+// ─── Icons ───────────────────────────────────────────────
+const I = {
+  bolt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h8l-1 8 10-12h-8z"/></svg>',
+  chip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>',
+  wave:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h3l3-8 4 16 3-8h7"/></svg>',
+  play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+  arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
+  book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/></svg>',
+  video:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg>',
+  lock:'<svg class="lock-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  star:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 6.5 7 .9-5.2 4.8 1.4 7L12 17.8 5.8 21.2l1.4-7L2 9.4l7-.9z"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></svg>'
 };
+const thumbIcons=[I.bolt,I.chip,I.gear,I.wave];
 
-function ytEmbed(url){
-  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0` : null;
+// ─── State ───────────────────────────────────────────────
+const LIVE_DOC="_live_settings";
+const SEMESTERS=["1st Semester","2nd Semester","3rd Semester","4th Semester","5th Semester","6th Semester","7th Semester","8th Semester"];
+let courses=[], curCourse=null, curVideo=null, adminIn=false, pendingDelFn=null;
+let members=[], session=null, pendingVid=null;
+let filterSem="", searchQ="";
+let liveType="class";
+let live={classTitle:"",classTime:"",classUrl:"",examTitle:"",examTime:"",examUrl:"",premiumUrl:"",premiumInfo:""};
+
+const $=id=>document.getElementById(id);
+
+// ── Screen capture / screenshot prevention ───────────────
+(function(){
+  // CSS trick: rotate content 180° on screenshot attempt
+  // Works in some Android / Chrome browsers
+  try{
+    const style=document.createElement('style');
+    style.id='_sc_protect';
+    // Hide content during screenshot in supported environments
+    document.head.appendChild(style);
+  }catch(e){}
+
+  // Prevent right-click on player
+  document.addEventListener('contextmenu',e=>{
+    if(e.target.closest('#playerArea, .player-area, .lv-player')){
+      e.preventDefault();
+    }
+  });
+
+  // Detect screen recording via visibilitychange (best-effort)
+  // Also disable keyboard shortcuts for screenshots
+  document.addEventListener('keydown',e=>{
+    // Block Print Screen
+    if(e.key==='PrintScreen'||e.code==='PrintScreen'){
+      e.preventDefault();
+      // Briefly blank the page
+      document.body.style.visibility='hidden';
+      setTimeout(()=>{document.body.style.visibility='';},400);
+    }
+    // Block Ctrl+Shift+S, Ctrl+P (print)
+    if((e.ctrlKey||e.metaKey)&&(e.key==='p'||e.key==='P'||e.shiftKey&&(e.key==='s'||e.key==='S'))){
+      e.preventDefault();
+    }
+  });
+})();
+
+
+// ── Device management ────────────────────────────────────
+const DEVICE_ID_KEY='rt_device_id';
+let _pendingDeviceMobile=null;
+
+function getOrCreateDeviceId(){
+  try{
+    let d=localStorage.getItem(DEVICE_ID_KEY);
+    if(!d){d='dev_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);localStorage.setItem(DEVICE_ID_KEY,d);}
+    return d;
+  }catch(e){return 'dev_fallback_'+Date.now().toString(36)}
+}
+const DEVICE_ID=getOrCreateDeviceId();
+
+function deviceLabel(){
+  const ua=navigator.userAgent;
+  let os='Unknown';
+  if(/Windows/.test(ua))os='Windows';
+  else if(/Android/.test(ua))os='Android';
+  else if(/iPhone|iPad/.test(ua))os='iOS';
+  else if(/Mac/.test(ua))os='Mac';
+  else if(/Linux/.test(ua))os='Linux';
+  let browser='Browser';
+  if(/Chrome/.test(ua)&&!/Edg/.test(ua))browser='Chrome';
+  else if(/Firefox/.test(ua))browser='Firefox';
+  else if(/Safari/.test(ua)&&!/Chrome/.test(ua))browser='Safari';
+  else if(/Edg/.test(ua))browser='Edge';
+  return os+' · '+browser;
 }
 
-// ─── VIEWS ───────────────────────────────────────────────
-window.goView = function(id){
+
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function safeUrl(u){u=String(u||"").trim();return /^https?:\/\//i.test(u)?u:""}
+$("yr").textContent=new Date().getFullYear();
+
+let toastT;
+window.showToast=s=>{const t=$("toast");t.textContent=s;t.classList.remove("h");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.add("h"),2600)};
+
+function ytEmbed(url){
+  const m=url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if(!m) return null;
+  return `https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1&color=white&enablejsapi=0`;
+}
+const lessonsLabel=n=>n+(n===1?" lesson":" lessons");
+const placeholder=(icon,msg)=>`<div class="player-placeholder"><div class="pp-ico">${icon}</div><p>${msg}</p></div>`;
+
+// ─── Views ───────────────────────────────────────────────
+window.goView=function(id){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
+  $(id).classList.add("active");
   window.scrollTo(0,0);
-  // update nav active state
   document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
-  if(id==="viewHome") document.getElementById("navHome").classList.add("active");
-  // topbar title
-  const titles = {viewHome:"Rajib Tutorial", viewCourse: curCourse?.title||"Course", viewManage:"Manage Courses"};
-  document.getElementById("topbarTitle").textContent = titles[id]||"Rajib Tutorial";
+  if(id==="viewHome") $("navHome").classList.add("active");
+  const titles={viewHome:"Rajib Tutorial",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewMembers:"Premium Members",viewLive:liveType==="exam"?"Live Exam":"Live Class"};
+  $("topbarTitle").textContent=titles[id]||"Rajib Tutorial";
+};
+window.goHome=function(){curCourse=null;curVideo=null;goView("viewHome");renderCourseGrid();renderSidebarCourses();closeSidebar()};
+window.openSidebar=()=>{$("sidebar").classList.add("open");$("overlay").classList.add("show")};
+window.closeSidebar=()=>{$("sidebar").classList.remove("open");$("overlay").classList.remove("show")};
+
+// ─── Live class / exam ───────────────────────────────────
+function renderLive(){
+  const cOn=!!safeUrl(live.classUrl), eOn=!!safeUrl(live.examUrl);
+  $("btnLiveClass").classList.toggle("is-live",cOn);
+  $("btnLiveExam").classList.toggle("is-live",eOn);
+  $("dotClass").classList.toggle("hidden",!cOn);
+  $("dotExam").classList.toggle("hidden",!eOn);
+  const parts=[];
+  if(cOn&&(live.classTitle||live.classTime)) parts.push(`<span>Live Class: <b>${esc(live.classTitle||"Scheduled")}</b>${live.classTime?" · "+esc(live.classTime):""}</span>`);
+  if(eOn&&(live.examTitle||live.examTime)) parts.push(`<span>Live Exam: <b>${esc(live.examTitle||"Scheduled")}</b>${live.examTime?" · "+esc(live.examTime):""}</span>`);
+  $("liveInfo").innerHTML=parts.join("");
+  if($("viewLive").classList.contains("active"))renderLivePage();
+}
+window.openLive=function(type){liveType=type==="exam"?"exam":"class";renderLivePage();goView("viewLive");closeSidebar()};
+function platformOf(u){try{const h=new URL(u).hostname.replace(/^www\./,"");
+  if(/youtu/.test(h))return"YouTube Live";if(/meet\.google/.test(h))return"Google Meet";if(/zoom/.test(h))return"Zoom";
+  if(/facebook|fb\.watch/.test(h))return"Facebook Live";return h}catch(e){return"Online"}}
+function renderLivePage(){
+  const exam=liveType==="exam",name=exam?"Live Exam":"Live Class";
+  const url=safeUrl(exam?live.examUrl:live.classUrl),on=!!url;
+  const title=(exam?live.examTitle:live.classTitle)||name;
+  const time=(exam?live.examTime:live.classTime)||"";
+  const embedRaw=on?ytEmbed(url):null,embed=embedRaw?embedRaw.replace("autoplay=1","autoplay=0"):null;
+  const tips=exam?[
+    ["Stable internet","Use a reliable connection and keep your phone or laptop fully charged."],
+    ["Be ready early","Join about 10 minutes before the start time so you can settle in."],
+    ["Keep materials handy","Have a pen, paper and a calculator ready before the exam begins."],
+    ["Stay in the session","Do not refresh or leave the page once the exam has started."]
+  ]:[
+    ["Stable internet","A steady connection gives you smooth video and audio."],
+    ["Join on time","Open the session 5 minutes early so you do not miss the beginning."],
+    ["Prepare your notes","Keep a notebook and pen ready to write down key points."],
+    ["Ask questions","Note down your doubts and ask the instructor during the class."]
+  ];
+  const ic={
+    clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    globe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>',
+    pulse:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg>',
+    cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    ext:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'
+  };
+  const v=$("viewLive");v.dataset.type=exam?"exam":"class";
+  v.innerHTML=`
+  <section class="lv-hero">
+    <div class="lv-tabs">
+      <button class="${exam?"":"on"}" onclick="openLive('class')">${I.video} Live Class</button>
+      <button class="${exam?"on":""}" onclick="openLive('exam')">${ic.cal} Live Exam</button>
+    </div>
+    <div class="lv-status ${on?"on":""}"><i></i>${on?"LIVE NOW":"NOT SCHEDULED"}</div>
+    <h1>${esc(title)}</h1>
+    <p class="lv-lead">${exam?"Test your preparation under real exam conditions and get ready for your finals.":"Learn together with your instructor in real time, ask questions and clear your doubts instantly."}</p>
+    ${time?`<div class="lv-time">${ic.clock}<span>${esc(time)}</span></div>`:""}
+    <div class="lv-actions">
+      ${on?`<a class="lv-join" href="${esc(url)}" target="_blank" rel="noopener">Join ${name} ${ic.ext}</a>`
+          :`<button class="lv-join off" onclick="goHome();setTimeout(()=>$('coursesAnchor').scrollIntoView(),50)">Browse recorded courses</button>`}
+    </div>
+  </section>
+  <div class="lv-body">
+    <div class="lv-cards">
+      <div class="lv-card"><div class="lv-ico">${ic.pulse}</div><div><small>Status</small><b>${on?"Open for joining":"Nothing scheduled"}</b></div></div>
+      <div class="lv-card"><div class="lv-ico">${ic.clock}</div><div><small>Schedule</small><b>${time?esc(time):"To be announced"}</b></div></div>
+      <div class="lv-card"><div class="lv-ico">${ic.globe}</div><div><small>Platform</small><b>${on?esc(platformOf(url)):"Not available yet"}</b></div></div>
+    </div>
+    ${embed?`<div class="lv-player"><iframe src="${embed}" allow="autoplay;encrypted-media;picture-in-picture" allowfullscreen></iframe></div>`:""}
+    ${on?"":`<div class="lv-empty"><div class="lv-empty-ico">${I.video}</div><h3>No ${name.toLowerCase()} right now</h3><p>There is no ${name.toLowerCase()} scheduled at the moment. Please check back later, or continue learning with the recorded video courses.</p></div>`}
+    <h2 class="lv-h2">${on?"Before you join":"When a session is scheduled"}</h2>
+    <div class="lv-tips">${tips.map((t,i)=>`<div class="lv-tip"><span class="lv-n">${i+1}</span><div><b>${t[0]}</b><p>${t[1]}</p></div></div>`).join("")}</div>
+  </div>`;
+}
+window.openLiveSettings=function(){
+  $("lcTitle").value=live.classTitle||"";$("lcTime").value=live.classTime||"";$("lcUrl").value=live.classUrl||"";
+  $("leTitle").value=live.examTitle||"";$("leTime").value=live.examTime||"";$("leUrl").value=live.examUrl||"";
+  $("pmUrl").value=live.premiumUrl||"";$("pmInfo").value=live.premiumInfo||"";
+  openM("mLive");
+};
+window.saveLive=async function(){
+  const cu=$("lcUrl").value.trim(), eu=$("leUrl").value.trim(), pu=$("pmUrl").value.trim();
+  if((cu&&!safeUrl(cu))||(eu&&!safeUrl(eu))||(pu&&!safeUrl(pu))){showToast("Links must start with http:// or https://");return}
+  const next={classTitle:$("lcTitle").value.trim(),classTime:$("lcTime").value.trim(),classUrl:cu,
+              examTitle:$("leTitle").value.trim(),examTime:$("leTime").value.trim(),examUrl:eu,premiumUrl:pu,premiumInfo:$("pmInfo").value.trim()};
+  try{
+    await setDoc(doc(db,"tutorial_courses",LIVE_DOC),{live:next,isSettings:true});
+    live=next;renderLive();closeM("mLive");showToast("Live settings saved");
+  }catch(e){showToast("Error: "+e.message)}
 };
 
-window.goHome = function(){
-  curCourse=null; curVideo=null;
-  goView("viewHome");
-  renderCourseGrid();
-};
-
-// ─── SIDEBAR mobile ──────────────────────────────────────
-window.openSidebar  = ()=>{ document.getElementById("sidebar").classList.add("open"); document.getElementById("overlay").classList.add("show"); };
-window.closeSidebar = ()=>{ document.getElementById("sidebar").classList.remove("open"); document.getElementById("overlay").classList.remove("show"); };
-
-// ─── LOAD COURSES ────────────────────────────────────────
+// ─── Load courses ────────────────────────────────────────
 async function loadCourses(){
   try{
-    const snap = await getDocs(collection(db,"tutorial_courses"));
-    courses=[];
+    const snap=await getDocs(collection(db,"tutorial_courses"));
+    courses=[];members=[];
     snap.forEach(d=>{
       const data=d.data();
+      if(d.id===LIVE_DOC){live={...live,...(data.live||{})};return}
+      if(d.id.startsWith("_member_")){members.push({id:d.id,...data});return}
       courses.push({
-        id:d.id,
-        courseName: data.courseName||"",
-        title: data.title||d.id,
-        className: data.className||"",
-        subject: data.subject||"",
-        description: data.description||"",
-        videos: (data.videos||[]).map(v=>({
-          id: v.id||"",
-          title: v.title||"",
-          url: v.cloudinaryUrl||v.url||"",
-          durationMinutes: v.durationMinutes||0
-        }))
+        id:d.id,courseName:data.courseName||"",title:data.title||d.id,
+        className:data.className||"",subject:data.subject||"",description:data.description||"",
+        videos:(data.videos||[]).map(v=>({id:v.id||"",title:v.title||"",url:v.cloudinaryUrl||v.url||"",durationMinutes:v.durationMinutes||0}))
       });
     });
   }catch(e){
     courses=[];
-    document.getElementById("courseGridWrap").innerHTML=
-      `<div class="empty"><div class="empty-ico">⚠️</div><p>Firebase config দরকার।<br/><small>index.html এ firebaseConfig replace করো।</small></p></div>`;
+    $("courseGridWrap").innerHTML=`<div class="empty">${I.warn}<p>We could not load the courses at the moment.<br/>Please check your internet connection and refresh the page.</p></div>`;
     return;
   }
-  renderCourseGrid();
-  renderSidebarCourses();
-  updateStats();
+  buildSemFilter();renderLive();renderCourseGrid();renderSidebarCourses();updateStats();
+  validateSession();renderUser();if(curCourse)renderVlist();
   if(adminIn) renderManage();
 }
-
+function semOptions(extra){
+  const set=[...SEMESTERS];
+  courses.forEach(c=>{if(c.className&&!set.includes(c.className))set.push(c.className)});
+  if(extra&&!set.includes(extra))set.push(extra);
+  return set;
+}
+function buildSemFilter(){
+  const used=semOptions().filter(s=>courses.some(c=>c.className===s));
+  $("semFilter").innerHTML=`<option value="">All Semesters</option>`+used.map(s=>`<option ${s===filterSem?"selected":""}>${esc(s)}</option>`).join("");
+}
 function updateStats(){
   const tv=courses.reduce((s,c)=>s+(c.videos?.length||0),0);
-  document.getElementById("statC").textContent=courses.length;
-  document.getElementById("statV").textContent=tv;
-  document.getElementById("cntLabel").textContent=`${courses.length} courses`;
+  $("statC").textContent=courses.length;$("statV").textContent=tv;
 }
-
-const emojis=["⚡","🔌","💡","🛠️","📐","🔋","📡","⚙️","🌐","🔧"];
+window.setSearch=v=>{searchQ=v.trim().toLowerCase();renderCourseGrid()};
+window.setSem=v=>{filterSem=v;renderCourseGrid()};
 
 function renderCourseGrid(){
-  const wrap=document.getElementById("courseGridWrap");
-  if(!courses.length){
-    wrap.innerHTML=`<div class="empty"><div class="empty-ico">📚</div><p>No courses yet.<br/><small>Admin panel থেকে course যোগ করো।</small></p></div>`;
-    return;
-  }
-  wrap.innerHTML=`<div class="course-grid">${courses.map((c,i)=>`
+  const wrap=$("courseGridWrap");
+  const list=courses.filter(c=>(!filterSem||c.className===filterSem)&&(!searchQ||[c.title,c.courseName,c.subject,c.className,c.description].join(" ").toLowerCase().includes(searchQ)));
+  $("cntLabel").textContent=courses.length?`${list.length} of ${courses.length} courses`:"";
+  if(!courses.length){wrap.innerHTML=`<div class="empty">${I.book}<p>New courses will be published soon.</p></div>`;return}
+  if(!list.length){wrap.innerHTML=`<div class="empty">${I.book}<p>No courses match your search.</p></div>`;return}
+  wrap.innerHTML=`<div class="course-grid">${list.map((c,i)=>`
     <div class="course-card" onclick="openCourse('${c.id}')">
-      <div class="cc-thumb"><span>${emojis[i%emojis.length]}</span>
-        <span class="cc-vcount">${c.videos?.length||0} videos</span></div>
+      <div class="cc-thumb">${thumbIcons[i%thumbIcons.length]}<span class="cc-vcount">${lessonsLabel(c.videos.length)}</span></div>
       <div class="cc-body">
         ${c.courseName?`<div class="cc-tag">${esc(c.courseName)}</div>`:""}
         <div class="cc-name">${esc(c.title)}</div>
-        <div class="cc-meta">${[c.className,c.subject].filter(Boolean).join(" • ")||"EEE Course"}</div>
+        <div class="cc-meta">${esc([c.className,c.subject].filter(Boolean).join(" · ")||"Diploma in EEE")}</div>
+        ${c.description?`<div class="cc-desc">${esc(c.description)}</div>`:""}
         <div class="cc-foot">
-          <span class="cc-vids">▶ ${c.videos?.length||0} videos</span>
-          <button class="btn-watch" onclick="event.stopPropagation();openCourse('${c.id}')">Watch →</button>
+          <span class="cc-vids">${I.video}${lessonsLabel(c.videos.length)}</span>
+          <span class="btn-watch">View course ${I.arrow}</span>
         </div>
       </div>
     </div>`).join("")}</div>`;
 }
-
 function renderSidebarCourses(){
-  const wrap=document.getElementById("sidebarCourses");
-  if(!courses.length){ wrap.innerHTML=`<div style="padding:6px 8px;font-size:12px;color:var(--sub)">No courses yet</div>`; return; }
+  const wrap=$("sidebarCourses");
+  if(!courses.length){wrap.innerHTML=`<div style="padding:6px 12px;font-size:12px;color:rgba(255,255,255,.75)">No courses yet</div>`;return}
   wrap.innerHTML=courses.map(c=>`
-    <div class="course-nav-item ${curCourse?.id===c.id?'active':''}" onclick="openCourse('${c.id}')">
-      <div class="course-nav-dot"></div>
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(c.title)}</span>
+    <div class="course-nav-item ${curCourse?.id===c.id?"active":""}" onclick="openCourse('${c.id}')">
+      <span class="course-nav-dot"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(c.title)}</span>
     </div>`).join("");
 }
 
-// ─── OPEN COURSE ─────────────────────────────────────────
-window.openCourse = function(cid){
-  curCourse = courses.find(c=>c.id===cid);
-  if(!curCourse) return;
-  curVideo = null;
-  document.getElementById("cpTitle").textContent = curCourse.title;
-  document.getElementById("cpSub").textContent   = `${curCourse.videos?.length||0} videos`;
+// ─── Course & player ─────────────────────────────────────
+window.openCourse=function(cid){
+  curCourse=courses.find(c=>c.id===cid);if(!curCourse)return;
+  curVideo=null;
+  $("cpTitle").textContent=curCourse.title;
+  $("cpSub").textContent=lessonsLabel(curCourse.videos.length);
   renderVlist();
-  document.getElementById("playerArea").innerHTML=`<div class="player-placeholder"><div class="pp-ico">▶</div><p>Select a video to play</p></div>`;
-  document.getElementById("playerTitle").textContent="—";
-  document.getElementById("playerMeta").textContent="";
-  goView("viewCourse");
-  renderSidebarCourses();
-  closeSidebar();
+  $("playerArea").innerHTML=placeholder(I.play,"Select a lesson to start watching");
+  $("playerTitle").textContent="–";$("playerMeta").textContent="";
+  goView("viewCourse");renderSidebarCourses();closeSidebar();
 };
-
 function renderVlist(){
-  const wrap=document.getElementById("vlistScroll");
-  const vids=curCourse?.videos||[];
-  if(!vids.length){ wrap.innerHTML=`<div class="empty" style="padding:30px 10px"><div class="empty-ico">🎬</div><p>No videos yet</p></div>`; return; }
+  const wrap=$("vlistScroll"),vids=curCourse?.videos||[];
+  if(!vids.length){wrap.innerHTML=`<div class="empty" style="padding:30px 10px">${I.video}<p>No lessons yet</p></div>`;return}
   wrap.innerHTML=vids.map((v,i)=>`
-    <div class="vlist-item ${curVideo?.id===v.id?'playing':''}" onclick="playVideo('${v.id}')">
-      <div class="vnum">${curVideo?.id===v.id?'▶':(i+1)}</div>
-      <div class="vinfo">
-        <div class="vtitle">${esc(v.title)}</div>
-        ${v.durationMinutes?`<div class="vdur">⏱ ${v.durationMinutes} min</div>`:""}
-      </div>
-      <span class="vplay-ico">${curVideo?.id===v.id?'🔊':'▷'}</span>
+    <div class="vlist-item ${curVideo?.id===v.id?"playing":""}" onclick="playVideo('${v.id}')">
+      <div class="vnum">${curVideo?.id===v.id?"▶":i+1}</div>
+      <div class="vinfo"><div class="vtitle">${esc(v.title)}</div>${v.durationMinutes?`<div class="vdur">${v.durationMinutes} min</div>`:""}</div>
+      ${canWatch()?"":I.lock}
     </div>`).join("");
 }
-
-// ─── PLAY VIDEO ──────────────────────────────────────────
-window.playVideo = function(vid){
-  curVideo = curCourse?.videos?.find(v=>v.id===vid);
-  if(!curVideo) return;
+window.playVideo=async function(vid){
+  const want=curCourse?.videos?.find(v=>v.id===vid);if(!want)return;
+  if(!canWatch()){pendingVid=vid;openPremiumGate(isPremium()?"noaccess":"login");return}
+  // ── Verify session before every play ──
+  if(session?.mobile&&!adminIn){
+    try{
+      const snap=await getDoc(doc(db,"tutorial_courses","_member_"+session.mobile));
+      if(snap.exists()){
+        const d=snap.data();
+        // Token mismatch → kicked out by another device
+        if(d.sessionToken && d.sessionToken!==session.token){
+          _forceLogoutUser("এই video চালু করা যাচ্ছে না। আপনার account অন্য device-এ login হয়েছে।");
+          return;
+        }
+        // Allowed-device block
+        if(d.allowedDevices&&d.allowedDevices.length>0&&!d.allowedDevices.includes(DEVICE_ID)){
+          _forceLogoutUser("এই device-এ video দেখার অনুমতি নেই।");
+          return;
+        }
+        // Expiry
+        if(d.expiry&&todayStr()>d.expiry){
+          _forceLogoutUser("আপনার Premium membership মেয়াদোত্তীর্ণ।");
+          return;
+        }
+      }
+    }catch(e){}// network issue — allow play
+  }
+  curVideo=want;
   renderVlist();
-
-  const area  = document.getElementById("playerArea");
-  area.classList.remove("unlocked");
-  const embed = ytEmbed(curVideo.url||"");
+  const area=$("playerArea"),embed=ytEmbed(curVideo.url||"");
   if(embed){
-    area.innerHTML=`<iframe src="${embed}" allow="autoplay;fullscreen;accelerometer;gyroscope;picture-in-picture" allowfullscreen></iframe><div class="iframe-shield" onclick="this.closest('.player-area').classList.add('unlocked')"></div>`;
-  } else if(curVideo.url){
+    area.classList.remove('unlocked');area.innerHTML=`<iframe src="${embed}" allow="autoplay;encrypted-media;accelerometer;gyroscope;picture-in-picture" allowfullscreen></iframe><div class="iframe-shield" onclick="this.closest('.player-area').classList.add('unlocked')"></div>`;
+  }else if(curVideo.url){
     area.innerHTML=`<video controls autoplay src="${esc(curVideo.url)}" style="width:100%;height:100%;background:#000"></video>`;
-  } else {
-    area.innerHTML=`<div class="player-placeholder"><div class="pp-ico">⚠️</div><p>No URL set for this video</p></div>`;
+  }else{
+    area.innerHTML=placeholder(I.warn,"No video link set for this lesson");
   }
-  document.getElementById("playerTitle").textContent = curVideo.title;
-  document.getElementById("playerMeta").textContent  = curVideo.durationMinutes ? `⏱ ${curVideo.durationMinutes} min` : "";
-  // scroll into view on mobile
-  document.getElementById("playerArea").scrollIntoView({behavior:"smooth",block:"nearest"});
+  $("playerTitle").textContent=curVideo.title;
+  $("playerMeta").textContent=curVideo.durationMinutes?`${curVideo.durationMinutes} min`:"";
+  area.scrollIntoView({behavior:"smooth",block:"nearest"});
 };
 
-// ─── ADMIN LOGIN ─────────────────────────────────────────
-const ADMIN_PW = "1111";
-
-window.openAdminLogin = function(){
-  if(adminIn){ goView("viewManage"); return; }
-  document.getElementById("pwIn").value="";
-  clearPwErr();
-  openM("mLogin");
-  setTimeout(()=>document.getElementById("pwIn").focus(),120);
+// ─── Admin ───────────────────────────────────────────────
+const ADMIN_PW="1111";
+window.openAdminLogin=function(){
+  if(adminIn){goView("viewManage");closeSidebar();return}
+  $("pwIn").value="";clearPwErr();openM("mLogin");setTimeout(()=>$("pwIn").focus(),120);
 };
-
-window.doLogin = function(){
-  if(document.getElementById("pwIn").value === ADMIN_PW){
-    adminIn=true;
-    closeM("mLogin");
-    // show admin sidebar section, hide login btn
-    document.getElementById("adminSidebar").classList.add("show");
-    document.getElementById("btnAdminLogin").style.display="none";
-    renderManage();
-    goView("viewManage");
-    closeSidebar();
-    showToast("Admin panel এ স্বাগতম ✓");
-  } else {
-    document.getElementById("pwErr").classList.remove("h");
-    document.getElementById("pwIn").value="";
-    document.getElementById("pwIn").focus();
-  }
+window.doLogin=function(){
+  if($("pwIn").value===ADMIN_PW){
+    adminIn=true;closeM("mLogin");
+    $("adminSidebar").classList.add("show");$("btnAdminLogin").style.display="none";
+    renderManage();renderUser();if(curCourse)renderVlist();goView("viewManage");closeSidebar();showToast("Welcome to the admin panel");
+  }else{$("pwErr").classList.remove("h");$("pwIn").value="";$("pwIn").focus()}
 };
-
-window.adminLogout = function(){
-  adminIn=false;
-  document.getElementById("adminSidebar").classList.remove("show");
-  document.getElementById("btnAdminLogin").style.display="";
-  goHome();
-  showToast("Logged out");
+window.adminLogout=function(){
+  adminIn=false;$("adminSidebar").classList.remove("show");$("btnAdminLogin").style.display="";
+  renderUser();goHome();showToast("Logged out");
 };
+window.clearPwErr=()=>$("pwErr").classList.add("h");
+window.toggleEye=()=>{const i=$("pwIn");i.type=i.type==="password"?"text":"password"};
 
-window.clearPwErr = ()=>document.getElementById("pwErr").classList.add("h");
-window.toggleEye  = ()=>{
-  const i=document.getElementById("pwIn");
-  i.type=i.type==="password"?"text":"password";
-  document.getElementById("eyeBtn").textContent=i.type==="password"?"👁":"🙈";
-};
-
-// ─── MANAGE COURSES ──────────────────────────────────────
 function renderManage(){
-  const wrap=document.getElementById("manageCourseList");
-  if(!courses.length){
-    wrap.innerHTML=`<div class="empty"><div class="empty-ico">📚</div><p>No courses. "+ Add Course" বাটন চাপো।</p></div>`;
-    return;
-  }
-  wrap.innerHTML=`<div class="manage-list">${courses.map((c,i)=>`
+  const wrap=$("manageCourseList");
+  if(!courses.length){wrap.innerHTML=`<div class="empty">${I.book}<p>No courses yet. Click “+ Add Course” to create one.</p></div>`;return}
+  wrap.innerHTML=courses.map((c,i)=>`
     <div class="manage-card">
-      <div class="mc-icon">${emojis[i%emojis.length]}</div>
+      <div class="mc-icon">${thumbIcons[i%thumbIcons.length]}</div>
       <div class="mc-info">
         <strong>${esc(c.title)}</strong>
-        <span>${esc(c.courseName)} ${[c.className,c.subject].filter(Boolean).join(" • ")}</span>
-        <span style="color:var(--accent);font-size:11px">▶ ${c.videos?.length||0} videos</span>
+        <span>${esc([c.courseName,c.className,c.subject].filter(Boolean).join(" · "))}</span>
+        <span style="color:var(--accent2)">${lessonsLabel(c.videos.length)}</span>
       </div>
       <div class="mc-acts">
-        <button class="btn-ic e" onclick="openEditCourse('${c.id}')">✏️</button>
-        <button class="btn-ic d" onclick="confirmDelCourse('${c.id}')">🗑️</button>
+        <button class="btn-ic e" onclick="openEditCourse('${c.id}')" aria-label="Edit">${I.edit}</button>
+        <button class="btn-ic d" onclick="confirmDelCourse('${c.id}')" aria-label="Delete">${I.trash}</button>
       </div>
     </div>
-    <!-- video sub-section -->
-    <div style="padding:0 10px 12px;margin-top:-6px;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 13px 13px;margin-bottom:8px">
-      <div class="vsub-hdr">
-        <span class="vsub-title">🎬 Videos (${c.videos?.length||0})</span>
-        <button class="btn-add-sm" onclick="openAddVideo('${c.id}')">+ Add Video</button>
-      </div>
-      ${c.videos?.length?`<div class="vmanage-list">${c.videos.map((v,j)=>`
+    <div class="vsub">
+      <div class="vsub-hdr"><span class="vsub-title">Lessons (${c.videos.length})</span><button class="btn-add-sm" onclick="openAddVideo('${c.id}')">+ Add Video</button></div>
+      ${c.videos.map((v,j)=>`
         <div class="vmanage-item">
           <div class="vm-num">${j+1}</div>
-          <div class="vm-info">
-            <strong>${esc(v.title)}</strong>
-            <span>${v.url?(v.url.length>55?v.url.slice(0,55)+"…":v.url):"No URL"}</span>
-          </div>
+          <div class="vm-info"><strong>${esc(v.title)}</strong><span>${esc(v.url?(v.url.length>60?v.url.slice(0,60)+"…":v.url):"No link")}</span></div>
           <div class="mc-acts">
-            <button class="btn-ic e" onclick="openEditVideo('${c.id}','${v.id}')">✏️</button>
-            <button class="btn-ic d" onclick="confirmDelVideo('${c.id}','${v.id}')">🗑️</button>
+            <button class="btn-ic e" onclick="openEditVideo('${c.id}','${v.id}')" aria-label="Edit">${I.edit}</button>
+            <button class="btn-ic d" onclick="confirmDelVideo('${c.id}','${v.id}')" aria-label="Delete">${I.trash}</button>
           </div>
-        </div>`).join("")}</div>`
-      :`<div style="font-size:12px;color:var(--sub);padding:6px 2px">No videos yet. "+ Add Video" বাটন চাপো।</div>`}
-    </div>`).join("")}</div>`;
+        </div>`).join("")||`<div style="font-size:12px;color:var(--sub);padding:6px 2px">No lessons yet. Click “+ Add Video”.</div>`}
+    </div>`).join("");
 }
 
-// ─── COURSE CRUD ─────────────────────────────────────────
-window.openAddCourse = function(){
-  document.getElementById("editCId").value="";
-  document.getElementById("mCourseTitle").textContent="📚 New Course";
-  ["cName","cTitle","cDesc"].forEach(id=>document.getElementById(id).value="");
-  document.getElementById("cClass").value="";
-  document.getElementById("cSubject").value="";
-  openM("mCourse");
+// ─── Course CRUD ─────────────────────────────────────────
+function fillSemSelect(val){
+  $("cClass").innerHTML=`<option value="">Select semester</option>`+semOptions(val).map(s=>`<option ${s===val?"selected":""}>${esc(s)}</option>`).join("");
+}
+window.openAddCourse=function(){
+  $("editCId").value="";$("mCourseTitle").textContent="New Course";
+  ["cName","cTitle","cDesc"].forEach(id=>$(id).value="");
+  fillSemSelect("");$("cSubject").value="";openM("mCourse");
 };
-
-window.openEditCourse = function(cid){
-  const c=courses.find(x=>x.id===cid); if(!c) return;
-  document.getElementById("editCId").value=c.id;
-  document.getElementById("mCourseTitle").textContent="✏️ Edit Course";
-  document.getElementById("cName").value=c.courseName||"";
-  document.getElementById("cTitle").value=c.title||"";
-  document.getElementById("cClass").value=c.className||"";
-  document.getElementById("cSubject").value=c.subject||"";
-  document.getElementById("cDesc").value=c.description||"";
-  openM("mCourse");
+window.openEditCourse=function(cid){
+  const c=courses.find(x=>x.id===cid);if(!c)return;
+  $("editCId").value=c.id;$("mCourseTitle").textContent="Edit Course";
+  $("cName").value=c.courseName;$("cTitle").value=c.title;$("cDesc").value=c.description;
+  fillSemSelect(c.className);
+  if(c.subject&&![...$("cSubject").options].some(o=>o.value===c.subject||o.text===c.subject)){
+    const o=document.createElement("option");o.textContent=c.subject;$("cSubject").appendChild(o);
+  }
+  $("cSubject").value=c.subject;openM("mCourse");
 };
-
-window.saveCourse = async function(){
-  const name=document.getElementById("cName").value.trim();
-  const title=document.getElementById("cTitle").value.trim();
-  if(!name||!title){showToast("Course Name ও Title দিন ⚠️");return;}
-  const data={courseName:name,title,className:document.getElementById("cClass").value,
-    subject:document.getElementById("cSubject").value,description:document.getElementById("cDesc").value.trim()};
-  const eid=document.getElementById("editCId").value;
+window.saveCourse=async function(){
+  const name=$("cName").value.trim(),title=$("cTitle").value.trim();
+  if(!name||!title){showToast("Please enter Course Name and Title");return}
+  const data={courseName:name,title,className:$("cClass").value,subject:$("cSubject").value,description:$("cDesc").value.trim()};
+  const eid=$("editCId").value;
+  if(!eid){
+    const dup=courses.find(c=>c.title.trim().toLowerCase()===title.toLowerCase()&&c.courseName.trim().toLowerCase()===name.toLowerCase());
+    if(dup){showToast("A course with this name already exists");return}
+  }
   try{
-    if(eid){ await updateDoc(doc(db,"tutorial_courses",eid),data); showToast("Course updated ✓"); }
-    else   { const id="course_"+Date.now().toString(36); await setDoc(doc(db,"tutorial_courses",id),{...data,videos:[]}); showToast("Course created ✓"); }
-    closeM("mCourse");
-    await loadCourses();
-    renderManage();
-  }catch(e){showToast("Error: "+e.message);}
+    if(eid){await updateDoc(doc(db,"tutorial_courses",eid),data);showToast("Course updated")}
+    else{const id="course_"+Date.now().toString(36);await setDoc(doc(db,"tutorial_courses",id),{...data,videos:[]});showToast("Course created")}
+    closeM("mCourse");await loadCourses();renderManage();
+  }catch(e){showToast("Error: "+e.message)}
 };
-
-window.confirmDelCourse = function(cid){
+window.confirmDelCourse=function(cid){
   const c=courses.find(x=>x.id===cid);
-  document.getElementById("confTitle").textContent="Delete Course?";
-  document.getElementById("confMsg").textContent=`"${c?.title||cid}" ও এর সব video permanently delete হবে।`;
-  pendingDelFn=async()=>{ await deleteDoc(doc(db,"tutorial_courses",cid)); showToast("Deleted"); closeM("mConfirm"); await loadCourses(); renderManage(); };
+  $("confTitle").textContent="Delete course?";
+  $("confMsg").textContent=`“${c?.title||cid}” and all its videos will be permanently deleted.`;
+  pendingDelFn=async()=>{await deleteDoc(doc(db,"tutorial_courses",cid));showToast("Deleted");closeM("mConfirm");await loadCourses();renderManage()};
   openM("mConfirm");
 };
 
-// ─── VIDEO CRUD ──────────────────────────────────────────
-window.openAddVideo = function(cid){
-  document.getElementById("editVId").value="";
-  document.getElementById("editVCourse").value=cid;
-  document.getElementById("mVideoTitle").textContent="🎬 Add Video";
-  document.getElementById("vTitle").value="";
-  document.getElementById("vUrl").value="";
-  document.getElementById("vDur").value="";
-  openM("mVideo");
+// ─── Video CRUD ──────────────────────────────────────────
+window.openAddVideo=function(cid){
+  $("editVId").value="";$("editVCourse").value=cid;$("mVideoTitle").textContent="Add Video";
+  $("vTitle").value="";$("vUrl").value="";$("vDur").value="";openM("mVideo");
 };
-
-window.openEditVideo = function(cid,vid){
-  const course=courses.find(c=>c.id===cid);
-  const video=course?.videos?.find(v=>v.id===vid); if(!video) return;
-  document.getElementById("editVId").value=vid;
-  document.getElementById("editVCourse").value=cid;
-  document.getElementById("mVideoTitle").textContent="✏️ Edit Video";
-  document.getElementById("vTitle").value=video.title||"";
-  document.getElementById("vUrl").value=video.url||"";
-  document.getElementById("vDur").value=video.durationMinutes||"";
-  openM("mVideo");
+window.openEditVideo=function(cid,vid){
+  const v=courses.find(c=>c.id===cid)?.videos?.find(x=>x.id===vid);if(!v)return;
+  $("editVId").value=vid;$("editVCourse").value=cid;$("mVideoTitle").textContent="Edit Video";
+  $("vTitle").value=v.title;$("vUrl").value=v.url;$("vDur").value=v.durationMinutes||"";openM("mVideo");
 };
-
-window.saveVideo = async function(){
-  const title=document.getElementById("vTitle").value.trim();
-  const url=document.getElementById("vUrl").value.trim();
-  if(!title||!url){showToast("Title ও YouTube link দিন ⚠️");return;}
-  const cid=document.getElementById("editVCourse").value;
-  const eid=document.getElementById("editVId").value;
-  const course=courses.find(c=>c.id===cid); if(!course) return;
-  const dur=parseInt(document.getElementById("vDur").value)||0;
-  let vids=[...(course.videos||[])];
-  if(eid){
-    vids=vids.map(v=>v.id===eid?{...v,title,cloudinaryUrl:url,url,durationMinutes:dur}:v);
-  } else {
-    vids.push({id:"vid_"+Date.now().toString(36),title,cloudinaryUrl:url,url,durationMinutes:dur});
-  }
+window.saveVideo=async function(){
+  const title=$("vTitle").value.trim(),url=$("vUrl").value.trim();
+  if(!title||!url){showToast("Please enter a title and a video link");return}
+  const cid=$("editVCourse").value,eid=$("editVId").value;
+  const course=courses.find(c=>c.id===cid);if(!course)return;
+  const dur=parseInt($("vDur").value)||0;
+  let vids=[...course.videos];
+  if(eid) vids=vids.map(v=>v.id===eid?{...v,title,cloudinaryUrl:url,url,durationMinutes:dur}:v);
+  else vids.push({id:"vid_"+Date.now().toString(36),title,cloudinaryUrl:url,url,durationMinutes:dur});
   try{
     await updateDoc(doc(db,"tutorial_courses",cid),{videos:vids});
-    showToast(eid?"Video updated ✓":"Video added ✓");
-    closeM("mVideo");
-    await loadCourses();
-    renderManage();
-    // refresh if viewing same course
-    if(curCourse?.id===cid){ curCourse=courses.find(c=>c.id===cid); renderVlist(); }
-  }catch(e){showToast("Error: "+e.message);}
+    showToast(eid?"Video updated":"Video added");closeM("mVideo");
+    await loadCourses();renderManage();
+    if(curCourse?.id===cid){curCourse=courses.find(c=>c.id===cid);renderVlist()}
+  }catch(e){showToast("Error: "+e.message)}
 };
-
-window.confirmDelVideo = function(cid,vid){
-  const c=courses.find(x=>x.id===cid);
-  const v=c?.videos?.find(x=>x.id===vid);
-  document.getElementById("confTitle").textContent="Delete Video?";
-  document.getElementById("confMsg").textContent=`"${v?.title||vid}" delete হবে।`;
+window.confirmDelVideo=function(cid,vid){
+  const c=courses.find(x=>x.id===cid),v=c?.videos?.find(x=>x.id===vid);
+  $("confTitle").textContent="Delete video?";
+  $("confMsg").textContent=`“${v?.title||vid}” will be permanently deleted.`;
   pendingDelFn=async()=>{
-    const updated=c.videos.filter(x=>x.id!==vid);
-    await updateDoc(doc(db,"tutorial_courses",cid),{videos:updated});
-    showToast("Deleted"); closeM("mConfirm");
-    await loadCourses(); renderManage();
-    if(curCourse?.id===cid){ curCourse=courses.find(x=>x.id===cid); renderVlist(); }
+    await updateDoc(doc(db,"tutorial_courses",cid),{videos:c.videos.filter(x=>x.id!==vid)});
+    showToast("Deleted");closeM("mConfirm");await loadCourses();renderManage();
+    if(curCourse?.id===cid){curCourse=courses.find(x=>x.id===cid);renderVlist()}
   };
   openM("mConfirm");
 };
+window.runConfirm=()=>pendingDelFn&&pendingDelFn();
 
-window.runConfirm = ()=>pendingDelFn&&pendingDelFn();
+// ─── Modal helpers ───────────────────────────────────────
+window.openM=id=>$(id).classList.remove("hidden");
+window.closeM=id=>$(id).classList.add("hidden");
+document.querySelectorAll(".modal-bg").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.add("hidden")}));
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){document.querySelectorAll(".modal-bg").forEach(m=>m.classList.add("hidden"));closeSidebar()}});
 
-// ─── MODAL HELPERS ───────────────────────────────────────
-window.openM = id=>document.getElementById(id).classList.remove("hidden");
-window.closeM= id=>document.getElementById(id).classList.add("hidden");
-document.querySelectorAll(".modal-bg").forEach(m=>
-  m.addEventListener("click",e=>{ if(e.target===m) m.classList.add("hidden"); })
-);
+// ─── Fullscreen ──────────────────────────────────────────
+window.toggleFullscreen=function(){
+  const area=$("playerArea"),isFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
+  if(!isFs){(area.requestFullscreen||area.webkitRequestFullscreen)?.call(area)}
+  else{(document.exitFullscreen||document.webkitExitFullscreen)?.call(document)}
+};
+function onFsChange(){const isFs=!!(document.fullscreenElement||document.webkitFullscreenElement);$("fsLabel").textContent=isFs?"Exit":"Fullscreen"}
+document.addEventListener("fullscreenchange",onFsChange);
+document.addEventListener("webkitfullscreenchange",onFsChange);
 
-// ─── BOOT ────────────────────────────────────────────────
+
+// ─── Premium membership ──────────────────────────────────
+const LS_KEY="rt_member";
+function normMobile(v){let d=String(v||"").replace(/\D/g,"");if(d.startsWith("880"))d="0"+d.slice(3);return d}
+function todayStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+const curMember=()=>session?members.find(m=>m.id==="_member_"+session.mobile)||null:null;
+const memberValid=m=>!!m&&!!session&&(!m.expiry||todayStr()<=m.expiry);
+const hasAll=m=>m.allCourses===true||(m.allCourses===undefined&&m.courseIds===undefined);
+function courseAllowed(c){
+  if(adminIn)return true;
+  const m=curMember();if(!c||!isPremium())return false;
+  return hasAll(m)||(m.courseIds||[]).includes(c.id);
+}
+function accessLabel(m){
+  if(hasAll(m))return"All courses";
+  const n=(m.courseIds||[]).filter(id=>courses.some(c=>c.id===id)).length;
+  return n+(n===1?" course":" courses");
+}
+const isPremium=()=>memberValid(curMember());
+const canWatch=()=>courseAllowed(curCourse);
+function saveSession(){try{session?localStorage.setItem(LS_KEY,JSON.stringify(session)):localStorage.removeItem(LS_KEY)}catch(e){}}
+function validateSession(){
+  if(session&&!isPremium()){
+    const m=curMember();
+    if(m&&m.expiry&&todayStr()>m.expiry) showToast("আপনার Premium membership মেয়াদোত্তীর্ণ হয়েছে");
+    session=null;saveSession();
+  }
+}
+
+// ── Session-token heartbeat ───────────────────────────────
+let _sessionPollTimer=null;
+function genToken(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
+async function checkSessionAlive(){
+  if(!session?.mobile||adminIn)return;
+  try{
+    const snap=await getDoc(doc(db,"tutorial_courses","_member_"+session.mobile));
+    if(!snap.exists()){_forceLogoutUser("এই account টি মুছে ফেলা হয়েছে।");return}
+    const d=snap.data();
+    // Token mismatch OR missing token → another device logged in
+    // If Firestore has a token but local session doesn't match → kick out
+    if(d.sessionToken && d.sessionToken!==session.token){
+      _forceLogoutUser("আপনার account অন্য একটি device-এ login হয়েছে। এই session শেষ।");
+      return;
+    }
+    // Expiry check
+    if(d.expiry&&todayStr()>d.expiry){_forceLogoutUser("আপনার Premium membership মেয়াদোত্তীর্ণ।");return}
+  }catch(e){}// network fail — keep going silently
+}
+function _forceLogoutUser(msg){
+  stopSessionPoll();
+  // Stop video immediately
+  if(curVideo){
+    const area=$("playerArea");
+    area.innerHTML=placeholder(I.warn,msg);
+    curVideo=null;
+  }
+  session=null;saveSession();
+  renderUser();if(curCourse)renderVlist();
+  showToast(msg);
+}
+function startSessionPoll(){
+  stopSessionPoll();
+  checkSessionAlive();// immediate first check
+  _sessionPollTimer=setInterval(checkSessionAlive,10000);// every 10s
+}
+function stopSessionPoll(){
+  if(_sessionPollTimer){clearInterval(_sessionPollTimer);_sessionPollTimer=null;}
+}
+function renderUser(){
+  const wrap=$("userArea");
+  const chip=(name,sub)=>`<div class="userchip" onclick="toggleUserMenu(event)"><span class="av">${esc((name||"U").trim().charAt(0).toUpperCase())}</span><span class="un">${esc(name)}</span><span class="pro">PRO</span></div>
+    <div class="umenu hidden" id="uMenu"><div class="um-name">${esc(name)}</div><div class="um-sub">${esc(sub)}</div>${adminIn?"":`<button class="um-btn" onclick="memberLogout()">Logout</button>`}</div>`;
+  if(adminIn){wrap.innerHTML=chip("Admin","Administrator access");return}
+  const m=curMember();
+  if(isPremium()){wrap.innerHTML=chip(m.name||"Member","Premium · "+accessLabel(m)+(m.expiry?" · until "+m.expiry:""));return}
+  wrap.innerHTML=`<button class="btn-login" onclick="openMemberLogin()">Login</button><button class="btn-premium" onclick="openPremiumGate()">${I.star} Go Premium</button>`;
+}
+window.toggleUserMenu=e=>{e.stopPropagation();$("uMenu")?.classList.toggle("hidden")};
+document.addEventListener("click",()=>$("uMenu")?.classList.add("hidden"));
+
+window.openPremiumGate=function(reason){
+  const info=(live.premiumInfo||"").trim(),box=$("gateInfo"),na=reason==="noaccess";
+  $("gateTitle").textContent=na?"Course not included":"Premium required";
+  $("gateSub").textContent=na?"Your Premium access does not include this course. Upgrade to unlock all courses, or contact the admin.":"Video lessons are available to Premium members only. Become Premium, or log in if your number already has access.";
+  $("gateLogin").classList.toggle("hidden",na);
+  box.textContent=info;box.classList.toggle("hidden",!info);
+  openM("mGate");
+};
+window.getPremium=function(){
+  closeM("mGate");
+  $("payErr").classList.add("h");
+  const u=safeUrl(live.premiumUrl);
+  $("payHelp").innerHTML=u?` · <a href="${esc(u)}" target="_blank" rel="noopener">Need help?</a>`:"";
+  openM("mPay");setTimeout(()=>$("payName").focus(),120);
+};
+const BACKEND="https://rasfocus-backend.onrender.com";
+document.addEventListener("change",e=>{
+  if(e.target.name==="plan")document.querySelectorAll("#plans .plan").forEach(l=>l.classList.toggle("sel",l.querySelector("input").checked));
+});
+window.startPayment=async function(){
+  const name=$("payName").value.trim(),mobile=normMobile($("payMobile").value);
+  const plan=document.querySelector('input[name="plan"]:checked')?.value||"1month";
+  const err=$("payErr"),btn=$("payBtn"),fail=m=>{err.textContent=m;err.classList.remove("h")};
+  err.classList.add("h");
+  if(name.length<2){fail("Please enter your name.");return}
+  if(!/^01\d{9}$/.test(mobile)){fail("Enter a valid 11-digit mobile number (01XXXXXXXXX).");return}
+  btn.disabled=true;btn.textContent="Connecting to bKash… (may take up to 30 seconds)";
+  try{
+    const r=await fetch(BACKEND+"/api/tutorial/bkash/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,mobile,plan})});
+    const d=await r.json();
+    if(d.success&&d.bkashURL){window.location.href=d.bkashURL;return}
+    fail(d.message||"Could not start the payment. Please try again.");
+  }catch(e){fail("Server is waking up or unreachable. Please wait 30 seconds and try again.")}
+  btn.disabled=false;btn.textContent="Pay with bKash";
+};
+window.openMemberLogin=function(){
+  $("lmMobile").value="";$("lmErr").classList.add("h");
+  openM("mMemberLogin");setTimeout(()=>$("lmMobile").focus(),120);
+};
+async function memberAuth(mobile, forceDevice=false){
+  try{
+    const snap=await getDoc(doc(db,"tutorial_courses","_member_"+mobile));
+    const m=snap.exists()?snap.data():null;
+    if(!m||!m.isMember) return {err:null, noAccess:true};
+    if(m.expiry&&todayStr()>m.expiry) return {err:"এই Premium membership মেয়াদোত্তীর্ণ। অনুগ্রহ করে নবায়ন করুন।"};
+
+    // ── Allowed-device check (admin-controlled) ──
+    if(m.allowedDevices && m.allowedDevices.length>0){
+      if(!m.allowedDevices.includes(DEVICE_ID)){
+        return {err:"এই device থেকে login করার অনুমতি নেই। Admin এর সাথে যোগাযোগ করুন।"};
+      }
+    }
+
+    // ── Single-device enforcement via session token ──
+    // If Firestore has an active token from a DIFFERENT device → conflict
+    const hasOtherActive = !forceDevice
+      && m.sessionToken                       // token exists in Firestore
+      && m.sessionDevice                      // device recorded
+      && m.sessionDevice !== DEVICE_ID;       // it's not THIS device
+
+    if(hasOtherActive){
+      return {err:null, deviceConflict:true, otherDevice:m.activeDevice?.label||"অন্য device"};
+    }
+
+    // ── Generate a new session token (invalidates ALL other devices instantly) ──
+    const token=genToken();
+    const devInfo={deviceId:DEVICE_ID,label:deviceLabel(),loginTime:Date.now()};
+    await updateDoc(doc(db,"tutorial_courses","_member_"+mobile),{
+      activeDevice:devInfo,
+      sessionToken:token,
+      sessionDevice:DEVICE_ID
+    });
+
+    session={mobile,token};saveSession();
+    const rec={id:snap.id,...m,activeDevice:devInfo,sessionToken:token};
+    const i=members.findIndex(x=>x.id===snap.id);
+    if(i>=0)members[i]=rec;else members.push(rec);
+    startSessionPoll();
+    return {name:m.name||"Member"};
+  }catch(e){return {err:"এখন verify করা যাচ্ছে না। আবার চেষ্টা করুন।"}}
+}
+window.doMemberLogin=async function(){
+  const mobile=normMobile($("lmMobile").value),err=$("lmErr"),btn=$("lmBtn");
+  const fail=m=>{err.textContent=m;err.classList.remove("h")};
+  if(!/^01\d{9}$/.test(mobile)){fail("একটি সঠিক ১১-সংখ্যার মোবাইল নম্বর দিন (01XXXXXXXXX)।");return}
+  btn.disabled=true;btn.textContent="যাচাই করা হচ্ছে…";
+  const r=await memberAuth(mobile,false);
+  btn.disabled=false;btn.textContent="Login";
+  if(r.noAccess){
+    // No access — show contact admin
+    closeM("mMemberLogin");
+    openM("mContactAdmin");
+    return;
+  }
+  if(r.deviceConflict){
+    // Another device is logged in
+    _pendingDeviceMobile=mobile;
+    $("deviceConflictMsg").innerHTML=`এই নম্বরটি এখন <strong>${esc(r.otherDevice)}</strong>-এ সক্রিয়।<br/>আপনি কি সেই device logout করে এই device-এ login করতে চান?`;
+    closeM("mMemberLogin");
+    openM("mDeviceConflict");
+    return;
+  }
+  if(r.err){fail(r.err);return}
+  closeM("mMemberLogin");renderUser();if(curCourse)renderVlist();
+  showToast("স্বাগতম, "+r.name);
+  if(pendingVid){const v=pendingVid;pendingVid=null;playVideo(v)}
+};
+
+window.deviceForceLogin=async function(){
+  if(!_pendingDeviceMobile)return;
+  const mobile=_pendingDeviceMobile;
+  closeM("mDeviceConflict");
+  const r=await memberAuth(mobile,true);
+  if(r.err){showToast(r.err);return}
+  renderUser();if(curCourse)renderVlist();
+  showToast("স্বাগতম, "+r.name);
+  _pendingDeviceMobile=null;
+  if(pendingVid){const v=pendingVid;pendingVid=null;playVideo(v)}
+};
+window.memberLogout=async function(){
+  const mobile=session?.mobile;
+  stopSessionPoll();
+  session=null;pendingVid=null;saveSession();curVideo=null;
+  if(curCourse){$("playerArea").innerHTML=placeholder(I.play,"Select a lesson to start watching");$("playerTitle").textContent="–";$("playerMeta").textContent="";renderVlist()}
+  renderUser();showToast("Logged out");
+  if(mobile){
+    try{await updateDoc(doc(db,"tutorial_courses","_member_"+mobile),{
+      activeDevice:null, sessionToken:null, sessionDevice:null
+    })}catch(e){}
+  }
+};
+
+// ─── Admin: members ──────────────────────────────────────
+window.openMembers=function(){renderMembers();goView("viewMembers")};
+function renderMembers(){
+  const wrap=$("memberList");
+  if(!members.length){wrap.innerHTML=`<div class="empty">${I.star}<p>No Premium members yet. Click “+ Add Member”.</p></div>`;return}
+  wrap.innerHTML=members.map(m=>{
+    const exp=m.expiry&&todayStr()>m.expiry;
+    return `<div class="manage-card single">
+      <div class="mc-icon">${I.star}</div>
+      <div class="mc-info"><strong>${esc(m.name)}</strong><span>${esc(m.mobile)}</span>
+        <span>${exp?'<span class="badge exp">Expired</span>':'<span class="badge ok">Active</span>'} ${m.expiry?"until "+esc(m.expiry):"No expiry"} · ${esc(accessLabel(m))}</span></div>
+      <div class="mc-acts">
+        <button class="btn-ic e" onclick="openEditMember('${m.id}')" aria-label="Edit">${I.edit}</button>
+        <button class="btn-ic d" onclick="confirmDelMember('${m.id}')" aria-label="Remove">${I.trash}</button>
+      </div></div>`}).join("");
+}
+function renderCourseChecks(m){
+  const all=!m||hasAll(m),ids=new Set(m?.courseIds||[]);
+  $("mmCourses").innerHTML=`<label class="ca-item ca-all"><input type="checkbox" id="caAll" ${all?"checked":""} onchange="toggleCaAll()"/><span>All courses (including new ones)</span></label>`+
+    (courses.length?courses.map(c=>`<label class="ca-item"><input type="checkbox" class="caC" value="${esc(c.id)}" ${!all&&ids.has(c.id)?"checked":""} ${all?"disabled":""}/><span>${esc(c.title)}<small>${esc([c.courseName,c.className,c.subject].filter(Boolean).join(" · "))}</small></span></label>`).join(""):`<div class="ca-empty">No courses created yet</div>`);
+}
+window.toggleCaAll=()=>{const a=$("caAll").checked;document.querySelectorAll(".caC").forEach(i=>{i.disabled=a;if(a)i.checked=false})};
+window.openAddMember=function(){
+  $("editMid").value="";$("mMemberTitle").textContent="Add Premium Member";
+  $("mmName").value="";$("mmMobile").value="";$("mmMobile").disabled=false;$("mmExpiry").value="";
+  renderCourseChecks(null);openM("mMember");
+};
+window.openEditMember=function(id){
+  const m=members.find(x=>x.id===id);if(!m)return;
+  $("editMid").value=id;$("mMemberTitle").textContent="Edit Premium Member";
+  $("mmName").value=m.name||"";$("mmMobile").value=m.mobile||"";$("mmMobile").disabled=true;
+  $("mmExpiry").value=m.expiry||"";renderCourseChecks(m);openM("mMember");
+};
+window.saveMember=async function(){
+  const name=$("mmName").value.trim(),mobile=normMobile($("mmMobile").value),expiry=$("mmExpiry").value,eid=$("editMid").value;
+  const allC=$("caAll").checked,ids=[...document.querySelectorAll(".caC:checked")].map(i=>i.value);
+  if(!name){showToast("Please enter the member name");return}
+  if(!/^01\d{9}$/.test(mobile)){showToast("Enter a valid 11-digit mobile number");return}
+  if(!allC&&!ids.length){showToast("Select at least one course, or choose All courses");return}
+  try{
+    if(eid){
+      await updateDoc(doc(db,"tutorial_courses",eid),{name,expiry,allCourses:allC,courseIds:ids});showToast("Member updated");
+    }else{
+      const id="_member_"+mobile;
+      if(members.some(m=>m.id===id)){showToast("This mobile number is already a member");return}
+      await setDoc(doc(db,"tutorial_courses",id),{isMember:true,name,mobile,expiry,allCourses:allC,courseIds:ids,created:Date.now()});
+      showToast("Member added");
+    }
+    closeM("mMember");await loadCourses();renderMembers();
+  }catch(e){showToast("Error: "+e.message)}
+};
+window.confirmDelMember=function(id){
+  const m=members.find(x=>x.id===id);
+  $("confTitle").textContent="Remove member?";
+  $("confMsg").textContent=`“${m?.name||id}” will lose Premium access immediately.`;
+  pendingDelFn=async()=>{await deleteDoc(doc(db,"tutorial_courses",id));showToast("Member removed");closeM("mConfirm");await loadCourses();renderMembers()};
+  openM("mConfirm");
+};
+
+
+// ── Admin: device settings ───────────────────────────────
+window.openDeviceSettings=function(id){
+  const m=members.find(x=>x.id===id);if(!m)return;
+  $("dsMemberId").value=id;
+  $("dsMemberName").textContent=esc(m.name)+" — "+esc(m.mobile);
+  const dev=m.activeDevice;
+  $("dsCurrentDevice").innerHTML=dev
+    ?`<b>Currently logged in:</b><br/><span style="color:var(--green)">${esc(dev.label||"Unknown device")}</span><br/><small style="color:var(--sub)">Device ID: ${esc(dev.deviceId||"")}</small><br/><small style="color:var(--sub)">Login time: ${dev.loginTime?new Date(dev.loginTime).toLocaleString():"-"}</small>`
+    :`<span style="color:var(--sub)">এই member এখন কোনো device-এ login করা নেই।</span>`;
+
+  // Allowed devices list
+  const allowed=m.allowedDevices||[];
+  $("dsAllowedList").innerHTML=allowed.length
+    ?allowed.map((d,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;font-size:12.5px;border-bottom:1px solid var(--border)">
+        <span>Device ${i+1}: <code style="font-size:11px">${esc(d.slice(-12))}</code></span>
+        <button onclick="removeAllowedDevice('${id}','${esc(d)}')" style="color:var(--red);font-size:12px;font-weight:600;padding:3px 8px;border:1px solid rgba(239,107,91,.3);border-radius:6px">বাদ দিন</button>
+      </div>`).join("")
+    :`<div style="padding:10px;font-size:12.5px;color:var(--sub)">কোনো device restrict করা নেই। বর্তমান device যোগ করতে নিচের বোতাম ব্যবহার করুন।</div>`;
+
+  // Add current device button
+  if(dev&&dev.deviceId&&!allowed.includes(dev.deviceId)){
+    $("dsAllowedList").innerHTML+=`<div style="margin-top:8px"><button onclick="addAllowedDevice('${id}','${esc(dev.deviceId)}','${esc(dev.label||'')}');closeM('mDeviceSettings');openDeviceSettings('${id}')" style="width:100%;padding:9px;border-radius:9px;background:var(--accent-soft);color:var(--accent2);font-size:13px;font-weight:600;border:1px solid rgba(232,54,93,.2)">+ বর্তমান device টি allowed-list এ যোগ করুন</button></div>`;
+  }
+
+  openM("mDeviceSettings");
+};
+
+window.forceLogoutDevice=async function(){
+  const id=$("dsMemberId").value;
+  if(!id)return;
+  try{
+    await updateDoc(doc(db,"tutorial_courses",id),{activeDevice:null,sessionToken:null,sessionDevice:null});
+    showToast("Device logout করা হয়েছে");
+    closeM("mDeviceSettings");
+    await loadCourses();renderMembers();
+  }catch(e){showToast("Error: "+e.message)}
+};
+
+window.addAllowedDevice=async function(memberId,deviceId,label){
+  const m=members.find(x=>x.id===memberId);if(!m)return;
+  const allowed=[...new Set([...(m.allowedDevices||[]),deviceId])];
+  try{
+    await updateDoc(doc(db,"tutorial_courses",memberId),{allowedDevices:allowed});
+    showToast("Device allowed-list এ যোগ হয়েছে");
+    await loadCourses();
+  }catch(e){showToast("Error: "+e.message)}
+};
+
+window.removeAllowedDevice=async function(memberId,deviceId){
+  const m=members.find(x=>x.id===memberId);if(!m)return;
+  const allowed=(m.allowedDevices||[]).filter(d=>d!==deviceId);
+  try{
+    await updateDoc(doc(db,"tutorial_courses",memberId),{allowedDevices:allowed});
+    showToast("Device সরানো হয়েছে");
+    await loadCourses();renderMembers();openDeviceSettings(memberId);
+  }catch(e){showToast("Error: "+e.message)}
+};
+
+// ─── Boot ────────────────────────────────────────────────
+$("playerArea").innerHTML=placeholder(I.play,"Select a lesson to start watching");
+try{session=JSON.parse(localStorage.getItem(LS_KEY)||"null")}catch(e){session=null}
+if(session?.mobile)startSessionPoll();
+renderUser();
+(async()=>{
+  const m=location.hash.match(/^#activate=(\d{11})(?:\.\d+)?$/);
+  if(!m)return;
+  history.replaceState(null,"",location.pathname+location.search);
+  const r=await memberAuth(m[1]);
+  if(r.err){showToast(r.err);return}
+  renderUser();if(curCourse)renderVlist();
+  showToast("Premium activated. Welcome, "+r.name);
+})();
 loadCourses();
 </script>
 </body>
