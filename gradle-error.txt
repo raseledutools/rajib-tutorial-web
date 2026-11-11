@@ -32,10 +32,10 @@ Warning: SDK processing. This version only understands SDK XML versions up to 3 
 > Task :app:mergeDebugAssets
 > Task :app:compressDebugAssets
 > Task :app:processDebugJavaRes NO-SOURCE
+> Task :app:processDebugManifestForPackage
 > Task :app:checkDebugDuplicateClasses FAILED
 > Task :app:mergeDebugJavaResource
-> Task :app:desugarDebugFileDependencies
-> Task :app:processDebugManifestForPackage
+> Task :app:processDebugResources
 
 FAILURE: Build failed with an exception.
 
@@ -283,5 +283,5 @@ Go to the documentation to learn how to <a href="d.android.com/r/tools/classpath
 	... 2 more
 
 
-BUILD FAILED in 11s
+BUILD FAILED in 13s
 19 actionable tasks: 19 executed
