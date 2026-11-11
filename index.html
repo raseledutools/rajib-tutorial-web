@@ -485,8 +485,13 @@ body{color:var(--text)}
   .footer{padding:24px 20px}
   .manage-wrap{padding:26px 20px}
   .course-view-wrap{flex-direction:column;min-height:0}
-  .vlist-panel{width:100%;height:auto;max-height:340px;position:static;border-right:none;border-bottom:1px solid var(--border);order:2}
-  .player-panel{padding:16px;order:1}
+  .vlist-panel{width:100%;height:auto;max-height:none;position:static;border-right:none;border-bottom:1px solid var(--border);order:2}
+  .vlist-scroll{max-height:280px}
+  .player-panel{padding:10px 10px 6px;order:1}
+  .player-area{border-radius:10px;aspect-ratio:16/9}
+  .player-info{flex-direction:column;align-items:flex-start;margin-top:10px;gap:8px}
+  .player-title{font-size:15px}
+  .btn-fullscreen{width:100%;justify-content:center}
   .search-box input{width:100%}
   .search-box,.filters select{flex:1}
   .btn-live{width:100%;justify-content:center}
@@ -1251,7 +1256,7 @@ window.playVideo=async function(vid){
   renderVlist();
   const area=$("playerArea"),embed=ytEmbed(curVideo.url||"");
   if(embed){
-    area.innerHTML=`<iframe src="${embed}" allow="autoplay;encrypted-media;accelerometer;gyroscope;picture-in-picture" allowfullscreen></iframe>`;
+    area.innerHTML=`<iframe src="${embed}" allow="autoplay;encrypted-media;accelerometer;gyroscope;picture-in-picture;fullscreen" allowfullscreen></iframe>`;
   }else if(curVideo.url){
     area.innerHTML=`<video controls autoplay src="${esc(curVideo.url)}" style="width:100%;height:100%;background:#000"></video>`;
   }else{
