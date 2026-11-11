@@ -18,8 +18,10 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // Debug keystore দিয়ে sign করব CI তে
-            signingConfig signingConfigs.debug
+            // debug keystore দিয়ে sign — CI তে কাজ করবে
+        }
+        debug {
+            applicationIdSuffix ".debug"
         }
     }
 
