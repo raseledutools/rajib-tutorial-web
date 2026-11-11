@@ -11,6 +11,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -32,25 +34,34 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      - name: Build Debug APK (with error log)
+      - name: Build Debug APK
+        id: build
         working-directory: android
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle_output.txt
-          # Exit code preserve করি
-          test ${PIPESTATUS[0]} -eq 0
+          ./gradlew assembleDebug --no-daemon --stacktrace > /tmp/gradle_output.txt 2>&1
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
 
-      - name: Save build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gradle-error-log
-          path: /tmp/gradle_output.txt
-          retention-days: 1
+      - name: Push error log to repo if failed
+        if: steps.build.outputs.exit_code != '0'
+        run: |
+          cp /tmp/gradle_output.txt gradle-error.txt
+          git config user.email "ci@github.com"
+          git config user.name "GitHub CI"
+          git add gradle-error.txt
+          git commit -m "ci: gradle error log [skip ci]"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload APK on success
-        if: success()
+      - name: Upload APK if success
+        if: steps.build.outputs.exit_code == '0'
         uses: actions/upload-artifact@v4
         with:
           name: RajibTutorial-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+
+      - name: Fail job if build failed
+        if: steps.build.outputs.exit_code != '0'
+        run: exit 1
