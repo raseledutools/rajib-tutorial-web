@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'android/**'
-  workflow_dispatch:   # Manual trigger বাটন থাকবে Actions tab এ
+  workflow_dispatch:
 
 jobs:
   build:
@@ -20,25 +20,37 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: gradle
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Install Android SDK components
+        run: |
+          # ANDROID_SDK_ROOT already set by GitHub-hosted runner
+          echo "SDK Root: $ANDROID_SDK_ROOT"
+          # Accept licenses
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          # Install build tools and platform
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0"
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
       - name: Build Release APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        env:
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
 
-      - name: Upload APK as artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: RajibTutorial-APK
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
 
-      - name: Show APK info
+      - name: Build complete
         run: |
-          echo "✅ Build complete!"
+          echo "✅ APK ready!"
           ls -lh android/app/build/outputs/apk/release/
