@@ -93,6 +93,17 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
+
+                // ── Custom scheme: fullscreen rotation bridge ──
+                if (url.equals("rtapp://fullscreen")) {
+                    enterFullscreen();
+                    return true;
+                }
+                if (url.equals("rtapp://exitfullscreen")) {
+                    exitFullscreen();
+                    return true;
+                }
+
                 if (url.contains("youtube.com") || url.contains("youtu.be")) {
                     startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
                     return true;
@@ -171,11 +182,33 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void enterFullscreen() {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_FULLSCREEN
+            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        );
+    }
+
+    private void exitFullscreen() {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+    }
+
     @Override
     public void onBackPressed() {
         // Full-screen mode e back press = exit fullscreen
         if (customView != null) {
             webView.getWebChromeClient().onHideCustomView();
+            return;
+        }
+        // JS overlay fullscreen — signal web to close, restore orientation
+        if (getRequestedOrientation() == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
+            exitFullscreen();
+            webView.evaluateJavascript("closeFsOverlay()", null);
             return;
         }
         if (webView.canGoBack()) {
