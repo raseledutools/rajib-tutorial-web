@@ -36,16 +36,30 @@ jobs:
 
       - name: Build Debug APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle_output.txt; exit ${PIPESTATUS[0]}
 
-      - name: Upload APK
+      - name: Push error log to repo on failure
+        if: failure()
+        run: |
+          cp /tmp/gradle_output.txt gradle-error.txt
+          git config user.email "ci@github.com"
+          git config user.name "GitHub CI"
+          git add gradle-error.txt
+          git commit -m "ci: gradle error log [skip ci]"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload APK on success
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: RajibTutorial-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
-      - name: Save APK to repo root (direct download)
+      - name: Save APK to repo on success
+        if: success()
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk RajibTutorial.apk
           git config user.email "ci@github.com"
