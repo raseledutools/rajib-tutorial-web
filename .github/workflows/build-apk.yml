@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'android/**'
+      - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
 jobs:
@@ -22,26 +23,26 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Install Android SDK components
+      - name: Create local.properties
         run: |
-          # ANDROID_SDK_ROOT already set by GitHub-hosted runner
-          echo "SDK Root: $ANDROID_SDK_ROOT"
-          # Accept licenses
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-          # Install build tools and platform
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
-            "platform-tools" \
-            "platforms;android-34" \
-            "build-tools;34.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+          echo "SDK path: $ANDROID_SDK_ROOT"
+          ls $ANDROID_SDK_ROOT
+
+      - name: Accept Android licenses
+        run: |
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
       - name: Build Release APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
-        env:
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+        run: |
+          ./gradlew assembleRelease \
+            --no-daemon \
+            --stacktrace \
+            -Pandroid.useAndroidX=true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -50,7 +51,7 @@ jobs:
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
 
-      - name: Build complete
+      - name: APK info
         run: |
-          echo "✅ APK ready!"
+          echo "=== ✅ BUILD SUCCESS ==="
           ls -lh android/app/build/outputs/apk/release/
