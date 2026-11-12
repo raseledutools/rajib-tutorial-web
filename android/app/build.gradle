@@ -20,18 +20,15 @@ android {
 
     signingConfigs {
         release {
-            // CI: env variable থেকে নেওয়া হয়
-            // Local build: debug keystore fallback
-            def storeFilePath = System.getenv("STORE_FILE") ?:
-                (System.getProperty("user.home") + "/.android/debug.keystore")
-            def storePassword = System.getenv("STORE_PASS") ?: "android"
-            def keyAlias      = System.getenv("KEY_ALIAS")  ?: "androiddebugkey"
-            def keyPassword   = System.getenv("KEY_PASS")   ?: "android"
+            def envStoreFile = System.getenv("STORE_FILE")
+            def envStorePass = System.getenv("STORE_PASS")
+            def envKeyAlias  = System.getenv("KEY_ALIAS")
+            def envKeyPass   = System.getenv("KEY_PASS")
 
-            storeFile     file(storeFilePath)
-            storePassword storePassword
-            keyAlias      keyAlias
-            keyPassword   keyPassword
+            storeFile     file(envStoreFile != null ? envStoreFile : (System.getProperty("user.home") + "/.android/debug.keystore"))
+            storePassword envStorePass != null ? envStorePass : "android"
+            keyAlias      envKeyAlias  != null ? envKeyAlias  : "androiddebugkey"
+            keyPassword   envKeyPass   != null ? envKeyPass   : "android"
         }
     }
 
