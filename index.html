@@ -7,8 +7,6 @@
 <meta name="description" content="Rajib Tutorial offers structured video courses, live classes and live exams for Diploma in Electrical &amp; Electronic Engineering (EEE) students."/>
 <meta name="theme-color" content="#FFFFFF"/>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23141413'/%3E%3Cg stroke='%23D97757' stroke-width='7' stroke-linecap='round'%3E%3Cpath d='M50 18v64M18 50h64M27 27l46 46M73 27L27 73'/%3E%3C/g%3E%3C/svg%3E"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -518,6 +516,215 @@ body{color:var(--text)}
 @media print {
   body { display: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   NATIVE APP THEME — web UI now mirrors the Android native screens
+   (home screen + Focus Mode): #F8F4F1 canvas, white 16dp cards with
+   1.5dp #F0E8E4 stroke, #E8365D accent, #FFF0F3 icon circles,
+   gradient pill primary button, red-outline secondary button,
+   56dp white header with 2dp elevation, system (Roboto) font.
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#F8F4F1;--bg2:#F8F4F1;--card:#FFFFFF;--card2:#F3EEEA;
+  --accent:#E8365D;--accent2:#E8365D;--accent-soft:#FFF0F3;
+  --text:#1E1B18;--sub:#9E988F;--border:#F0E8E4;
+  --grad:linear-gradient(135deg,#E8365D,#C81E4E);--glow:none;
+  --shadow:0 1px 3px rgba(30,27,24,.08),0 2px 6px rgba(30,27,24,.04);
+}
+html,body{background:#F8F4F1}
+body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',sans-serif;color:var(--text)}
+::-webkit-scrollbar-thumb{background:var(--border)}
+
+/* ── Shared buttons (native: update_banner_bg / btn_outline_red) ── */
+.btn-add,.btn-ok,.btn-live.primary,.lv-join,.btn-premium{background:var(--grad);color:#fff;border:1px solid #FF6B8A;border-radius:20px;box-shadow:none;font-weight:700}
+.btn-add:hover,.btn-ok:hover,.btn-live.primary:hover,.btn-premium:hover{background:var(--grad);filter:brightness(1.05);transform:none}
+.btn-ok.red{background:var(--red);border-color:var(--red)}
+.btn-secondary,.btn-live.outline,.btn-fullscreen,.btn-login,.btn-admin-login,.lv-join.off{background:transparent;border:1.5px solid var(--accent);border-radius:8px;color:var(--accent);font-weight:700;box-shadow:none}
+.btn-secondary:hover,.btn-live.outline:hover,.btn-fullscreen:hover,.btn-login:hover,.btn-admin-login:hover,.lv-join.off:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);transform:none}
+.btn-cancel{border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-weight:600;background:#fff}
+.btn-add-sm{background:var(--accent-soft);color:var(--accent);border:none;border-radius:8px;font-weight:700}
+.btn-ic{border:1.5px solid var(--border);border-radius:8px;color:var(--sub);background:#fff}
+
+/* ── Header (56dp white bar, 2dp elevation, bold title) ── */
+.topbar{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none;border-bottom:none;box-shadow:0 2px 4px rgba(30,27,24,.10);padding:0 16px 0 4px}
+.tb-left{gap:4px}
+.topbar-title{font-size:17px;font-weight:700;color:var(--text)}
+.btn-hamburger{width:48px;height:48px;border:none;border-radius:50%;background:transparent;color:var(--text)}
+.btn-hamburger:hover{background:var(--accent-soft);color:var(--accent);border:none}
+.userchip{border:1.5px solid var(--border);background:#fff}
+.userchip:hover{border-color:var(--accent)}
+.av,.pro{background:var(--grad)}
+.umenu{border:1.5px solid var(--border);border-radius:16px;box-shadow:0 8px 24px rgba(30,27,24,.14)}
+.um-btn{border:1.5px solid var(--border);border-radius:8px}
+
+/* ── Drawer ── */
+.sidebar{background:#F8F4F1;color:var(--text);border-right:1px solid var(--border)}
+.sidebar.open{box-shadow:8px 0 24px rgba(30,27,24,.16)}
+.sidebar-top,.admin-sidebar,.sidebar-bottom{border-color:var(--border)}
+.sidebar-logo{background:var(--accent-soft);border:none;border-radius:50%;box-shadow:none}
+.sidebar-brand{color:var(--text);font-weight:700}
+.sidebar-brand small{color:var(--sub);font-weight:400}
+.nav-label,.admin-section-label{color:var(--sub);font-weight:700}
+.admin-section-label{color:var(--accent)}
+.nav-item,.course-nav-item{color:var(--text);border-radius:12px;font-weight:500}
+.nav-item:hover,.course-nav-item:hover{background:#fff;color:var(--text)}
+.nav-item.active,.course-nav-item.active{background:var(--accent-soft);color:var(--accent);box-shadow:none;font-weight:700}
+.live-dot,.live-dot{background:var(--accent);animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(232,54,93,.55)}70%{box-shadow:0 0 0 7px rgba(232,54,93,0)}100%{box-shadow:0 0 0 0 rgba(232,54,93,0)}}
+.sidebar-nav::-webkit-scrollbar-thumb{background:var(--border)}
+.btn-admin-action{background:#fff;color:var(--text);border:1.5px solid var(--border);border-radius:12px;font-weight:600}
+.btn-admin-action:hover{background:#fff;border-color:var(--accent)}
+.btn-admin-action.btn-logout,.btn-logout{color:var(--accent)}
+
+/* ── Home (mirrors native home screen) ── */
+.home-hero{display:flex;flex-direction:column;align-items:center;text-align:center;background:#F8F4F1;border-bottom:none;padding:36px 24px 8px}
+.hero-logo{order:0;width:72px;height:72px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.home-hero h1{order:1;font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.3;margin:0;max-width:520px;color:var(--text)}
+.home-hero h1 span{background:none;-webkit-background-clip:border-box;background-clip:border-box;-webkit-text-fill-color:var(--accent);color:var(--accent)}
+.hero-badge{order:2;display:block;background:none;border:none;box-shadow:none;padding:0;margin-top:6px;font-size:13px;font-weight:400;letter-spacing:0;color:var(--sub)}
+.hero-badge svg{display:none}
+.home-hero p{order:3;font-size:13px;line-height:1.6;color:var(--sub);max-width:460px;margin-top:10px}
+.hero-actions{order:4;display:flex;flex-direction:column;gap:10px;width:100%;max-width:480px;margin-top:28px}
+.btn-live{width:100%;height:52px;justify-content:center;padding:0 20px;font-size:15px;font-weight:700}
+.btn-live.outline{font-size:14px}
+.btn-live.ghost{background:#fff;color:var(--text);border:1.5px solid var(--border);border-radius:16px;box-shadow:var(--shadow);font-size:14px}
+.btn-live.ghost:hover{background:#fff;color:var(--text);border-color:var(--accent);transform:none}
+.live-pill{background:var(--accent);color:#fff;border-radius:4px}
+.btn-live.primary .live-pill{background:#fff;color:var(--accent)}
+.live-info{order:5;justify-content:center;font-size:12px;color:var(--sub)}
+.live-info b{color:var(--text);font-weight:600}
+.hero-stats{order:6;display:flex;flex-wrap:nowrap;gap:10px;width:100%;max-width:480px;margin-top:22px;padding:0;border:none}
+.hero-stats>div{flex:1;min-width:0;background:#fff;border:1.5px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:14px 8px;text-align:center}
+.stat-n{font-size:24px;font-weight:700;background:none;-webkit-background-clip:border-box;background-clip:border-box;-webkit-text-fill-color:var(--accent);color:var(--accent);line-height:1.2}
+.stat-l{font-size:12px;font-weight:400;color:var(--sub)}
+
+/* ── Course catalogue: native 'card row' (icon circle · text · ›) ── */
+.courses-section{max-width:1040px;margin:0 auto;padding:24px 16px 12px}
+.sec-title{font-size:17px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.sec-sub{font-size:12px;font-weight:400;color:var(--sub)}
+.search-box input,.filters select{background:#fff;border:1.5px solid var(--border);border-radius:12px;color:var(--text);font-weight:400}
+.search-box input:focus,.filters select:focus{border-color:var(--accent);box-shadow:none}
+.course-grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px}
+.course-card,.course-grid .course-card{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;column-gap:14px;padding:16px 20px;background:#fff;border:1.5px solid var(--border);border-radius:16px;box-shadow:var(--shadow);overflow:visible}
+.course-card:hover{transform:none;border-color:rgba(232,54,93,.5);box-shadow:var(--shadow)}
+.course-card::after{content:"›";font-size:24px;line-height:1;color:var(--accent)}
+.cc-thumb{width:44px;height:44px;border-radius:50%;background:var(--accent-soft);overflow:visible}
+.cc-thumb::before,.cc-thumb::after{display:none}
+.cc-thumb svg{width:20px;height:20px;color:var(--accent);filter:none}
+.cc-vcount{display:none}
+.cc-body{padding:0;min-width:0}
+.cc-tag{font-size:10.5px;font-weight:700;color:var(--accent);margin-bottom:3px}
+.cc-name{font-size:15.5px;font-weight:700;color:var(--text);line-height:1.35}
+.cc-meta{font-size:12px;font-weight:400;color:var(--sub);margin-top:2px}
+.cc-desc{font-size:12px;color:var(--sub);margin-top:4px}
+.cc-foot{padding-top:6px}
+.cc-vids{font-size:11px;font-weight:400;color:var(--sub)}
+.btn-watch{display:none}
+.footer{max-width:1040px;margin:12px auto 0;padding:20px 16px 28px;border-top:1px solid var(--border);font-size:11px;font-weight:400;color:var(--sub)}
+.empty,.loader{color:var(--sub)}
+.spin{border-color:var(--border);border-top-color:var(--accent)}
+
+/* ── Course player (native header + list rows) ── */
+.vlist-panel{background:#F8F4F1;border-right:1px solid var(--border)}
+.vlist-header{background:#fff;color:var(--text);border-bottom:none;box-shadow:0 2px 4px rgba(30,27,24,.10);padding:14px 16px}
+.vlist-header h2{color:var(--text);font-size:17px;font-weight:700}
+.vlist-header p{color:var(--sub);font-size:12px;font-weight:400}
+.btn-back,.btn-back:hover{background:none;color:var(--accent);padding:0;border-radius:0;font-weight:700}
+.vlist-scroll{padding:12px}
+.vlist-item{background:#fff;border:1.5px solid var(--border);border-radius:16px;box-shadow:var(--shadow);margin-bottom:8px;padding:12px}
+.vlist-item:hover{background:#fff;border-color:rgba(232,54,93,.4)}
+.vlist-item.playing{background:var(--accent-soft);border-color:var(--accent)}
+.vnum{border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:700}
+.vlist-item.playing .vnum{background:var(--accent);color:#fff}
+.vtitle{font-size:14px;font-weight:700;color:var(--text)}
+.vdur{font-size:11px;font-weight:400;color:var(--sub)}
+.player-panel{background:#F8F4F1}
+.player-area{background:#000;border:1.5px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+.player-placeholder{background:#000;color:var(--sub);font-weight:400}
+.pp-ico{background:var(--accent-soft);color:var(--accent);box-shadow:none}
+.player-title{font-size:17px;font-weight:700;color:var(--text)}
+.player-meta{font-size:12px;font-weight:400;color:var(--sub)}
+
+/* ── Admin pages ── */
+#viewManage,#viewMembers{background:#F8F4F1}
+.manage-wrap{padding:20px 16px 48px}
+.manage-hdr,#viewMembers .manage-hdr{background:#fff;color:var(--text);border:1.5px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:16px 20px}
+.manage-hdr::before,.manage-hdr::after{display:none}
+.manage-hdr h2{color:var(--text);font-size:17px;font-weight:700}
+.manage-hdr h2::after{color:var(--sub);opacity:1;font-size:12px;font-weight:400}
+.manage-hdr .btn-add,#viewMembers .manage-hdr .btn-add{background:var(--grad);color:#fff;box-shadow:none}
+.manage-hdr .btn-secondary{background:transparent;border:1.5px solid var(--accent);color:var(--accent)}
+.manage-hdr .btn-secondary:hover{background:var(--accent-soft)}
+.manage-card{background:#fff;border:1.5px solid var(--border);box-shadow:var(--shadow);border-radius:16px 16px 0 0}
+.manage-card.single{border-radius:16px}
+.mc-icon,.manage-card:nth-child(n) .mc-icon,.manage-card.single .mc-icon{width:44px;height:44px;border-radius:50%;background:var(--accent-soft);color:var(--accent);box-shadow:none}
+.mc-info strong{font-size:14px;font-weight:700;color:var(--text)}
+.mc-info span{font-size:12px;font-weight:400;color:var(--sub)}
+.vsub{background:#fff;border:1.5px solid var(--border);border-top:none;border-radius:0 0 16px 16px;box-shadow:var(--shadow)}
+.vsub-title{color:var(--sub);font-weight:700}
+.vmanage-item{border-top:1px solid var(--border)}
+.vm-num{border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:700}
+
+/* ── Live Class / Live Exam (native tab bar + cards) ── */
+#viewLive,#viewLive[data-type="exam"]{--lg:var(--grad);--lc:#E8365D;--lglow:none;--lsoft:#FFF0F3;--lbg:#F8F4F1;background:#F8F4F1}
+.lv-hero{background:#F8F4F1;color:var(--text);max-width:1040px;margin:0 auto;padding:20px 40px 24px}
+.lv-hero::before,.lv-hero::after{display:none}
+.lv-tabs{display:flex;width:100%;max-width:480px;gap:0;padding:0;margin-bottom:22px;background:#fff;border:1.5px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.lv-tabs button{flex:1;justify-content:center;height:48px;padding:0 8px;border-radius:0;border-bottom:2px solid transparent;color:var(--sub);font-size:13px;font-weight:700}
+.lv-tabs button:hover{background:#fff;color:var(--text)}
+.lv-tabs button.on{background:#fff;color:var(--accent);box-shadow:none;border-bottom-color:var(--accent)}
+.lv-status{background:#fff;border:1.5px solid var(--border);color:var(--sub);font-weight:700}
+.lv-status.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.lv-status.on i{background:var(--accent)}
+.lv-hero h1{font-size:22px;font-weight:700;letter-spacing:-.01em;color:var(--text)}
+.lv-lead{font-size:13px;font-weight:400;color:var(--sub);opacity:1}
+.lv-time{background:#fff;border:1.5px solid var(--border);border-radius:12px;color:var(--text);font-size:13px;font-weight:700}
+.lv-time svg{color:var(--accent)}
+.lv-join{height:52px;padding:0 28px;font-size:15px;box-shadow:none}
+.lv-join:hover{transform:none;box-shadow:none;filter:brightness(1.05)}
+.lv-join.off{height:52px;font-size:14px}
+.lv-cards{margin-top:0}
+.lv-card,.lv-tip{background:#fff;border:1.5px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+.lv-ico{width:44px;height:44px;border-radius:50%;background:var(--accent-soft);color:var(--accent);box-shadow:none}
+.lv-card small{font-size:11.5px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--sub)}
+.lv-card b{font-size:14px;font-weight:700;color:var(--text)}
+.lv-player{background:#000;border-radius:16px;box-shadow:var(--shadow)}
+.lv-empty{background:#fff;border:1.5px dashed var(--border);border-radius:16px}
+.lv-empty-ico{background:var(--accent-soft);color:var(--accent)}
+.lv-empty h3{font-size:15.5px;font-weight:700}
+.lv-empty p{font-size:12px;font-weight:400;color:var(--sub)}
+.lv-h2{font-size:17px;font-weight:700}
+.lv-n{border-radius:50%;background:var(--accent-soft);color:var(--accent)}
+.lv-tip b{font-size:14px;font-weight:700}
+.lv-tip p{font-size:12px;font-weight:400;color:var(--sub)}
+
+/* ── Dialogs (native overlay_card_bg: 24dp radius) + inputs ── */
+.modal-bg{-webkit-backdrop-filter:none;backdrop-filter:none}
+.modal{background:#fff;background-image:none;border:1px solid var(--border);border-radius:24px;padding:26px;box-shadow:0 12px 40px rgba(30,27,24,.18)}
+.modal-title{font-size:17px;font-weight:700;color:var(--text)}
+.modal-sub{font-size:12px;color:var(--sub)}
+.modal h4{color:var(--accent);font-weight:700}
+.fl label{font-size:12px;font-weight:600;color:var(--sub)}
+.fl input,.fl select,.fl textarea{background:#fff;border:1.5px solid var(--border);border-radius:12px;color:var(--text)}
+.fl input:focus,.fl select:focus,.fl textarea:focus{border-color:var(--accent);box-shadow:none}
+.gate-ico{background:var(--accent-soft)!important;color:var(--accent);box-shadow:none}
+.gate-info,.ca-box{background:#fff;border:1.5px solid var(--border);border-radius:12px}
+.plan{border:1.5px solid var(--border);border-radius:16px;background:#fff}
+.plan.sel{border-color:var(--accent);background:var(--accent-soft)}
+.plan .pp{color:var(--accent)}
+
+@media(max-width:900px){
+  .topbar{padding:0 12px 0 4px}
+  .home-hero{padding:28px 16px 4px}
+  .courses-section{padding:20px 12px 8px}
+  .course-grid{grid-template-columns:1fr}
+  .vlist-panel{background:#F8F4F1}
+  .vlist-header{box-shadow:0 2px 4px rgba(30,27,24,.10)}
+  .player-area{border-radius:12px}
+  .lv-hero{padding:16px 12px 20px}
+  .lv-body{padding:0 12px 40px}
+  .lv-join{width:100%;justify-content:center}
+}
 </style>
 </head>
 <body>
@@ -546,7 +753,7 @@ body{color:var(--text)}
       <span>Live Exam</span><i class="live-dot hidden" id="dotExam"></i>
     </div>
     <div class="nav-label">Courses</div>
-    <div id="sidebarCourses"><div style="padding:6px 12px;font-size:12px;color:rgba(255,255,255,.75)">Loading…</div></div>
+    <div id="sidebarCourses"><div style="padding:6px 12px;font-size:12px;color:var(--sub)">Loading…</div></div>
   </nav>
 
   <div class="admin-sidebar" id="adminSidebar">
@@ -588,6 +795,9 @@ body{color:var(--text)}
   <!-- HOME -->
   <div class="view active" id="viewHome">
     <section class="home-hero">
+      <div class="hero-logo">
+        <svg width="34" height="34" viewBox="0 0 100 100" fill="none" stroke="#E8365D" stroke-width="8" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg>
+      </div>
       <div class="hero-badge">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h8l-1 8 10-12h-8z"/></svg>
         Diploma in Electrical &amp; Electronic Engineering
@@ -894,7 +1104,7 @@ body{color:var(--text)}
 <!-- Device conflict modal -->
 <div class="modal-bg hidden" id="mDeviceConflict">
   <div class="modal">
-    <div class="gate-ico" style="background:linear-gradient(135deg,#F0446E,#FF7A3D)">
+    <div class="gate-ico">
       <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
     </div>
     <div class="modal-title">অন্য একটি device-এ এই নম্বর দিয়ে login আছে</div>
@@ -909,7 +1119,7 @@ body{color:var(--text)}
 <!-- Contact admin (not logged in) modal -->
 <div class="modal-bg hidden" id="mContactAdmin">
   <div class="modal">
-    <div class="gate-ico" style="background:linear-gradient(135deg,#4F35E8,#B24DF0)">
+    <div class="gate-ico">
       <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     </div>
     <div class="modal-title">Admin-কে Contact করুন</div>
@@ -1259,7 +1469,7 @@ function renderCourseGrid(){
 }
 function renderSidebarCourses(){
   const wrap=$("sidebarCourses");
-  if(!courses.length){wrap.innerHTML=`<div style="padding:6px 12px;font-size:12px;color:rgba(255,255,255,.75)">No courses yet</div>`;return}
+  if(!courses.length){wrap.innerHTML=`<div style="padding:6px 12px;font-size:12px;color:var(--sub)">No courses yet</div>`;return}
   wrap.innerHTML=courses.map(c=>`
     <div class="course-nav-item ${curCourse?.id===c.id?"active":""}" onclick="openCourse('${c.id}')">
       <span class="course-nav-dot"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(c.title)}</span>
