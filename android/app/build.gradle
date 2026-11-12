@@ -16,6 +16,10 @@ android {
         buildConfigField "String", "GITHUB_OWNER", '"raseledutools"'
         buildConfigField "String", "GITHUB_REPO",  '"rajib-tutorial-web"'
         buildConfigField "int",    "VERSION_CODE", "2"
+
+        // Twilio token endpoint (https). Supplied by CI secret TWILIO_TOKEN_URL.
+        def twilioUrl = System.getenv("TWILIO_TOKEN_URL") ?: ""
+        buildConfigField "String", "TWILIO_TOKEN_URL", "\"" + twilioUrl + "\""
     }
 
     signingConfigs {
@@ -63,4 +67,5 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.core:core:1.13.1'
+    implementation 'com.twilio:voice-android:6.3.0'
 }
