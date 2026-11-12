@@ -1048,7 +1048,11 @@ const lessonsLabel=n=>n+(n===1?" lesson":" lessons");
 const placeholder=(icon,msg)=>`<div class="player-placeholder"><div class="pp-ico">${icon}</div><p>${msg}</p></div>`;
 
 // ─── Views ───────────────────────────────────────────────
-window.goView=function(id){
+// ── Back-navigation state: page stack for Android back button ──
+let _navStack = [];   // e.g. ["viewHome","viewCourse","viewLesson"]
+let _navPopping = false; // popstate এর সময় আবার push না হয়
+
+window.goView=function(id, _fromPop){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   $(id).classList.add("active");
   window.scrollTo(0,0);
@@ -1056,8 +1060,52 @@ window.goView=function(id){
   if(id==="viewHome") $("navHome").classList.add("active");
   const titles={viewHome:"Rajib Tutorial",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewMembers:"Premium Members",viewLive:liveType==="exam"?"Live Exam":"Live Class"};
   $("topbarTitle").textContent=titles[id]||"Rajib Tutorial";
+
+  // ── pushState: Android back button এর জন্য WebView history তৈরি করা ──
+  if(!_fromPop){
+    _navStack.push({view:id});
+    // প্রতিটা page-change এ একটা নতুন history entry তৈরি হয়
+    history.pushState({view:id, stack:JSON.stringify(_navStack)}, "", location.pathname+"#"+id);
+  }
 };
-window.goHome=function(){curCourse=null;curVideo=null;goView("viewHome");renderCourseGrid();renderSidebarCourses();closeSidebar()};
+
+// ── popstate: browser/WebView back button press হলে ──
+window.addEventListener("popstate", function(e){
+  if(_navPopping) return;
+  _navPopping = true;
+
+  const state = e.state;
+  if(state && state.view){
+    // stack restore
+    try { _navStack = JSON.parse(state.stack||"[]"); } catch(e){ _navStack = []; }
+    // view টা restore করো কিন্তু আবার pushState করো না
+    if(state.view === "viewCourse" && curCourse){
+      // course view এ curCourse state দরকার — যদি থাকে তাহলে দেখাও
+      goView("viewCourse", true);
+      renderVlist();
+    } else if(state.view === "viewHome"){
+      curCourse = null; curVideo = null;
+      goView("viewHome", true);
+      renderCourseGrid(); renderSidebarCourses(); closeSidebar();
+    } else {
+      goView(state.view, true);
+    }
+  } else {
+    // কোনো state নেই = homepage এ ফিরে যাও
+    curCourse = null; curVideo = null;
+    goView("viewHome", true);
+    renderCourseGrid(); renderSidebarCourses(); closeSidebar();
+  }
+
+  _navPopping = false;
+});
+
+// ── App শুরুতে initial history entry রাখো ──
+(function(){
+  _navStack = [{view:"viewHome"}];
+  history.replaceState({view:"viewHome", stack:JSON.stringify(_navStack)}, "", location.pathname+"#viewHome");
+})();
+window.goHome=function(){curCourse=null;curVideo=null;_navStack=[];goView("viewHome");renderCourseGrid();renderSidebarCourses();closeSidebar()};
 window.openSidebar=()=>{$("sidebar").classList.add("open");$("overlay").classList.add("show")};
 window.closeSidebar=()=>{$("sidebar").classList.remove("open");$("overlay").classList.remove("show")};
 
