@@ -2665,37 +2665,79 @@ loadCourses();
 
 /* ── FLASHLIGHT ── */
 let _flashStream = null;
+let _flashTrack = null;
 let _flashOn = false;
+
 async function toggleFlashlight() {
   const btn = document.getElementById('btnFlashlight');
   const lbl = document.getElementById('flashlightLabel');
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showToast('Flashlight is not supported on this device/browser.');
-    return;
-  }
+
+  // --- TURN OFF ---
   if (_flashOn) {
+    try {
+      if (_flashTrack) await _flashTrack.applyConstraints({ advanced: [{ torch: false }] });
+    } catch(e) {}
     if (_flashStream) { _flashStream.getTracks().forEach(t => t.stop()); _flashStream = null; }
+    _flashTrack = null;
     _flashOn = false;
     btn.classList.remove('on');
-    lbl.textContent = '🔦 Flashlight';
+    lbl.textContent = '\uD83D\uDD26 Flashlight';
     return;
   }
+
+  // --- TURN ON ---
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('Flashlight not supported on this browser.');
+    return;
+  }
+
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    // Request rear camera
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { exact: 'environment' } }
+    }).catch(() =>
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    );
+
     const track = stream.getVideoTracks()[0];
-    const caps = track.getCapabilities ? track.getCapabilities() : {};
-    if (!caps.torch) {
-      stream.getTracks().forEach(t => t.stop());
-      showToast('Torch/flashlight not supported on this device.');
-      return;
+    if (!track) { stream.getTracks().forEach(t=>t.stop()); showToast('No camera track found.'); return; }
+
+    // Try torch — works on most Android Chrome / Samsung Browser
+    try {
+      await track.applyConstraints({ advanced: [{ torch: true }] });
+    } catch(e) {
+      // Some devices need a small delay before applying torch
+      await new Promise(r => setTimeout(r, 300));
+      try {
+        await track.applyConstraints({ advanced: [{ torch: true }] });
+      } catch(e2) {
+        stream.getTracks().forEach(t=>t.stop());
+        showToast('Flashlight not supported on this device. Try Chrome on Android.');
+        return;
+      }
     }
-    await track.applyConstraints({ advanced: [{ torch: true }] });
+
     _flashStream = stream;
+    _flashTrack = track;
     _flashOn = true;
     btn.classList.add('on');
-    lbl.textContent = '💡 Turn Off';
-  } catch (e) {
-    showToast('Camera permission denied or flashlight unavailable.');
+    lbl.textContent = '\uD83D\uDCA1 Turn Off';
+
+    // Auto-off if track ends unexpectedly
+    track.onended = () => {
+      _flashOn = false; _flashStream = null; _flashTrack = null;
+      btn.classList.remove('on');
+      lbl.textContent = '\uD83D\uDD26 Flashlight';
+    };
+
+  } catch(e) {
+    if (e.name === 'NotAllowedError') {
+      showToast('Camera permission denied. Please allow camera access.');
+    } else if (e.name === 'NotFoundError') {
+      showToast('No rear camera found on this device.');
+    } else {
+      showToast('Flashlight unavailable: ' + (e.message || e.name));
+    }
   }
 }
 </script>
