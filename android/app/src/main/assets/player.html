@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;-webkit-user-select:none;user-select:none;font-family:sans-serif}
+.ytp{position:absolute;inset:0;background:#000;overflow:hidden}
+.frame{position:absolute;left:0;right:0;top:-72px;bottom:-72px;pointer-events:none}
+.frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+.shield{position:absolute;inset:0;z-index:2}
+.cover{position:absolute;inset:0;z-index:3;background:#000 center/cover no-repeat;display:flex;align-items:center;justify-content:center;transition:opacity .2s}
+.cover.off{opacity:0;pointer-events:none}
+.big{width:64px;height:64px;border-radius:50%;background:#e8365d;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.big svg{width:28px;height:28px;margin-left:3px}
+.bar{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:center;gap:8px;padding:22px 12px 8px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-size:12px;transition:opacity .25s}
+.bar.hide{opacity:0;pointer-events:none}
+.bar button{background:none;border:0;color:#fff;font-size:12.5px;font-weight:700;min-width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0}
+.bar button svg{width:18px;height:18px}
+.bar input{flex:1;min-width:0;accent-color:#e8365d}
+</style></head>
+<body>
+<div class="ytp">
+  <div class="frame"><div id="yt"></div></div>
+  <div class="shield" id="shield"></div>
+  <div class="cover" id="cover" style="background-image:url(https://i.ytimg.com/vi/__VID__/hqdefault.jpg)"><div class="big" id="big"></div></div>
+  <div class="bar hide" id="bar">
+    <button id="pp"></button><span id="t">0:00</span>
+    <input id="sk" type="range" min="0" max="1000" value="0">
+    <span id="d">0:00</span><button id="sp">1x</button>
+  </div>
+</div>
+<script>
+var VID="__VID__",AUTO=__AUTOPLAY__,ORIGIN="__ORIGIN__";
+var PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>';
+var PAUSE='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+var $=function(i){return document.getElementById(i)};
+var cover=$("cover"),bar=$("bar"),pp=$("pp"),sk=$("sk"),tt=$("t"),dd=$("d"),sp=$("sp");
+$("big").innerHTML=PLAY;pp.innerHTML=PLAY;
+var pl=null,playing=false,drag=false,hideT=null;
+function fmt(t){t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+":"+("0"+(t%60)).slice(-2)}
+function showBar(){bar.classList.remove("hide");clearTimeout(hideT);if(playing)hideT=setTimeout(function(){bar.classList.add("hide")},2800)}
+function toggle(){if(!pl||!pl.getPlayerState)return;playing?pl.pauseVideo():pl.playVideo()}
+$("shield").onclick=function(){bar.classList.contains("hide")?showBar():toggle()};
+cover.onclick=toggle;
+pp.onclick=function(e){e.stopPropagation();toggle();showBar()};
+bar.onclick=function(e){e.stopPropagation()};
+var speeds=[1,1.25,1.5,2,0.75],si=0;
+sp.onclick=function(e){e.stopPropagation();si=(si+1)%speeds.length;if(pl)pl.setPlaybackRate(speeds[si]);sp.textContent=speeds[si]+"x";showBar()};
+sk.oninput=function(){drag=true;showBar()};
+sk.onchange=function(){if(pl&&pl.getDuration)pl.seekTo(pl.getDuration()*sk.value/1000,true);drag=false};
+function onYouTubeIframeAPIReady(){
+  pl=new YT.Player("yt",{host:"https://www.youtube-nocookie.com",videoId:VID,
+    playerVars:{autoplay:AUTO,controls:0,rel:0,modestbranding:1,iv_load_policy:3,playsinline:1,fs:0,disablekb:1,cc_load_policy:0,origin:ORIGIN},
+    events:{onStateChange:function(e){
+      playing=(e.data===1||e.data===3);
+      cover.classList.toggle("off",playing);
+      pp.innerHTML=playing?PAUSE:PLAY;
+      if(e.data===1)showBar();else{bar.classList.remove("hide");clearTimeout(hideT)}
+    }}});
+  setInterval(function(){
+    if(!pl||!pl.getDuration)return;
+    var d=pl.getDuration()||0,c=pl.getCurrentTime()||0;
+    sk.style.visibility=d>0?"visible":"hidden";
+    sp.style.display=d>0?"flex":"none";
+    tt.textContent=fmt(c);dd.textContent=d>0?fmt(d):"LIVE";
+    if(!drag&&d>0)sk.value=Math.round(c/d*1000);
+  },400);
+}
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body></html>
