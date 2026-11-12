@@ -2668,9 +2668,31 @@ let _flashStream = null;
 let _flashTrack = null;
 let _flashOn = false;
 
+function _setFlashUI(on) {
+  const btn = document.getElementById('btnFlashlight');
+  const lbl = document.getElementById('flashlightLabel');
+  if (!btn || !lbl) return;
+  btn.classList.toggle('on', !!on);
+  lbl.textContent = on ? '\uD83D\uDCA1 Turn Off' : '\uD83D\uDD26 Flashlight';
+}
+// Java → JS: torch state changed (e.g. from quick settings)
+window.onNativeFlashState = function(on) { _flashOn = !!on; _setFlashUI(on); };
+
 async function toggleFlashlight() {
   const btn = document.getElementById('btnFlashlight');
   const lbl = document.getElementById('flashlightLabel');
+
+  // --- Android app (WebView): use native Java bridge ---
+  if (window.AndroidFlash) {
+    if (!window.AndroidFlash.isAvailable()) { showToast('এই ডিভাইসে Flashlight নেই।'); return; }
+    if (window.AndroidFlash.toggle()) {
+      _flashOn = window.AndroidFlash.isOn();
+      _setFlashUI(_flashOn);
+    } else {
+      showToast('Flashlight চালু করা যাচ্ছে না (অন্য অ্যাপ ক্যামেরা ব্যবহার করছে?)');
+    }
+    return;
+  }
 
   // --- TURN OFF ---
   if (_flashOn) {
