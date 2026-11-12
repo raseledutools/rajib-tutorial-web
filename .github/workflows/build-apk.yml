@@ -54,7 +54,7 @@ jobs:
       - name: Build Release APK
         working-directory: android
         env:
-          STORE_FILE: ${{ github.workspace }}/../../../.android/rajib-release.jks
+          STORE_FILE: /home/runner/.android/rajib-release.jks
           STORE_PASS: ${{ secrets.RELEASE_STORE_PASS }}
           KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           KEY_PASS: ${{ secrets.RELEASE_KEY_PASS }}
