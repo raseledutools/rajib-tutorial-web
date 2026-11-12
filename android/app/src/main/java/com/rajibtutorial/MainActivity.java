@@ -105,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
         btnWebSection.setOnClickListener(v -> openWebSection());
 
         btnNativeSection.setOnClickListener(v ->
-            Toast.makeText(this, "শীঘ্রই আসছে! 🚀", Toast.LENGTH_SHORT).show());
+            startActivity(new Intent(this, NativeHomeActivity.class)));
 
         findViewById(R.id.btnFocusMode).setOnClickListener(v ->
             startActivity(new Intent(this, FocusActivity.class)));

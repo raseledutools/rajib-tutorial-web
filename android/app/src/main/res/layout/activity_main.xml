@@ -172,23 +172,11 @@
                             android:textStyle="bold"
                             android:textColor="#1E1B18"
                             android:fontFamily="sans-serif-medium" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="  Coming Soon"
-                            android:textSize="10sp"
-                            android:textColor="#FFFFFF"
-                            android:background="@drawable/badge_soon"
-                            android:paddingStart="6dp"
-                            android:paddingEnd="6dp"
-                            android:paddingTop="2dp"
-                            android:paddingBottom="2dp"
-                            android:layout_marginStart="8dp" />
                     </LinearLayout>
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Offline mode, faster experience"
+                        android:text="Faster, smoother native experience"
                         android:textSize="12sp"
                         android:textColor="#9E988F"
                         android:layout_marginTop="2dp" />

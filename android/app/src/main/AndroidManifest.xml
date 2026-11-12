@@ -44,6 +44,21 @@
             </intent-filter>
         </activity>
 
+        <!-- Native section (Java version of the web app) -->
+        <activity
+            android:name=".NativeHomeActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Native fullscreen video player -->
+        <activity
+            android:name=".PlayerActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden" />
+
         <!-- Focus Mode setup screen -->
         <activity
             android:name=".FocusActivity"
