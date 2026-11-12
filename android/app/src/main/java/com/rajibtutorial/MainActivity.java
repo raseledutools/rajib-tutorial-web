@@ -47,6 +47,8 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar  downloadProgressBar;
     private TextView     downloadPercent;
     private TextView     downloadStatus;
+    private TextView     btnInstallNow;
+    private java.io.File pendingApkFile = null;
 
     // Full-screen video
     private View customView;
@@ -87,6 +89,11 @@ public class MainActivity extends AppCompatActivity {
         downloadProgressBar = findViewById(R.id.downloadProgressBar);
         downloadPercent     = findViewById(R.id.downloadPercent);
         downloadStatus      = findViewById(R.id.downloadStatus);
+        btnInstallNow       = findViewById(R.id.btnInstallNow);
+
+        btnInstallNow.setOnClickListener(v -> {
+            if (pendingApkFile != null) triggerInstallFromActivity(pendingApkFile);
+        });
 
         // ── Version info ──
         String vName = "v1." + BuildConfig.VERSION_CODE;
@@ -116,13 +123,11 @@ public class MainActivity extends AppCompatActivity {
             public void onProgress(int percent, long downloaded, long total) {
                 runOnUiThread(() -> {
                     downloadOverlay.setVisibility(View.VISIBLE);
+                    btnInstallNow.setVisibility(View.GONE);
                     downloadProgressBar.setProgress(percent);
                     downloadPercent.setText(percent + "%");
-
                     if (total > 0) {
-                        String dl  = formatBytes(downloaded);
-                        String tot = formatBytes(total);
-                        downloadStatus.setText(dl + " / " + tot);
+                        downloadStatus.setText(formatBytes(downloaded) + " / " + formatBytes(total));
                     } else {
                         downloadStatus.setText("download হচ্ছে…");
                     }
@@ -130,14 +135,17 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onComplete(String apkPath) {
+            public void onReadyToInstall(java.io.File apkFile) {
                 runOnUiThread(() -> {
+                    // Progress bar 100% দেখাও
                     downloadProgressBar.setProgress(100);
                     downloadPercent.setText("100%");
-                    downloadStatus.setText("সম্পন্ন! Install শুরু হচ্ছে…");
-                    // ২ সেকেন্ড পর overlay লুকাও
-                    new Handler().postDelayed(() ->
-                        downloadOverlay.setVisibility(View.GONE), 2000);
+                    downloadStatus.setText("✅ Download সম্পন্ন");
+                    // Install button দেখাও
+                    pendingApkFile = apkFile;
+                    btnInstallNow.setVisibility(View.VISIBLE);
+                    // Auto-trigger install
+                    triggerInstallFromActivity(apkFile);
                 });
             }
 
@@ -145,6 +153,7 @@ public class MainActivity extends AppCompatActivity {
             public void onError(String reason) {
                 runOnUiThread(() -> {
                     downloadStatus.setText("❌ সমস্যা হয়েছে, আবার চেষ্টা করুন");
+                    btnInstallNow.setVisibility(View.GONE);
                     new Handler().postDelayed(() ->
                         downloadOverlay.setVisibility(View.GONE), 3000);
                 });
@@ -285,7 +294,9 @@ public class MainActivity extends AppCompatActivity {
                 .withEndAction(() -> updateBanner.setVisibility(View.GONE))
                 .start();
 
-            // Download overlay দেখাও এবং download শুরু করো
+            // Overlay reset করে দেখাও
+            pendingApkFile = null;
+            btnInstallNow.setVisibility(View.GONE);
             downloadOverlay.setVisibility(View.VISIBLE);
             downloadProgressBar.setProgress(0);
             downloadPercent.setText("0%");
@@ -300,6 +311,20 @@ public class MainActivity extends AppCompatActivity {
         if (bytes < 1024)             return bytes + " B";
         if (bytes < 1024 * 1024)      return String.format("%.1f KB", bytes / 1024.0);
         return String.format("%.1f MB", bytes / (1024.0 * 1024));
+    }
+
+    // ── APK install — Activity context দিয়ে (crash হয় না) ───────────────
+    private void triggerInstallFromActivity(java.io.File apkFile) {
+        try {
+            android.net.Uri apkUri = androidx.core.content.FileProvider.getUriForFile(
+                this, getPackageName() + ".provider", apkFile);
+            Intent install = new Intent(Intent.ACTION_VIEW)
+                .setDataAndType(apkUri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(install);
+        } catch (Exception e) {
+            Toast.makeText(this, "Install করতে পারছে না: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private void enterFullscreen() {

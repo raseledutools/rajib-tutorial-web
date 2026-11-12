@@ -392,6 +392,22 @@
             android:textColor="#9E988F"
             android:layout_marginTop="6dp" />
 
+        <!-- Install button — download শেষে দেখাবে -->
+        <TextView
+            android:id="@+id/btnInstallNow"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:gravity="center"
+            android:text="⬇️  এখনই Install করুন"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/update_banner_bg"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_marginTop="12dp"
+            android:visibility="gone" />
+
     </LinearLayout>
 
 </FrameLayout>

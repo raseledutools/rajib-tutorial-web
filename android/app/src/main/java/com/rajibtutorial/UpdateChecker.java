@@ -48,7 +48,8 @@ public class UpdateChecker {
 
     public interface DownloadProgressListener {
         void onProgress(int percent, long downloadedBytes, long totalBytes);
-        void onComplete(String apkPath);
+        /** apkFile hazir — Activity থেকে install intent চালাও */
+        void onReadyToInstall(java.io.File apkFile);
         void onError(String reason);
     }
 
@@ -113,8 +114,16 @@ public class UpdateChecker {
                 try { remoteCode = Integer.parseInt(tagName.replace("v","").trim()); }
                 catch (Exception ignored) {}
 
-                // ── এই device এ already এই version installed থাকলে skip ──
-                if (remoteCode <= BuildConfig.VERSION_CODE || apkUrl.isEmpty()) return;
+                // ── Device এ actually installed versionCode পড়ো ──
+                // BuildConfig.VERSION_CODE CI build এ সঠিক নাও হতে পারে
+                int installedCode = BuildConfig.VERSION_CODE;
+                try {
+                    installedCode = context.getPackageManager()
+                        .getPackageInfo(context.getPackageName(), 0).versionCode;
+                } catch (Exception ignored) {}
+
+                // remote version installed এর চেয়ে বেশি না হলে skip
+                if (remoteCode <= installedCode || apkUrl.isEmpty()) return;
 
                 SharedPreferences prefs   = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                 String            lastTag = prefs.getString(KEY_LAST_TAG, "");
@@ -209,14 +218,8 @@ public class UpdateChecker {
             if (progressListener != null) progressListener.onError("APK file not found");
             return;
         }
-        if (progressListener != null) progressListener.onComplete(apkFile.getAbsolutePath());
-
-        Uri apkUri = FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".provider", apkFile);
-        Intent install = new Intent(Intent.ACTION_VIEW)
-            .setDataAndType(apkUri, "application/vnd.android.package-archive")
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        ctx.startActivity(install);
+        // Activity context দরকার — callback দিয়ে MainActivity কে জানাই
+        if (progressListener != null) progressListener.onReadyToInstall(apkFile);
     }
 
     // ── Professional notification ──────────────────────────────────────────
