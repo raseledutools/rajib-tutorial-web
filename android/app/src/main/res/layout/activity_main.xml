@@ -206,6 +206,29 @@
 
         </LinearLayout>
 
+        <!-- Focus Mode button -->
+        <LinearLayout
+            android:id="@+id/btnFocusMode"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:background="@drawable/btn_outline_red"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_marginTop="10dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎯  Focus Mode"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#E8365D"
+                android:fontFamily="sans-serif-medium" />
+
+        </LinearLayout>
+
         <!-- Version info -->
         <TextView
             android:id="@+id/versionText"
@@ -214,7 +237,7 @@
             android:text="v1.0"
             android:textSize="11sp"
             android:textColor="#C4BDB6"
-            android:layout_marginTop="32dp" />
+            android:layout_marginTop="20dp" />
 
     </LinearLayout>
 

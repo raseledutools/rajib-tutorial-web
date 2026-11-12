@@ -98,6 +98,9 @@ public class MainActivity extends AppCompatActivity {
         btnNativeSection.setOnClickListener(v ->
             Toast.makeText(this, "শীঘ্রই আসছে! 🚀", Toast.LENGTH_SHORT).show());
 
+        findViewById(R.id.btnFocusMode).setOnClickListener(v ->
+            startActivity(new Intent(this, FocusActivity.class)));
+
         // ── WebView setup ──
         setupWebView();
 
