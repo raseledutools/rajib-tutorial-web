@@ -6,6 +6,7 @@ import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
@@ -15,6 +16,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
@@ -32,6 +34,10 @@ public class MainActivity extends AppCompatActivity {
     private View customView;
     private WebChromeClient.CustomViewCallback customViewCallback;
     private FrameLayout fullscreenContainer;
+
+    // Double-back-to-exit
+    private boolean backPressedOnce = false;
+    private final Handler backHandler = new Handler();
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -200,22 +206,32 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        // Full-screen mode e back press = exit fullscreen
+        // 1. Full-screen video mode → exit fullscreen
         if (customView != null) {
             webView.getWebChromeClient().onHideCustomView();
             return;
         }
-        // JS overlay fullscreen — signal web to close, restore orientation
+        // 2. JS overlay fullscreen (landscape) → exit fullscreen
         if (getRequestedOrientation() == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
             exitFullscreen();
             webView.evaluateJavascript("closeFsOverlay()", null);
             return;
         }
+        // 3. WebView এ history আছে (SPA pushState থেকে) → back navigate
         if (webView.canGoBack()) {
             webView.goBack();
-        } else {
-            super.onBackPressed();
+            return;
         }
+        // 4. Home page এ আছি → double-back-to-exit
+        if (backPressedOnce) {
+            backHandler.removeCallbacksAndMessages(null);
+            super.onBackPressed();  // app close
+            return;
+        }
+        backPressedOnce = true;
+        Toast.makeText(this, "আবার Back চাপলে বন্ধ হবে", Toast.LENGTH_SHORT).show();
+        // ২ সেকেন্ড পর reset
+        backHandler.postDelayed(() -> backPressedOnce = false, 2000);
     }
 
     @Override
