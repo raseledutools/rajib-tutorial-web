@@ -18,6 +18,7 @@ import android.animation.ObjectAnimator;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -27,73 +28,160 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String SITE_URL = "https://raseledutools.github.io/rajib-tutorial-web/";
 
-    private WebView webView;
-    private ProgressBar progressBar;
-    private SwipeRefreshLayout swipeRefresh;
-    private UpdateChecker updateChecker;
+    // Views
+    private LinearLayout  homeScreen;
+    private LinearLayout  btnWebSection;
+    private LinearLayout  btnNativeSection;
+    private TextView      versionText;
 
-    // Full-screen video support
+    private SwipeRefreshLayout swipeRefresh;
+    private WebView            webView;
+    private ProgressBar        progressBar;
+    private FrameLayout        fullscreenContainer;
+
+    // Update banner
+    private LinearLayout updateBanner;
+
+    // Download overlay
+    private LinearLayout downloadOverlay;
+    private ProgressBar  downloadProgressBar;
+    private TextView     downloadPercent;
+    private TextView     downloadStatus;
+
+    // Full-screen video
     private View customView;
     private WebChromeClient.CustomViewCallback customViewCallback;
-    private FrameLayout fullscreenContainer;
 
     // Double-back-to-exit
     private boolean backPressedOnce = false;
     private final Handler backHandler = new Handler();
 
-    // Update banner
-    private LinearLayout updateBanner;
-    private String       pendingApkUrl = "";
+    // Update
+    private UpdateChecker updateChecker;
+    private String        pendingApkUrl  = "";
+    private String        pendingVersion = "";
+    private boolean       isWebSectionOpen = false;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // FLAG_SECURE — screenshot ও screen record block
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
-            WindowManager.LayoutParams.FLAG_SECURE
-        );
+            WindowManager.LayoutParams.FLAG_SECURE);
 
         setContentView(R.layout.activity_main);
 
-        progressBar         = findViewById(R.id.progressBar);
+        // ── View references ──
+        homeScreen          = findViewById(R.id.homeScreen);
+        btnWebSection       = findViewById(R.id.btnWebSection);
+        btnNativeSection    = findViewById(R.id.btnNativeSection);
+        versionText         = findViewById(R.id.versionText);
         swipeRefresh        = findViewById(R.id.swipeRefresh);
         webView             = findViewById(R.id.webView);
+        progressBar         = findViewById(R.id.progressBar);
         fullscreenContainer = findViewById(R.id.fullscreenContainer);
         updateBanner        = findViewById(R.id.updateBanner);
+        downloadOverlay     = findViewById(R.id.downloadOverlay);
+        downloadProgressBar = findViewById(R.id.downloadProgressBar);
+        downloadPercent     = findViewById(R.id.downloadPercent);
+        downloadStatus      = findViewById(R.id.downloadStatus);
 
-        // ── Update checker + in-app banner ──
+        // ── Version info ──
+        String vName = "v1." + BuildConfig.VERSION_CODE;
+        versionText.setText(vName);
+
+        // ── Home screen button clicks ──
+        btnWebSection.setOnClickListener(v -> openWebSection());
+
+        btnNativeSection.setOnClickListener(v ->
+            Toast.makeText(this, "শীঘ্রই আসছে! 🚀", Toast.LENGTH_SHORT).show());
+
+        // ── WebView setup ──
+        setupWebView();
+
+        // ── Update checker ──
         updateChecker = new UpdateChecker(this);
         updateChecker.setUpdateListener((version, apkUrl) -> {
-            pendingApkUrl = apkUrl;
+            pendingVersion = version;
+            pendingApkUrl  = apkUrl;
             showUpdateBanner(version, apkUrl);
         });
-        updateChecker.checkForUpdate();
+        updateChecker.setProgressListener(new UpdateChecker.DownloadProgressListener() {
+            @Override
+            public void onProgress(int percent, long downloaded, long total) {
+                runOnUiThread(() -> {
+                    downloadOverlay.setVisibility(View.VISIBLE);
+                    downloadProgressBar.setProgress(percent);
+                    downloadPercent.setText(percent + "%");
 
-        // ── WebView settings ──
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
-        settings.setLoadWithOverviewMode(true);
-        settings.setUseWideViewPort(true);
-        settings.setBuiltInZoomControls(false);
-        settings.setDisplayZoomControls(false);
-        settings.setSupportZoom(true);
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+                    if (total > 0) {
+                        String dl  = formatBytes(downloaded);
+                        String tot = formatBytes(total);
+                        downloadStatus.setText(dl + " / " + tot);
+                    } else {
+                        downloadStatus.setText("download হচ্ছে…");
+                    }
+                });
+            }
 
-        // ── Pull-to-refresh conflict fix ──
-        webView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
-            swipeRefresh.setEnabled(scrollY == 0);
+            @Override
+            public void onComplete(String apkPath) {
+                runOnUiThread(() -> {
+                    downloadProgressBar.setProgress(100);
+                    downloadPercent.setText("100%");
+                    downloadStatus.setText("সম্পন্ন! Install শুরু হচ্ছে…");
+                    // ২ সেকেন্ড পর overlay লুকাও
+                    new Handler().postDelayed(() ->
+                        downloadOverlay.setVisibility(View.GONE), 2000);
+                });
+            }
+
+            @Override
+            public void onError(String reason) {
+                runOnUiThread(() -> {
+                    downloadStatus.setText("❌ সমস্যা হয়েছে, আবার চেষ্টা করুন");
+                    new Handler().postDelayed(() ->
+                        downloadOverlay.setVisibility(View.GONE), 3000);
+                });
+            }
         });
+        updateChecker.checkForUpdate();
+    }
 
-        // ── WebViewClient ──
+    // ── Open web section ─────────────────────────────────────────────────
+    private void openWebSection() {
+        isWebSectionOpen = true;
+        homeScreen.setVisibility(View.GONE);
+        swipeRefresh.setVisibility(View.VISIBLE);
+
+        // WebView এখনো load না হলে load করো
+        if (webView.getUrl() == null) {
+            webView.loadUrl(SITE_URL);
+        }
+    }
+
+    // ── WebView setup ────────────────────────────────────────────────────
+    @SuppressLint("SetJavaScriptEnabled")
+    private void setupWebView() {
+        WebSettings s = webView.getSettings();
+        s.setJavaScriptEnabled(true);
+        s.setDomStorageEnabled(true);
+        s.setDatabaseEnabled(true);
+        s.setLoadWithOverviewMode(true);
+        s.setUseWideViewPort(true);
+        s.setBuiltInZoomControls(false);
+        s.setDisplayZoomControls(false);
+        s.setSupportZoom(true);
+        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        s.setMediaPlaybackRequiresUserGesture(false);
+        s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+
+        webView.setOnScrollChangeListener((v, sx, sy, osx, osy) ->
+            swipeRefresh.setEnabled(sy == 0));
+
         webView.setWebViewClient(new WebViewClient() {
-
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 progressBar.setVisibility(View.VISIBLE);
@@ -108,117 +196,77 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                String url = request.getUrl().toString();
-
-                // ── Custom scheme: fullscreen rotation bridge ──
-                if (url.equals("rtapp://fullscreen")) {
-                    enterFullscreen();
-                    return true;
-                }
-                if (url.equals("rtapp://exitfullscreen")) {
-                    exitFullscreen();
-                    return true;
-                }
-
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
+                String url = req.getUrl().toString();
+                if (url.equals("rtapp://fullscreen"))     { enterFullscreen(); return true; }
+                if (url.equals("rtapp://exitfullscreen")) { exitFullscreen();  return true; }
                 if (url.contains("youtube.com") || url.contains("youtu.be")) {
                     startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
                     return true;
                 }
-                if (url.startsWith("https://raseledutools.github.io")) {
-                    return false;
-                }
+                if (url.startsWith("https://raseledutools.github.io")) return false;
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
                 return true;
             }
         });
 
-        // ── WebChromeClient — full-screen video support ──
         webView.setWebChromeClient(new WebChromeClient() {
-
             @Override
-            public void onProgressChanged(WebView view, int newProgress) {
-                progressBar.setProgress(newProgress);
-                if (newProgress == 100) {
-                    progressBar.setVisibility(View.GONE);
-                }
+            public void onProgressChanged(WebView view, int p) {
+                progressBar.setProgress(p);
+                if (p == 100) progressBar.setVisibility(View.GONE);
             }
 
             @Override
-            public void onShowCustomView(View view, CustomViewCallback callback) {
-                if (customView != null) {
-                    callback.onCustomViewHidden();
-                    return;
-                }
+            public void onShowCustomView(View view, CustomViewCallback cb) {
+                if (customView != null) { cb.onCustomViewHidden(); return; }
                 customView = view;
-                customViewCallback = callback;
-
-                // Hide normal content, show fullscreen container
+                customViewCallback = cb;
                 swipeRefresh.setVisibility(View.GONE);
                 fullscreenContainer.setVisibility(View.VISIBLE);
                 fullscreenContainer.addView(view);
-
-                // Go landscape + true fullscreen
                 setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
                 getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                );
+                    View.SYSTEM_UI_FLAG_FULLSCREEN |
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
             }
 
             @Override
             public void onHideCustomView() {
                 if (customView == null) return;
-
                 fullscreenContainer.removeView(customView);
                 fullscreenContainer.setVisibility(View.GONE);
                 swipeRefresh.setVisibility(View.VISIBLE);
-
                 customViewCallback.onCustomViewHidden();
-                customView = null;
-                customViewCallback = null;
-
-                // Restore portrait + normal UI
+                customView = null; customViewCallback = null;
                 setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
                 getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
             }
         });
 
-        // ── Swipe to refresh ──
-        swipeRefresh.setColorSchemeResources(android.R.color.holo_blue_bright);
+        swipeRefresh.setColorSchemeResources(android.R.color.holo_red_light);
         swipeRefresh.setOnRefreshListener(() -> webView.reload());
-
-        // ── Load site ──
-        if (savedInstanceState != null) {
-            webView.restoreState(savedInstanceState);
-        } else {
-            webView.loadUrl(SITE_URL);
-        }
     }
 
-    // ── In-app update banner ──────────────────────────────────────────────
+    // ── Update banner ─────────────────────────────────────────────────────
     private void showUpdateBanner(String version, String apkUrl) {
         if (updateBanner == null) return;
 
-        // Version text: "v7" → "1.7 আপডেট"
         String vNum  = version.replace("v", "");
         String vName = "1." + vNum;
-        android.widget.TextView tv = updateBanner.findViewById(R.id.updateBannerText);
+        TextView tv  = updateBanner.findViewById(R.id.updateBannerText);
         if (tv != null) tv.setText("v" + vName + " আপডেট");
 
-        // Slide-in animation
         updateBanner.setVisibility(View.VISIBLE);
         updateBanner.setTranslationX(600f);
         updateBanner.animate()
-            .translationX(0f)
-            .setDuration(400)
+            .translationX(0f).setDuration(400)
             .setInterpolator(new android.view.animation.OvershootInterpolator(1.2f))
             .start();
 
-        // Pulsing dot animation
         View dot = updateBanner.findViewById(R.id.updateDot);
         if (dot != null) {
             ObjectAnimator pulse = ObjectAnimator.ofFloat(dot, "alpha", 1f, 0.2f, 1f);
@@ -227,34 +275,37 @@ public class MainActivity extends AppCompatActivity {
             pulse.start();
         }
 
-        // Click → start download immediately
         updateBanner.setOnClickListener(v -> {
-            // Banner slide out
+            // Banner সরিয়ে দাও
             updateBanner.animate()
-                .translationX(600f)
-                .setDuration(250)
+                .translationX(600f).setDuration(250)
                 .withEndAction(() -> updateBanner.setVisibility(View.GONE))
                 .start();
 
-            // Download শুরু
-            android.content.Intent intent = new android.content.Intent(this,
-                UpdateChecker.DownloadReceiver.class);
-            intent.putExtra("apk_url", apkUrl);
-            intent.putExtra("version", version);
-            sendBroadcast(intent);
+            // Download overlay দেখাও এবং download শুরু করো
+            downloadOverlay.setVisibility(View.VISIBLE);
+            downloadProgressBar.setProgress(0);
+            downloadPercent.setText("0%");
+            downloadStatus.setText("শুরু হচ্ছে…");
 
-            Toast.makeText(this, "আপডেট download হচ্ছে…", Toast.LENGTH_SHORT).show();
+            updateChecker.startDownload(apkUrl, version);
         });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    private String formatBytes(long bytes) {
+        if (bytes < 1024)             return bytes + " B";
+        if (bytes < 1024 * 1024)      return String.format("%.1f KB", bytes / 1024.0);
+        return String.format("%.1f MB", bytes / (1024.0 * 1024));
     }
 
     private void enterFullscreen() {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().getDecorView().setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        );
+            View.SYSTEM_UI_FLAG_FULLSCREEN |
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
     }
 
     private void exitFullscreen() {
@@ -263,39 +314,51 @@ public class MainActivity extends AppCompatActivity {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
     }
 
+    // ── Back button ───────────────────────────────────────────────────────
     @Override
     public void onBackPressed() {
-        // 1. Full-screen video mode → exit fullscreen
+        // Download চলছে — cancel করবে না
+        if (downloadOverlay.getVisibility() == View.VISIBLE) {
+            Toast.makeText(this, "আপডেট download হচ্ছে…", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Full-screen video
         if (customView != null) {
             webView.getWebChromeClient().onHideCustomView();
             return;
         }
-        // 2. JS overlay fullscreen (landscape) → exit fullscreen
+        // Landscape JS fullscreen
         if (getRequestedOrientation() == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
             exitFullscreen();
             webView.evaluateJavascript("closeFsOverlay()", null);
             return;
         }
-        // 3. WebView এ history আছে (SPA pushState থেকে) → back navigate
-        if (webView.canGoBack()) {
-            webView.goBack();
+        // Web section খোলা আছে
+        if (isWebSectionOpen) {
+            if (webView.canGoBack()) {
+                webView.goBack();
+                return;
+            }
+            // Web section এর শুরুতে এসেছি → Home screen এ ফিরে যাও
+            isWebSectionOpen = false;
+            swipeRefresh.setVisibility(View.GONE);
+            homeScreen.setVisibility(View.VISIBLE);
             return;
         }
-        // 4. Home page এ আছি → double-back-to-exit
+        // Home screen এ → double-back-to-exit
         if (backPressedOnce) {
             backHandler.removeCallbacksAndMessages(null);
-            super.onBackPressed();  // app close
+            super.onBackPressed();
             return;
         }
         backPressedOnce = true;
         Toast.makeText(this, "আবার Back চাপলে বন্ধ হবে", Toast.LENGTH_SHORT).show();
-        // ২ সেকেন্ড পর reset
         backHandler.postDelayed(() -> backPressedOnce = false, 2000);
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        webView.saveState(outState);
+    protected void onSaveInstanceState(Bundle out) {
+        super.onSaveInstanceState(out);
+        webView.saveState(out);
     }
 }
