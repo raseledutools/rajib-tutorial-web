@@ -14,7 +14,9 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.animation.ObjectAnimator;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -39,6 +41,10 @@ public class MainActivity extends AppCompatActivity {
     private boolean backPressedOnce = false;
     private final Handler backHandler = new Handler();
 
+    // Update banner
+    private LinearLayout updateBanner;
+    private String       pendingApkUrl = "";
+
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,13 +58,18 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        progressBar       = findViewById(R.id.progressBar);
-        swipeRefresh      = findViewById(R.id.swipeRefresh);
-        webView           = findViewById(R.id.webView);
+        progressBar         = findViewById(R.id.progressBar);
+        swipeRefresh        = findViewById(R.id.swipeRefresh);
+        webView             = findViewById(R.id.webView);
         fullscreenContainer = findViewById(R.id.fullscreenContainer);
+        updateBanner        = findViewById(R.id.updateBanner);
 
-        // ── Update checker ──
+        // ── Update checker + in-app banner ──
         updateChecker = new UpdateChecker(this);
+        updateChecker.setUpdateListener((version, apkUrl) -> {
+            pendingApkUrl = apkUrl;
+            showUpdateBanner(version, apkUrl);
+        });
         updateChecker.checkForUpdate();
 
         // ── WebView settings ──
@@ -186,6 +197,54 @@ public class MainActivity extends AppCompatActivity {
         } else {
             webView.loadUrl(SITE_URL);
         }
+    }
+
+    // ── In-app update banner ──────────────────────────────────────────────
+    private void showUpdateBanner(String version, String apkUrl) {
+        if (updateBanner == null) return;
+
+        // Version text: "v7" → "1.7 আপডেট"
+        String vNum  = version.replace("v", "");
+        String vName = "1." + vNum;
+        android.widget.TextView tv = updateBanner.findViewById(R.id.updateBannerText);
+        if (tv != null) tv.setText("v" + vName + " আপডেট");
+
+        // Slide-in animation
+        updateBanner.setVisibility(View.VISIBLE);
+        updateBanner.setTranslationX(600f);
+        updateBanner.animate()
+            .translationX(0f)
+            .setDuration(400)
+            .setInterpolator(new android.view.animation.OvershootInterpolator(1.2f))
+            .start();
+
+        // Pulsing dot animation
+        View dot = updateBanner.findViewById(R.id.updateDot);
+        if (dot != null) {
+            ObjectAnimator pulse = ObjectAnimator.ofFloat(dot, "alpha", 1f, 0.2f, 1f);
+            pulse.setDuration(1200);
+            pulse.setRepeatCount(ObjectAnimator.INFINITE);
+            pulse.start();
+        }
+
+        // Click → start download immediately
+        updateBanner.setOnClickListener(v -> {
+            // Banner slide out
+            updateBanner.animate()
+                .translationX(600f)
+                .setDuration(250)
+                .withEndAction(() -> updateBanner.setVisibility(View.GONE))
+                .start();
+
+            // Download শুরু
+            android.content.Intent intent = new android.content.Intent(this,
+                UpdateChecker.DownloadReceiver.class);
+            intent.putExtra("apk_url", apkUrl);
+            intent.putExtra("version", version);
+            sendBroadcast(intent);
+
+            Toast.makeText(this, "আপডেট download হচ্ছে…", Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void enterFullscreen() {

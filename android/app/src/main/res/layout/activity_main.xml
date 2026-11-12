@@ -14,7 +14,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
-            <!-- Progress bar — top এ thin line -->
+            <!-- Progress bar — top thin line -->
             <ProgressBar
                 android:id="@+id/progressBar"
                 style="?android:attr/progressBarStyleHorizontal"
@@ -23,10 +23,10 @@
                 android:layout_alignParentTop="true"
                 android:max="100"
                 android:progress="0"
-                android:progressTint="#4A9EFF"
+                android:progressTint="#E8365D"
                 android:visibility="gone" />
 
-            <!-- WebView — full screen -->
+            <!-- WebView -->
             <WebView
                 android:id="@+id/webView"
                 android:layout_width="match_parent"
@@ -37,12 +37,62 @@
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <!-- Full-screen video container — video চললে এটা দেখাবে -->
+    <!-- Full-screen video container -->
     <FrameLayout
         android:id="@+id/fullscreenContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#000000"
         android:visibility="gone" />
+
+    <!-- ══ Update Banner ══ উপরে ডানদিকে ছোট floating chip -->
+    <LinearLayout
+        android:id="@+id/updateBanner"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="12dp"
+        android:background="@drawable/update_banner_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingEnd="13dp"
+        android:elevation="8dp"
+        android:visibility="gone">
+
+        <!-- Animated dot -->
+        <View
+            android:id="@+id/updateDot"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:layout_marginEnd="7dp"
+            android:background="@drawable/update_dot" />
+
+        <!-- Text -->
+        <TextView
+            android:id="@+id/updateBannerText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="নতুন আপডেট"
+            android:textColor="#FFFFFF"
+            android:textSize="12.5sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.02"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Arrow icon -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text=" ↓"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
 
 </FrameLayout>

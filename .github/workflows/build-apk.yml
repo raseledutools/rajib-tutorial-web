@@ -31,17 +31,11 @@ jobs:
       - name: Accept Android licenses
         run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Create debug keystore for signing
+      - name: Restore release keystore from secret
         run: |
           mkdir -p $HOME/.android
-          keytool -genkeypair -v \
-            -keystore $HOME/.android/debug.keystore \
-            -alias androiddebugkey \
-            -keyalg RSA -keysize 2048 \
-            -validity 10000 \
-            -storepass android \
-            -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US"
+          echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 -d > $HOME/.android/rajib-release.jks
+          echo "Keystore size: $(wc -c < $HOME/.android/rajib-release.jks) bytes"
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
@@ -59,23 +53,27 @@ jobs:
 
       - name: Build Release APK
         working-directory: android
+        env:
+          STORE_FILE: ${{ github.workspace }}/../../../.android/rajib-release.jks
+          STORE_PASS: ${{ secrets.RELEASE_STORE_PASS }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.RELEASE_KEY_PASS }}
         run: ./gradlew assembleRelease --no-daemon 2>&1 | tee /tmp/gradle_output.txt; exit ${PIPESTATUS[0]}
 
       - name: Rename APK
         run: |
-          # Signed APK আগে খোঁজো, না পেলে unsigned নাও
           if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
             cp android/app/build/outputs/apk/release/app-release.apk RajibTutorial.apk
-            echo "APK_SIGNED=true" >> $GITHUB_ENV
+            echo "✅ Signed APK found"
           elif [ -f android/app/build/outputs/apk/release/app-release-unsigned.apk ]; then
             cp android/app/build/outputs/apk/release/app-release-unsigned.apk RajibTutorial.apk
-            echo "APK_SIGNED=false" >> $GITHUB_ENV
+            echo "⚠️ Only unsigned APK found"
           else
-            echo "APK file not found!"
+            echo "❌ APK not found!"
             find android/app/build/outputs/ -name "*.apk" 2>/dev/null
             exit 1
           fi
-          echo "APK ready: $(ls -lh RajibTutorial.apk)"
+          echo "APK: $(ls -lh RajibTutorial.apk)"
 
       - name: Push error log on failure
         if: failure()
@@ -108,7 +106,8 @@ jobs:
 
             নতুন আপডেট। নিচের **APK download** করে install করুন।
 
-            > ⚠️ Install করতে গেলে **"Unknown sources থেকে install"** allow করতে হবে।
+            > ✅ পুরনো version uninstall **না করেই** install করা যাবে।
+            > ⚠️ প্রথমবার install করতে **"Unknown sources থেকে install"** allow করতে হবে।
 
             - Version: ${{ env.VERSION_NAME }}
             - Build: #${{ github.run_number }}
