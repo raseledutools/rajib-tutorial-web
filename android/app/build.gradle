@@ -13,27 +13,33 @@ android {
         versionCode 2
         versionName "1.1"
 
-        // Update checker এর জন্য — GitHub repo info
         buildConfigField "String", "GITHUB_OWNER", '"raseledutools"'
-        buildConfigField "String", "GITHUB_REPO", '"rajib-tutorial-web"'
-        buildConfigField "int", "VERSION_CODE", "2"
+        buildConfigField "String", "GITHUB_REPO",  '"rajib-tutorial-web"'
+        buildConfigField "int",    "VERSION_CODE", "2"
     }
 
     signingConfigs {
         release {
-            // Debug keystore দিয়ে sign করা হবে — install হবে কিন্তু Play Store এ দেওয়া যাবে না
-            storeFile file(System.getenv("HOME") + "/.android/debug.keystore")
-            storePassword "android"
-            keyAlias "androiddebugkey"
-            keyPassword "android"
+            // CI: env variable থেকে নেওয়া হয়
+            // Local build: debug keystore fallback
+            def storeFilePath = System.getenv("STORE_FILE") ?:
+                (System.getProperty("user.home") + "/.android/debug.keystore")
+            def storePassword = System.getenv("STORE_PASS") ?: "android"
+            def keyAlias      = System.getenv("KEY_ALIAS")  ?: "androiddebugkey"
+            def keyPassword   = System.getenv("KEY_PASS")   ?: "android"
+
+            storeFile     file(storeFilePath)
+            storePassword storePassword
+            keyAlias      keyAlias
+            keyPassword   keyPassword
         }
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
@@ -46,7 +52,6 @@ android {
         buildConfig true
     }
 
-    // Kotlin stdlib duplicate class fix
     configurations.all {
         resolutionStrategy {
             force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.0'

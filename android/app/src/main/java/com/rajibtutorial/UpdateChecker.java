@@ -19,6 +19,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.FileProvider;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -29,30 +30,43 @@ import java.net.URL;
 
 public class UpdateChecker {
 
-    private static final String CHANNEL_ID    = "update_channel";
-    private static final String CHANNEL_NAME  = "App Updates";
-    private static final int    NOTIF_ID      = 1001;
-    private static final String PREFS_NAME    = "UpdateCheckerPrefs";
-    private static final String KEY_LAST_TAG  = "last_notified_tag";
+    private static final String CHANNEL_ID   = "rt_update_v2";
+    private static final String CHANNEL_NAME = "আপডেট বিজ্ঞপ্তি";
+    private static final int    NOTIF_ID     = 2001;
+    private static final String PREFS_NAME   = "UpdatePrefs";
+    private static final String KEY_LAST_TAG = "last_tag";
 
     private static final String API_URL =
         "https://api.github.com/repos/" + BuildConfig.GITHUB_OWNER +
         "/" + BuildConfig.GITHUB_REPO + "/releases/latest";
 
-    private final Context context;
+    // In-app banner এর জন্য callback
+    public interface UpdateListener {
+        void onUpdateAvailable(String version, String apkUrl);
+    }
+
+    private final Context        context;
+    private       UpdateListener listener;
 
     public UpdateChecker(Context context) {
         this.context = context;
         createNotificationChannel();
     }
 
+    public void setUpdateListener(UpdateListener l) {
+        this.listener = l;
+    }
+
+    // ── Notification channel ───────────────────────────────────────────────
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel ch = new NotificationChannel(
                 CHANNEL_ID, CHANNEL_NAME,
                 NotificationManager.IMPORTANCE_HIGH
             );
-            ch.setDescription("Rajib Tutorial app update notifications");
+            ch.setDescription("Rajib Tutorial নতুন সংস্করণের বিজ্ঞপ্তি");
+            ch.enableVibration(true);
+            ch.setShowBadge(true);
             NotificationManager nm = context.getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(ch);
         }
@@ -63,11 +77,9 @@ public class UpdateChecker {
         new Thread(() -> {
             try {
                 HttpURLConnection conn = (HttpURLConnection) new URL(API_URL).openConnection();
-                conn.setRequestMethod("GET");
                 conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
-                conn.setConnectTimeout(10000);
-                conn.setReadTimeout(10000);
-
+                conn.setConnectTimeout(10_000);
+                conn.setReadTimeout(10_000);
                 if (conn.getResponseCode() != 200) return;
 
                 BufferedReader br = new BufferedReader(
@@ -78,43 +90,43 @@ public class UpdateChecker {
                 br.close();
 
                 JSONObject json    = new JSONObject(sb.toString());
-                String tagName     = json.getString("tag_name");   // e.g. "v42"
-                String releaseNote = json.optString("body", "নতুন আপডেট পাওয়া গেছে।");
+                String tagName     = json.getString("tag_name");
+                String releaseBody = json.optString("body", "");
                 String apkUrl      = "";
 
-                if (json.has("assets")) {
-                    var assets = json.getJSONArray("assets");
+                JSONArray assets = json.optJSONArray("assets");
+                if (assets != null) {
                     for (int i = 0; i < assets.length(); i++) {
-                        JSONObject asset = assets.getJSONObject(i);
-                        if (asset.getString("name").endsWith(".apk")) {
-                            apkUrl = asset.getString("browser_download_url");
+                        JSONObject a = assets.getJSONObject(i);
+                        if (a.getString("name").endsWith(".apk")) {
+                            apkUrl = a.getString("browser_download_url");
                             break;
                         }
                     }
                 }
 
-                // tag থেকে version code বের করি (v2, v42...)
                 int remoteCode = 0;
-                try {
-                    remoteCode = Integer.parseInt(tagName.replace("v", "").trim());
-                } catch (Exception ignored) {}
+                try { remoteCode = Integer.parseInt(tagName.replace("v","").trim()); }
+                catch (Exception ignored) {}
 
-                int localCode = BuildConfig.VERSION_CODE;
-                if (remoteCode <= localCode || apkUrl.isEmpty()) return;
+                if (remoteCode <= BuildConfig.VERSION_CODE || apkUrl.isEmpty()) return;
 
-                // ── Duplicate notification check ──────────────────────────
                 SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                String lastNotifiedTag  = prefs.getString(KEY_LAST_TAG, "");
-                if (tagName.equals(lastNotifiedTag)) return;  // already notified
+                String lastTag = prefs.getString(KEY_LAST_TAG, "");
 
-                final String finalApkUrl = apkUrl;
-                final String finalNote   = releaseNote;
-                final String finalTag    = tagName;
+                final String fApkUrl = apkUrl;
+                final String fTag    = tagName;
+                final String fBody   = releaseBody;
 
                 new Handler(Looper.getMainLooper()).post(() -> {
-                    showUpdateNotification(finalTag, finalNote, finalApkUrl);
-                    // Save যে এই version এর notification পাঠানো হয়েছে
-                    prefs.edit().putString(KEY_LAST_TAG, finalTag).apply();
+                    // In-app banner
+                    if (listener != null) listener.onUpdateAvailable(fTag, fApkUrl);
+
+                    // Notification — শুধু প্রথমবার
+                    if (!fTag.equals(lastTag)) {
+                        showUpdateNotification(fTag, fBody, fApkUrl);
+                        prefs.edit().putString(KEY_LAST_TAG, fTag).apply();
+                    }
                 });
 
             } catch (Exception e) {
@@ -123,27 +135,73 @@ public class UpdateChecker {
         }).start();
     }
 
-    // ── Notification দেখাই ────────────────────────────────────────────────
-    private void showUpdateNotification(String version, String note, String apkUrl) {
-        Intent downloadIntent = new Intent(context, DownloadReceiver.class);
-        downloadIntent.putExtra("apk_url", apkUrl);
-        downloadIntent.putExtra("version", version);
+    // ── Professional notification ──────────────────────────────────────────
+    private void showUpdateNotification(String version, String body, String apkUrl) {
 
-        PendingIntent pi = PendingIntent.getBroadcast(
-            context, 0, downloadIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
+        // Download action intent
+        Intent dlIntent = new Intent(context, DownloadReceiver.class);
+        dlIntent.putExtra("apk_url", apkUrl);
+        dlIntent.putExtra("version", version);
+        PendingIntent dlPi = PendingIntent.getBroadcast(
+            context, 0, dlIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        String shortNote = note.length() > 200 ? note.substring(0, 200) + "…" : note;
+        // "পরে দেখব" dismiss intent
+        Intent dismissIntent = new Intent(context, DownloadReceiver.class);
+        dismissIntent.putExtra("dismiss", true);
+        PendingIntent dismissPi = PendingIntent.getBroadcast(
+            context, 1, dismissIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        // Version number parse: "v7" → "1.7"
+        String vNum = version.replace("v", "");
+        String vName = "1." + vNum;
+
+        // Release note থেকে মূল অংশ বের করি (মার্কডাউন ছাড়া)
+        String cleanBody = body
+            .replaceAll("##\\s*", "")
+            .replaceAll("\\*\\*([^*]+)\\*\\*", "$1")
+            .replaceAll(">\\s*", "")
+            .replaceAll("-\\s*", "• ")
+            .trim();
+        if (cleanBody.length() > 180) cleanBody = cleanBody.substring(0, 180) + "…";
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+            // Icon
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
-            .setContentTitle("🆕 আপডেট পাওয়া গেছে! (" + version + ")")
-            .setContentText("ক্লিক করুন — ডাউনলোড করে ইনস্টল হবে।")
-            .setStyle(new NotificationCompat.BigTextStyle().bigText(shortNote))
+            .setColor(0xE8365D)
+
+            // Content
+            .setContentTitle("Rajib Tutorial " + vName + " পাওয়া গেছে")
+            .setContentText("নতুন সংস্করণ install করতে এখানে চাপুন")
+
+            // Expanded view
+            .setStyle(new NotificationCompat.BigTextStyle()
+                .setBigContentTitle("🎉 Rajib Tutorial " + vName + " এসেছে!")
+                .bigText(
+                    cleanBody.isEmpty()
+                        ? "নতুন সংস্করণে bug fix ও উন্নতি করা হয়েছে।\nনিচের বাটনে চাপলে download ও install হবে।"
+                        : cleanBody + "\n\nনিচের বাটনে চাপলে download ও install হবে।"
+                )
+                .setSummaryText("সংস্করণ " + vName)
+            )
+
+            // Actions
+            .addAction(
+                android.R.drawable.stat_sys_download,
+                "⬇️  এখনই আপডেট করুন",
+                dlPi
+            )
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "পরে দেখব",
+                dismissPi
+            )
+
+            // Behavior
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
-            .addAction(android.R.drawable.stat_sys_download, "এখনই আপডেট করুন", pi);
+            .setContentIntent(dlPi);   // notification body তেও tap করলে download শুরু
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIF_ID, builder.build());
@@ -152,25 +210,27 @@ public class UpdateChecker {
         }
     }
 
-    // ── BroadcastReceiver — notification click হলে download শুরু ──────────
+    // ── BroadcastReceiver — notification এ tap → download শুরু ───────────
     public static class DownloadReceiver extends BroadcastReceiver {
 
         @Override
         public void onReceive(Context ctx, Intent intent) {
+            if (intent.getBooleanExtra("dismiss", false)) return;  // "পরে দেখব"
+
             String apkUrl  = intent.getStringExtra("apk_url");
             String version = intent.getStringExtra("version");
             if (apkUrl == null || apkUrl.isEmpty()) return;
 
             String fileName = "RajibTutorial-" + version + ".apk";
 
-            // পুরনো ফাইল থাকলে মুছে দাও
+            // পুরনো ফাইল মুছো
             File old = new File(
                 ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
             if (old.exists()) old.delete();
 
             DownloadManager.Request req = new DownloadManager.Request(Uri.parse(apkUrl))
-                .setTitle("Rajib Tutorial " + version)
-                .setDescription("আপডেট ডাউনলোড হচ্ছে...")
+                .setTitle("Rajib Tutorial " + version + " download হচ্ছে")
+                .setDescription("সম্পন্ন হলে install এর জন্য tap করুন")
                 .setNotificationVisibility(
                     DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setDestinationInExternalFilesDir(
@@ -179,15 +239,17 @@ public class UpdateChecker {
 
             DownloadManager dm = (DownloadManager) ctx.getSystemService(Context.DOWNLOAD_SERVICE);
             if (dm == null) return;
-            dm.enqueue(req);
+            long downloadId = dm.enqueue(req);
 
             // Download complete হলে install prompt
             IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ctx.registerReceiver(new InstallReceiver(ctx, fileName), filter,
+                ctx.registerReceiver(
+                    new InstallReceiver(ctx, fileName, downloadId), filter,
                     Context.RECEIVER_NOT_EXPORTED);
             } else {
-                ctx.registerReceiver(new InstallReceiver(ctx, fileName), filter);
+                ctx.registerReceiver(
+                    new InstallReceiver(ctx, fileName, downloadId), filter);
             }
         }
     }
@@ -195,28 +257,33 @@ public class UpdateChecker {
     // ── Download complete → install trigger ───────────────────────────────
     public static class InstallReceiver extends BroadcastReceiver {
         private final Context ctx;
-        private final String fileName;
+        private final String  fileName;
+        private final long    downloadId;
 
-        public InstallReceiver(Context ctx, String fileName) {
-            this.ctx      = ctx;
-            this.fileName = fileName;
+        public InstallReceiver(Context ctx, String fileName, long downloadId) {
+            this.ctx        = ctx;
+            this.fileName   = fileName;
+            this.downloadId = downloadId;
         }
 
         @Override
         public void onReceive(Context context, Intent intent) {
+            long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+            if (id != downloadId) return;  // অন্য কোনো download এর event ignore করো
+
             File apkFile = new File(
                 ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
-            if (!apkFile.exists() || apkFile.length() == 0) return;
+            if (!apkFile.exists() || apkFile.length() < 1000) return;
 
             Uri apkUri = FileProvider.getUriForFile(
                 ctx, ctx.getPackageName() + ".provider", apkFile);
 
-            Intent installIntent = new Intent(Intent.ACTION_VIEW)
+            Intent install = new Intent(Intent.ACTION_VIEW)
                 .setDataAndType(apkUri, "application/vnd.android.package-archive")
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-            ctx.startActivity(installIntent);
+            ctx.startActivity(install);
         }
     }
 }
