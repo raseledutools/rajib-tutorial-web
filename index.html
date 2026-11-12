@@ -2677,6 +2677,8 @@ function _setFlashUI(on) {
 }
 // Java → JS: torch state changed (e.g. from quick settings)
 window.onNativeFlashState = function(on) { _flashOn = !!on; _setFlashUI(on); };
+// <script type="module"> → inline onclick needs a global
+window.toggleFlashlight = toggleFlashlight;
 
 async function toggleFlashlight() {
   const btn = document.getElementById('btnFlashlight');
