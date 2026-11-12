@@ -518,22 +518,323 @@ body{color:var(--text)}
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   NATIVE APP THEME — web UI now mirrors the Android native screens
-   (home screen + Focus Mode): #F8F4F1 canvas, white 16dp cards with
-   1.5dp #F0E8E4 stroke, #E8365D accent, #FFF0F3 icon circles,
-   gradient pill primary button, red-outline secondary button,
-   56dp white header with 2dp elevation, system (Roboto) font.
+   COLORFUL THEME — vibrant gradients, glassy header, rainbow sidebar
    ═══════════════════════════════════════════════════════════════ */
 :root{
-  --bg:#F8F4F1;--bg2:#F8F4F1;--card:#FFFFFF;--card2:#F3EEEA;
-  --accent:#E8365D;--accent2:#E8365D;--accent-soft:#FFF0F3;
-  --text:#1E1B18;--sub:#9E988F;--border:#F0E8E4;
-  --grad:linear-gradient(135deg,#E8365D,#C81E4E);--glow:none;
-  --shadow:0 1px 3px rgba(30,27,24,.08),0 2px 6px rgba(30,27,24,.04);
+  --bg:#0F0C1A;--bg2:#1A1530;--card:#1E1A32;--card2:#241F3A;
+  --accent:#FF4D6D;--accent2:#FF4D6D;--accent-soft:rgba(255,77,109,.15);
+  --text:#F0EAF8;--sub:#9B8FBB;--border:rgba(255,255,255,.10);
+  --grad:linear-gradient(135deg,#FF4D6D,#C026D3);
+  --grad2:linear-gradient(135deg,#4F46E5,#06B6D4);
+  --grad3:linear-gradient(135deg,#059669,#10B981);
+  --glow:0 8px 24px rgba(255,77,109,.4);
+  --shadow:0 2px 8px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.2);
+  --sidebar-w:272px;
 }
-html,body{background:#F8F4F1}
+html,body{background:var(--bg)}
 body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',sans-serif;color:var(--text)}
 ::-webkit-scrollbar-thumb{background:var(--border)}
+
+/* ── COLORFUL HEADER ── */
+.topbar{background:linear-gradient(135deg,#1A0533 0%,#0D1545 50%,#001830 100%);border-bottom:1px solid rgba(255,255,255,.08);box-shadow:0 4px 20px rgba(0,0,0,.4);backdrop-filter:blur(0);-webkit-backdrop-filter:none;padding:0 16px 0 4px}
+.topbar-title{font-size:18px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.btn-hamburger{width:48px;height:48px;border:none;border-radius:50%;background:rgba(255,255,255,.08);color:#fff}
+.btn-hamburger:hover{background:rgba(255,77,109,.25);border:none}
+.userchip{border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08)}
+.userchip:hover{border-color:var(--accent)}
+.av,.pro{background:var(--grad)}
+.umenu{background:#1E1A32;border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.5)}
+.um-btn{border:1px solid rgba(255,255,255,.12);border-radius:8px;color:var(--accent)}
+
+/* ── COLORFUL SIDEBAR ── */
+.sidebar{background:linear-gradient(180deg,#1A0533 0%,#0D1545 50%,#001830 100%);border-right:1px solid rgba(255,255,255,.08)}
+.sidebar.open{box-shadow:12px 0 48px rgba(0,0,0,.6)}
+.sidebar-top,.admin-sidebar,.sidebar-bottom{border-color:rgba(255,255,255,.08)}
+.sidebar-logo{background:var(--grad);border:none;border-radius:50%;box-shadow:var(--glow)}
+.sidebar-brand{color:#fff;font-weight:800;font-size:17px}
+.sidebar-brand small{color:rgba(255,255,255,.6);font-weight:400}
+.nav-label{color:rgba(255,255,255,.4);font-weight:700;letter-spacing:.12em}
+.admin-section-label{color:var(--accent);font-weight:700}
+.nav-item,.course-nav-item{color:rgba(255,255,255,.75);border-radius:12px;font-weight:500;transition:background .2s,color .2s}
+.nav-item:hover,.course-nav-item:hover{background:rgba(255,255,255,.1);color:#fff}
+.nav-item.active,.course-nav-item.active{background:var(--grad);color:#fff;box-shadow:0 4px 16px rgba(255,77,109,.4);font-weight:700}
+.nav-item svg{width:18px;height:18px}
+.live-dot{background:#FF4D6D;animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,77,109,.7)}70%{box-shadow:0 0 0 8px rgba(255,77,109,0)}100%{box-shadow:0 0 0 0 rgba(255,77,109,0)}}
+.btn-admin-action{background:rgba(255,255,255,.07);color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:12px;font-weight:600}
+.btn-admin-action:hover{background:rgba(255,255,255,.15);border-color:var(--accent)}
+.btn-admin-action.btn-logout,.btn-logout{color:#FF6B8A}
+.btn-admin-login{color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.18)}
+.btn-admin-login:hover{color:#fff;border-color:var(--accent)}
+
+/* ── COLORFUL HOME HERO ── */
+.home-hero{display:flex;flex-direction:column;align-items:center;text-align:center;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(192,38,211,.25),transparent 70%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(79,70,229,.2),transparent 70%),var(--bg);border-bottom:1px solid rgba(255,255,255,.06);padding:48px 24px 12px}
+.hero-logo{order:0;width:80px;height:80px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 0 0 12px rgba(255,77,109,.12),0 0 0 24px rgba(255,77,109,.06)}
+.hero-logo svg{stroke:#fff}
+.home-hero h1{order:1;font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.25;margin:0;max-width:520px;color:#fff}
+.home-hero h1 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.hero-badge{order:2;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:5px 14px;margin-top:8px;font-size:12.5px;font-weight:600;letter-spacing:.03em;color:rgba(255,255,255,.8)}
+.hero-badge svg{display:block;width:14px;height:14px;color:var(--accent)}
+.home-hero p{order:3;font-size:13.5px;line-height:1.65;color:rgba(255,255,255,.55);max-width:460px;margin-top:12px}
+.hero-actions{order:4;display:flex;flex-direction:column;gap:10px;width:100%;max-width:480px;margin-top:28px}
+.btn-live{width:100%;height:54px;justify-content:center;padding:0 20px;font-size:15px;font-weight:700;border-radius:16px}
+.btn-live.primary{background:var(--grad);color:#fff;box-shadow:var(--glow)}
+.btn-live.primary:hover{filter:brightness(1.1)}
+.btn-live.outline{background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.25);color:#fff}
+.btn-live.outline:hover{background:rgba(255,255,255,.12);border-color:#fff}
+.btn-live.ghost{background:var(--grad2);color:#fff;border:none;box-shadow:0 6px 20px rgba(79,70,229,.4)}
+.btn-live.ghost:hover{filter:brightness(1.1);transform:none}
+.live-pill{background:rgba(255,255,255,.25);color:#fff;border-radius:4px;font-size:9px;padding:2px 6px;font-weight:800;letter-spacing:.08em}
+.live-info{order:5;justify-content:center;font-size:12px;color:rgba(255,255,255,.5)}
+.live-info b{color:rgba(255,255,255,.8)}
+.hero-stats{order:6;display:flex;flex-wrap:nowrap;gap:10px;width:100%;max-width:480px;margin-top:24px;padding:0;border:none}
+.hero-stats>div{flex:1;min-width:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:var(--shadow);padding:16px 8px;text-align:center}
+.stat-n{font-size:26px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;line-height:1.2}
+.stat-l{font-size:11.5px;font-weight:400;color:rgba(255,255,255,.5);margin-top:2px}
+
+/* ── PHONE MODE BUTTON (home page) ── */
+.btn-phone-mode{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:480px;height:54px;border-radius:16px;background:linear-gradient(135deg,#059669,#06B6D4);color:#fff;font-size:15px;font-weight:700;border:none;cursor:pointer;box-shadow:0 6px 20px rgba(5,150,105,.35);transition:filter .2s,transform .15s;order:7;margin-top:0}
+.btn-phone-mode:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.btn-phone-mode svg{width:20px;height:20px;flex-shrink:0}
+
+/* ── KIOSK OVERLAY ── */
+#kioskOverlay{display:none;position:fixed;inset:0;z-index:99998;background:#000;flex-direction:column}
+#kioskOverlay.show{display:flex}
+#kioskFrame{position:absolute;inset:0;width:100%;height:100%;border:none;background:#000}
+/* oval launcher button */
+#kioskLauncher{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99999;width:260px;height:420px;border-radius:50%;background:linear-gradient(160deg,#0F0C1A 0%,#1A0533 40%,#001830 100%);border:3px solid rgba(255,77,109,.4);box-shadow:0 0 0 1px rgba(255,255,255,.06),0 24px 60px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;overflow:hidden;padding:28px 20px}
+#kioskLauncher::before{content:'';position:absolute;inset:0;border-radius:50%;background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(192,38,211,.2),transparent 60%)}
+.kiosk-top-bar{position:absolute;top:0;left:0;right:0;height:56px;display:flex;align-items:center;justify-content:center;z-index:100000}
+/* kiosk app grid inside oval */
+.kiosk-apps{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;width:100%;position:relative;z-index:1}
+.kiosk-app-btn{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 8px;border-radius:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);cursor:pointer;transition:background .2s,transform .15s;color:#fff;font-size:10px;font-weight:600;text-align:center}
+.kiosk-app-btn:hover{background:rgba(255,255,255,.14);transform:scale(1.04)}
+.kiosk-app-btn svg{width:28px;height:28px}
+.kiosk-app-btn.phone-btn svg{color:#4ADE80}
+.kiosk-app-btn.msg-btn svg{color:#60A5FA}
+.kiosk-app-btn.offline-btn svg{color:#FBBF24}
+.kiosk-app-btn.web-btn{display:none}
+
+/* kiosk lock modal */
+#kioskLockModal{display:none;position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px}
+#kioskLockModal.show{display:flex}
+.kiosk-lock-card{background:#1E1A32;border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+.kiosk-lock-title{font-size:20px;font-weight:800;color:#fff;text-align:center;margin-bottom:6px}
+.kiosk-lock-sub{font-size:13px;color:rgba(255,255,255,.5);text-align:center;margin-bottom:22px;line-height:1.5}
+.kiosk-lock-opts{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.kiosk-opt{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);cursor:pointer;transition:border-color .2s,background .2s}
+.kiosk-opt:hover{border-color:var(--accent);background:rgba(255,77,109,.08)}
+.kiosk-opt.selected{border-color:var(--accent);background:rgba(255,77,109,.12)}
+.kiosk-opt-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.kiosk-opt-icon.time-ico{background:linear-gradient(135deg,#4F46E5,#06B6D4)}
+.kiosk-opt-icon.pass-ico{background:linear-gradient(135deg,#FF4D6D,#C026D3)}
+.kiosk-opt-icon svg{width:20px;height:20px;color:#fff}
+.kiosk-opt-label{font-size:14.5px;font-weight:700;color:#fff}
+.kiosk-opt-desc{font-size:12px;color:rgba(255,255,255,.5);margin-top:2px}
+/* time duration picker */
+.kiosk-duration-wrap{display:none;padding:12px 0 4px}
+.kiosk-duration-wrap.show{display:block}
+.kiosk-dur-label{font-size:12px;font-weight:600;color:rgba(255,255,255,.6);margin-bottom:8px}
+.kiosk-dur-pills{display:flex;flex-wrap:wrap;gap:8px}
+.kiosk-dur-pill{padding:7px 14px;border-radius:999px;border:1.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:rgba(255,255,255,.8);font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s}
+.kiosk-dur-pill:hover{border-color:var(--accent);color:#fff}
+.kiosk-dur-pill.sel{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(255,77,109,.3)}
+/* password input */
+.kiosk-pass-wrap{display:none;padding:12px 0 4px}
+.kiosk-pass-wrap.show{display:block}
+.kiosk-pass-label{font-size:12px;font-weight:600;color:rgba(255,255,255,.6);margin-bottom:8px}
+.kiosk-pass-input{width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;font-size:15px;font-weight:600;outline:none;letter-spacing:.1em;text-align:center}
+.kiosk-pass-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,77,109,.2)}
+.kiosk-lock-actions{display:flex;gap:10px}
+.kiosk-btn-cancel{flex:1;padding:13px;border-radius:12px;border:1.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:rgba(255,255,255,.7);font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
+.kiosk-btn-cancel:hover{border-color:rgba(255,255,255,.25);color:#fff}
+.kiosk-btn-start{flex:2;padding:13px;border-radius:12px;background:var(--grad);color:#fff;font-size:14px;font-weight:700;cursor:pointer;border:none;box-shadow:0 6px 16px rgba(255,77,109,.35);transition:filter .2s}
+.kiosk-btn-start:hover{filter:brightness(1.1)}
+
+/* kiosk exit password overlay */
+#kioskExitModal{display:none;position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px}
+#kioskExitModal.show{display:flex}
+.kiosk-exit-card{background:#1E1A32;border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:28px 24px;width:100%;max-width:320px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.7)}
+.kiosk-exit-card h3{font-size:19px;font-weight:800;color:#fff;margin-bottom:6px}
+.kiosk-exit-card p{font-size:13px;color:rgba(255,255,255,.5);margin-bottom:20px;line-height:1.5}
+.kiosk-exit-pin{font-size:28px;font-weight:800;color:#fff;letter-spacing:.18em;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 20px;width:100%;outline:none;text-align:center;margin-bottom:16px}
+.kiosk-exit-pin:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,77,109,.2)}
+.kiosk-exit-err{font-size:12px;color:#FF6B8A;min-height:18px;margin-bottom:12px}
+.kiosk-exit-btn{width:100%;padding:13px;border-radius:12px;background:var(--grad);color:#fff;font-size:15px;font-weight:700;cursor:pointer;border:none;box-shadow:0 6px 16px rgba(255,77,109,.35)}
+.kiosk-exit-btn:hover{filter:brightness(1.1)}
+/* kiosk timer bar */
+#kioskTimerBar{position:fixed;top:0;left:0;right:0;height:3px;background:var(--grad);z-index:100003;transition:width 1s linear;width:100%;display:none}
+#kioskTimerBar.show{display:block}
+#kioskTimerText{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:100003;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:5px 16px;font-size:12px;font-weight:700;color:rgba(255,255,255,.7);display:none;white-space:nowrap}
+#kioskTimerText.show{display:block}
+
+/* ── COLORFUL CATALOGUE ── */
+.courses-section{max-width:1040px;margin:0 auto;padding:28px 16px 12px}
+.sec-title{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.01em}
+.sec-sub{font-size:12px;font-weight:400;color:var(--sub)}
+.search-box input,.filters select{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:#fff;font-weight:400}
+.search-box input::placeholder{color:rgba(255,255,255,.35)}
+.search-box input:focus,.filters select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,77,109,.15)}
+.filters select option{background:#1E1A32;color:#fff}
+.course-grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.course-card,.course-grid .course-card{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;column-gap:14px;padding:16px 20px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:var(--shadow);overflow:visible;transition:border-color .2s,background .2s,transform .2s}
+.course-card:hover{transform:translateY(-2px);border-color:rgba(255,77,109,.5);background:rgba(255,255,255,.09)}
+.course-card::after{content:"›";font-size:24px;line-height:1;color:var(--accent)}
+.cc-thumb{width:48px;height:48px;border-radius:50%;background:var(--grad);overflow:visible;box-shadow:0 4px 12px rgba(255,77,109,.3)}
+.course-grid .course-card:nth-child(4n+2) .cc-thumb{background:linear-gradient(135deg,#4F46E5,#06B6D4);box-shadow:0 4px 12px rgba(79,70,229,.3)}
+.course-grid .course-card:nth-child(4n+3) .cc-thumb{background:linear-gradient(135deg,#059669,#10B981);box-shadow:0 4px 12px rgba(5,150,105,.3)}
+.course-grid .course-card:nth-child(4n+4) .cc-thumb{background:linear-gradient(135deg,#D97706,#EF4444);box-shadow:0 4px 12px rgba(217,119,6,.3)}
+.cc-thumb::before,.cc-thumb::after{display:none}
+.cc-thumb svg{width:22px;height:22px;color:#fff;filter:none}
+.cc-vcount{display:none}
+.cc-body{padding:0;min-width:0}
+.cc-tag{font-size:10.5px;font-weight:700;color:var(--accent);margin-bottom:3px}
+.course-grid .course-card:nth-child(4n+2) .cc-tag{color:#60A5FA}
+.course-grid .course-card:nth-child(4n+3) .cc-tag{color:#34D399}
+.course-grid .course-card:nth-child(4n+4) .cc-tag{color:#FBBF24}
+.cc-name{font-size:15px;font-weight:700;color:#fff;line-height:1.35}
+.cc-meta{font-size:12px;font-weight:400;color:var(--sub);margin-top:3px}
+.cc-desc{font-size:12px;color:var(--sub);margin-top:4px}
+.cc-foot{padding-top:6px}
+.cc-vids{font-size:11px;font-weight:400;color:var(--sub)}
+.btn-watch{display:none}
+
+/* ── COLORFUL FOOTER ── */
+.footer{max-width:1040px;margin:16px auto 0;padding:20px 16px 32px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;font-weight:400;color:rgba(255,255,255,.35)}
+.empty{color:var(--sub);background:rgba(255,255,255,.04);border-radius:16px;border:1px dashed rgba(255,255,255,.1)}
+.loader{color:var(--sub)}
+.spin{border-color:rgba(255,255,255,.12);border-top-color:var(--accent)}
+
+/* ── SHARED BUTTONS ── */
+.btn-add,.btn-ok,.btn-live.primary,.lv-join,.btn-premium{background:var(--grad);color:#fff;border:none;border-radius:16px;box-shadow:var(--glow);font-weight:700}
+.btn-add:hover,.btn-ok:hover,.btn-live.primary:hover,.btn-premium:hover{filter:brightness(1.1);transform:none}
+.btn-ok.red{background:linear-gradient(135deg,#EF4444,#B91C1C);box-shadow:none}
+.btn-secondary,.btn-fullscreen,.btn-login,.btn-admin-login,.lv-join.off{background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);border-radius:12px;color:#fff;font-weight:600}
+.btn-secondary:hover,.btn-fullscreen:hover,.btn-login:hover,.btn-admin-login:hover,.lv-join.off:hover{background:rgba(255,255,255,.12);border-color:#fff;transform:none}
+.btn-cancel{border:1.5px solid rgba(255,255,255,.12);border-radius:10px;color:rgba(255,255,255,.7);font-weight:600;background:rgba(255,255,255,.04)}
+.btn-add-sm{background:rgba(255,77,109,.15);color:var(--accent);border:none;border-radius:8px;font-weight:700}
+.btn-ic{border:1.5px solid rgba(255,255,255,.1);border-radius:8px;color:var(--sub);background:rgba(255,255,255,.04)}
+
+/* ── COURSE PLAYER ── */
+.vlist-panel{background:#0F0C1A;border-right:1px solid rgba(255,255,255,.08)}
+.vlist-header{background:linear-gradient(135deg,#1A0533,#0D1545);color:#fff;border-bottom:none;box-shadow:0 2px 8px rgba(0,0,0,.3);padding:16px}
+.vlist-header h2{color:#fff;font-size:17px;font-weight:700}
+.vlist-header p{color:rgba(255,255,255,.6);font-size:12px;font-weight:400}
+.btn-back,.btn-back:hover{background:rgba(255,255,255,.1);color:#fff;padding:5px 12px;border-radius:999px;font-weight:600}
+.vlist-scroll{padding:12px}
+.vlist-item{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:14px;box-shadow:none;margin-bottom:8px;padding:12px}
+.vlist-item:hover{background:rgba(255,255,255,.09);border-color:rgba(255,77,109,.3)}
+.vlist-item.playing{background:rgba(255,77,109,.15);border-color:rgba(255,77,109,.4)}
+.vnum{border-radius:50%;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);font-weight:700}
+.vlist-item.playing .vnum{background:var(--grad);color:#fff}
+.vtitle{font-size:14px;font-weight:600;color:#fff}
+.vdur{font-size:11px;font-weight:400;color:var(--sub)}
+.player-panel{background:var(--bg)}
+.player-area{background:#000;border:1px solid rgba(255,255,255,.08);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.player-placeholder{background:#0A0810;color:var(--sub)}
+.pp-ico{background:var(--grad);color:#fff;box-shadow:var(--glow)}
+.player-title{font-size:17px;font-weight:700;color:#fff}
+.player-meta{font-size:12px;color:var(--sub)}
+
+/* ── ADMIN PAGES ── */
+#viewManage,#viewMembers{background:var(--bg);min-height:calc(100vh - 56px)}
+.manage-wrap{padding:20px 16px 48px}
+.manage-hdr{background:linear-gradient(135deg,#1A0533,#0D1545);color:#fff;border:1px solid rgba(255,255,255,.1);border-radius:18px;box-shadow:var(--shadow);padding:20px}
+#viewMembers .manage-hdr{background:linear-gradient(135deg,#2D1B69,#4C1D95)}
+.manage-hdr::before,.manage-hdr::after{display:none}
+.manage-hdr>*{position:relative;z-index:1}
+.manage-hdr h2{color:#fff;font-size:18px;font-weight:800}
+.manage-hdr h2::after{color:rgba(255,255,255,.65);opacity:1;font-size:12px;font-weight:400}
+.manage-hdr .btn-add,.manage-hdr .btn-secondary{background:rgba(255,255,255,.12);color:#fff;box-shadow:none;border:1.5px solid rgba(255,255,255,.25)}
+.manage-hdr .btn-add:hover,.manage-hdr .btn-secondary:hover{background:rgba(255,255,255,.2)}
+.manage-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);box-shadow:none;border-radius:16px 16px 0 0}
+.manage-card.single{border-radius:16px}
+.mc-icon,.manage-card:nth-child(n) .mc-icon,.manage-card.single .mc-icon{width:44px;height:44px;border-radius:50%;background:var(--grad);color:#fff;box-shadow:0 4px 12px rgba(255,77,109,.3)}
+.manage-card:nth-child(4n+2) .mc-icon{background:var(--grad2);box-shadow:0 4px 12px rgba(79,70,229,.3)}
+.manage-card:nth-child(4n+3) .mc-icon{background:var(--grad3);box-shadow:0 4px 12px rgba(5,150,105,.3)}
+.mc-info strong{font-size:14px;font-weight:700;color:#fff}
+.mc-info span{font-size:12px;font-weight:400;color:var(--sub)}
+.vsub{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-top:none;border-radius:0 0 16px 16px}
+.vsub-title{color:var(--sub);font-weight:700}
+.vmanage-item{border-top:1px solid rgba(255,255,255,.06)}
+.vm-num{border-radius:50%;background:rgba(255,77,109,.15);color:var(--accent);font-weight:700}
+
+/* ── LIVE CLASS / EXAM ── */
+#viewLive,#viewLive[data-type="exam"]{--lg:var(--grad);--lc:var(--accent);--lglow:var(--glow);--lsoft:rgba(255,77,109,.12);--lbg:var(--bg);background:var(--bg)}
+.lv-hero{background:linear-gradient(135deg,#1A0533 0%,#0D1545 100%);color:#fff;max-width:1040px;margin:0 auto;border-radius:0;border-bottom:1px solid rgba(255,255,255,.08);padding:28px 32px}
+.lv-hero::before,.lv-hero::after{display:none}
+.lv-tabs{display:flex;width:100%;max-width:400px;gap:0;padding:4px;margin-bottom:22px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:12px}
+.lv-tabs button{flex:1;justify-content:center;height:40px;padding:0 8px;border-radius:9px;border-bottom:none;color:rgba(255,255,255,.65);font-size:13px;font-weight:700}
+.lv-tabs button:hover{background:rgba(255,255,255,.1);color:#fff}
+.lv-tabs button.on{background:var(--grad);color:#fff;box-shadow:0 4px 12px rgba(255,77,109,.3)}
+.lv-status{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.7);font-weight:700}
+.lv-status.on{background:rgba(255,77,109,.2);color:#FF6B8A;border-color:rgba(255,77,109,.4)}
+.lv-hero h1{font-size:24px;font-weight:800;color:#fff;letter-spacing:-.02em}
+.lv-lead{font-size:14px;color:rgba(255,255,255,.65);opacity:1}
+.lv-time{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:12px;color:#fff;font-size:13px}
+.lv-time svg{color:var(--accent)}
+.lv-join{height:52px;padding:0 28px;font-size:15px}
+.lv-cards{margin-top:0}
+.lv-card,.lv-tip{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:none}
+.lv-ico{width:44px;height:44px;border-radius:50%;background:var(--grad);color:#fff;box-shadow:0 4px 12px rgba(255,77,109,.25)}
+.lv-card small{font-size:11.5px;font-weight:400;color:var(--sub)}
+.lv-card b{font-size:14px;font-weight:700;color:#fff}
+.lv-player{background:#000;border-radius:16px}
+.lv-empty{background:rgba(255,255,255,.04);border:2px dashed rgba(255,255,255,.1);border-radius:16px}
+.lv-empty-ico{background:rgba(255,77,109,.15);color:var(--accent)}
+.lv-empty h3{font-size:16px;font-weight:700;color:#fff}
+.lv-empty p{font-size:13px;color:var(--sub)}
+.lv-h2{font-size:17px;font-weight:700;color:#fff}
+.lv-n{border-radius:50%;background:rgba(255,77,109,.12);color:var(--accent)}
+.lv-tip b{font-size:14px;font-weight:700;color:#fff}
+.lv-tip p{font-size:12px;color:var(--sub)}
+
+/* ── MODALS ── */
+.modal-bg{background:rgba(0,0,0,.7);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.modal{background:#1E1A32;background-image:none;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:26px;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+.modal-title{font-size:18px;font-weight:800;color:#fff}
+.modal-sub{font-size:13px;color:rgba(255,255,255,.5)}
+.modal h4{color:var(--accent);font-weight:700}
+.fl label{font-size:12px;font-weight:600;color:rgba(255,255,255,.6)}
+.fl input,.fl select,.fl textarea{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:#fff}
+.fl input::placeholder,.fl textarea::placeholder{color:rgba(255,255,255,.3)}
+.fl input:focus,.fl select:focus,.fl textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,77,109,.15)}
+.fl select option{background:#1E1A32;color:#fff}
+.gate-ico{background:var(--grad)!important;color:#fff;box-shadow:var(--glow)}
+.gate-info,.ca-box{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;color:rgba(255,255,255,.7)}
+.ca-item{color:#fff}
+.ca-item:hover{background:rgba(255,255,255,.07)}
+.plan{border:1.5px solid rgba(255,255,255,.1);border-radius:14px;background:rgba(255,255,255,.05);color:#fff}
+.plan.sel{border-color:var(--accent);background:rgba(255,77,109,.1)}
+.plan .pn{color:#fff}
+.plan .ps{color:rgba(255,255,255,.5)}
+.plan .pp{color:var(--accent)}
+.btn-bkash{background:#E2136E}
+.pay-note{color:rgba(255,255,255,.45)}
+.pay-note a,.link-btn{color:var(--accent)}
+.um-name{color:#fff}
+.um-sub{color:rgba(255,255,255,.5)}
+.badge.ok{background:rgba(5,150,105,.2);color:#34D399}
+.badge.exp{background:rgba(239,68,68,.2);color:#FC8181}
+.err-msg{color:#FF6B8A}
+.pw-wrap input{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#fff}
+
+/* manage table rows */
+.manage-card-row{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
+.grp{display:flex;gap:8px}
+
+@media(max-width:900px){
+  .topbar{padding:0 12px 0 4px}
+  .home-hero{padding:36px 16px 8px}
+  .courses-section{padding:20px 12px 8px}
+  .course-grid{grid-template-columns:1fr}
+  .vlist-header{box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  .player-area{border-radius:12px}
+  .lv-hero{padding:20px 16px}
+  .lv-body{padding:0 12px 44px}
+  .lv-join{width:100%;justify-content:center}
+}
+@media(max-width:600px){.manage-wrap{padding:16px 12px 40px}.manage-hdr{padding:18px 16px}}
 
 /* ── Shared buttons (native: update_banner_bg / btn_outline_red) ── */
 .btn-add,.btn-ok,.btn-live.primary,.lv-join,.btn-premium{background:var(--grad);color:#fff;border:1px solid #FF6B8A;border-radius:20px;box-shadow:none;font-weight:700}
@@ -823,6 +1124,11 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
         <div><div class="stat-n" id="statV">–</div><div class="stat-l">Video Lessons</div></div>
         <div><div class="stat-n">8</div><div class="stat-l">Semesters Covered</div></div>
       </div>
+
+      <button class="btn-phone-mode" id="btnPhoneMode" onclick="openKioskModal()" style="margin-top:16px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="3"/></svg>
+        Phone Kiosk Mode
+      </button>
     </section>
 
     <section class="courses-section" id="coursesAnchor">
@@ -904,6 +1210,99 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
     </div>
   </div>
 </main>
+
+<!-- KIOSK TIMER BAR -->
+<div id="kioskTimerBar"></div>
+<div id="kioskTimerText"></div>
+
+<!-- KIOSK OVERLAY (fullscreen blank, with oval launcher) -->
+<div id="kioskOverlay">
+  <!-- Oval launcher -->
+  <div id="kioskLauncher">
+    <div class="kiosk-apps">
+      <!-- Phone call -->
+      <button class="kiosk-app-btn phone-btn" onclick="kioskOpenApp('tel:')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 3a2 2 0 0 1-.5 2l-1.3 1.3a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2-.5c1 .3 2 .5 3 .7a2 2 0 0 1 1.7 2z"/></svg>
+        Phone
+      </button>
+      <!-- Messages -->
+      <button class="kiosk-app-btn msg-btn" onclick="kioskOpenApp('sms:')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Messages
+      </button>
+      <!-- Offline App -->
+      <button class="kiosk-app-btn offline-btn" onclick="kioskOpenOffline()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Device Apps
+      </button>
+      <!-- Exit (long press) -->
+      <button class="kiosk-app-btn" id="kioskExitBtn" oncontextmenu="event.preventDefault();showKioskExit()" onclick="kioskExitBtnClick()" style="color:rgba(255,255,255,.5);border-color:rgba(255,100,100,.2)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span style="font-size:9px;color:rgba(255,80,80,.7)">Exit (hold)</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- KIOSK LOCK MODAL (choose lock type) -->
+<div id="kioskLockModal">
+  <div class="kiosk-lock-card">
+    <div class="kiosk-lock-title">📱 Phone Kiosk Mode</div>
+    <div class="kiosk-lock-sub">শুধু Phone, Messages ও Device Apps চলবে। Back/Home বাটন কাজ করবে না। Lock method বেছে নিন।</div>
+    <div class="kiosk-lock-opts">
+      <div class="kiosk-opt selected" id="lockOptTime" onclick="selectLockOpt('time')">
+        <div class="kiosk-opt-icon time-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div>
+          <div class="kiosk-opt-label">Time Duration</div>
+          <div class="kiosk-opt-desc">নির্দিষ্ট সময় পরে auto unlock</div>
+        </div>
+      </div>
+      <div class="kiosk-dur-wrap show" id="durationWrap">
+        <div class="kiosk-dur-label">Duration বেছে নিন:</div>
+        <div class="kiosk-dur-pills">
+          <span class="kiosk-dur-pill sel" data-min="15" onclick="selectDur(this,15)">15 min</span>
+          <span class="kiosk-dur-pill" data-min="30" onclick="selectDur(this,30)">30 min</span>
+          <span class="kiosk-dur-pill" data-min="60" onclick="selectDur(this,60)">1 hour</span>
+          <span class="kiosk-dur-pill" data-min="120" onclick="selectDur(this,120)">2 hour</span>
+          <span class="kiosk-dur-pill" data-min="0" onclick="selectDur(this,0)">Unlimited</span>
+        </div>
+      </div>
+      <div class="kiosk-opt" id="lockOptPass" onclick="selectLockOpt('pass')">
+        <div class="kiosk-opt-icon pass-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div>
+          <div class="kiosk-opt-label">Password Lock</div>
+          <div class="kiosk-opt-desc">PIN দিলেই unlock হবে</div>
+        </div>
+      </div>
+      <div class="kiosk-pass-wrap" id="passWrap">
+        <div class="kiosk-pass-label">Exit PIN সেট করুন (৪+ সংখ্যা):</div>
+        <input class="kiosk-pass-input" id="kioskPinInput" type="password" inputmode="numeric" maxlength="8" placeholder="• • • •" />
+      </div>
+    </div>
+    <div class="kiosk-lock-actions">
+      <button class="kiosk-btn-cancel" onclick="closeKioskModal()">Cancel</button>
+      <button class="kiosk-btn-start" onclick="startKiosk()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:inline;width:16px;height:16px;margin-right:6px"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="3"/></svg>
+        Start Kiosk
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- KIOSK EXIT PASSWORD MODAL -->
+<div id="kioskExitModal">
+  <div class="kiosk-exit-card">
+    <h3>🔐 Exit Kiosk Mode</h3>
+    <p>PIN দিন অথবা সময় শেষ হলে auto unlock হবে।</p>
+    <input class="kiosk-exit-pin" id="kioskExitPin" type="password" inputmode="numeric" maxlength="8" placeholder="• • • •" onkeydown="if(event.key==='Enter')checkKioskExit()" />
+    <div class="kiosk-exit-err" id="kioskExitErr"></div>
+    <button class="kiosk-exit-btn" onclick="checkKioskExit()">Unlock</button>
+  </div>
+</div>
 
 <!-- MODALS -->
 <div class="modal-bg hidden" id="mLogin">
@@ -2042,6 +2441,143 @@ window.removeAllowedDevice=async function(memberId,deviceId){
     await loadCourses();renderMembers();openDeviceSettings(memberId);
   }catch(e){showToast("Error: "+e.message)}
 };
+
+// ═══════════════════════════════════════════════════════════
+// KIOSK MODE
+// ═══════════════════════════════════════════════════════════
+(function(){
+  let kioskActive=false,kioskLockMode='time',kioskDurMin=15,kioskPin='',kioskTimer=null,kioskExitPressCount=0,kioskExitPressTimer=null;
+
+  window.openKioskModal=function(){
+    document.getElementById('kioskLockModal').classList.add('show');
+  };
+  window.closeKioskModal=function(){
+    document.getElementById('kioskLockModal').classList.remove('show');
+  };
+  window.selectLockOpt=function(type){
+    kioskLockMode=type;
+    document.getElementById('lockOptTime').classList.toggle('selected',type==='time');
+    document.getElementById('lockOptPass').classList.toggle('selected',type==='pass');
+    document.getElementById('durationWrap').classList.toggle('show',type==='time');
+    document.getElementById('passWrap').classList.toggle('show',type==='pass');
+  };
+  window.selectDur=function(el,min){
+    kioskDurMin=min;
+    document.querySelectorAll('.kiosk-dur-pill').forEach(p=>p.classList.remove('sel'));
+    el.classList.add('sel');
+  };
+  window.startKiosk=function(){
+    if(kioskLockMode==='pass'){
+      const pin=document.getElementById('kioskPinInput').value.trim();
+      if(pin.length<4){showToast('PIN কমপক্ষে ৪ সংখ্যার হতে হবে');return;}
+      kioskPin=pin;
+    }
+    closeKioskModal();
+    activateKiosk();
+  };
+
+  function activateKiosk(){
+    kioskActive=true;
+    const ov=document.getElementById('kioskOverlay');
+    ov.classList.add('show');
+    // try fullscreen
+    try{
+      const el=document.documentElement;
+      const req=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
+      if(req)req.call(el).catch(()=>{});
+    }catch(e){}
+    // block back/home via history
+    history.pushState(null,null,location.href);
+    window.onpopstate=function(){history.pushState(null,null,location.href);};
+    // prevent context menu
+    document.addEventListener('contextmenu',blockCtx,true);
+    // timer
+    if(kioskLockMode==='time'&&kioskDurMin>0){
+      startKioskTimer(kioskDurMin*60);
+    }
+  }
+
+  function blockCtx(e){
+    // allow inside kiosk exit button
+    if(e.target.closest('#kioskExitBtn'))return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function startKioskTimer(totalSec){
+    let remaining=totalSec;
+    const bar=document.getElementById('kioskTimerBar');
+    const txt=document.getElementById('kioskTimerText');
+    bar.classList.add('show');txt.classList.add('show');
+    bar.style.width='100%';
+    function tick(){
+      remaining--;
+      const pct=(remaining/totalSec)*100;
+      bar.style.width=pct+'%';
+      const h=Math.floor(remaining/3600),m=Math.floor((remaining%3600)/60),s=remaining%60;
+      txt.textContent=h?`${h}h ${m}m শেষে unlock`:`${m}m ${s}s শেষে unlock`;
+      if(remaining<=0){exitKiosk();}
+      else{kioskTimer=setTimeout(tick,1000);}
+    }
+    kioskTimer=setTimeout(tick,1000);
+  }
+
+  window.showKioskExit=function(){
+    if(kioskLockMode==='pass'){
+      document.getElementById('kioskExitPin').value='';
+      document.getElementById('kioskExitErr').textContent='';
+      document.getElementById('kioskExitModal').classList.add('show');
+      setTimeout(()=>document.getElementById('kioskExitPin').focus(),100);
+    } else {
+      // time mode: show remaining info
+      showToast('সময় শেষ হলে auto unlock হবে');
+    }
+  };
+
+  window.kioskExitBtnClick=function(){
+    kioskExitPressCount++;
+    clearTimeout(kioskExitPressTimer);
+    kioskExitPressTimer=setTimeout(()=>{kioskExitPressCount=0;},600);
+    if(kioskExitPressCount>=3){kioskExitPressCount=0;window.showKioskExit();}
+    else{showToast('Exit করতে ৩ বার ট্যাপ করুন');}
+  };
+
+  window.checkKioskExit=function(){
+    const entered=document.getElementById('kioskExitPin').value.trim();
+    if(entered===kioskPin){
+      document.getElementById('kioskExitModal').classList.remove('show');
+      exitKiosk();
+    } else {
+      document.getElementById('kioskExitErr').textContent='ভুল PIN। আবার চেষ্টা করুন।';
+      document.getElementById('kioskExitPin').value='';
+    }
+  };
+
+  function exitKiosk(){
+    kioskActive=false;
+    clearTimeout(kioskTimer);
+    document.getElementById('kioskOverlay').classList.remove('show');
+    document.getElementById('kioskTimerBar').classList.remove('show');
+    document.getElementById('kioskTimerText').classList.remove('show');
+    document.getElementById('kioskExitModal').classList.remove('show');
+    window.onpopstate=null;
+    document.removeEventListener('contextmenu',blockCtx,true);
+    try{
+      const ex=document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen||document.msExitFullscreen;
+      if(ex)ex.call(document).catch(()=>{});
+    }catch(e){}
+    kioskPin='';
+    showToast('Kiosk Mode বন্ধ হয়েছে ✓');
+  }
+
+  window.kioskOpenApp=function(scheme){
+    // Open phone/sms via protocol
+    try{window.location.href=scheme;}catch(e){}
+  };
+  window.kioskOpenOffline=function(){
+    showToast('Device apps খুলতে হোম বাটন ব্যবহার করুন (Kiosk-এ Home disabled)');
+  };
+})();
 
 // ─── Boot ────────────────────────────────────────────────
 $("playerArea").innerHTML=placeholder(I.play,"Select a lesson to start watching");
