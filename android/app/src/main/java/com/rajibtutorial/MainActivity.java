@@ -65,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
     private String        pendingApkUrl  = "";
     private String        pendingVersion = "";
     private boolean       isWebSectionOpen = false;
+    private FlashBridge   flashBridge;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -191,6 +192,12 @@ public class MainActivity extends AppCompatActivity {
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+
+        // Flashlight JS bridge → window.AndroidFlash
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flashBridge = new FlashBridge(this, webView);
+            webView.addJavascriptInterface(flashBridge, "AndroidFlash");
+        }
 
         webView.setOnScrollChangeListener((v, sx, sy, osx, osy) ->
             swipeRefresh.setEnabled(sy == 0));
@@ -394,6 +401,12 @@ public class MainActivity extends AppCompatActivity {
         backPressedOnce = true;
         Toast.makeText(this, "আবার Back চাপলে বন্ধ হবে", Toast.LENGTH_SHORT).show();
         backHandler.postDelayed(() -> backPressedOnce = false, 2000);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (flashBridge != null) flashBridge.release();
+        super.onDestroy();
     }
 
     @Override
