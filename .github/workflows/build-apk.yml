@@ -31,6 +31,18 @@ jobs:
       - name: Accept Android licenses
         run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
+      - name: Create debug keystore for signing
+        run: |
+          mkdir -p $HOME/.android
+          keytool -genkeypair -v \
+            -keystore $HOME/.android/debug.keystore \
+            -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US"
+
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
@@ -51,10 +63,19 @@ jobs:
 
       - name: Rename APK
         run: |
-          cp android/app/build/outputs/apk/release/app-release-unsigned.apk \
-             RajibTutorial.apk || \
-          cp android/app/build/outputs/apk/release/app-release.apk \
-             RajibTutorial.apk
+          # Signed APK আগে খোঁজো, না পেলে unsigned নাও
+          if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk RajibTutorial.apk
+            echo "APK_SIGNED=true" >> $GITHUB_ENV
+          elif [ -f android/app/build/outputs/apk/release/app-release-unsigned.apk ]; then
+            cp android/app/build/outputs/apk/release/app-release-unsigned.apk RajibTutorial.apk
+            echo "APK_SIGNED=false" >> $GITHUB_ENV
+          else
+            echo "APK file not found!"
+            find android/app/build/outputs/ -name "*.apk" 2>/dev/null
+            exit 1
+          fi
+          echo "APK ready: $(ls -lh RajibTutorial.apk)"
 
       - name: Push error log on failure
         if: failure()
@@ -76,7 +97,6 @@ jobs:
           path: RajibTutorial.apk
           retention-days: 30
 
-      # ── Every successful build = GitHub Release ──
       - name: Create GitHub Release
         if: success()
         uses: softprops/action-gh-release@v2
@@ -86,7 +106,9 @@ jobs:
           body: |
             ## Rajib Tutorial ${{ env.VERSION_NAME }}
 
-            নতুন আপডেট। নিচের APK download করে install করুন।
+            নতুন আপডেট। নিচের **APK download** করে install করুন।
+
+            > ⚠️ Install করতে গেলে **"Unknown sources থেকে install"** allow করতে হবে।
 
             - Version: ${{ env.VERSION_NAME }}
             - Build: #${{ github.run_number }}

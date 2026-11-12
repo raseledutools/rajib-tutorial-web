@@ -19,10 +19,21 @@ android {
         buildConfigField "int", "VERSION_CODE", "2"
     }
 
+    signingConfigs {
+        release {
+            // Debug keystore দিয়ে sign করা হবে — install হবে কিন্তু Play Store এ দেওয়া যাবে না
+            storeFile file(System.getenv("HOME") + "/.android/debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 
@@ -35,13 +46,14 @@ android {
         buildConfig true
     }
 
+    // Kotlin stdlib duplicate class fix
     configurations.all {
         resolutionStrategy {
-            force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
-            force 'org.jetbrains.kotlin:kotlin-stdlib-common:1.8.22'
+            force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.0'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-common:1.9.0'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0'
         }
-        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
-        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
     }
 }
 
