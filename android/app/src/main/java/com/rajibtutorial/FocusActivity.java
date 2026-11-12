@@ -1,6 +1,7 @@
 package com.rajibtutorial;
 
 import android.app.ActivityManager;
+import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -9,6 +10,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Process;
 import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -383,27 +385,51 @@ public class FocusActivity extends AppCompatActivity {
         return true;
     }
 
-    private boolean checkUsagePermission() {
+    /**
+     * Usage Access আসলে দেওয়া আছে কিনা — AppOps দিয়ে সঠিকভাবে check করা হয়।
+     * (আগে মাত্র ১ সেকেন্ডের usage stats query করা হতো — যা permission থাকলেও
+     *  প্রায় সবসময় empty আসত, তাই বারবার Settings page এ পাঠাত।)
+     */
+    private boolean hasUsageAccess() {
         try {
-            ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-            android.app.usage.UsageStatsManager usm =
-                (android.app.usage.UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
-            long now = System.currentTimeMillis();
-            java.util.List<android.app.usage.UsageStats> stats =
-                usm.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY,
-                    now - 1000, now);
-            if (stats == null || stats.isEmpty()) {
-                new AlertDialog.Builder(this)
-                    .setTitle("\"Usage Access\" Permission দরকার")
-                    .setMessage("কোন app কতক্ষণ চলছে তা দেখতে Permission দিন।\n\nSettings → Usage Access → Rajib Tutorial → চালু করুন।")
-                    .setPositiveButton("Settings খুলুন", (d, w) -> startActivity(
-                        new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)))
-                    .setNegativeButton("পরে", null)
-                    .show();
-                return false;
+            AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+            if (appOps == null) return true;
+            int mode;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                mode = appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                        Process.myUid(), getPackageName());
+            } else {
+                mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                        Process.myUid(), getPackageName());
             }
-        } catch (Exception ignored) {}
-        return true;
+            if (mode == AppOpsManager.MODE_DEFAULT) {
+                return checkCallingOrSelfPermission(android.Manifest.permission.PACKAGE_USAGE_STATS)
+                        == PackageManager.PERMISSION_GRANTED;
+            }
+            return mode == AppOpsManager.MODE_ALLOWED;
+        } catch (Exception e) {
+            // check করা না গেলে user কে আটকে রাখব না
+            return true;
+        }
+    }
+
+    private boolean checkUsagePermission() {
+        if (hasUsageAccess()) return true;
+
+        new AlertDialog.Builder(this)
+            .setTitle("\"Usage Access\" Permission দরকার")
+            .setMessage("কোন app কতক্ষণ চলছে তা দেখতে Permission দিন।\n\nSettings → Usage Access → Rajib Tutorial → চালু করুন।")
+            .setPositiveButton("Settings খুলুন", (d, w) -> {
+                try {
+                    startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS,
+                        Uri.parse("package:" + getPackageName())));
+                } catch (Exception e) {
+                    startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+                }
+            })
+            .setNegativeButton("পরে", null)
+            .show();
+        return false;
     }
 
     // ── PIN dialogs ───────────────────────────────────────────────────────

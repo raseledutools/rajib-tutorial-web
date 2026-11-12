@@ -5,8 +5,10 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.Settings;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
@@ -316,7 +318,17 @@ public class MainActivity extends AppCompatActivity {
     // ── APK install — Activity context দিয়ে (crash হয় না) ───────────────
     private void triggerInstallFromActivity(java.io.File apkFile) {
         try {
-            android.net.Uri apkUri = androidx.core.content.FileProvider.getUriForFile(
+            // Android 8+: "Install unknown apps" permission না থাকলে আগে সেটা চাইতে হবে
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    && !getPackageManager().canRequestPackageInstalls()) {
+                Toast.makeText(this,
+                    "Install করার অনুমতি দিন, তারপর ফিরে এসে \"এখনই Install করুন\" চাপুন",
+                    Toast.LENGTH_LONG).show();
+                startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:" + getPackageName())));
+                return;
+            }
+            Uri apkUri = androidx.core.content.FileProvider.getUriForFile(
                 this, getPackageName() + ".provider", apkFile);
             Intent install = new Intent(Intent.ACTION_VIEW)
                 .setDataAndType(apkUri, "application/vnd.android.package-archive")

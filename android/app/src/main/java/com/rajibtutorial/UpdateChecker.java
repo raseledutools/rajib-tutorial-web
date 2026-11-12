@@ -149,63 +149,93 @@ public class UpdateChecker {
     }
 
     // ── Download APK — progress callback সহ ──────────────────────────────
-    public void startDownload(String apkUrl, String version) {
-        String fileName = "RajibTutorial-" + version + ".apk";
-
-        File old = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
-        if (old.exists()) old.delete();
-
+    private DownloadManager.Request buildRequest(String apkUrl, String version,
+                                                 String fileName, boolean hidden) {
         DownloadManager.Request req = new DownloadManager.Request(Uri.parse(apkUrl))
             .setTitle("Rajib Tutorial " + version)
             .setDescription("আপডেট download হচ্ছে…")
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)  // system notification লাগবে না
             .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
             .setMimeType("application/vnd.android.package-archive");
+        req.setNotificationVisibility(hidden
+            ? DownloadManager.Request.VISIBILITY_HIDDEN
+            : DownloadManager.Request.VISIBILITY_VISIBLE);
+        return req;
+    }
 
-        DownloadManager dm = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
-        if (dm == null) return;
-        long downloadId = dm.enqueue(req);
+    public void startDownload(String apkUrl, String version) {
+        final String fileName = "RajibTutorial-" + version + ".apk";
 
-        // Progress polling — 500ms পর পর
-        Handler handler = new Handler(Looper.getMainLooper());
+        try {
+            File old = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
+            if (old.exists()) old.delete();
+        } catch (Exception ignored) {}
+
+        final DownloadManager dm = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
+        if (dm == null) {
+            if (progressListener != null) progressListener.onError("DownloadManager unavailable");
+            return;
+        }
+
+        long id;
+        try {
+            // VISIBILITY_HIDDEN এর জন্য DOWNLOAD_WITHOUT_NOTIFICATION permission লাগে
+            id = dm.enqueue(buildRequest(apkUrl, version, fileName, true));
+        } catch (Exception hiddenFailed) {
+            try {
+                // Permission/OS সমস্যা হলে system notification সহ চেষ্টা করো — crash করবে না
+                id = dm.enqueue(buildRequest(apkUrl, version, fileName, false));
+            } catch (Exception e) {
+                if (progressListener != null)
+                    progressListener.onError("Download শুরু করা যায়নি: " + e.getMessage());
+                return;
+            }
+        }
+        final long downloadId = id;
+
+        // Progress polling
+        final Handler handler = new Handler(Looper.getMainLooper());
         Runnable poll = new Runnable() {
             @Override public void run() {
-                DownloadManager.Query q = new DownloadManager.Query().setFilterById(downloadId);
-                Cursor c = dm.query(q);
-                if (c != null && c.moveToFirst()) {
+                Cursor c = null;
+                try {
+                    c = dm.query(new DownloadManager.Query().setFilterById(downloadId));
+                    if (c == null || !c.moveToFirst()) {
+                        // download মুছে ফেলা/cancel হয়েছে
+                        if (progressListener != null) progressListener.onError("Download পাওয়া যায়নি");
+                        return;
+                    }
                     int statusIdx = c.getColumnIndex(DownloadManager.COLUMN_STATUS);
                     int status    = statusIdx >= 0 ? c.getInt(statusIdx) : -1;
 
                     if (status == DownloadManager.STATUS_RUNNING ||
                         status == DownloadManager.STATUS_PAUSED) {
 
-                        int totalIdx     = c.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES);
-                        int downloadedIdx= c.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR);
-                        long total       = totalIdx     >= 0 ? c.getLong(totalIdx)      : -1;
-                        long downloaded  = downloadedIdx>= 0 ? c.getLong(downloadedIdx) : 0;
+                        int totalIdx      = c.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES);
+                        int downloadedIdx = c.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR);
+                        long total        = totalIdx      >= 0 ? c.getLong(totalIdx)      : -1;
+                        long downloaded   = downloadedIdx >= 0 ? c.getLong(downloadedIdx) : 0;
 
                         int percent = (total > 0) ? (int)((downloaded * 100L) / total) : 0;
                         if (progressListener != null)
                             progressListener.onProgress(percent, downloaded, total);
-                        c.close();
                         handler.postDelayed(this, 300);
 
                     } else if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                        c.close();
                         if (progressListener != null) progressListener.onProgress(100, 0, 0);
-                        // Install
                         handler.postDelayed(() -> triggerInstall(context, fileName), 400);
 
                     } else if (status == DownloadManager.STATUS_FAILED) {
                         int reasonIdx = c.getColumnIndex(DownloadManager.COLUMN_REASON);
                         int reason    = reasonIdx >= 0 ? c.getInt(reasonIdx) : -1;
-                        c.close();
                         if (progressListener != null)
                             progressListener.onError("Download failed: " + reason);
                     } else {
-                        c.close();
-                        handler.postDelayed(this, 500);
+                        handler.postDelayed(this, 500); // PENDING
                     }
+                } catch (Exception e) {
+                    if (progressListener != null) progressListener.onError(String.valueOf(e.getMessage()));
+                } finally {
+                    if (c != null) c.close();
                 }
             }
         };
@@ -285,15 +315,21 @@ public class UpdateChecker {
                 .setDestinationInExternalFilesDir(ctx, Environment.DIRECTORY_DOWNLOADS, fileName)
                 .setMimeType("application/vnd.android.package-archive");
 
-            DownloadManager dm = (DownloadManager) ctx.getSystemService(Context.DOWNLOAD_SERVICE);
-            if (dm == null) return;
-            long id = dm.enqueue(req);
+            try {
+                DownloadManager dm = (DownloadManager) ctx.getSystemService(Context.DOWNLOAD_SERVICE);
+                if (dm == null) return;
+                long id = dm.enqueue(req);
 
-            IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ctx.registerReceiver(new InstallReceiver(ctx, fileName, id), filter, Context.RECEIVER_NOT_EXPORTED);
-            } else {
-                ctx.registerReceiver(new InstallReceiver(ctx, fileName, id), filter);
+                Context app = ctx.getApplicationContext();
+                IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+                InstallReceiver receiver = new InstallReceiver(app, fileName, id);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    app.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
+                } else {
+                    app.registerReceiver(receiver, filter);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }
@@ -310,13 +346,18 @@ public class UpdateChecker {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID,-1) != downloadId) return;
-            File apkFile = new File(ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
-            if (!apkFile.exists() || apkFile.length() < 1000) return;
-            Uri uri = FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".provider", apkFile);
-            ctx.startActivity(new Intent(Intent.ACTION_VIEW)
-                .setDataAndType(uri, "application/vnd.android.package-archive")
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            try { ctx.unregisterReceiver(this); } catch (Exception ignored) {}
+            try {
+                File apkFile = new File(ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
+                if (!apkFile.exists() || apkFile.length() < 1000) return;
+                Uri uri = FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".provider", apkFile);
+                ctx.startActivity(new Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 }
