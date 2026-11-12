@@ -1,5 +1,6 @@
 package com.rajibtutorial;
 
+import android.content.Intent;
 import android.text.Editable;
 import android.text.SpannableString;
 import android.text.Spanned;
@@ -81,8 +82,10 @@ final class HomeScreen extends Screen {
         btnClass = Ui.btn(a, "Join Live Class", Ui.B_PRIMARY, v -> a.openLive(false));
         btnExam = Ui.btn(a, "Take Live Exam", Ui.B_OUTLINE, v -> a.openLive(true));
         TextView browse = Ui.btn(a, "Browse Courses", Ui.B_GHOST, v -> sv.post(() -> sv.smoothScrollTo(0, anchor.getTop())));
+        TextView btnCall = Ui.btn(a, "📞  Phone Call", Ui.B_GREEN, v -> a.startActivity(new Intent(a, CallActivity.class)));
         hero.addView(btnClass, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 10));
         hero.addView(btnExam, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 10));
+        hero.addView(btnCall, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 10));
         hero.addView(browse, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 4));
 
         liveInfo = Ui.tv(a, "", 12.5f, Ui.SUB, false);
