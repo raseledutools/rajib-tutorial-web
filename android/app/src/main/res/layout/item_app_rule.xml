@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/card_web_bg"
+    android:padding="12dp"
+    android:layout_marginBottom="8dp"
+    android:elevation="2dp">
+
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_weight="1" android:orientation="vertical">
+        <TextView android:id="@+id/appRuleLabel"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textSize="14sp" android:textStyle="bold" android:textColor="#1E1B18"/>
+        <TextView android:id="@+id/appRuleUsage"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textSize="11sp" android:textColor="#9E988F"/>
+    </LinearLayout>
+
+    <TextView android:id="@+id/btnEditRule"
+        android:layout_width="wrap_content" android:layout_height="36dp"
+        android:gravity="center" android:text="সীমা"
+        android:textSize="12sp" android:textColor="#E8365D"
+        android:background="@drawable/btn_outline_red"
+        android:paddingStart="12dp" android:paddingEnd="12dp"
+        android:clickable="true" android:focusable="true"
+        android:layout_marginEnd="8dp"/>
+
+    <Switch android:id="@+id/swBlock"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+</LinearLayout>
