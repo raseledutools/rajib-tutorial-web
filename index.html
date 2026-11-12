@@ -603,6 +603,9 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
 .stat-l{font-size:11.5px;font-weight:400;color:var(--sub);margin-top:3px}
 
 /* ── PHONE MODE BUTTON (home page) ── */
+.btn-flashlight{transition:background .2s,border-color .2s,color .2s,box-shadow .2s!important}
+.btn-flashlight.on{background:#FFF8E1!important;border-color:#FFC107!important;color:#E65100!important;box-shadow:0 0 18px rgba(255,193,7,.45)!important}
+.btn-flashlight.on svg{stroke:#E65100}
 .btn-phone-mode{display:flex;align-items:center;justify-content:center;gap:8px;width:auto;padding:0 20px;height:48px;border-radius:24px;background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;font-size:14px;font-weight:700;border:2px solid rgba(255,255,255,.15);cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35);transition:filter .2s,transform .15s;margin-top:16px;letter-spacing:.01em}
 .btn-phone-mode:hover{filter:brightness(1.15);transform:translateY(-1px)}
 .btn-phone-mode svg{width:16px;height:16px;flex-shrink:0}
@@ -1139,6 +1142,10 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
           Take Live Exam <span class="live-pill">LIVE</span>
         </button>
         <button class="btn-live ghost" onclick="document.getElementById('coursesAnchor').scrollIntoView()">Browse Courses</button>
+        <button class="btn-live ghost btn-flashlight" id="btnFlashlight" onclick="toggleFlashlight()">
+          <svg id="flashlightIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6c0-2.21-2.69-4-6-4S6 3.79 6 6l2 7h8l2-7z"/><path d="M6 13l-1.5 5.5A1 1 0 0 0 5.5 20h13a1 1 0 0 0 1-1.5L18 13"/><line x1="12" y1="20" x2="12" y2="22"/></svg>
+          <span id="flashlightLabel">🔦 Flashlight</span>
+        </button>
       </div>
       <div class="live-info" id="liveInfo"></div>
 
@@ -2655,6 +2662,42 @@ renderUser();
   showToast("Premium activated. Welcome, "+r.name);
 })();
 loadCourses();
+
+/* ── FLASHLIGHT ── */
+let _flashStream = null;
+let _flashOn = false;
+async function toggleFlashlight() {
+  const btn = document.getElementById('btnFlashlight');
+  const lbl = document.getElementById('flashlightLabel');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('Flashlight is not supported on this device/browser.');
+    return;
+  }
+  if (_flashOn) {
+    if (_flashStream) { _flashStream.getTracks().forEach(t => t.stop()); _flashStream = null; }
+    _flashOn = false;
+    btn.classList.remove('on');
+    lbl.textContent = '🔦 Flashlight';
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const track = stream.getVideoTracks()[0];
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    if (!caps.torch) {
+      stream.getTracks().forEach(t => t.stop());
+      showToast('Torch/flashlight not supported on this device.');
+      return;
+    }
+    await track.applyConstraints({ advanced: [{ torch: true }] });
+    _flashStream = stream;
+    _flashOn = true;
+    btn.classList.add('on');
+    lbl.textContent = '💡 Turn Off';
+  } catch (e) {
+    showToast('Camera permission denied or flashlight unavailable.');
+  }
+}
 </script>
 </body>
 </html>
