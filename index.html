@@ -504,6 +504,22 @@ body{color:var(--text)}
 #fsCloseBtn{position:absolute;top:12px;left:12px;z-index:10000;width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;color:#fff}
 #fsCloseBtn svg{width:20px;height:20px}
 
+
+/* ── Custom YouTube player (branding hidden) ────────────── */
+.ytp{position:absolute;inset:0;background:#000;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.ytp-frame{position:absolute;left:0;right:0;top:-72px;bottom:-72px;pointer-events:none}
+.ytp-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+.ytp-shield{position:absolute;inset:0;z-index:2}
+.ytp-cover{position:absolute;inset:0;z-index:3;background:#000 center/cover no-repeat;display:flex;align-items:center;justify-content:center;transition:opacity .2s}
+.ytp-cover.off{opacity:0;pointer-events:none}
+.ytp-big{width:66px;height:66px;border-radius:50%;background:var(--accent,#e8365d);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.ytp-big svg{width:28px;height:28px;margin-left:3px}
+.ytp-bar{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:center;gap:8px;padding:22px 12px 8px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-size:12px;font-variant-numeric:tabular-nums;transition:opacity .25s}
+.ytp-bar.hide{opacity:0;pointer-events:none}
+.ytp-bar button{color:#fff;font-size:12.5px;font-weight:700;min-width:32px;height:32px;display:flex;align-items:center;justify-content:center}
+.ytp-bar button svg{width:18px;height:18px}
+.ytp-bar input[type=range]{flex:1;min-width:0;accent-color:var(--accent,#e8365d)}
+
 /* ── Screen capture prevention ──────────────────────────── */
 @media screen {
   .player-area, .player-area *, .player-panel {
@@ -1711,6 +1727,92 @@ function ytEmbed(url){
   if(!m) return null;
   return `https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1&color=white&enablejsapi=0`;
 }
+
+function ytId(url){
+  const m=String(url||"").match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m?m[1]:null;
+}
+// ─── Custom YouTube player: no title / share / copy-link / logo / suggestions ───
+let _ytApi;
+function loadYTApi(){
+  if(_ytApi) return _ytApi;
+  _ytApi=new Promise(res=>{
+    if(window.YT&&YT.Player) return res();
+    const prev=window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady=()=>{try{prev&&prev()}catch(e){}res()};
+    const sc=document.createElement("script");sc.src="https://www.youtube.com/iframe_api";document.head.appendChild(sc);
+  });
+  return _ytApi;
+}
+const _fmtT=t=>{t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+":"+String(t%60).padStart(2,"0")};
+function unmountYT(box){
+  if(!box) return;
+  if(box._ytTimer){clearInterval(box._ytTimer);box._ytTimer=null}
+  if(box._yt){try{box._yt.destroy()}catch(e){}box._yt=null}
+  box.querySelectorAll(".ytp").forEach(n=>n.remove());
+}
+function mountYT(box,id,o={}){
+  unmountYT(box);
+  const uid="yt"+Math.random().toString(36).slice(2,9);
+  const wrap=document.createElement("div");wrap.className="ytp";
+  const PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>';
+  const PAUSE='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+  wrap.innerHTML=
+    `<div class="ytp-frame"><div id="${uid}"></div></div>`+
+    `<div class="ytp-shield"></div>`+
+    `<div class="ytp-cover" style="background-image:url(https://i.ytimg.com/vi/${id}/hqdefault.jpg)"><div class="ytp-big">${PLAY}</div></div>`+
+    `<div class="ytp-bar hide"><button class="ytp-pp">${PLAY}</button><span class="ytp-t">0:00</span>`+
+    `<input class="ytp-sk" type="range" min="0" max="1000" value="0"><span class="ytp-d">0:00</span>`+
+    `<button class="ytp-sp">1x</button>`+
+    (o.fs===false?"":`<button class="ytp-fs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>`)+
+    `</div>`;
+  box.appendChild(wrap);
+  const q=s=>wrap.querySelector(s);
+  const cover=q(".ytp-cover"),bar=q(".ytp-bar"),pp=q(".ytp-pp"),sk=q(".ytp-sk"),
+        tt=q(".ytp-t"),dd=q(".ytp-d"),sp=q(".ytp-sp");
+  let pl=null,playing=false,drag=false,hideT=null;
+  const showBar=()=>{bar.classList.remove("hide");clearTimeout(hideT);if(playing)hideT=setTimeout(()=>bar.classList.add("hide"),2800)};
+  const toggle=()=>{if(!pl||!pl.getPlayerState)return;playing?pl.pauseVideo():pl.playVideo()};
+  q(".ytp-shield").addEventListener("click",()=>{ if(bar.classList.contains("hide")) showBar(); else toggle(); });
+  cover.addEventListener("click",()=>{toggle();});
+  pp.addEventListener("click",e=>{e.stopPropagation();toggle();showBar()});
+  const speeds=[1,1.25,1.5,2,0.75];let si=0;
+  sp.addEventListener("click",e=>{e.stopPropagation();si=(si+1)%speeds.length;if(pl)pl.setPlaybackRate(speeds[si]);sp.textContent=speeds[si]+"x";showBar()});
+  if(o.live) sp.style.display="none";
+  const fsb=q(".ytp-fs");if(fsb)fsb.addEventListener("click",e=>{e.stopPropagation();(o.onFs||window.toggleFullscreen)()});
+  sk.addEventListener("input",()=>{drag=true;showBar()});
+  sk.addEventListener("change",()=>{if(pl&&pl.getDuration)pl.seekTo(pl.getDuration()*sk.value/1000,true);drag=false});
+  bar.addEventListener("click",e=>e.stopPropagation());
+  loadYTApi().then(()=>{
+    if(!wrap.isConnected) return;
+    const pv={autoplay:o.autoplay?1:0,controls:0,rel:0,modestbranding:1,iv_load_policy:3,playsinline:1,
+              fs:0,disablekb:1,cc_load_policy:0,start:Math.floor(o.start||0)};
+    if(/^https?:$/.test(location.protocol)) pv.origin=location.origin;
+    pl=new YT.Player(uid,{host:"https://www.youtube-nocookie.com",videoId:id,playerVars:pv,events:{
+      onReady:()=>{box._yt=pl;if(o.onReady)o.onReady(pl)},
+      onStateChange:e=>{
+        playing=(e.data===1||e.data===3);
+        cover.classList.toggle("off",playing);
+        pp.innerHTML=playing?PAUSE:PLAY;
+        if(e.data===1)showBar();else{bar.classList.remove("hide");clearTimeout(hideT)}
+      }
+    }});
+    box._yt=pl;
+    box._ytTimer=setInterval(()=>{
+      if(!pl||!pl.getDuration)return;
+      const d=pl.getDuration()||0,c=pl.getCurrentTime()||0;
+      sk.style.visibility=d>0?"visible":"hidden";
+      tt.textContent=_fmtT(c);dd.textContent=d>0?_fmtT(d):"LIVE";
+      if(!drag&&d>0)sk.value=Math.round(c/d*1000);
+    },400);
+  });
+}
+// Auto-mount live-page players
+new MutationObserver(()=>{
+  document.querySelectorAll("[data-yt]:not([data-m])").forEach(el=>{
+    el.dataset.m="1";mountYT(el,el.dataset.yt,{autoplay:0,live:1});
+  });
+}).observe(document.body,{childList:true,subtree:true});
 const lessonsLabel=n=>n+(n===1?" lesson":" lessons");
 const placeholder=(icon,msg)=>`<div class="player-placeholder"><div class="pp-ico">${icon}</div><p>${msg}</p></div>`;
 
@@ -1839,7 +1941,7 @@ function renderLivePage(){
       <div class="lv-card"><div class="lv-ico">${ic.clock}</div><div><small>Schedule</small><b>${time?esc(time):"To be announced"}</b></div></div>
       <div class="lv-card"><div class="lv-ico">${ic.globe}</div><div><small>Platform</small><b>${on?esc(platformOf(url)):"Not available yet"}</b></div></div>
     </div>
-    ${embed?`<div class="lv-player"><iframe src="${embed}" allow="autoplay;encrypted-media;picture-in-picture" allowfullscreen></iframe></div>`:""}
+    ${embed?`<div class="lv-player" data-yt="${ytId(url)}"></div>`:""}
     ${on?"":`<div class="lv-empty"><div class="lv-empty-ico">${I.video}</div><h3>No ${name.toLowerCase()} right now</h3><p>There is no ${name.toLowerCase()} scheduled at the moment. Please check back later, or continue learning with the recorded video courses.</p></div>`}
     <h2 class="lv-h2">${on?"Before you join":"When a session is scheduled"}</h2>
     <div class="lv-tips">${tips.map((t,i)=>`<div class="lv-tip"><span class="lv-n">${i+1}</span><div><b>${t[0]}</b><p>${t[1]}</p></div></div>`).join("")}</div>
@@ -1984,8 +2086,10 @@ window.playVideo=async function(vid){
   curVideo=want;
   renderVlist();
   const area=$("playerArea"),embed=ytEmbed(curVideo.url||"");
+  unmountYT(area);
   if(embed){
-    area.innerHTML=`<iframe src="${embed}" allow="autoplay;encrypted-media;accelerometer;gyroscope;picture-in-picture;fullscreen" allowfullscreen></iframe>`;
+    area.innerHTML="";
+    mountYT(area,ytId(curVideo.url),{autoplay:1});
   }else if(curVideo.url){
     area.innerHTML=`<video controls autoplay src="${esc(curVideo.url)}" style="width:100%;height:100%;background:#000"></video>`;
   }else{
@@ -2140,20 +2244,19 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"){document.querySelec
 
 window.toggleFullscreen=function(){
   if(!curVideo?.url) return;
-  const embed=ytEmbed(curVideo.url);
-  if(!embed) return;
-  openFsOverlay(embed);
+  const id=ytId(curVideo.url);
+  if(!id) return;
+  const main=$("playerArea")._yt;
+  let t=0;
+  try{t=main.getCurrentTime()||0;main.pauseVideo()}catch(e){}
+  openFsOverlay(id,t);
 };
 
-function openFsOverlay(embedUrl){
+function openFsOverlay(id,start){
   const ov=$("fsOverlay");
-  const old=ov.querySelector("iframe");
-  if(old) old.remove();
-  const fr=document.createElement("iframe");
-  fr.src=embedUrl;
-  fr.setAttribute("allow","autoplay;encrypted-media;accelerometer;gyroscope;picture-in-picture;fullscreen");
-  fr.setAttribute("allowfullscreen","");
-  ov.appendChild(fr);
+  let box=ov.querySelector(".fs-box");
+  if(!box){box=document.createElement("div");box.className="fs-box";box.style.cssText="position:absolute;inset:0";ov.appendChild(box)}
+  mountYT(box,id,{autoplay:1,start:start||0,fs:false});
   ov.classList.add("show");
   $("fsLabel").textContent="Exit";
   // Signal Java → rotate to landscape
@@ -2162,10 +2265,12 @@ function openFsOverlay(embedUrl){
 
 window.closeFsOverlay=function(){
   const ov=$("fsOverlay");
-  const fr=ov.querySelector("iframe");
-  if(fr) fr.remove();
+  const box=ov.querySelector(".fs-box");
+  let t=0;
+  if(box){try{t=box._yt.getCurrentTime()||0}catch(e){}unmountYT(box)}
   ov.classList.remove("show");
   $("fsLabel").textContent="Fullscreen";
+  try{const m=$("playerArea")._yt;if(m&&t>0)m.seekTo(t,true)}catch(e){}
   // Signal Java → restore portrait
   try{ location.href="rtapp://exitfullscreen"; }catch(e){}
 };
