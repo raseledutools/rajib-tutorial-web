@@ -1,5 +1,3 @@
-Downloading https://services.gradle.org/distributions/gradle-8.6-bin.zip
-............10%.............20%............30%.............40%.............50%............60%.............70%.............80%............90%.............100%
 
 Welcome to Gradle 8.6!
 
@@ -12,21 +10,347 @@ For more details see https://docs.gradle.org/8.6/release-notes.html
 
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.6/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build 
+Warning: SDK processing. This version only understands SDK XML versions up to 3 but an SDK XML file of version 4 was encountered. This can happen if you use versions of Android Studio and the command-line tools that were released at different times.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:generateReleaseBuildConfig
+> Task :app:javaPreCompileRelease
+> Task :app:generateReleaseResValues
+> Task :app:checkReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:mergeReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:extractProguardFiles
+> Task :app:processReleaseManifestForPackage
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:mergeReleaseNativeLibs
+> Task :app:checkReleaseDuplicateClasses
+
+> Task :app:stripReleaseDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libtwilio_voice_android_so.so.
+
+> Task :app:processReleaseResources
+> Task :app:desugarReleaseFileDependencies
+
+> Task :app:compileReleaseJavaWithJavac FAILED
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:259: error: invalid method declaration; return type required
+        setupWebView();
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:262: error: <identifier> expected
+        updateChecker = new UpdateChecker(this);
+                     ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:263: error: <identifier> expected
+        updateChecker.setUpdateListener((version, apkUrl) -> {
+                                       ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:263: error: illegal start of type
+        updateChecker.setUpdateListener((version, apkUrl) -> {
+                                        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:267: error: illegal start of type
+        });
+         ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:268: error: <identifier> expected
+        updateChecker.setProgressListener(new UpdateChecker.DownloadProgressListener() {
+                                         ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:268: error: illegal start of type
+        updateChecker.setProgressListener(new UpdateChecker.DownloadProgressListener() {
+                                          ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:270: error: ';' expected
+            public void onProgress(int percent, long downloaded, long total) {
+                                  ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:270: error: <identifier> expected
+            public void onProgress(int percent, long downloaded, long total) {
+                                               ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:270: error: <identifier> expected
+            public void onProgress(int percent, long downloaded, long total) {
+                                                                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:270: error: ';' expected
+            public void onProgress(int percent, long downloaded, long total) {
+                                                                           ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:285: error: ';' expected
+            public void onReadyToInstall(java.io.File apkFile) {
+                                        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:285: error: ';' expected
+            public void onReadyToInstall(java.io.File apkFile) {
+                                                             ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:300: error: ';' expected
+            public void onError(String reason) {
+                               ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:300: error: ';' expected
+            public void onError(String reason) {
+                                             ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:308: error: illegal start of type
+        });
+         ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:309: error: <identifier> expected
+        updateChecker.checkForUpdate();
+                                    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:313: error: class, interface, or enum expected
+    private void openWebSection() {
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:315: error: class, interface, or enum expected
+        homeScreen.setVisibility(View.GONE);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:316: error: class, interface, or enum expected
+        swipeRefresh.setVisibility(View.VISIBLE);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:319: error: class, interface, or enum expected
+        if (webView.getUrl() == null) {
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:321: error: class, interface, or enum expected
+        }
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:327: error: class, interface, or enum expected
+    private boolean isOnline() {
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:330: error: class, interface, or enum expected
+            NetworkInfo ni = cm == null ? null : cm.getActiveNetworkInfo();
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:331: error: class, interface, or enum expected
+            return ni != null && ni.isConnected();
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:332: error: class, interface, or enum expected
+        } catch (Exception e) { return true; }
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:332: error: class, interface, or enum expected
+        } catch (Exception e) { return true; }
+                                             ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:337: error: class, interface, or enum expected
+        if (isOnline()) webView.loadUrl(SITE_URL);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:338: error: class, interface, or enum expected
+        else loadFallback();
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:339: error: class, interface, or enum expected
+    }
+    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:344: error: class, interface, or enum expected
+        String html;
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:345: error: class, interface, or enum expected
+        try (java.io.InputStream in = getAssets().open("index.html");
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:346: error: class, interface, or enum expected
+             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+             ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:348: error: class, interface, or enum expected
+            int n;
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:349: error: class, interface, or enum expected
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:350: error: class, interface, or enum expected
+            html = out.toString("UTF-8");
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:351: error: class, interface, or enum expected
+        } catch (Exception e) {
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:354: error: class, interface, or enum expected
+        }
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:356: error: class, interface, or enum expected
+    }
+    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:359: error: class, interface, or enum expected
+    protected void onResume() {
+              ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:362: error: class, interface, or enum expected
+        if (usingFallback && webView != null && isOnline()) loadSite();
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:363: error: class, interface, or enum expected
+    }
+    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:369: error: class, interface, or enum expected
+            if (i != null) {
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:371: error: class, interface, or enum expected
+                Toast.makeText(this, "YouTube → ➕ → Upload a video", Toast.LENGTH_LONG).show();
+                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:372: error: class, interface, or enum expected
+                return;
+                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:373: error: class, interface, or enum expected
+            }
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:377: error: class, interface, or enum expected
+        } catch (Exception e) {
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:379: error: class, interface, or enum expected
+        }
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:384: error: class, interface, or enum expected
+    private void setupWebView() {
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:386: error: class, interface, or enum expected
+        s.setJavaScriptEnabled(true);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:387: error: class, interface, or enum expected
+        s.setDomStorageEnabled(true);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:388: error: class, interface, or enum expected
+        s.setDatabaseEnabled(true);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:389: error: class, interface, or enum expected
+        s.setLoadWithOverviewMode(true);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:390: error: class, interface, or enum expected
+        s.setUseWideViewPort(true);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:391: error: class, interface, or enum expected
+        s.setBuiltInZoomControls(false);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:392: error: class, interface, or enum expected
+        s.setDisplayZoomControls(false);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:393: error: class, interface, or enum expected
+        s.setSupportZoom(true);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:394: error: class, interface, or enum expected
+        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:395: error: class, interface, or enum expected
+        s.setMediaPlaybackRequiresUserGesture(false);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:396: error: class, interface, or enum expected
+        s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:399: error: class, interface, or enum expected
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:401: error: class, interface, or enum expected
+            webView.addJavascriptInterface(flashBridge, "AndroidFlash");
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:402: error: class, interface, or enum expected
+        }
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:407: error: class, interface, or enum expected
+        webView.setWebViewClient(new WebViewClient() {
+        ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:409: error: class, interface, or enum expected
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                   ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:411: error: class, interface, or enum expected
+                progressBar.setProgress(0);
+                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:412: error: class, interface, or enum expected
+            }
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:415: error: class, interface, or enum expected
+            public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError err) {
+                   ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:417: error: class, interface, or enum expected
+            }
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:420: error: class, interface, or enum expected
+            public void onPageFinished(WebView view, String url) {
+                   ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:422: error: class, interface, or enum expected
+                swipeRefresh.setRefreshing(false);
+                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:423: error: class, interface, or enum expected
+                swipeRefresh.setEnabled(true);
+                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:424: error: class, interface, or enum expected
+            }
+            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:427: error: class, interface, or enum expected
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
+                   ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:429: error: class, interface, or enum expected
+                if (url.equals("rtapp://fullscreen"))     { enterFullscreen(); return true; }
+                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:429: error: class, interface, or enum expected
+                if (url.equals("rtapp://fullscreen"))     { enterFullscreen(); return true; }
+                                                                               ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:429: error: class, interface, or enum expected
+                if (url.equals("rtapp://fullscreen"))     { enterFullscreen(); return true; }
+                                                                                            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:430: error: class, interface, or enum expected
+                if (url.equals("rtapp://exitfullscreen")) { exitFullscreen();  return true; }
+                                                                               ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:430: error: class, interface, or enum expected
+                if (url.equals("rtapp://exitfullscreen")) { exitFullscreen();  return true; }
+                                                                                            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:433: error: class, interface, or enum expected
+                    return true;
+                    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:434: error: class, interface, or enum expected
+                }
+                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:436: error: <identifier> expected
+                    startActivity(new Intent(MainActivity.this, AppsLockActivity.class));
+                                                                                      ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:437: error: class, interface, or enum expected
+                    return true;
+                    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:438: error: class, interface, or enum expected
+                }
+                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:441: error: class, interface, or enum expected
+                    return true;
+                    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:442: error: class, interface, or enum expected
+                }
+                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:444: error: <identifier> expected
+                    Intent i = new Intent(MainActivity.this, YouTubeActivity.class);
+                                                                                  ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:445: error: class, interface, or enum expected
+                    i.putExtra("url", "https://m.youtube.com/");
+                    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:446: error: class, interface, or enum expected
+                    i.putExtra("title", "YouTube");
+                    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:447: error: class, interface, or enum expected
+                    startActivity(i);
+                    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:448: error: class, interface, or enum expected
+                    return true;
+                    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:449: error: class, interface, or enum expected
+                }
+                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:451: error: <identifier> expected
+                    Intent i = new Intent(MainActivity.this, YouTubeActivity.class);
+                                                                                  ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:452: error: class, interface, or enum expected
+                    i.putExtra("url", "https://m.facebook.com/");
+                    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:453: error: class, interface, or enum expected
+                    i.putExtra("title", "Facebook");
+                    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:454: error: class, interface, or enum expected
+                    startActivity(i);
+                    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:455: error: class, interface, or enum expected
+                    return true;
+                    ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:456: error: class, interface, or enum expected
+                }
+                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:458: error: class, interface, or enum expected
+                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { }
+                ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/MainActivity.java:458: error: class, interface, or enum expected
+                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { }
+                                                                                     ^
+100 errors
+only showing the first 100 errors, of 198 total; use -Xmaxerrs if you would like to see more
 
 FAILURE: Build failed with an exception.
 
-* Where:
-Build file '/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/build.gradle' line: 32
-
 * What went wrong:
-A problem occurred evaluating project ':app'.
-> No signature of method: java.lang.String.call() is applicable for argument types: (String) values: [RajibTutorial2024]
-  Possible solutions: wait(), chars(), any(), wait(long), split(java.lang.String), any(groovy.lang.Closure)
+Execution failed for task ':app:compileReleaseJavaWithJavac'.
+> Compilation failed; see the compiler error output for details.
 
 * Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
+> Run with --info option to get more log output.
 > Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
 
-BUILD FAILED in 22s
+BUILD FAILED in 15s
+22 actionable tasks: 22 executed
