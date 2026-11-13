@@ -1168,14 +1168,6 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
           <svg id="flashlightIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6c0-2.21-2.69-4-6-4S6 3.79 6 6l2 7h8l2-7z"/><path d="M6 13l-1.5 5.5A1 1 0 0 0 5.5 20h13a1 1 0 0 0 1-1.5L18 13"/><line x1="12" y1="20" x2="12" y2="22"/></svg>
           <span id="flashlightLabel">🔦 Flashlight</span>
         </button>
-        <button class="btn-live ghost btn-yt" id="btnYouTube" onclick="openInAppBrowser('https://m.youtube.com','YouTube')">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 20.4 12 20.4 12 20.4s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="white"/></svg>
-          <span>▶ YouTube</span>
-        </button>
-        <button class="btn-live ghost btn-fb" id="btnFacebook" onclick="openInAppBrowser('https://m.facebook.com','Facebook')">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.95.93-1.95 1.88v2.27h3.32l-.53 3.49h-2.79V24C19.61 23.1 24 18.1 24 12.07z"/></svg>
-          <span>f Facebook</span>
-        </button>
       </div>
       <div class="live-info" id="liveInfo"></div>
 
@@ -2626,6 +2618,8 @@ window.removeAllowedDevice=async function(memberId,deviceId){
   let kioskActive=false,kioskLockMode='time',kioskDurMin=15,kioskPin='',kioskTimer=null,kioskExitPressCount=0,kioskExitPressTimer=null;
 
   window.openKioskModal=function(){
+    // Android app → real native Phone Mode (locks Home/Back, only Phone & Messages)
+    if(window.AndroidFlash){ try{ location.href='rtapp://open_phone_mode'; return; }catch(e){} }
     document.getElementById('kioskLockModal').classList.add('show');
   };
   window.closeKioskModal=function(){
@@ -2667,12 +2661,7 @@ window.removeAllowedDevice=async function(memberId,deviceId){
     setInterval(updateKioskClock,10000);
     const ov=document.getElementById('kioskOverlay');
     ov.classList.add('show');
-    // try fullscreen
-    try{
-      const el=document.documentElement;
-      const req=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
-      if(req)req.call(el).catch(()=>{});
-    }catch(e){}
+    // fullscreen request removed: it rotated the screen to landscape
     // block back/home via history
     history.pushState(null,null,location.href);
     window.onpopstate=function(){history.pushState(null,null,location.href);};

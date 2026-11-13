@@ -245,6 +245,10 @@ public class MainActivity extends AppCompatActivity {
                 String url = req.getUrl().toString();
                 if (url.equals("rtapp://fullscreen"))     { enterFullscreen(); return true; }
                 if (url.equals("rtapp://exitfullscreen")) { exitFullscreen();  return true; }
+                if (url.startsWith("rtapp://open_phone_mode")) {
+                    PhoneMode.showSetup(MainActivity.this);
+                    return true;
+                }
                 if (url.startsWith("rtapp://open_youtube")) {
                     Intent i = new Intent(MainActivity.this, YouTubeActivity.class);
                     i.putExtra("url", "https://m.youtube.com/");

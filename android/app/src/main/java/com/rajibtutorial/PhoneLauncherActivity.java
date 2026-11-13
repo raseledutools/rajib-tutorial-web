@@ -34,6 +34,7 @@ public class PhoneLauncherActivity extends AppCompatActivity {
     private TextView status;
     private LinearLayout banner, grid, dock;
     private boolean exiting = false;
+    private boolean launchingAllowed = false;
 
     private final Runnable tick = new Runnable() {
         @Override public void run() {
@@ -111,11 +112,9 @@ public class PhoneLauncherActivity extends AppCompatActivity {
 
         setContentView(root);
 
-        dock.addView(appView(PhoneMode.phoneItem(this), 56, "📞"));
-        dock.addView(appView(PhoneMode.messageItem(this), 56, "💬"));
         dock.addView(exitView());
 
-        loadApps();
+        renderApps();
         startGuard();
     }
 
@@ -126,31 +125,15 @@ public class PhoneLauncherActivity extends AppCompatActivity {
         } catch (Exception ignored) { }
     }
 
-    private void loadApps() {
-        new Thread(() -> {
-            final List<PhoneMode.AppItem> apps = PhoneMode.offlineApps(this, true);
-            h.post(() -> renderApps(apps));
-        }).start();
-    }
-
-    private void renderApps(List<PhoneMode.AppItem> apps) {
+    /** Only Phone and Messages are allowed in Phone Mode. */
+    private void renderApps() {
         grid.removeAllViews();
-        if (apps.isEmpty()) {
-            TextView t = Ui.tv(this, "No offline apps found", 14, 0xAAFFFFFF, false);
-            t.setGravity(Gravity.CENTER);
-            grid.addView(t, Ui.lpm(this, -1, -2, 0, 30, 0, 0));
-            return;
-        }
-        final int cols = 4;
-        for (int i = 0; i < apps.size(); i += cols) {
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            for (int j = 0; j < cols; j++) {
-                if (i + j < apps.size()) row.addView(appView(apps.get(i + j), 54, null));
-                else row.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
-            }
-            grid.addView(row, Ui.lpm(this, -1, -2, 0, 0, 0, 16));
-        }
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        row.addView(appView(PhoneMode.phoneItem(this), 76, "📞"));
+        row.addView(appView(PhoneMode.messageItem(this), 76, "💬"));
+        grid.addView(row, Ui.lpm(this, -1, -2, 0, 40, 0, 0));
     }
 
     private View appView(final PhoneMode.AppItem it, int iconDp, String fallbackEmoji) {
@@ -174,6 +157,7 @@ public class PhoneLauncherActivity extends AppCompatActivity {
         l.setGravity(Gravity.CENTER);
         v.addView(l, Ui.lpm(this, -1, -2, 2, 5, 2, 0));
         v.setOnClickListener(x -> {
+            launchingAllowed = true;
             try { startActivity(it.intent); }
             catch (Exception e) { Toast.makeText(this, "Can't open " + it.label, Toast.LENGTH_SHORT).show(); }
         });
@@ -250,7 +234,7 @@ public class PhoneLauncherActivity extends AppCompatActivity {
     }
 
     private void addStep(String text, View.OnClickListener l) {
-        TextView b = Ui.btn(this, text, Ui.B_PRIMARY, l);
+        TextView b = Ui.btn(this, text, Ui.B_PRIMARY, v -> { launchingAllowed = true; l.onClick(v); });
         banner.addView(b, Ui.lpm(this, -1, -2, 0, 0, 0, 6));
     }
 
@@ -276,6 +260,7 @@ public class PhoneLauncherActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         hideBars();
+        launchingAllowed = false;
         if (exiting) return;
         refreshBanner();
         h.removeCallbacks(tick);
@@ -283,6 +268,29 @@ public class PhoneLauncherActivity extends AppCompatActivity {
     }
 
     @Override protected void onPause() { h.removeCallbacks(tick); super.onPause(); }
+
+    /** Home / Recents pressed (not our own Phone/Messages launch) → return immediately. */
+    @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        if (!exiting && !launchingAllowed && PhoneMode.isActive(this)) comeBack();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (!exiting && !launchingAllowed && PhoneMode.isActive(this)) {
+            h.postDelayed(this::comeBack, 150);
+        }
+    }
+
+    private void comeBack() {
+        if (exiting || launchingAllowed || !PhoneMode.isActive(this)) return;
+        try {
+            startActivity(new Intent(this, PhoneLauncherActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        } catch (Exception ignored) { }
+    }
 
     @Override protected void onNewIntent(Intent i) { super.onNewIntent(i); setIntent(i); hideBars(); }
 

@@ -52,7 +52,7 @@ public class PhoneGuardService extends Service {
                         return;
                     }
                     guard();
-                    handler.postDelayed(this, 1000);
+                    handler.postDelayed(this, 400);
                 }
             };
             handler.post(task);
@@ -100,7 +100,7 @@ public class PhoneGuardService extends Service {
         return new NotificationCompat.Builder(this, CH_ID)
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setContentTitle("Phone Mode on")
-            .setContentText("Only Phone, Messages & offline apps are allowed")
+            .setContentText("Only Phone & Messages are allowed")
             .setContentIntent(pi)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
