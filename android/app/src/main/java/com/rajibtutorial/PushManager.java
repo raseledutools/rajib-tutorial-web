@@ -23,7 +23,7 @@ import java.util.Map;
 final class PushManager {
     private PushManager() {}
 
-    static final String CHANNEL_ID  = "rt_push_v1";
+    static final String CHANNEL_ID  = "rt_push_v2";
     static final String TOPIC_ALL   = "all";
 
     private static final String PREFS    = "PushPrefs";
@@ -60,16 +60,22 @@ final class PushManager {
     static void createChannel(Context c) {
         if (Build.VERSION.SDK_INT < 26) return;
         try {
+            NotificationManager nm = c.getSystemService(NotificationManager.class);
+            if (nm == null) return;
+            try { nm.deleteNotificationChannel("rt_push_v1"); } catch (Exception ignored) {}
             NotificationChannel ch = new NotificationChannel(
                 CHANNEL_ID, "Admin বার্তা", NotificationManager.IMPORTANCE_HIGH);
             ch.setDescription("Admin এর পাঠানো গুরুত্বপূর্ণ বার্তা");
+            // Sound + vibration follow the phone's own system settings (default notification tone / pattern)
             ch.enableVibration(true);
+            ch.enableLights(true);
             ch.setShowBadge(true);
+            ch.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
             Uri snd = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             ch.setSound(snd, new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
-            NotificationManager nm = c.getSystemService(NotificationManager.class);
-            if (nm != null) nm.createNotificationChannel(ch);
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+            nm.createNotificationChannel(ch);
         } catch (Exception ignored) {}
     }
 

@@ -101,10 +101,28 @@ public class AdminBridge {
                 }
 
                 if ("all".equals(target)) {
-                    // Send to topic "all"
-                    sendFcm(accessToken, buildTopicPayload(title, body, "all"));
+                    final String mid = "m" + System.currentTimeMillis();
+                    // (a) topic "all"  (b) every registered device token directly — covers phones
+                    // that never joined the topic. Same message id => shown only once per phone.
+                    String topicErr = null;
+                    boolean topicOk = false;
+                    try {
+                        sendFcm(accessToken, buildTopicPayload(title, body, "all", mid));
+                        topicOk = true;
+                    } catch (Exception e) { topicErr = e.getMessage(); }
+
+                    int[] r = sendToAllTokens(accessToken, title, body, mid);   // {ok, fail, total}
+                    if (lastLookupError != null && !topicOk) {
+                        cb.done("❌ " + (topicErr != null ? topicErr : lastLookupError));
+                        return;
+                    }
+                    if (!topicOk && r[0] == 0) {
+                        cb.done("❌ কোনো device এ পাঠানো যায়নি" + (lastSendError == null ? "" : " (" + lastSendError + ")"));
+                        return;
+                    }
                     logToFirestore(title, body, "all", "");
-                    cb.done("✅ সব user এর কাছে পাঠানো হয়েছে");
+                    cb.done("✅ সব user এর কাছে পাঠানো হয়েছে (" + r[0] + " টি device"
+                        + (r[1] > 0 ? ", " + r[1] + " টি ব্যর্থ" : "") + ")");
 
                 } else if ("user".equals(target) && mobile != null && !mobile.isEmpty()) {
                     // Fetch tokens for this mobile from Firestore (all number formats)
@@ -120,7 +138,7 @@ public class AdminBridge {
                     int ok = 0, fail = 0;
                     for (String tok : tokens) {
                         try {
-                            sendFcm(accessToken, buildTokenPayload(title, body, tok));
+                            sendFcm(accessToken, buildTokenPayload(title, body, tok, "m" + System.currentTimeMillis()));
                             ok++;
                         } catch (Exception e) {
                             fail++;
@@ -142,26 +160,22 @@ public class AdminBridge {
         }).start();
     }
 
-    // ── Build payloads ────────────────────────────────────────────────────
-    private JSONObject buildTopicPayload(String title, String body, String topic) throws Exception {
-        JSONObject notif = new JSONObject();
-        notif.put("title", title);
-        notif.put("body",  body);
-
+    // ── Build payloads (data-only: the app builds the notification itself, so the
+    //    sound / vibration / tap-to-open-overlay behaviour is identical in every app state) ──
+    private JSONObject buildPayload(String title, String body, String id, String key, String value) throws Exception {
         JSONObject data = new JSONObject();
         data.put("title", title);
         data.put("body",  body);
         data.put("kind",  "admin");
+        data.put("id",    id);
+        data.put("time",  String.valueOf(System.currentTimeMillis()));
 
-        JSONObject androidNotif = new JSONObject();
-        androidNotif.put("channel_id", PushManager.CHANNEL_ID);
         JSONObject android = new JSONObject();
         android.put("priority", "high");
-        android.put("notification", androidNotif);
+        android.put("ttl", "86400s");
 
         JSONObject msg = new JSONObject();
-        msg.put("topic", topic);
-        msg.put("notification", notif);
+        msg.put(key, value);
         msg.put("data", data);
         msg.put("android", android);
 
@@ -170,31 +184,74 @@ public class AdminBridge {
         return payload;
     }
 
-    private JSONObject buildTokenPayload(String title, String body, String token) throws Exception {
-        JSONObject notif = new JSONObject();
-        notif.put("title", title);
-        notif.put("body",  body);
+    private JSONObject buildTopicPayload(String title, String body, String topic, String id) throws Exception {
+        return buildPayload(title, body, id, "topic", topic);
+    }
 
-        JSONObject data = new JSONObject();
-        data.put("title", title);
-        data.put("body",  body);
-        data.put("kind",  "admin");
+    private JSONObject buildTokenPayload(String title, String body, String token, String id) throws Exception {
+        return buildPayload(title, body, id, "token", token);
+    }
 
-        JSONObject androidNotif = new JSONObject();
-        androidNotif.put("channel_id", PushManager.CHANNEL_ID);
-        JSONObject android = new JSONObject();
-        android.put("priority", "high");
-        android.put("notification", androidNotif);
+    // ── Send to every token in push_tokens (parallel) ────────────────────
+    /** @return {ok, fail, total} */
+    private int[] sendToAllTokens(final String accessToken, final String title, final String body, final String mid) {
+        lastLookupError = null;
+        lastSendError = null;
+        final java.util.Set<String> tokens = getAllTokens();
+        if (tokens.isEmpty()) return new int[]{0, 0, 0};
+        final java.util.concurrent.atomic.AtomicInteger ok = new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger fail = new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.List<String> dead = java.util.Collections.synchronizedList(new java.util.ArrayList<String>());
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(8);
+        for (final String tok : tokens) {
+            pool.execute(() -> {
+                try {
+                    sendFcm(accessToken, buildTokenPayload(title, body, tok, mid));
+                    ok.incrementAndGet();
+                } catch (Exception e) {
+                    fail.incrementAndGet();
+                    String m = e.getMessage() == null ? "" : e.getMessage();
+                    lastSendError = m;
+                    if (m.contains("UNREGISTERED") || m.contains("HTTP 404")) dead.add(tok);
+                }
+            });
+        }
+        pool.shutdown();
+        try { pool.awaitTermination(60, java.util.concurrent.TimeUnit.SECONDS); } catch (InterruptedException ignored) { }
+        removeDeadTokens(dead);
+        return new int[]{ok.get(), fail.get(), tokens.size()};
+    }
 
-        JSONObject msg = new JSONObject();
-        msg.put("token", token);
-        msg.put("notification", notif);
-        msg.put("data", data);
-        msg.put("android", android);
+    private java.util.Set<String> getAllTokens() {
+        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        final java.util.Set<String> result = java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<String>());
+        try {
+            FirebaseFirestore.getInstance().collection("push_tokens").limit(2000).get()
+                .addOnSuccessListener(snap -> {
+                    for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) {
+                        String tok = d.getString("token");
+                        if (tok != null && !tok.isEmpty()) result.add(tok);
+                    }
+                    latch.countDown();
+                })
+                .addOnFailureListener(e -> { lastLookupError = e.getMessage(); latch.countDown(); });
+            if (!latch.await(15, java.util.concurrent.TimeUnit.SECONDS) && result.isEmpty()) {
+                lastLookupError = "timeout (internet?)";
+            }
+        } catch (Exception e) { lastLookupError = e.getMessage(); }
+        return result;
+    }
 
-        JSONObject payload = new JSONObject();
-        payload.put("message", msg);
-        return payload;
+    /** Best effort: drop tokens FCM says no longer exist (uninstalled apps). */
+    private void removeDeadTokens(java.util.List<String> dead) {
+        for (final String tok : new java.util.ArrayList<>(dead)) {
+            try {
+                FirebaseFirestore.getInstance().collection("push_tokens").whereEqualTo("token", tok).get()
+                    .addOnSuccessListener(snap -> {
+                        for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) d.getReference().delete();
+                    });
+            } catch (Throwable ignored) { }
+        }
     }
 
     // ── FCM HTTP v1 send ──────────────────────────────────────────────────
@@ -222,7 +279,7 @@ public class AdminBridge {
                         err = sc.hasNext() ? sc.next() : "";
                     }
                 } catch (Exception ignored) {}
-                if (err.length() > 160) err = err.substring(0, 160);
+                if (err.length() > 400) err = err.substring(0, 400);
                 throw new Exception("FCM HTTP " + code + (err.isEmpty() ? "" : " " + err));
             }
         } finally {

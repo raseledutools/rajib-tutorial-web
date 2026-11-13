@@ -34,8 +34,23 @@ public class PushService extends FirebaseMessagingService {
         if (body == null) body = "";
 
         PushManager.createChannel(this);
-        PendingIntent pi = PendingIntent.getActivity(this, 0,
-            new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP),
+        String mid = m.getData().get("id");
+        int nid = (mid != null && !mid.isEmpty())
+            ? (mid.hashCode() & 0x7FFFFFFF)
+            : (int) (System.currentTimeMillis() & 0x7FFFFFFF);
+        long when = System.currentTimeMillis();
+        try {
+            String t = m.getData().get("time");
+            if (t != null && !t.isEmpty()) when = Long.parseLong(t);
+        } catch (NumberFormatException ignored) { }
+
+        // Tap -> overlay page with the full message
+        Intent open = new Intent(this, NotificationDetailActivity.class)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            .putExtra(NotificationDetailActivity.EXTRA_TITLE, title)
+            .putExtra(NotificationDetailActivity.EXTRA_BODY, body)
+            .putExtra(NotificationDetailActivity.EXTRA_TIME, when);
+        PendingIntent pi = PendingIntent.getActivity(this, nid, open,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, PushManager.CHANNEL_ID)
@@ -44,12 +59,16 @@ public class PushService extends FirebaseMessagingService {
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+            .setWhen(when)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)   // sound + vibration (phone's system settings)
+            .setOnlyAlertOnce(true)                        // same message id arriving twice alerts once
             .setAutoCancel(true)
             .setContentIntent(pi);
         try {
-            NotificationManagerCompat.from(this).notify((int) (System.currentTimeMillis() & 0x7FFFFFFF), b.build());
+            NotificationManagerCompat.from(this).notify(nid, b.build());
         } catch (SecurityException ignored) { }   // notification permission denied
     }
 }

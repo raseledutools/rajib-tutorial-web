@@ -93,16 +93,27 @@ app.post('/notify', needAdmin, async (req, res) => {
     if (target === 'user' && mobile.length < 6)
       return res.status(400).json({ error: 'সঠিক মোবাইল নম্বর দিন' });
 
+    // Data-only: the app builds the notification itself (sound/vibration + tap -> overlay page)
+    const mid = 'm' + Date.now();
     const message = {
-      notification: { title, body },
-      data: { title, body, kind: 'admin' },
-      android: { priority: 'high', notification: { channelId: 'rt_push_v1' } },
+      data: { title, body, kind: 'admin', id: mid, time: String(Date.now()) },
+      android: { priority: 'high', ttl: '86400s' },
     };
 
     let result;
     if (target === 'all') {
-      await fcm.send({ ...message, topic: 'all' });
-      result = { sent: 'all' };
+      // topic + every registered token (same id => shown once per phone)
+      let topicOk = false;
+      try { await fcm.send({ ...message, topic: 'all' }); topicOk = true; } catch (e) { console.error('topic', e.message); }
+      const snap = await fsdb.collection('push_tokens').get();
+      const tokens = [...new Set(snap.docs.map((d) => d.data().token).filter(Boolean))];
+      let ok = 0, failed = 0;
+      for (let i = 0; i < tokens.length; i += 500) {
+        const r = await fcm.sendEachForMulticast({ ...message, tokens: tokens.slice(i, i + 500) });
+        ok += r.successCount; failed += r.failureCount;
+      }
+      if (!topicOk && !ok) return res.status(502).json({ error: 'কোনো device এ পাঠানো যায়নি' });
+      result = { sent: 'all', ok, failed };
     } else {
       const snap = await fsdb.collection('push_tokens').where('mobile', '==', mobile).get();
       if (snap.empty)
