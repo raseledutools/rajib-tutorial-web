@@ -34,6 +34,7 @@ public class PhoneLauncherActivity extends AppCompatActivity {
     private LinearLayout banner, grid, dock;
     private boolean exiting = false;
     private boolean launchingAllowed = false;
+    private static boolean askedHome = false;   // ask for "default Home" once per Phone Mode session
 
     private final Runnable tick = new Runnable() {
         @Override public void run() {
@@ -232,6 +233,7 @@ public class PhoneLauncherActivity extends AppCompatActivity {
     private void leave() {
         if (exiting) return;
         exiting = true;
+        askedHome = false;
         PhoneMode.stop(this);
         startActivity(new Intent(this, MainActivity.class)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP));
@@ -251,11 +253,30 @@ public class PhoneLauncherActivity extends AppCompatActivity {
         banner.removeAllViews();
         PhoneMode.setHomeEnabled(this, true);
         if (!PhoneMode.isDefaultHome(this)) addStep("⚠ Set as Home app (Home button lock)", v ->
-            PhoneMode.requestDefaultHome(this, 4711));
+            askHomeNow());
         if (!PhoneMode.hasUsageAccess(this)) addStep("⚠ Allow Usage access", v ->
             startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)));
         if (!PhoneMode.hasOverlay(this)) addStep("⚠ Allow Display over apps", v ->
             startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()))));
+    }
+
+    private void askHomeNow() {
+        launchingAllowed = true;
+        PhoneMode.requestDefaultHome(this, 4711);
+    }
+
+    /** Home button = 0 second only when this app IS the Home app, so ask for it right away. */
+    private void maybeAskHome() {
+        if (askedHome || PhoneMode.isDefaultHome(this)) return;
+        askedHome = true;
+        new AlertDialog.Builder(this)
+            .setTitle("🏠 Home button lock")
+            .setMessage("Home button ke 0 second e lock korte ei app ke Home app hishebe select koro.\n\n"
+                + "Next screen-e \"Rajib Tutorial\" select koro (Always / Set as default).")
+            .setCancelable(false)
+            .setPositiveButton("Set now", (d, w) -> askHomeNow())
+            .setNegativeButton("Later", null)
+            .show();
     }
 
     private void addStep(String text, View.OnClickListener l) {
@@ -273,6 +294,8 @@ public class PhoneLauncherActivity extends AppCompatActivity {
         launchingAllowed = false;
         if (exiting) return;
         refreshBanner();
+        if (!PhoneMode.setupIncomplete(this)) maybeAskHome();
+        else if (PhoneMode.isDefaultHome(this)) askedHome = true;
         h.removeCallbacks(tick);
         h.post(tick);
     }

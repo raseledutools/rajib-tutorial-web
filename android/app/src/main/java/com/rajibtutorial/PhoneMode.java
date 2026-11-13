@@ -108,6 +108,9 @@ final class PhoneMode {
         } catch (Exception ignored) { }
     }
 
+    /** Settings may be opened (for the Home-app picker) until this time. */
+    static long homeSetupUntil = 0;
+
     /** One-time ask: make this app the Home app so the Home button does nothing during Phone Mode. */
     static void requestDefaultHome(Activity a, int reqCode) {
         try {
@@ -118,8 +121,10 @@ final class PhoneMode {
                     return;
                 }
             }
+            homeSetupUntil = System.currentTimeMillis() + 90_000L;
             a.startActivity(new Intent(Settings.ACTION_HOME_SETTINGS));
         } catch (Exception e) {
+            homeSetupUntil = System.currentTimeMillis() + 90_000L;
             try { a.startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (Exception ignored) { }
         }
     }
