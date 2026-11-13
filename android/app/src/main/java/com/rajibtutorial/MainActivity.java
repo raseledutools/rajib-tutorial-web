@@ -289,6 +289,9 @@ public class MainActivity extends AppCompatActivity {
         // Push bridge → window.AndroidPush (web tells the app which member is logged in)
         webView.addJavascriptInterface(new PushBridge(getApplicationContext()), "AndroidPush");
 
+        // Admin notification bridge → window.AndroidAdmin (admin panel sends FCM from Java)
+        webView.addJavascriptInterface(new AdminBridge(this, webView), "AndroidAdmin");
+
         // Flashlight JS bridge → window.AndroidFlash
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flashBridge = new FlashBridge(this, webView);
