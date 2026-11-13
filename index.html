@@ -2278,7 +2278,7 @@ window.openYtUpload=function(){
 };
 window.ytTargetChange=function(){$("ytNewBox").style.display=$("ytTarget").value==="__new__"?"":"none"};
 window.ytOpenStudio=function(){
-  // Android app → opens the YouTube app (➕ → Upload). Browser → YouTube upload page.
+  // Android app → YouTube Studio opens inside the app. Browser → YouTube upload page.
   if(window.AndroidFlash){location.href="rtapp://open_youtube_upload"}
   else{window.open("https://www.youtube.com/upload","_blank","noopener")}
   showToast("Upload there, then paste the video link here");
