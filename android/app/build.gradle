@@ -29,10 +29,17 @@ android {
             def envKeyAlias  = System.getenv("KEY_ALIAS")
             def envKeyPass   = System.getenv("KEY_PASS")
 
-            storeFile     file(envStoreFile != null ? envStoreFile : (System.getProperty("user.home") + "/.android/debug.keystore"))
-            storePassword envStorePass != null ? envStorePass : "android"
-            keyAlias      envKeyAlias  != null ? envKeyAlias  : "androiddebugkey"
-            keyPassword   envKeyPass   != null ? envKeyPass   : "android"
+            def resolvedStoreFile = (envStoreFile != null && !envStoreFile.isEmpty())
+                ? envStoreFile
+                : (System.getProperty("user.home") + "/.android/debug.keystore")
+            def resolvedStorePass = (envStorePass != null && !envStorePass.isEmpty()) ? envStorePass : "android"
+            def resolvedKeyAlias  = (envKeyAlias  != null && !envKeyAlias.isEmpty())  ? envKeyAlias  : "androiddebugkey"
+            def resolvedKeyPass   = (envKeyPass   != null && !envKeyPass.isEmpty())   ? envKeyPass   : "android"
+
+            storeFile     file(resolvedStoreFile)
+            storePassword resolvedStorePass
+            keyAlias      resolvedKeyAlias
+            keyPassword   resolvedKeyPass
         }
     }
 
