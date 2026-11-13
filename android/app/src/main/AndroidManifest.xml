@@ -111,6 +111,21 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.RajibTutorial" />
 
+        <!-- HOME entry for Phone Mode. Enabled ONLY while Phone Mode runs (PhoneMode.setHomeEnabled),
+             so pressing Home keeps the user on the Phone Mode screen instead of the real launcher. -->
+        <activity-alias
+            android:name=".PhoneHomeAlias"
+            android:targetActivity=".PhoneLauncherActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
         <service
             android:name=".PhoneGuardService"
             android:exported="false"

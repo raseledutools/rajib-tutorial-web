@@ -225,6 +225,9 @@ public class PhoneLauncherActivity extends AppCompatActivity {
 
     private void refreshBanner() {
         banner.removeAllViews();
+        PhoneMode.setHomeEnabled(this, true);
+        if (!PhoneMode.isDefaultHome(this)) addStep("⚠ Set as Home app (Home button lock)", v ->
+            PhoneMode.requestDefaultHome(this, 4711));
         if (!PhoneMode.hasUsageAccess(this)) addStep("⚠ Allow Usage access", v ->
             startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)));
         if (!PhoneMode.hasOverlay(this)) addStep("⚠ Allow Display over apps", v ->
