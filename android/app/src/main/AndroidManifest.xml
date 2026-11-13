@@ -126,6 +126,30 @@
                 android:value="phone_mode_guard" />
         </service>
 
+        <!-- Apps Lock -->
+        <activity
+            android:name=".AppsLockActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.RajibTutorial" />
+
+        <activity
+            android:name=".AppLockScreenActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.RajibTutorial" />
+
+        <service
+            android:name=".AppLockService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="apps_lock_guard" />
+        </service>
+
         <!-- Overlay service -->
         <service
             android:name=".FocusOverlayService"

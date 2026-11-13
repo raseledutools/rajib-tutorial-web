@@ -8,6 +8,7 @@ public class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context ctx, Intent intent) {
         if (!Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) return;
+        AppLock.ensureService(ctx);
         FocusManager fm = new FocusManager(ctx);
         // Reboot এর পর session এখনো active থাকলে service restart করো
         if (fm.isFocusEnabled() && fm.isSessionActive()) {
