@@ -290,7 +290,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Phone, Messages &amp; offline apps only"
+                        android:text="Only Phone &amp; Messages"
                         android:textSize="12sp"
                         android:textColor="#E6FFFFFF"
                         android:layout_marginTop="2dp" />
