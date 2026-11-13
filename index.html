@@ -1293,15 +1293,6 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
     <div class="manage-wrap">
       <div class="manage-hdr">
         <h2>🔔 Notification Center</h2>
-        <div class="grp"><button class="btn-secondary" onclick="ntToggleCfg()">⚙ Server settings</button></div>
-      </div>
-
-      <div class="nt-card" id="ntCfg" style="display:none">
-        <h3>Push server settings</h3>
-        <div class="fl"><label>Backend URL</label><input type="text" id="ntUrl" placeholder="https://your-backend.onrender.com" autocomplete="off"/></div>
-        <div class="fl"><label>Admin key</label><input type="password" id="ntKey" placeholder="Server এর ADMIN_KEY" autocomplete="off"/></div>
-        <button class="btn-ok" onclick="ntSaveCfg()">Save</button>
-        <div class="nt-note">এই দুটো শুধু এই browser/app এ সংরক্ষিত থাকে। Setup নিয়ম: repo এর <b>backend/README.md</b>।</div>
       </div>
 
       <div class="nt-card">
@@ -2645,41 +2636,27 @@ window.memberLogout=async function(){
 window.openMembers=function(){renderMembers();goView("viewMembers")};
 
 // ─── Notification Center (admin) ─────────────────────────
-const NT_URL_KEY="rt_push_url",NT_KEY_KEY="rt_push_key";
+// Backend URL ও Admin key এখানে hardcoded — UI তে কোনো settings দরকার নেই
+const _NT_URL="REPLACE_BACKEND_URL".replace(/\/+$/,""); // e.g. https://your-backend.onrender.com
+const _NT_KEY="REPLACE_ADMIN_KEY";                      // server এর ADMIN_KEY env var
 let _ntTarget="all",_ntArmT=null;
-function ntCfg(){
-  try{return{url:(localStorage.getItem(NT_URL_KEY)||"").trim().replace(/\/+$/,""),key:localStorage.getItem(NT_KEY_KEY)||""}}
-  catch(e){return{url:"",key:""}}
-}
+function ntCfg(){return{url:_NT_URL,key:_NT_KEY}}
 async function ntApi(path,opts){
-  const c=ntCfg();
-  if(!c.url||!c.key){$("ntCfg").style.display="block";throw new Error("আগে ⚙ Server settings এ Backend URL ও Admin key দিন")}
   let r;
   try{
-    r=await fetch(c.url+path,{...(opts||{}),headers:{"Content-Type":"application/json","x-admin-key":c.key}});
-  }catch(e){throw new Error("Server এ পৌঁছানো যায়নি — URL ঠিক আছে? Server ঘুমিয়ে থাকলে ৩০ সেকেন্ড পর আবার চেষ্টা করুন")}
+    r=await fetch(_NT_URL+path,{...(opts||{}),headers:{"Content-Type":"application/json","x-admin-key":_NT_KEY}});
+  }catch(e){throw new Error("Server এ পৌঁছানো যায়নি — Server ঘুমিয়ে থাকলে ৩০ সেকেন্ড পর আবার চেষ্টা করুন")}
   let d={};try{d=await r.json()}catch(e){}
   if(!r.ok)throw new Error(d.error||("Server error "+r.status));
   return d;
 }
 window.openNotify=function(){
-  const c=ntCfg();
-  $("ntUrl").value=c.url;$("ntKey").value=c.key;
-  $("ntCfg").style.display=(c.url&&c.key)?"none":"block";
   $("ntMemberList").innerHTML=members.map(m=>{
     const mob=m.mobile||String(m.id||"").replace("_member_","");
     return`<option value="${esc(mob)}">${esc(m.name||"")}</option>`;
   }).join("");
   ntSetTarget(_ntTarget);ntCount();
   goView("viewNotify");ntLoadHistory();
-};
-window.ntToggleCfg=function(){const b=$("ntCfg");b.style.display=b.style.display==="none"?"block":"none"};
-window.ntSaveCfg=function(){
-  const url=$("ntUrl").value.trim().replace(/\/+$/,""),key=$("ntKey").value;
-  if(!/^https:\/\//i.test(url)){showToast("Backend URL অবশ্যই https:// দিয়ে শুরু হতে হবে");return}
-  if(!key){showToast("Admin key দিন");return}
-  try{localStorage.setItem(NT_URL_KEY,url);localStorage.setItem(NT_KEY_KEY,key)}catch(e){}
-  $("ntCfg").style.display="none";showToast("Saved");ntLoadHistory();
 };
 window.ntSetTarget=function(t){
   _ntTarget=t;
@@ -2716,8 +2693,7 @@ window.ntSend=async function(){
   btn.disabled=false;ntDisarm();
 };
 async function ntLoadHistory(){
-  const box=$("ntHistory"),st=$("ntStat"),c=ntCfg();
-  if(!c.url||!c.key){st.textContent="⚙ Server settings দিলে এখানে registered device সংখ্যা ও ইতিহাস দেখা যাবে";box.innerHTML="";return}
+  const box=$("ntHistory"),st=$("ntStat");
   st.textContent="লোড হচ্ছে…";
   try{
     const d=await ntApi("/history");
