@@ -1,6 +1,7 @@
 package com.rajibtutorial;
 
 import android.app.Dialog;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
@@ -298,6 +299,17 @@ public class NativeHomeActivity extends AppCompatActivity {
         closeDrawer();
     }
 
+    /** Opens an in-app WebView (YouTubeActivity) – no external browser/app is launched. */
+    private void openWeb(String url, String title, boolean studio, boolean browser) {
+        closeDrawer();
+        Intent i = new Intent(this, YouTubeActivity.class);
+        i.putExtra("url", url);
+        i.putExtra("title", title);
+        if (studio) i.putExtra("upload", true);     // desktop site + file picker for uploads
+        if (browser) i.putExtra("browser", true);   // plain browser behaviour
+        startActivity(i);
+    }
+
     @Override
     public void onBackPressed() {
         if (currentView != V_HOME) goHome();
@@ -477,6 +489,9 @@ public class NativeHomeActivity extends AppCompatActivity {
             bottom.addView(navItem("📚  Manage Courses", currentView == V_MANAGE, false, this::openManage));
             bottom.addView(navItem("⭐  Premium Members", currentView == V_MEMBERS, false, this::openMembers));
             bottom.addView(navItem("🔔  Notification Center", currentView == V_NOTIFY, false, this::openNotify));
+            bottom.addView(navItem("▶  YouTube", false, false, () -> openWeb("https://m.youtube.com/", "YouTube", false, false)));
+            bottom.addView(navItem("🌐  Google", false, false, () -> openWeb("https://www.google.com/", "Google", false, true)));
+            bottom.addView(navItem("🎬  YouTube Studio", false, false, () -> openWeb("https://studio.youtube.com/", "YouTube Studio", true, false)));
             bottom.addView(navItem("⚙  Live & Premium Settings", false, false, () -> { closeDrawer(); dialogs.liveSettings(); }));
             bottom.addView(navItem("⎋  Logout", false, false, () -> { closeDrawer(); adminLogout(); }));
         } else {

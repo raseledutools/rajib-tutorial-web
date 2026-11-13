@@ -75,6 +75,7 @@ public class YouTubeActivity extends AppCompatActivity {
     private WebChromeClient.CustomViewCallback customCb;
     private FrameLayout fsCont;
     private boolean uploadMode = false;
+    private boolean browserMode = false;
     private ValueCallback<Uri[]> filePathCb;
     private final ActivityResultLauncher<Intent> fileLauncher =
         registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
@@ -91,6 +92,7 @@ public class YouTubeActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         uploadMode = getIntent().getBooleanExtra("upload", false);
+        browserMode = getIntent().getBooleanExtra("browser", false);
         FrameLayout root = new FrameLayout(this);
         setContentView(root);
 
@@ -128,6 +130,16 @@ public class YouTubeActivity extends AppCompatActivity {
             cm.setAcceptThirdPartyCookies(webView, true);
         }
 
+        if (browserMode) {
+            s.setSupportZoom(true);
+            s.setBuiltInZoomControls(true);
+            s.setDisplayZoomControls(false);
+            s.setAllowFileAccess(true);
+            CookieManager cmb = CookieManager.getInstance();
+            cmb.setAcceptCookie(true);
+            cmb.setAcceptThirdPartyCookies(webView, true);
+        }
+
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest r) {
@@ -149,7 +161,7 @@ public class YouTubeActivity extends AppCompatActivity {
             }
             @Override
             public void onPageFinished(WebView v, String url) {
-                if (!uploadMode) v.evaluateJavascript(AD_JS, null);
+                if (!uploadMode && !browserMode) v.evaluateJavascript(AD_JS, null);
             }
         });
 
