@@ -2640,25 +2640,35 @@ window.openMembers=function(){renderMembers();goView("viewMembers")};
 // Admin panel থেকে JS → AndroidAdmin.sendNotification() → Java → FCM REST API
 // Private key Java bytecode এ আছে — WebView source এ দেখা যাবে না
 
-// Callback function: AdminBridge result এখানে আসবে
-window._adminBridgeCb = null;
+// Callback: AdminBridge.java থেকে webView.evaluateJavascript() দিয়ে call হয়
+// window এ রাখতে হবে যাতে Java-injected JS context থেকে accessible হয়
+if (typeof window._adminBridgeCb === 'undefined') window._adminBridgeCb = null;
 
 async function _fcmSendViaBridge(title, body, target, mobile) {
-  if (!window.AndroidAdmin) {
-    throw new Error("AndroidAdmin bridge পাওয়া যাচ্ছে না। APK এ আছে কিনা দেখুন।");
+  // AndroidAdmin available check — APK এ থাকলে এটা defined থাকবে
+  const bridge = window.AndroidAdmin;
+  if (!bridge || typeof bridge.sendNotification !== 'function') {
+    throw new Error("AndroidAdmin bridge নেই। শুধু APK এ কাজ করে, browser এ নয়।");
   }
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       window._adminBridgeCb = null;
-      reject(new Error("Timeout — Java bridge সাড়া দেয়নি"));
+      reject(new Error("Timeout (30s) — Java bridge সাড়া দেয়নি। FCM config দেখুন।"));
     }, 30000);
+    // Java side evaluateJavascript দিয়ে এই callback কে call করবে
     window._adminBridgeCb = (msg) => {
       clearTimeout(timer);
       window._adminBridgeCb = null;
-      if (msg.startsWith("✅")) resolve(msg);
-      else reject(new Error(msg));
+      if (msg && msg.startsWith("✅")) resolve(msg);
+      else reject(new Error(msg || "Unknown error from bridge"));
     };
-    window.AndroidAdmin.sendNotification(title, body, target, mobile || "");
+    try {
+      bridge.sendNotification(title, body, target, mobile || "");
+    } catch(e) {
+      clearTimeout(timer);
+      window._adminBridgeCb = null;
+      reject(new Error("Bridge call failed: " + e.message));
+    }
   });
 }
 
@@ -2671,6 +2681,11 @@ window.openNotify=function(){
   }).join("");
   ntSetTarget(_ntTarget);ntCount();
   goView("viewNotify");ntLoadHistory();
+  // Bridge availability info
+  const statEl=$("ntStat");
+  if(!window.AndroidAdmin){
+    if(statEl)statEl.textContent="⚠ Browser এ খুলেছেন — notification শুধু APK থেকে কাজ করবে";
+  }
 };
 window.ntSetTarget=function(t){
   _ntTarget=t;
