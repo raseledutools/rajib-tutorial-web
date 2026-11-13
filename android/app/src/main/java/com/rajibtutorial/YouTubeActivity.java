@@ -1,7 +1,16 @@
 package com.rajibtutorial;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.net.Uri;
+import android.view.Gravity;
+import android.webkit.CookieManager;
+import android.webkit.ValueCallback;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
@@ -65,6 +74,15 @@ public class YouTubeActivity extends AppCompatActivity {
     private View customView;
     private WebChromeClient.CustomViewCallback customCb;
     private FrameLayout fsCont;
+    private boolean uploadMode = false;
+    private ValueCallback<Uri[]> filePathCb;
+    private final ActivityResultLauncher<Intent> fileLauncher =
+        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
+            if (filePathCb == null) return;
+            Uri[] res = WebChromeClient.FileChooserParams.parseResult(r.getResultCode(), r.getData());
+            filePathCb.onReceiveValue(res);
+            filePathCb = null;
+        });
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -72,6 +90,7 @@ public class YouTubeActivity extends AppCompatActivity {
         super.onCreate(b);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        uploadMode = getIntent().getBooleanExtra("upload", false);
         FrameLayout root = new FrameLayout(this);
         setContentView(root);
 
@@ -96,6 +115,18 @@ public class YouTubeActivity extends AppCompatActivity {
             "Mozilla/5.0 (Linux; Android 11; Pixel 5) " +
             "AppleWebKit/537.36 (KHTML, like Gecko) " +
             "Chrome/122.0.0.0 Mobile Safari/537.36");
+        if (uploadMode) {
+            // YouTube Studio upload needs the desktop site; desktop UA also helps Google sign-in
+            s.setUserAgentString("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                + "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+            s.setSupportZoom(true);
+            s.setBuiltInZoomControls(true);
+            s.setDisplayZoomControls(false);
+            s.setAllowFileAccess(true);
+            CookieManager cm = CookieManager.getInstance();
+            cm.setAcceptCookie(true);
+            cm.setAcceptThirdPartyCookies(webView, true);
+        }
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -111,12 +142,30 @@ public class YouTubeActivity extends AppCompatActivity {
                 return null;
             }
             @Override
+            public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
+                String u = r.getUrl().toString();
+                // never jump out to the YouTube/Studio app or Play Store
+                return u.startsWith("intent:") || u.startsWith("market:") || u.startsWith("vnd.youtube");
+            }
+            @Override
             public void onPageFinished(WebView v, String url) {
-                v.evaluateJavascript(AD_JS, null);
+                if (!uploadMode) v.evaluateJavascript(AD_JS, null);
             }
         });
 
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> cb, FileChooserParams params) {
+                if (filePathCb != null) filePathCb.onReceiveValue(null);
+                filePathCb = cb;
+                try {
+                    fileLauncher.launch(params.createIntent());
+                } catch (Exception e) {
+                    filePathCb = null;
+                    return false;
+                }
+                return true;
+            }
             @Override
             public void onShowCustomView(View view, CustomViewCallback cb) {
                 if (customView != null) { cb.onCustomViewHidden(); return; }
@@ -145,6 +194,23 @@ public class YouTubeActivity extends AppCompatActivity {
         if (url == null || url.isEmpty()) url = DEFAULT_URL;
         if (title != null && getSupportActionBar() != null)
             getSupportActionBar().setTitle(title);
+
+        if (uploadMode) {
+            TextView ext = new TextView(this);
+            ext.setText("🌐 Browser");
+            ext.setTextColor(0xFFFFFFFF);
+            ext.setTextSize(12);
+            ext.setPadding(28, 14, 28, 14);
+            ext.setBackgroundColor(0xCC000000);
+            ext.setOnClickListener(x -> {
+                String cur = webView.getUrl();
+                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(cur != null ? cur : "https://studio.youtube.com/"))); }
+                catch (Exception e) { Toast.makeText(this, "Browser খোলা যায়নি", Toast.LENGTH_SHORT).show(); }
+            });
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+            lp.setMargins(0, 24, 16, 0);
+            root.addView(ext, lp);
+        }
 
         webView.loadUrl(url);
     }
