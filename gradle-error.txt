@@ -31,27 +31,16 @@ Warning: SDK processing. This version only understands SDK XML versions up to 3 
 > Task :app:processReleaseManifest
 > Task :app:extractProguardFiles
 > Task :app:mergeReleaseJniLibFolders
-> Task :app:mergeReleaseNativeLibs
 > Task :app:checkReleaseDuplicateClasses
+> Task :app:mergeReleaseNativeLibs
+> Task :app:desugarReleaseFileDependencies
+> Task :app:processReleaseManifestForPackage
 
 > Task :app:stripReleaseDebugSymbols
 Unable to strip the following libraries, packaging them as they are: libtwilio_voice_android_so.so.
 
-> Task :app:desugarReleaseFileDependencies
-> Task :app:extractReleaseNativeSymbolTables
-> Task :app:processReleaseManifestForPackage
-> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
-> Task :app:mergeReleaseArtProfile
-> Task :app:mergeReleaseShaders
-> Task :app:compileReleaseShaders NO-SOURCE
-> Task :app:generateReleaseAssets UP-TO-DATE
-> Task :app:mergeReleaseAssets
-> Task :app:compressReleaseAssets
-> Task :app:extractReleaseVersionControlInfo
-> Task :app:processReleaseJavaRes NO-SOURCE
 > Task :app:processReleaseResources
 > Task :app:mergeExtDexRelease
-> Task :app:mergeReleaseJavaResource
 
 > Task :app:compileReleaseJavaWithJavac
 /home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/CallActivity.java:146: error: cannot find symbol
@@ -80,5 +69,5 @@ Execution failed for task ':app:compileReleaseJavaWithJavac'.
 > Run with --info option to get more log output.
 > Run with --scan to get full insights.
 
-BUILD FAILED in 1m 9s
-31 actionable tasks: 31 executed
+BUILD FAILED in 1m 10s
+24 actionable tasks: 24 executed
