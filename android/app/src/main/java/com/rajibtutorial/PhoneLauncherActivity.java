@@ -1,6 +1,5 @@
 package com.rajibtutorial;
 
-import android.app.role.RoleManager;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -226,7 +225,6 @@ public class PhoneLauncherActivity extends AppCompatActivity {
 
     private void refreshBanner() {
         banner.removeAllViews();
-        if (!PhoneMode.isDefaultHome(this)) addStep("⚠ Set as Home app", v -> askHome());
         if (!PhoneMode.hasUsageAccess(this)) addStep("⚠ Allow Usage access", v ->
             startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)));
         if (!PhoneMode.hasOverlay(this)) addStep("⚠ Allow Display over apps", v ->
@@ -236,21 +234,6 @@ public class PhoneLauncherActivity extends AppCompatActivity {
     private void addStep(String text, View.OnClickListener l) {
         TextView b = Ui.btn(this, text, Ui.B_PRIMARY, v -> { launchingAllowed = true; l.onClick(v); });
         banner.addView(b, Ui.lpm(this, -1, -2, 0, 0, 0, 6));
-    }
-
-    private void askHome() {
-        try {
-            if (Build.VERSION.SDK_INT >= 29) {
-                RoleManager rm = (RoleManager) getSystemService(ROLE_SERVICE);
-                if (rm != null && rm.isRoleAvailable(RoleManager.ROLE_HOME) && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
-                    startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME), 77);
-                    return;
-                }
-            }
-            startActivity(new Intent(Settings.ACTION_HOME_SETTINGS));
-        } catch (Exception e) {
-            try { startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (Exception ignored) { }
-        }
     }
 
     // ── Lock-down behaviour ──────────────────────────────────
@@ -280,7 +263,7 @@ public class PhoneLauncherActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         if (!exiting && !launchingAllowed && PhoneMode.isActive(this)) {
-            h.postDelayed(this::comeBack, 150);
+            h.postDelayed(this::comeBack, 80);
         }
     }
 

@@ -52,7 +52,7 @@ public class PhoneGuardService extends Service {
                         return;
                     }
                     guard();
-                    handler.postDelayed(this, 400);
+                    handler.postDelayed(this, 200);
                 }
             };
             handler.post(task);
