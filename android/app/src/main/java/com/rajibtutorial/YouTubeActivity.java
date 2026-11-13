@@ -26,7 +26,7 @@ import java.util.Set;
  */
 public class YouTubeActivity extends AppCompatActivity {
 
-    private static final String YT_URL = "https://m.youtube.com/";
+    private static final String DEFAULT_URL = "https://m.youtube.com/";
 
     private static final Set<String> AD_HOSTS = new HashSet<>(Arrays.asList(
         "googlesyndication.com",
@@ -140,7 +140,13 @@ public class YouTubeActivity extends AppCompatActivity {
             }
         });
 
-        webView.loadUrl(YT_URL);
+        String url   = getIntent().getStringExtra("url");
+        String title = getIntent().getStringExtra("title");
+        if (url == null || url.isEmpty()) url = DEFAULT_URL;
+        if (title != null && getSupportActionBar() != null)
+            getSupportActionBar().setTitle(title);
+
+        webView.loadUrl(url);
     }
 
     @Override public void onBackPressed() {

@@ -221,8 +221,18 @@ public class MainActivity extends AppCompatActivity {
                 String url = req.getUrl().toString();
                 if (url.equals("rtapp://fullscreen"))     { enterFullscreen(); return true; }
                 if (url.equals("rtapp://exitfullscreen")) { exitFullscreen();  return true; }
-                if (url.contains("youtube.com") || url.contains("youtu.be")) {
-                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                if (url.startsWith("rtapp://open_youtube")) {
+                    Intent i = new Intent(MainActivity.this, YouTubeActivity.class);
+                    i.putExtra("url", "https://m.youtube.com/");
+                    i.putExtra("title", "YouTube");
+                    startActivity(i);
+                    return true;
+                }
+                if (url.startsWith("rtapp://open_facebook")) {
+                    Intent i = new Intent(MainActivity.this, YouTubeActivity.class);
+                    i.putExtra("url", "https://m.facebook.com/");
+                    i.putExtra("title", "Facebook");
+                    startActivity(i);
                     return true;
                 }
                 if (url.startsWith("https://raseledutools.github.io")) return false;
