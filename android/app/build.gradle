@@ -17,6 +17,10 @@ android {
         buildConfigField "String", "GITHUB_REPO",  '"rajib-tutorial-web"'
         buildConfigField "int",    "VERSION_CODE", "2"
 
+        // Twilio token endpoint (https). Supplied by CI secret TWILIO_TOKEN_URL.
+        def twilioUrl = System.getenv("TWILIO_TOKEN_URL") ?: ""
+        buildConfigField "String", "TWILIO_TOKEN_URL", "\"" + twilioUrl + "\""
+
         // Push is now handled via AdminBridge (Java → FCM REST) — no backend URL needed
     }
 
