@@ -474,9 +474,9 @@ public class MainActivity extends AppCompatActivity {
                     .show();
             }
 
-            @Override public void onError() {
+            @Override public void onError(String reason) {
                 Toast.makeText(MainActivity.this,
-                    "❌ আপডেট চেক করা যায়নি। Internet দেখে আবার চেষ্টা করুন",
+                    "❌ আপডেট চেক করা যায়নি (" + reason + "). Internet দেখে আবার চেষ্টা করুন",
                     Toast.LENGTH_LONG).show();
             }
         });

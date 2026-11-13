@@ -50,7 +50,7 @@ public class UpdateChecker {
     public interface ManualCheckListener {
         void onUpToDate(int installedCode);
         void onUpdateFound(String version, String apkUrl, String notes);
-        void onError();
+        void onError(String reason);
     }
 
     public interface DownloadProgressListener {
@@ -93,37 +93,10 @@ public class UpdateChecker {
     public void checkForUpdate(final ManualCheckListener manual) {
         new Thread(() -> {
             try {
-                HttpURLConnection conn = (HttpURLConnection) new URL(API_URL).openConnection();
-                conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
-                conn.setConnectTimeout(10_000);
-                conn.setReadTimeout(10_000);
-                if (conn.getResponseCode() != 200) {
-                    if (manual != null) postMain(manual::onError);
-                    return;
-                }
-
-                BufferedReader br = new BufferedReader(
-                    new InputStreamReader(conn.getInputStream()));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = br.readLine()) != null) sb.append(line);
-                br.close();
-
-                JSONObject json    = new JSONObject(sb.toString());
-                String tagName     = json.getString("tag_name");
-                String releaseBody = json.optString("body", "");
-                String apkUrl      = "";
-
-                JSONArray assets = json.optJSONArray("assets");
-                if (assets != null) {
-                    for (int i = 0; i < assets.length(); i++) {
-                        JSONObject a = assets.getJSONObject(i);
-                        if (a.getString("name").endsWith(".apk")) {
-                            apkUrl = a.getString("browser_download_url");
-                            break;
-                        }
-                    }
-                }
+                String[] latest = fetchLatest();
+                String tagName     = latest[0];
+                String apkUrl      = latest[1];
+                String releaseBody = latest[2];
 
                 int remoteCode = 0;
                 try { remoteCode = Integer.parseInt(tagName.replace("v","").trim()); }
@@ -144,7 +117,7 @@ public class UpdateChecker {
                     return;
                 }
                 if (apkUrl.isEmpty()) {
-                    if (manual != null) postMain(manual::onError);
+                    if (manual != null) postMain(() -> manual.onError("APK file পাওয়া যায়নি"));
                     return;
                 }
 
@@ -171,9 +144,66 @@ public class UpdateChecker {
 
             } catch (Exception e) {
                 e.printStackTrace();
-                if (manual != null) postMain(manual::onError);
+                final String why = (e.getMessage() != null && !e.getMessage().isEmpty())
+                    ? e.getMessage() : e.getClass().getSimpleName();
+                if (manual != null) postMain(() -> manual.onError(why));
             }
         }).start();
+    }
+
+    private static final String REPO_URL =
+        "https://github.com/" + BuildConfig.GITHUB_OWNER + "/" + BuildConfig.GITHUB_REPO;
+
+    /**
+     * Latest release lookup → {tag, apkUrl, body}.
+     * 1) github.com/.../releases/latest redirect — GitHub API rate limit এর আওতায় পড়ে না
+     *    (shared mobile IP তে api.github.com 60/ঘণ্টা limit এ সহজেই 403 দেয়)।
+     * 2) ব্যর্থ হলে api.github.com fallback। দুটোই ব্যর্থ হলে কারণসহ Exception।
+     */
+    private String[] fetchLatest() throws Exception {
+        String why1;
+        try {
+            HttpURLConnection c = (HttpURLConnection) new URL(REPO_URL + "/releases/latest").openConnection();
+            c.setInstanceFollowRedirects(false);
+            c.setConnectTimeout(10_000);
+            c.setReadTimeout(10_000);
+            int code = c.getResponseCode();
+            String loc = c.getHeaderField("Location");
+            c.disconnect();
+            if (code >= 300 && code < 400 && loc != null && loc.contains("/tag/")) {
+                String tag = loc.substring(loc.lastIndexOf("/tag/") + 5);
+                int q = tag.indexOf('?'); if (q >= 0) tag = tag.substring(0, q);
+                return new String[]{ tag, REPO_URL + "/releases/download/" + tag + "/RajibTutorial.apk", "" };
+            }
+            why1 = (code == 404) ? "কোনো release পাওয়া যায়নি" : "HTTP " + code;
+        } catch (Exception e) {
+            why1 = e.getClass().getSimpleName() + (e.getMessage() != null ? ": " + e.getMessage() : "");
+        }
+
+        HttpURLConnection conn = (HttpURLConnection) new URL(API_URL).openConnection();
+        conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
+        conn.setConnectTimeout(10_000);
+        conn.setReadTimeout(10_000);
+        int code = conn.getResponseCode();
+        if (code != 200) {
+            throw new Exception(why1 + " / API HTTP " + code + (code == 403 ? " (rate limit)" : ""));
+        }
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+            String line;
+            while ((line = br.readLine()) != null) sb.append(line);
+        } finally { conn.disconnect(); }
+
+        JSONObject json = new JSONObject(sb.toString());
+        String apkUrl = "";
+        JSONArray assets = json.optJSONArray("assets");
+        if (assets != null) {
+            for (int i = 0; i < assets.length(); i++) {
+                JSONObject a = assets.getJSONObject(i);
+                if (a.getString("name").endsWith(".apk")) { apkUrl = a.getString("browser_download_url"); break; }
+            }
+        }
+        return new String[]{ json.getString("tag_name"), apkUrl, json.optString("body", "") };
     }
 
     // ── Download APK — progress callback সহ ──────────────────────────────
