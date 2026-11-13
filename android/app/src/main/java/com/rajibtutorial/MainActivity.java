@@ -31,7 +31,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String SITE_URL = "https://raseledutools.github.io/rajib-tutorial-web/";
 
     // Views
-    private LinearLayout  homeScreen;
+    private androidx.drawerlayout.widget.DrawerLayout homeScreen;
     private LinearLayout  btnWebSection;
     private LinearLayout  btnNativeSection;
     private TextView      versionText;
@@ -110,6 +110,30 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.btnFocusMode).setOnClickListener(v ->
             startActivity(new Intent(this, FocusActivity.class)));
+
+        findViewById(R.id.btnPhoneMode).setOnClickListener(v -> PhoneMode.showSetup(this));
+
+        // ── Header ☰ + sidebar ──
+        getWindow().setStatusBarColor(0xFF7B2FF7);
+        findViewById(R.id.btnMenu).setOnClickListener(v ->
+            homeScreen.openDrawer(android.view.Gravity.START));
+        findViewById(R.id.drawerHome).setOnClickListener(v -> homeScreen.closeDrawers());
+        findViewById(R.id.drawerWeb).setOnClickListener(v -> {
+            homeScreen.closeDrawers();
+            openWebSection();
+        });
+        findViewById(R.id.drawerNative).setOnClickListener(v -> {
+            homeScreen.closeDrawers();
+            startActivity(new Intent(this, NativeHomeActivity.class));
+        });
+        findViewById(R.id.drawerFocus).setOnClickListener(v -> {
+            homeScreen.closeDrawers();
+            startActivity(new Intent(this, FocusActivity.class));
+        });
+        findViewById(R.id.drawerPhone).setOnClickListener(v -> {
+            homeScreen.closeDrawers();
+            PhoneMode.showSetup(this);
+        });
 
         // ── WebView setup ──
         setupWebView();
@@ -374,6 +398,11 @@ public class MainActivity extends AppCompatActivity {
     // ── Back button ───────────────────────────────────────────────────────
     @Override
     public void onBackPressed() {
+        // Sidebar খোলা থাকলে আগে সেটা বন্ধ হবে
+        if (homeScreen.isDrawerOpen(android.view.Gravity.START)) {
+            homeScreen.closeDrawers();
+            return;
+        }
         // Download চলছে — cancel করবে না
         if (downloadOverlay.getVisibility() == View.VISIBLE) {
             Toast.makeText(this, "আপডেট download হচ্ছে…", Toast.LENGTH_SHORT).show();
