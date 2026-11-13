@@ -176,7 +176,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     /** Tells PushManager which member is logged in (same rule as the web: not admin, premium only). */
     private void syncPushUser() {
         if (loading && Store.sessionMobile != null) return;   // members not loaded yet — wait
-        String m = (!Store.adminIn && Store.sessionMobile != null && Store.isPremium()) ? Store.sessionMobile : "";
+        String m = Store.sessionMobile != null ? Store.sessionMobile : "";   // admin phone logged in as member must register too
         if (m.equals(pushUserSynced)) return;
         pushUserSynced = m;
         try { PushManager.setUser(getApplicationContext(), m); } catch (Throwable ignored) { }

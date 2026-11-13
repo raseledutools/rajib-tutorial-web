@@ -31,7 +31,7 @@ final class NotifyScreen extends Screen {
     private final AdminBridge sender;
 
     private ScrollView sv;
-    private TextView stat, cnt, sendBtn, segAll, segUser;
+    private TextView stat, cnt, sendBtn, segAll, segUser, resultTv;
     private LinearLayout userBox, history;
     private Ui.Field fMobile, fTitle, fBody;
     private boolean targetAll = true, armed = false, sending = false, released = false;
@@ -96,6 +96,9 @@ final class NotifyScreen extends Screen {
 
         sendBtn = Ui.btn(a, "🔔 সব user কে পাঠান", Ui.B_PRIMARY, v -> send());
         card.addView(sendBtn, Ui.lpm(a, MATCH, WRAP, 0, 4, 0, 0));
+        resultTv = Ui.tv(a, "", 13, Ui.SUB, true);
+        resultTv.setVisibility(View.GONE);
+        card.addView(resultTv, Ui.lpm(a, MATCH, WRAP, 0, 10, 0, 0));
         card.addView(Ui.tv(a, "App বন্ধ থাকলেও (recent থেকে সরানো হলেও) phone এ notification আসবে। শুধু Force stop করা থাকলে বা internet না থাকলে আসবে না।",
             12, Ui.SUB, false), Ui.lpm(a, MATCH, WRAP, 0, 10, 0, 0));
         root.addView(card, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 14));
@@ -166,13 +169,20 @@ final class NotifyScreen extends Screen {
         sending = true;
         sendBtn.setEnabled(false);
         sendBtn.setText("পাঠানো হচ্ছে…");
+        resultTv.setVisibility(View.VISIBLE);
+        resultTv.setTextColor(Ui.SUB);
+        resultTv.setText("⏳ পাঠানো হচ্ছে…");
         sender.send(title, body, targetAll ? "all" : "user", targetAll ? "" : mobile, msg -> main.post(() -> {
             sending = false;
             if (released) return;
             sendBtn.setEnabled(true);
             disarm();
             a.toast(msg);
-            if (msg != null && msg.startsWith("✅")) {
+            boolean okMsg = msg != null && msg.startsWith("✅");
+            resultTv.setVisibility(View.VISIBLE);
+            resultTv.setTextColor(okMsg ? 0xFF16A34A : Ui.RED);
+            resultTv.setText(msg == null ? "❌ অজানা সমস্যা" : msg);
+            if (okMsg) {
                 fTitle.et.setText("");
                 fBody.et.setText("");
                 loadHistory();
