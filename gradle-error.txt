@@ -34,12 +34,21 @@ Warning: SDK processing. This version only understands SDK XML versions up to 3 
 > Task :app:checkReleaseDuplicateClasses
 > Task :app:mergeReleaseNativeLibs
 > Task :app:desugarReleaseFileDependencies
-> Task :app:processReleaseManifestForPackage
 
 > Task :app:stripReleaseDebugSymbols
 Unable to strip the following libraries, packaging them as they are: libtwilio_voice_android_so.so.
 
+> Task :app:processReleaseManifestForPackage
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:mergeReleaseShaders
+> Task :app:mergeReleaseArtProfile
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:compressReleaseAssets
 > Task :app:processReleaseResources
+> Task :app:extractReleaseVersionControlInfo
 > Task :app:mergeExtDexRelease
 
 > Task :app:compileReleaseJavaWithJavac
@@ -69,5 +78,5 @@ Execution failed for task ':app:compileReleaseJavaWithJavac'.
 > Run with --info option to get more log output.
 > Run with --scan to get full insights.
 
-BUILD FAILED in 1m 10s
-24 actionable tasks: 24 executed
+BUILD FAILED in 1m 3s
+30 actionable tasks: 30 executed
