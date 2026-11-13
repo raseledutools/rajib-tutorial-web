@@ -67,7 +67,7 @@ public class PhoneLauncherActivity extends AppCompatActivity {
         TextClock clock = new TextClock(this);
         clock.setFormat12Hour("hh:mm");
         clock.setFormat24Hour("HH:mm");
-        clock.setTextSize(58);
+        clock.setTextSize(54);
         clock.setTextColor(0xFFFFFFFF);
         clock.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         col.addView(clock, Ui.lp(-2, -2));
@@ -88,30 +88,26 @@ public class PhoneLauncherActivity extends AppCompatActivity {
         banner.setOrientation(LinearLayout.VERTICAL);
         col.addView(banner, Ui.lp(-1, -2));
 
-        // Oval app panel
+        // Phone-style home screen: scrolling icon grid
         ScrollView sv = new ScrollView(this);
-        sv.setFillViewport(true);
-        sv.setBackground(Ui.bg(this, 0x22FFFFFF, 56, 0x44FFFFFF));
-        sv.setPadding(Ui.dp(this, 14), Ui.dp(this, 26), Ui.dp(this, 14), Ui.dp(this, 26));
-        sv.setClipToPadding(false);
         sv.setVerticalScrollBarEnabled(false);
+        sv.setOverScrollMode(View.OVER_SCROLL_NEVER);
         grid = new LinearLayout(this);
         grid.setOrientation(LinearLayout.VERTICAL);
+        grid.setPadding(Ui.dp(this, 4), Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10));
         sv.addView(grid, new FrameLayout.LayoutParams(-1, -2));
-        col.addView(sv, Ui.lpm(this, -1, 0, 0, 8, 0, 14));
+        col.addView(sv, Ui.lpm(this, -1, 0, 0, 6, 0, 10));
         ((LinearLayout.LayoutParams) sv.getLayoutParams()).weight = 1;
 
-        // Oval dock: Phone · Messages · Exit
+        // Dock: Phone · Messages · Unlock
         dock = new LinearLayout(this);
         dock.setOrientation(LinearLayout.HORIZONTAL);
         dock.setGravity(Gravity.CENTER);
-        dock.setBackground(Ui.bg(this, 0x33FFFFFF, 44, 0x55FFFFFF));
+        dock.setBackground(Ui.bg(this, 0x40FFFFFF, 32, 0x33FFFFFF));
         dock.setPadding(Ui.dp(this, 10), Ui.dp(this, 12), Ui.dp(this, 10), Ui.dp(this, 12));
-        col.addView(dock, Ui.lp(-1, -2));
+        col.addView(dock, Ui.lpm(this, -1, -2, 6, 0, 6, 8));
 
         setContentView(root);
-
-        dock.addView(exitView());
 
         renderApps();
         startGuard();
@@ -124,37 +120,67 @@ public class PhoneLauncherActivity extends AppCompatActivity {
         } catch (Exception ignored) { }
     }
 
-    /** Only Phone and Messages are allowed in Phone Mode. */
+    private static final int COLS = 4;
+
+    /** Dock = Phone, Messages, Unlock. Grid = every offline app (Calculator, Calendar, Clock, Gallery…). */
     private void renderApps() {
+        dock.removeAllViews();
+        dock.addView(appView(PhoneMode.phoneItem(this), 58, "📞", false));
+        dock.addView(appView(PhoneMode.messageItem(this), 58, "💬", false));
+        dock.addView(exitView());
+
         grid.removeAllViews();
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER);
-        row.addView(appView(PhoneMode.phoneItem(this), 76, "📞"));
-        row.addView(appView(PhoneMode.messageItem(this), 76, "💬"));
-        grid.addView(row, Ui.lpm(this, -1, -2, 0, 40, 0, 0));
+        List<PhoneMode.AppItem> apps = PhoneMode.offlineApps(this, true);
+        if (apps.isEmpty()) {
+            TextView t = Ui.tv(this, "No offline apps found", 13, 0xAAFFFFFF, false);
+            t.setGravity(Gravity.CENTER);
+            grid.addView(t, Ui.lpm(this, -1, -2, 0, 60, 0, 0));
+            return;
+        }
+        for (int i = 0; i < apps.size(); i += COLS) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.TOP);
+            for (int j = 0; j < COLS; j++) {
+                if (i + j < apps.size()) {
+                    row.addView(appView(apps.get(i + j), 58, null, true));
+                } else {
+                    View gap = new View(this);
+                    gap.setLayoutParams(new LinearLayout.LayoutParams(0, 1, 1f));
+                    row.addView(gap);
+                }
+            }
+            grid.addView(row, Ui.lpm(this, -1, -2, 0, 0, 0, 18));
+        }
     }
 
-    private View appView(final PhoneMode.AppItem it, int iconDp, String fallbackEmoji) {
+    private View appView(final PhoneMode.AppItem it, int iconDp, String fallbackEmoji, boolean showLabel) {
         LinearLayout v = new LinearLayout(this);
         v.setOrientation(LinearLayout.VERTICAL);
         v.setGravity(Gravity.CENTER_HORIZONTAL);
         v.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1f));
+        int sz = Ui.dp(this, iconDp);
         if (it.icon != null) {
             ImageView iv = new ImageView(this);
             iv.setImageDrawable(it.icon);
-            v.addView(iv, new LinearLayout.LayoutParams(Ui.dp(this, iconDp), Ui.dp(this, iconDp)));
+            iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            iv.setBackground(Ui.bg(this, 0x22FFFFFF, 16, 0));   // rounded tile like a real launcher
+            iv.setClipToOutline(true);
+            v.addView(iv, new LinearLayout.LayoutParams(sz, sz));
         } else {
             TextView e = Ui.tv(this, fallbackEmoji == null ? "📦" : fallbackEmoji, 26, 0xFFFFFFFF, false);
             e.setGravity(Gravity.CENTER);
-            e.setBackground(Ui.circle(0x44FFFFFF));
-            v.addView(e, new LinearLayout.LayoutParams(Ui.dp(this, iconDp), Ui.dp(this, iconDp)));
+            e.setBackground(Ui.bg(this, 0x44FFFFFF, 16, 0));
+            v.addView(e, new LinearLayout.LayoutParams(sz, sz));
         }
-        TextView l = Ui.tv(this, it.label, 11, 0xFFFFFFFF, false);
-        l.setSingleLine(true);
-        l.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        l.setGravity(Gravity.CENTER);
-        v.addView(l, Ui.lpm(this, -1, -2, 2, 5, 2, 0));
+        if (showLabel) {
+            TextView l = Ui.tv(this, it.label, 11, 0xFFFFFFFF, false);
+            l.setSingleLine(true);
+            l.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            l.setGravity(Gravity.CENTER);
+            l.setShadowLayer(4f, 0f, 1f, 0x99000000);
+            v.addView(l, Ui.lpm(this, -1, -2, 2, 6, 2, 0));
+        }
         v.setOnClickListener(x -> {
             launchingAllowed = true;
             try { startActivity(it.intent); }
@@ -169,13 +195,11 @@ public class PhoneLauncherActivity extends AppCompatActivity {
         v.setOrientation(LinearLayout.VERTICAL);
         v.setGravity(Gravity.CENTER_HORIZONTAL);
         v.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1f));
+        int sz = Ui.dp(this, 58);
         TextView e = Ui.tv(this, "🔓", 26, 0xFFFFFFFF, false);
         e.setGravity(Gravity.CENTER);
-        e.setBackground(Ui.circle(0x66E8365D));
-        v.addView(e, new LinearLayout.LayoutParams(Ui.dp(this, 56), Ui.dp(this, 56)));
-        TextView l = Ui.tv(this, "Exit", 11, 0xFFFFFFFF, false);
-        l.setGravity(Gravity.CENTER);
-        v.addView(l, Ui.lpm(this, -1, -2, 2, 5, 2, 0));
+        e.setBackground(Ui.bg(this, 0x88E8365D, 16, 0));
+        v.addView(e, new LinearLayout.LayoutParams(sz, sz));
         v.setOnClickListener(x -> tryExit());
         Ui.pressFx(v);
         return v;

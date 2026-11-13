@@ -257,6 +257,7 @@ final class PhoneMode {
         AppItem ph = phoneItem(c), ms = messageItem(c);
         if (ph.pkg != null) s.add(ph.pkg);
         if (ms.pkg != null) s.add(ms.pkg);
+        for (AppItem it : offlineApps(c, false)) if (it.pkg != null) s.add(it.pkg);
         try {
             InputMethodManager imm = (InputMethodManager) c.getSystemService(Context.INPUT_METHOD_SERVICE);
             for (InputMethodInfo i : imm.getInputMethodList()) s.add(i.getPackageName());
