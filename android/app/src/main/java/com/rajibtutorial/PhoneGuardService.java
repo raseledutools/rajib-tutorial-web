@@ -69,7 +69,8 @@ public class PhoneGuardService extends Service {
         String fg = foreground(now);
         if (fg == null || allowed.contains(fg)) return;
         // let the user reach Settings while the one-time setup is unfinished
-        if (PhoneMode.isSettingsPkg(fg) && PhoneMode.setupIncomplete(this)) return;
+        if (PhoneMode.isSettingsPkg(fg) && (PhoneMode.setupIncomplete(this)
+                || System.currentTimeMillis() < PhoneMode.homeSetupUntil)) return;
         try {
             startActivity(new Intent(this, PhoneLauncherActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
