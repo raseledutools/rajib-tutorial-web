@@ -100,7 +100,7 @@ public class PhoneGuardService extends Service {
         return new NotificationCompat.Builder(this, CH_ID)
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setContentTitle("Phone Mode on")
-            .setContentText("Only Phone & Messages are allowed")
+            .setContentText("Phone, Messages & offline apps only")
             .setContentIntent(pi)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
