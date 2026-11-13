@@ -2637,8 +2637,8 @@ window.openMembers=function(){renderMembers();goView("viewMembers")};
 
 // ─── Notification Center (admin) ─────────────────────────
 // Backend URL ও Admin key এখানে hardcoded — UI তে কোনো settings দরকার নেই
-const _NT_URL="REPLACE_BACKEND_URL".replace(/\/+$/,""); // e.g. https://your-backend.onrender.com
-const _NT_KEY="REPLACE_ADMIN_KEY";                      // server এর ADMIN_KEY env var
+const _NT_URL="REPLACE_BACKEND_URL".replace(/\/+$/,""); // deploy করার পর Render/Railway URL বসাও
+const _NT_KEY="27a1a6aa90ada9b4d5136f7dd34e2079ccf2d150b91b775dd096308c227fcc7c";
 let _ntTarget="all",_ntArmT=null;
 function ntCfg(){return{url:_NT_URL,key:_NT_KEY}}
 async function ntApi(path,opts){
