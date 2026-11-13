@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "979594414301",
+    "firebase_url": "https://mywebtools-f8d53-default-rtdb.firebaseio.com",
+    "project_id": "mywebtools-f8d53",
+    "storage_bucket": "mywebtools-f8d53.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:979594414301:android:e766670cf6acf7b385f334",
+        "android_client_info": {
+          "package_name": "com.rajibtutorial"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS7zJTWsOyx4xDswLOPk3uf_jcnjYRWVk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:979594414301:android:aac512b6055e05a685f334",
+        "android_client_info": {
+          "package_name": "com.tanimul.android_template_kotlin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS7zJTWsOyx4xDswLOPk3uf_jcnjYRWVk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
