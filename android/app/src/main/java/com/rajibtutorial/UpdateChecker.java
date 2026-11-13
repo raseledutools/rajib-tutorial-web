@@ -46,6 +46,13 @@ public class UpdateChecker {
         void onUpdateAvailable(String version, String apkUrl);
     }
 
+    /** Result callbacks for the sidebar "Check for Update" button (always on the main thread). */
+    public interface ManualCheckListener {
+        void onUpToDate(int installedCode);
+        void onUpdateFound(String version, String apkUrl, String notes);
+        void onError();
+    }
+
     public interface DownloadProgressListener {
         void onProgress(int percent, long downloadedBytes, long totalBytes);
         /** apkFile hazir — Activity থেকে install intent চালাও */
@@ -78,14 +85,22 @@ public class UpdateChecker {
     }
 
     // ── Update check ──────────────────────────────────────────────────────
-    public void checkForUpdate() {
+    public void checkForUpdate() { checkForUpdate(null); }
+
+    private void postMain(Runnable r) { new Handler(Looper.getMainLooper()).post(r); }
+
+    /** manual != null → user pressed the button: report every outcome and skip the notification. */
+    public void checkForUpdate(final ManualCheckListener manual) {
         new Thread(() -> {
             try {
                 HttpURLConnection conn = (HttpURLConnection) new URL(API_URL).openConnection();
                 conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
                 conn.setConnectTimeout(10_000);
                 conn.setReadTimeout(10_000);
-                if (conn.getResponseCode() != 200) return;
+                if (conn.getResponseCode() != 200) {
+                    if (manual != null) postMain(manual::onError);
+                    return;
+                }
 
                 BufferedReader br = new BufferedReader(
                     new InputStreamReader(conn.getInputStream()));
@@ -123,7 +138,15 @@ public class UpdateChecker {
                 } catch (Exception ignored) {}
 
                 // remote version installed এর চেয়ে বেশি না হলে skip
-                if (remoteCode <= installedCode || apkUrl.isEmpty()) return;
+                if (remoteCode <= installedCode) {
+                    final int fInstalled = installedCode;
+                    if (manual != null) postMain(() -> manual.onUpToDate(fInstalled));
+                    return;
+                }
+                if (apkUrl.isEmpty()) {
+                    if (manual != null) postMain(manual::onError);
+                    return;
+                }
 
                 SharedPreferences prefs   = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                 String            lastTag = prefs.getString(KEY_LAST_TAG, "");
@@ -137,14 +160,19 @@ public class UpdateChecker {
                     // In-app banner — সবসময় দেখাও (version > installed)
                     if (updateListener != null) updateListener.onUpdateAvailable(fTag, fApkUrl);
 
-                    // Notification — শুধু প্রথমবার (এই version এর জন্য)
-                    if (isNew) {
+                    if (manual != null) manual.onUpdateFound(fTag, fApkUrl, fBody);
+
+                    // Notification — শুধু প্রথমবার (এই version এর জন্য), manual check এ নয়
+                    if (isNew && manual == null) {
                         showUpdateNotification(fTag, fBody, fApkUrl);
                         prefs.edit().putString(KEY_LAST_TAG, fTag).apply();
                     }
                 });
 
-            } catch (Exception e) { e.printStackTrace(); }
+            } catch (Exception e) {
+                e.printStackTrace();
+                if (manual != null) postMain(manual::onError);
+            }
         }).start();
     }
 

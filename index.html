@@ -1074,6 +1074,23 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
   .lv-body{padding:0 12px 40px}
   .lv-join{width:100%;justify-content:center}
 }
+
+/* ── NOTIFICATION CENTER (admin) ── */
+#viewNotify .nt-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 4px 18px rgba(20,18,26,.05)}
+#viewNotify .nt-card h3{font-size:15px;font-weight:800;margin-bottom:12px}
+#viewNotify .nt-seg{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+#viewNotify .nt-seg button{flex:1;min-width:140px;padding:11px 12px;border-radius:12px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:700;color:var(--sub);cursor:pointer}
+#viewNotify .nt-seg button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent2)}
+#viewNotify .nt-stat{font-size:12.5px;color:var(--sub);margin-bottom:14px}
+#viewNotify .nt-note{font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5}
+#viewNotify .nt-cnt{font-size:11px;color:var(--sub);text-align:right;margin-top:3px}
+#viewNotify .nt-send{width:100%;margin-top:6px;padding:13px 18px;font-size:14px}
+#viewNotify .nt-send:disabled{opacity:.6}
+#viewNotify .nt-hi{border-top:1px solid var(--border);padding:11px 0}
+#viewNotify .nt-hi:first-child{border-top:none;padding-top:0}
+#viewNotify .nt-hi strong{display:block;font-size:13.5px}
+#viewNotify .nt-hi p{font-size:12.5px;color:var(--text);margin:3px 0;white-space:pre-wrap;word-break:break-word}
+#viewNotify .nt-hi span{font-size:11.5px;color:var(--sub)}
 </style>
 </head>
 <body>
@@ -1112,6 +1129,9 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
     </button>
     <button class="btn-admin-action" onclick="openMembers();closeSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 6.5 7 .9-5.2 4.8 1.4 7L12 17.8 5.8 21.2l1.4-7L2 9.4l7-.9z"/></svg> Premium Members
+    </button>
+    <button class="btn-admin-action" onclick="openNotify();closeSidebar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg> Notification Center
     </button>
     <button class="btn-admin-action" onclick="openLiveSettings();closeSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg> Live &amp; Premium Settings
@@ -1266,6 +1286,46 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
         <div class="grp"><button class="btn-add" onclick="openAddMember()">+ Add Member</button></div>
       </div>
       <div id="memberList"></div>
+    </div>
+  </div>
+  <!-- NOTIFICATION CENTER (admin) -->
+  <div class="view" id="viewNotify">
+    <div class="manage-wrap">
+      <div class="manage-hdr">
+        <h2>🔔 Notification Center</h2>
+        <div class="grp"><button class="btn-secondary" onclick="ntToggleCfg()">⚙ Server settings</button></div>
+      </div>
+
+      <div class="nt-card" id="ntCfg" style="display:none">
+        <h3>Push server settings</h3>
+        <div class="fl"><label>Backend URL</label><input type="text" id="ntUrl" placeholder="https://your-backend.onrender.com" autocomplete="off"/></div>
+        <div class="fl"><label>Admin key</label><input type="password" id="ntKey" placeholder="Server এর ADMIN_KEY" autocomplete="off"/></div>
+        <button class="btn-ok" onclick="ntSaveCfg()">Save</button>
+        <div class="nt-note">এই দুটো শুধু এই browser/app এ সংরক্ষিত থাকে। Setup নিয়ম: repo এর <b>backend/README.md</b>।</div>
+      </div>
+
+      <div class="nt-card">
+        <h3>নতুন বার্তা পাঠান</h3>
+        <div class="nt-stat" id="ntStat">…</div>
+        <div class="nt-seg">
+          <button id="ntSegAll" class="on" onclick="ntSetTarget('all')">👥 সব user</button>
+          <button id="ntSegUser" onclick="ntSetTarget('user')">👤 নির্দিষ্ট user</button>
+        </div>
+        <div class="fl" id="ntUserBox" style="display:none">
+          <label>Member (মোবাইল নম্বর)</label>
+          <input type="text" id="ntMobile" list="ntMemberList" inputmode="tel" placeholder="তালিকা থেকে বাছুন বা নম্বর লিখুন" autocomplete="off"/>
+          <datalist id="ntMemberList"></datalist>
+        </div>
+        <div class="fl"><label>Title</label><input type="text" id="ntTitle" maxlength="100" placeholder="যেমন: আজ রাতে Live Class"/></div>
+        <div class="fl"><label>Message</label><textarea id="ntBody" maxlength="500" oninput="ntCount()" placeholder="বার্তা লিখুন…"></textarea><div class="nt-cnt" id="ntCnt">0 / 500</div></div>
+        <button class="btn-ok nt-send" id="ntSendBtn" onclick="ntSend()">🔔 সব user কে পাঠান</button>
+        <div class="nt-note">App বন্ধ থাকলেও (recent থেকে সরানো হলেও) phone এ notification আসবে। শুধু <b>Force stop</b> করা থাকলে বা internet না থাকলে আসবে না।</div>
+      </div>
+
+      <div class="nt-card">
+        <h3>পাঠানো বার্তা</h3>
+        <div id="ntHistory"><span style="font-size:12.5px;color:var(--sub)">…</span></div>
+      </div>
     </div>
   </div>
 </main>
@@ -1862,7 +1922,7 @@ window.goView=function(id, _fromPop){
   window.scrollTo(0,0);
   document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
   if(id==="viewHome") $("navHome").classList.add("active");
-  const titles={viewHome:"Rajib Tutorial",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewMembers:"Premium Members",viewLive:liveType==="exam"?"Live Exam":"Live Class"};
+  const titles={viewHome:"Rajib Tutorial",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewMembers:"Premium Members",viewNotify:"Notification Center",viewLive:liveType==="exam"?"Live Exam":"Live Class"};
   $("topbarTitle").textContent=titles[id]||"Rajib Tutorial";
 
   // ── pushState: Android back button এর জন্য WebView history তৈরি করা ──
@@ -2428,7 +2488,16 @@ function startSessionPoll(){
 function stopSessionPoll(){
   if(_sessionPollTimer){clearInterval(_sessionPollTimer);_sessionPollTimer=null;}
 }
+// Android app: tell native side which member is logged in (so admin can send that user a push)
+function syncPushUser(){
+  try{
+    if(window.AndroidPush&&window.AndroidPush.setUser){
+      window.AndroidPush.setUser((!adminIn&&session&&isPremium())?String(session.mobile||""):"");
+    }
+  }catch(e){}
+}
 function renderUser(){
+  syncPushUser();
   const wrap=$("userArea");
   const chip=(name,sub)=>`<div class="userchip" onclick="toggleUserMenu(event)"><span class="av">${esc((name||"U").trim().charAt(0).toUpperCase())}</span><span class="un">${esc(name)}</span><span class="pro">PRO</span></div>
     <div class="umenu hidden" id="uMenu"><div class="um-name">${esc(name)}</div><div class="um-sub">${esc(sub)}</div>${adminIn?"":`<button class="um-btn" onclick="memberLogout()">Logout</button>`}</div>`;
@@ -2574,6 +2643,92 @@ window.memberLogout=async function(){
 
 // ─── Admin: members ──────────────────────────────────────
 window.openMembers=function(){renderMembers();goView("viewMembers")};
+
+// ─── Notification Center (admin) ─────────────────────────
+const NT_URL_KEY="rt_push_url",NT_KEY_KEY="rt_push_key";
+let _ntTarget="all",_ntArmT=null;
+function ntCfg(){
+  try{return{url:(localStorage.getItem(NT_URL_KEY)||"").trim().replace(/\/+$/,""),key:localStorage.getItem(NT_KEY_KEY)||""}}
+  catch(e){return{url:"",key:""}}
+}
+async function ntApi(path,opts){
+  const c=ntCfg();
+  if(!c.url||!c.key){$("ntCfg").style.display="block";throw new Error("আগে ⚙ Server settings এ Backend URL ও Admin key দিন")}
+  let r;
+  try{
+    r=await fetch(c.url+path,{...(opts||{}),headers:{"Content-Type":"application/json","x-admin-key":c.key}});
+  }catch(e){throw new Error("Server এ পৌঁছানো যায়নি — URL ঠিক আছে? Server ঘুমিয়ে থাকলে ৩০ সেকেন্ড পর আবার চেষ্টা করুন")}
+  let d={};try{d=await r.json()}catch(e){}
+  if(!r.ok)throw new Error(d.error||("Server error "+r.status));
+  return d;
+}
+window.openNotify=function(){
+  const c=ntCfg();
+  $("ntUrl").value=c.url;$("ntKey").value=c.key;
+  $("ntCfg").style.display=(c.url&&c.key)?"none":"block";
+  $("ntMemberList").innerHTML=members.map(m=>{
+    const mob=m.mobile||String(m.id||"").replace("_member_","");
+    return`<option value="${esc(mob)}">${esc(m.name||"")}</option>`;
+  }).join("");
+  ntSetTarget(_ntTarget);ntCount();
+  goView("viewNotify");ntLoadHistory();
+};
+window.ntToggleCfg=function(){const b=$("ntCfg");b.style.display=b.style.display==="none"?"block":"none"};
+window.ntSaveCfg=function(){
+  const url=$("ntUrl").value.trim().replace(/\/+$/,""),key=$("ntKey").value;
+  if(!/^https:\/\//i.test(url)){showToast("Backend URL অবশ্যই https:// দিয়ে শুরু হতে হবে");return}
+  if(!key){showToast("Admin key দিন");return}
+  try{localStorage.setItem(NT_URL_KEY,url);localStorage.setItem(NT_KEY_KEY,key)}catch(e){}
+  $("ntCfg").style.display="none";showToast("Saved");ntLoadHistory();
+};
+window.ntSetTarget=function(t){
+  _ntTarget=t;
+  $("ntSegAll").classList.toggle("on",t==="all");
+  $("ntSegUser").classList.toggle("on",t==="user");
+  $("ntUserBox").style.display=t==="user"?"block":"none";
+  ntDisarm();
+};
+window.ntCount=function(){$("ntCnt").textContent=$("ntBody").value.length+" / 500"};
+function ntDisarm(){
+  clearTimeout(_ntArmT);
+  const b=$("ntSendBtn");if(!b)return;
+  delete b.dataset.armed;
+  b.textContent=_ntTarget==="all"?"🔔 সব user কে পাঠান":"🔔 এই user কে পাঠান";
+}
+window.ntSend=async function(){
+  const title=$("ntTitle").value.trim(),body=$("ntBody").value.trim();
+  const all=_ntTarget==="all",mobile=$("ntMobile").value.replace(/\D/g,"");
+  if(!title){showToast("Title লিখুন");return}
+  if(!body){showToast("Message লিখুন");return}
+  if(!all&&mobile.length<6){showToast("মোবাইল নম্বর দিন বা তালিকা থেকে বাছুন");return}
+  const btn=$("ntSendBtn");
+  // broadcast needs a second tap (confirm() does not work inside the app's WebView)
+  if(all&&!btn.dataset.armed){
+    btn.dataset.armed="1";btn.textContent="⚠ সবার কাছে যাবে — আবার চাপুন";
+    clearTimeout(_ntArmT);_ntArmT=setTimeout(ntDisarm,4000);return;
+  }
+  ntDisarm();btn.disabled=true;btn.textContent="পাঠানো হচ্ছে…";
+  try{
+    const d=await ntApi("/notify",{method:"POST",body:JSON.stringify({title,body,target:all?"all":"user",mobile})});
+    showToast(all?"✅ সব user এর কাছে পাঠানো হয়েছে":"✅ "+d.sent+" টি device এ পাঠানো হয়েছে");
+    $("ntTitle").value="";$("ntBody").value="";ntCount();ntLoadHistory();
+  }catch(e){showToast("❌ "+e.message)}
+  btn.disabled=false;ntDisarm();
+};
+async function ntLoadHistory(){
+  const box=$("ntHistory"),st=$("ntStat"),c=ntCfg();
+  if(!c.url||!c.key){st.textContent="⚙ Server settings দিলে এখানে registered device সংখ্যা ও ইতিহাস দেখা যাবে";box.innerHTML="";return}
+  st.textContent="লোড হচ্ছে…";
+  try{
+    const d=await ntApi("/history");
+    st.textContent="📱 Registered device: "+d.devices;
+    box.innerHTML=d.messages.length?d.messages.map(m=>{
+      const to=m.target==="all"?"সব user":"👤 "+esc(m.mobile);
+      const when=new Date(m.at).toLocaleString();
+      return`<div class="nt-hi"><strong>${esc(m.title)}</strong><p>${esc(m.body)}</p><span>${to} · ${esc(when)}</span></div>`;
+    }).join(""):`<span style="font-size:12.5px;color:var(--sub)">এখনো কোনো বার্তা পাঠানো হয়নি</span>`;
+  }catch(e){st.textContent="❌ "+e.message;box.innerHTML=""}
+}
 function renderMembers(){
   const wrap=$("memberList");
   if(!members.length){wrap.innerHTML=`<div class="empty">${I.star}<p>No Premium members yet. Click “+ Add Member”.</p></div>`;return}
