@@ -17,13 +17,7 @@ android {
         buildConfigField "String", "GITHUB_REPO",  '"rajib-tutorial-web"'
         buildConfigField "int",    "VERSION_CODE", "2"
 
-        // Twilio token endpoint (https). Supplied by CI secret TWILIO_TOKEN_URL.
-        def twilioUrl = System.getenv("TWILIO_TOKEN_URL") ?: ""
-        buildConfigField "String", "TWILIO_TOKEN_URL", "\"" + twilioUrl + "\""
-
-        // Push backend (defaults to the same host as TWILIO_TOKEN_URL when empty)
-        def pushUrl = System.getenv("PUSH_BACKEND_URL") ?: ""
-        buildConfigField "String", "PUSH_BACKEND_URL", "\"" + pushUrl + "\""
+        // Push is now handled via AdminBridge (Java → FCM REST) — no backend URL needed
     }
 
     signingConfigs {
@@ -84,6 +78,7 @@ dependencies {
     // Admin push notifications (works only once google-services.json is added)
     implementation platform('com.google.firebase:firebase-bom:33.1.2')
     implementation 'com.google.firebase:firebase-messaging'
+    implementation 'com.google.firebase:firebase-firestore'
 }
 
 // Apply the Google services plugin only when google-services.json exists,
