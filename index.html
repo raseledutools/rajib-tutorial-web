@@ -1460,7 +1460,7 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
   <div class="modal">
     <div class="modal-title">▶ YouTube Upload &amp; Course</div>
     <div class="modal-sub">1) Login &amp; upload on YouTube &nbsp; 2) Paste the video links &nbsp; 3) Create a course</div>
-    <button class="btn-ok" style="width:100%;background:#ff0000;margin-bottom:14px" onclick="ytOpenStudio()">▶ Open YouTube (login &amp; upload video)</button>
+    <button class="btn-ok" style="width:100%;background:#ff0000;margin-bottom:14px" onclick="ytOpenStudio()">▶ Open YouTube (login &amp; upload)</button>
     <div class="fl"><label>Video links * (one per line, or “Title | link”)</label>
       <textarea id="ytLinks" rows="5" placeholder="Lesson 1: Ohm's Law | https://youtu.be/xxxxxxxxxxx&#10;https://youtube.com/watch?v=yyyyyyyyyyy"></textarea></div>
     <div class="fl"><label>Add to</label>
@@ -2278,9 +2278,9 @@ window.openYtUpload=function(){
 };
 window.ytTargetChange=function(){$("ytNewBox").style.display=$("ytTarget").value==="__new__"?"":"none"};
 window.ytOpenStudio=function(){
-  // Google blocks sign-in inside embedded WebViews → open in the phone's browser / YouTube app
-  const url="https://studio.youtube.com/";
-  if(window.AndroidFlash){location.href=url}else{window.open(url,"_blank","noopener")}
+  // Android app → opens the YouTube app (➕ → Upload). Browser → YouTube upload page.
+  if(window.AndroidFlash){location.href="rtapp://open_youtube_upload"}
+  else{window.open("https://www.youtube.com/upload","_blank","noopener")}
   showToast("Upload there, then paste the video link here");
 };
 window.ytCreate=async function(){

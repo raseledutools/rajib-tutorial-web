@@ -246,6 +246,23 @@ public class MainActivity extends AppCompatActivity {
         if (usingFallback && webView != null && isOnline()) loadSite();
     }
 
+    /** Open the YouTube app (+ → Upload works there, no Studio app needed); else the browser. */
+    private void openYoutubeForUpload() {
+        try {
+            Intent i = getPackageManager().getLaunchIntentForPackage("com.google.android.youtube");
+            if (i != null) {
+                startActivity(i);
+                Toast.makeText(this, "YouTube → ➕ → Upload a video", Toast.LENGTH_LONG).show();
+                return;
+            }
+        } catch (Exception ignored) { }
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/upload")));
+        } catch (Exception e) {
+            Toast.makeText(this, "YouTube খোলা যায়নি", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     // ── WebView setup ────────────────────────────────────────────────────
     @SuppressLint("SetJavaScriptEnabled")
     private void setupWebView() {
@@ -295,6 +312,10 @@ public class MainActivity extends AppCompatActivity {
                 String url = req.getUrl().toString();
                 if (url.equals("rtapp://fullscreen"))     { enterFullscreen(); return true; }
                 if (url.equals("rtapp://exitfullscreen")) { exitFullscreen();  return true; }
+                if (url.startsWith("rtapp://open_youtube_upload")) {
+                    openYoutubeForUpload();
+                    return true;
+                }
                 if (url.startsWith("rtapp://open_apps_lock")) {
                     startActivity(new Intent(MainActivity.this, AppsLockActivity.class));
                     return true;
@@ -318,7 +339,7 @@ public class MainActivity extends AppCompatActivity {
                     return true;
                 }
                 if (url.startsWith("https://raseledutools.github.io")) return false;
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { }
                 return true;
             }
         });
