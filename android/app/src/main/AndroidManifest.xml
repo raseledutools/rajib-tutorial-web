@@ -153,6 +153,24 @@
                 android:value="focus_mode_overlay" />
         </service>
 
+        <!-- Admin push notifications (FCM) -->
+        <service
+            android:name=".PushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="rt_push_v1" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_push" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/push_accent" />
+
         <!-- Alarm receiver — scheduled checks -->
         <receiver
             android:name=".FocusAlarmReceiver"

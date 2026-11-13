@@ -1,8 +1,10 @@
 package com.rajibtutorial;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -13,6 +15,7 @@ import android.os.Handler;
 import android.provider.Settings;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -26,6 +29,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
@@ -138,6 +142,17 @@ public class MainActivity extends AppCompatActivity {
             homeScreen.closeDrawers();
             PhoneMode.showSetup(this);
         });
+        findViewById(R.id.drawerUpdate).setOnClickListener(v -> {
+            homeScreen.closeDrawers();
+            checkUpdateManually();
+        });
+
+        // ── Push notifications (FCM): permission + token registration ──
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 501);
+        }
+        PushManager.init(this);
 
         // ── WebView setup ──
         setupWebView();
@@ -270,6 +285,9 @@ public class MainActivity extends AppCompatActivity {
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+
+        // Push bridge → window.AndroidPush (web tells the app which member is logged in)
+        webView.addJavascriptInterface(new PushBridge(getApplicationContext()), "AndroidPush");
 
         // Flashlight JS bridge → window.AndroidFlash
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -405,22 +423,67 @@ public class MainActivity extends AppCompatActivity {
         }
 
         updateBanner.setOnClickListener(v -> {
-            // Banner সরিয়ে দাও
-            updateBanner.animate()
-                .translationX(600f).setDuration(250)
-                .withEndAction(() -> updateBanner.setVisibility(View.GONE))
-                .start();
-
-            // Overlay reset করে দেখাও
-            pendingApkFile = null;
-            btnInstallNow.setVisibility(View.GONE);
-            downloadOverlay.setVisibility(View.VISIBLE);
-            downloadProgressBar.setProgress(0);
-            downloadPercent.setText("0%");
-            downloadStatus.setText("শুরু হচ্ছে…");
-
-            updateChecker.startDownload(apkUrl, version);
+            hideUpdateBanner();
+            beginUpdateDownload(apkUrl, version);
         });
+    }
+
+    private void hideUpdateBanner() {
+        if (updateBanner == null || updateBanner.getVisibility() != View.VISIBLE) return;
+        updateBanner.animate()
+            .translationX(600f).setDuration(250)
+            .withEndAction(() -> updateBanner.setVisibility(View.GONE))
+            .start();
+    }
+
+    /** Overlay reset করে download শুরু করো. */
+    private void beginUpdateDownload(String apkUrl, String version) {
+        pendingApkFile = null;
+        btnInstallNow.setVisibility(View.GONE);
+        downloadOverlay.setVisibility(View.VISIBLE);
+        downloadProgressBar.setProgress(0);
+        downloadPercent.setText("0%");
+        downloadStatus.setText("শুরু হচ্ছে…");
+        updateChecker.startDownload(apkUrl, version);
+    }
+
+    // ── Sidebar "Check for Update" ───────────────────────────────────────
+    private void checkUpdateManually() {
+        Toast.makeText(this, "🔄 আপডেট চেক করা হচ্ছে…", Toast.LENGTH_SHORT).show();
+        updateChecker.checkForUpdate(new UpdateChecker.ManualCheckListener() {
+            @Override public void onUpToDate(int installedCode) {
+                Toast.makeText(MainActivity.this,
+                    "✅ আপনি সর্বশেষ version (v1." + installedCode + ") ব্যবহার করছেন",
+                    Toast.LENGTH_LONG).show();
+            }
+
+            @Override public void onUpdateFound(String version, String apkUrl, String notes) {
+                if (isFinishing()) return;
+                String vName = "1." + version.replace("v", "");
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("🎉 নতুন আপডেট এসেছে")
+                    .setMessage("Rajib Tutorial v" + vName + " পাওয়া গেছে।\n\nএখনই download ও install করবেন?")
+                    .setPositiveButton("এখনই আপডেট", (d, w) -> {
+                        hideUpdateBanner();
+                        beginUpdateDownload(apkUrl, version);
+                    })
+                    .setNegativeButton("পরে", null)
+                    .show();
+            }
+
+            @Override public void onError() {
+                Toast.makeText(MainActivity.this,
+                    "❌ আপডেট চেক করা যায়নি। Internet দেখে আবার চেষ্টা করুন",
+                    Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    /** JS bridge: the web page reports the logged-in member's mobile so admin can message that user. */
+    public static class PushBridge {
+        private final android.content.Context ctx;
+        PushBridge(android.content.Context c) { ctx = c; }
+        @JavascriptInterface public void setUser(String mobile) { PushManager.setUser(ctx, mobile); }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

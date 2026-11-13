@@ -20,6 +20,10 @@ android {
         // Twilio token endpoint (https). Supplied by CI secret TWILIO_TOKEN_URL.
         def twilioUrl = System.getenv("TWILIO_TOKEN_URL") ?: ""
         buildConfigField "String", "TWILIO_TOKEN_URL", "\"" + twilioUrl + "\""
+
+        // Push backend (defaults to the same host as TWILIO_TOKEN_URL when empty)
+        def pushUrl = System.getenv("PUSH_BACKEND_URL") ?: ""
+        buildConfigField "String", "PUSH_BACKEND_URL", "\"" + pushUrl + "\""
     }
 
     signingConfigs {
@@ -76,4 +80,14 @@ dependencies {
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.core:core:1.13.1'
     implementation 'com.twilio:voice-android:6.3.0'
+
+    // Admin push notifications (works only once google-services.json is added)
+    implementation platform('com.google.firebase:firebase-bom:33.1.2')
+    implementation 'com.google.firebase:firebase-messaging'
+}
+
+// Apply the Google services plugin only when google-services.json exists,
+// so the build keeps working before Firebase is configured.
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
 }
