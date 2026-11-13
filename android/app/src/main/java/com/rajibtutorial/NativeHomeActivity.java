@@ -29,7 +29,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
 
-    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4;
+    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5;
 
     // state shared with screens / dialogs
     Store.Course curCourse = null;
@@ -51,6 +51,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     private Dialog drawer;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean polling = false;
+    private String pushUserSynced = null;   // last mobile sent to PushManager
     private Toast toast;
 
     private final Runnable pollTask = new Runnable() {
@@ -68,6 +69,13 @@ public class NativeHomeActivity extends AppCompatActivity {
         super.onCreate(b);
         Store.init(this);
         dialogs = new Dialogs(this);
+        // Push notifications: runtime permission (Android 13+) + channel/topic/token
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 501);
+        }
+        PushManager.init(this);
         setRequestedOrientationPortrait();
         styleSystemBars();
 
@@ -165,8 +173,18 @@ public class NativeHomeActivity extends AppCompatActivity {
         }
     }
 
+    /** Tells PushManager which member is logged in (same rule as the web: not admin, premium only). */
+    private void syncPushUser() {
+        if (loading && Store.sessionMobile != null) return;   // members not loaded yet — wait
+        String m = (!Store.adminIn && Store.sessionMobile != null && Store.isPremium()) ? Store.sessionMobile : "";
+        if (m.equals(pushUserSynced)) return;
+        pushUserSynced = m;
+        try { PushManager.setUser(getApplicationContext(), m); } catch (Throwable ignored) { }
+    }
+
     void refreshAll() {
         renderUser();
+        syncPushUser();
         if (screen != null) screen.refresh();
     }
 
@@ -197,6 +215,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     void adminLogout() {
         Store.adminIn = false;
         renderUser();
+        syncPushUser();
         goHome();
         toast("Logged out");
     }
@@ -207,6 +226,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         pendingVid = null;
         curVideo = null;
         renderUser();
+        syncPushUser();
         if (currentView == V_COURSE && curCourse != null) openCourse(curCourse.id); else refreshAll();
         toast("Logged out");
     }
@@ -269,6 +289,12 @@ public class NativeHomeActivity extends AppCompatActivity {
     void openMembers() {
         if (!Store.adminIn) return;
         show(new MembersScreen(this), V_MEMBERS, "Premium Members");
+        closeDrawer();
+    }
+
+    void openNotify() {
+        if (!Store.adminIn) return;
+        show(new NotifyScreen(this), V_NOTIFY, "Notification Center");
         closeDrawer();
     }
 
@@ -450,6 +476,7 @@ public class NativeHomeActivity extends AppCompatActivity {
             bottom.addView(navLabel("Admin Panel"));
             bottom.addView(navItem("📚  Manage Courses", currentView == V_MANAGE, false, this::openManage));
             bottom.addView(navItem("⭐  Premium Members", currentView == V_MEMBERS, false, this::openMembers));
+            bottom.addView(navItem("🔔  Notification Center", currentView == V_NOTIFY, false, this::openNotify));
             bottom.addView(navItem("⚙  Live & Premium Settings", false, false, () -> { closeDrawer(); dialogs.liveSettings(); }));
             bottom.addView(navItem("⎋  Logout", false, false, () -> { closeDrawer(); adminLogout(); }));
         } else {

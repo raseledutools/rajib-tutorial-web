@@ -79,11 +79,22 @@ public class AdminBridge {
     // ─────────────────────────────────────────────────────────────────────
     @JavascriptInterface
     public void sendNotification(String title, String body, String target, String mobile) {
+        send(title, body, target, mobile, this::callback);
+    }
+
+    /** Result callback (called from a background thread). */
+    public interface Result { void done(String message); }
+
+    /**
+     * Same sender, usable from native screens too (no WebView needed).
+     * The callback runs on a background thread — post to the UI thread yourself.
+     */
+    public void send(String title, String body, String target, String mobile, Result cb) {
         new Thread(() -> {
             try {
                 String accessToken = getAccessToken();
                 if (accessToken == null) {
-                    callback("❌ Access token নেওয়া যায়নি");
+                    cb.done("❌ Access token নেওয়া যায়নি");
                     return;
                 }
 
@@ -91,13 +102,13 @@ public class AdminBridge {
                     // Send to topic "all"
                     sendFcm(accessToken, buildTopicPayload(title, body, "all"));
                     logToFirestore(title, body, "all", "");
-                    callback("✅ সব user এর কাছে পাঠানো হয়েছে");
+                    cb.done("✅ সব user এর কাছে পাঠানো হয়েছে");
 
                 } else if ("user".equals(target) && mobile != null && !mobile.isEmpty()) {
                     // Fetch tokens for this mobile from Firestore
                     String[] tokens = getTokensForMobile(mobile);
                     if (tokens == null || tokens.length == 0) {
-                        callback("❌ এই user এর কোনো device registered নেই");
+                        cb.done("❌ এই user এর কোনো device registered নেই");
                         return;
                     }
                     int ok = 0, fail = 0;
@@ -110,15 +121,15 @@ public class AdminBridge {
                         }
                     }
                     logToFirestore(title, body, "user", mobile);
-                    callback(ok > 0
+                    cb.done(ok > 0
                         ? "✅ " + ok + " টি device এ পাঠানো হয়েছে"
                         : "❌ কোনো device এ পাঠানো যায়নি");
                 } else {
-                    callback("❌ Invalid target: " + target);
+                    cb.done("❌ Invalid target: " + target);
                 }
 
             } catch (Exception e) {
-                callback("❌ " + e.getMessage());
+                cb.done("❌ " + e.getMessage());
             }
         }).start();
     }
@@ -332,6 +343,7 @@ public class AdminBridge {
 
     // ── Callback to JS ────────────────────────────────────────────────────
     private void callback(String message) {
+        if (webView == null) return;
         final String escaped = message
             .replace("\\", "\\\\")
             .replace("'", "\\'");
