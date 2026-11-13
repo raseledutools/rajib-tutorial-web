@@ -76,10 +76,12 @@ final class PhoneMode {
         else e.remove(K_PW);
         e.apply();
         resetLauncherState(c);
+        setHomeEnabled(c, true);
     }
 
     static void stop(Context c) {
         p(c).edit().clear().apply();
+        setHomeEnabled(c, false);
         try { c.stopService(new Intent(c, PhoneGuardService.class)); } catch (Exception ignored) { }
     }
 
@@ -94,6 +96,32 @@ final class PhoneMode {
                 PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
                 PackageManager.DONT_KILL_APP);
         } catch (Exception ignored) { }
+    }
+
+    /** Turns the HOME alias on/off. On only while Phone Mode is active, so the normal launcher is untouched otherwise. */
+    static void setHomeEnabled(Context c, boolean on) {
+        try {
+            c.getPackageManager().setComponentEnabledSetting(
+                new ComponentName(c, "com.rajibtutorial.PhoneHomeAlias"),
+                on ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP);
+        } catch (Exception ignored) { }
+    }
+
+    /** One-time ask: make this app the Home app so the Home button does nothing during Phone Mode. */
+    static void requestDefaultHome(Activity a, int reqCode) {
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                android.app.role.RoleManager rm = (android.app.role.RoleManager) a.getSystemService(Context.ROLE_SERVICE);
+                if (rm != null && rm.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {
+                    a.startActivityForResult(rm.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME), reqCode);
+                    return;
+                }
+            }
+            a.startActivity(new Intent(Settings.ACTION_HOME_SETTINGS));
+        } catch (Exception e) {
+            try { a.startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (Exception ignored) { }
+        }
     }
 
     static String fmt(long ms) {
@@ -298,6 +326,7 @@ final class PhoneMode {
 
     private static void begin(Activity a) {
         resetLauncherState(a);
+        setHomeEnabled(a, true);
         a.startActivity(new Intent(a, PhoneLauncherActivity.class));
     }
 }
