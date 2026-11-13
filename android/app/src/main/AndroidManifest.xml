@@ -153,6 +153,15 @@
                 android:value="focus_mode_overlay" />
         </service>
 
+        <!-- Tap on an admin notification -> overlay with the full message -->
+        <activity
+            android:name=".NotificationDetailActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.RajibTutorial.NotifyOverlay" />
+
         <!-- Admin push notifications (FCM) -->
         <service
             android:name=".PushService"
@@ -163,7 +172,7 @@
         </service>
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="rt_push_v1" />
+            android:value="rt_push_v2" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_stat_push" />
