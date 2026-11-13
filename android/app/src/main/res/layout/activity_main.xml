@@ -4,88 +4,120 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- ══ HOME SCREEN — Native/Web বেছে নাও ══ -->
-    <LinearLayout
+    <!-- ══ HOME SCREEN — header + sidebar + cards + footer ══ -->
+    <androidx.drawerlayout.widget.DrawerLayout
         android:id="@+id/homeScreen"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:background="#F8F4F1"
         android:visibility="visible">
 
-        <!-- Logo area -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:layout_marginBottom="40dp">
-
-            <ImageView
-                android:layout_width="72dp"
-                android:layout_height="72dp"
-                android:src="@mipmap/ic_launcher_round"
-                android:layout_gravity="center" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Rajib Tutorial"
-                android:textSize="22sp"
-                android:textStyle="bold"
-                android:textColor="#1E1B18"
-                android:layout_marginTop="14dp"
-                android:letterSpacing="-0.01"
-                android:fontFamily="sans-serif-medium" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Diploma EEE Courses"
-                android:textSize="13sp"
-                android:textColor="#9E988F"
-                android:layout_marginTop="4dp" />
-
-        </LinearLayout>
-
-        <!-- Cards -->
+        <!-- Main content -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:orientation="vertical"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp"
-            android:gravity="center">
+            android:background="#F3EEFF">
 
-            <!-- Web Section button -->
+            <!-- Header -->
             <LinearLayout
-                android:id="@+id/btnWebSection"
                 android:layout_width="match_parent"
-                android:layout_height="80dp"
+                android:layout_height="60dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:background="@drawable/card_web_bg"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:elevation="4dp">
+                android:background="@drawable/bg_header"
+                android:elevation="8dp">
 
-                <!-- Icon circle -->
-                <LinearLayout
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                <TextView
+                    android:id="@+id/btnMenu"
+                    android:layout_width="56dp"
+                    android:layout_height="match_parent"
                     android:gravity="center"
-                    android:background="@drawable/icon_circle_accent">
+                    android:text="☰"
+                    android:textSize="26sp"
+                    android:textColor="#FFFFFF"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Rajib Tutorial"
+                    android:textSize="19sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🎓"
+                    android:textSize="24sp"
+                    android:layout_marginEnd="16dp" />
+            </LinearLayout>
+
+            <!-- Body -->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="true">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal"
+                    android:paddingStart="22dp"
+                    android:paddingEnd="22dp"
+                    android:paddingTop="26dp"
+                    android:paddingBottom="12dp">
+
+                    <ImageView
+                        android:layout_width="76dp"
+                        android:layout_height="76dp"
+                        android:src="@mipmap/ic_launcher_round" />
+
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="🌐"
-                        android:textSize="20sp" />
-                </LinearLayout>
+                        android:text="Welcome 👋"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        android:textColor="#2A1B4D"
+                        android:layout_marginTop="12dp" />
 
-                <!-- Texts -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Diploma EEE Courses"
+                        android:textSize="13sp"
+                        android:textColor="#7A6E99"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginBottom="24dp" />
+
+            <LinearLayout
+                android:id="@+id/btnWebSection"
+                android:layout_width="match_parent"
+                android:layout_height="82dp"
+                android:layout_marginBottom="14dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_card_web"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:elevation="6dp">
+
+                <TextView
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
+                    android:gravity="center"
+                    android:text="🌐"
+                    android:textSize="22sp"
+                    android:background="@drawable/bg_circle_white" />
+
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -96,138 +128,339 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Web Section"
-                        android:textSize="15.5sp"
+                        android:textSize="16sp"
                         android:textStyle="bold"
-                        android:textColor="#1E1B18"
-                        android:fontFamily="sans-serif-medium" />
+                        android:textColor="#FFFFFF" />
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Courses, Live Class, Exam"
                         android:textSize="12sp"
-                        android:textColor="#9E988F"
+                        android:textColor="#E6FFFFFF"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
 
-                <!-- Arrow -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="›"
-                    android:textSize="24sp"
-                    android:textColor="#E8365D" />
-
+                    android:textSize="26sp"
+                    android:textColor="#FFFFFF" />
             </LinearLayout>
 
-            <!-- Divider -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="10dp"
-                android:background="#00000000" />
-
-            <!-- Native Section button -->
             <LinearLayout
                 android:id="@+id/btnNativeSection"
                 android:layout_width="match_parent"
-                android:layout_height="80dp"
+                android:layout_height="82dp"
+                android:layout_marginBottom="14dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:background="@drawable/card_native_bg"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
+                android:background="@drawable/bg_card_native"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
                 android:clickable="true"
                 android:focusable="true"
-                android:elevation="4dp">
+                android:elevation="6dp">
 
-                <!-- Icon circle -->
-                <LinearLayout
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                <TextView
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
                     android:gravity="center"
-                    android:background="@drawable/icon_circle_dark">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="📱"
-                        android:textSize="20sp" />
-                </LinearLayout>
+                    android:text="📱"
+                    android:textSize="22sp"
+                    android:background="@drawable/bg_circle_white" />
 
-                <!-- Texts -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:layout_marginStart="14dp">
-                    <LinearLayout
+                    <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Native Section"
-                            android:textSize="15.5sp"
-                            android:textStyle="bold"
-                            android:textColor="#1E1B18"
-                            android:fontFamily="sans-serif-medium" />
-                    </LinearLayout>
+                        android:text="Native Section"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF" />
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Faster, smoother native experience"
                         android:textSize="12sp"
-                        android:textColor="#9E988F"
+                        android:textColor="#E6FFFFFF"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
 
-                <!-- Arrow -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="›"
-                    android:textSize="24sp"
-                    android:textColor="#B0A89E" />
-
+                    android:textSize="26sp"
+                    android:textColor="#FFFFFF" />
             </LinearLayout>
 
-        </LinearLayout>
+            <LinearLayout
+                android:id="@+id/btnFocusMode"
+                android:layout_width="match_parent"
+                android:layout_height="82dp"
+                android:layout_marginBottom="14dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_card_focus"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:elevation="6dp">
 
-        <!-- Focus Mode button -->
-        <LinearLayout
-            android:id="@+id/btnFocusMode"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:background="@drawable/btn_outline_red"
-            android:clickable="true"
-            android:focusable="true"
-            android:layout_marginTop="10dp">
+                <TextView
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
+                    android:gravity="center"
+                    android:text="🎯"
+                    android:textSize="22sp"
+                    android:background="@drawable/bg_circle_white" />
 
-            <TextView
-                android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Focus Mode"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="App limits &amp; study focus"
+                        android:textSize="12sp"
+                        android:textColor="#E6FFFFFF"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="›"
+                    android:textSize="26sp"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btnPhoneMode"
+                android:layout_width="match_parent"
+                android:layout_height="82dp"
+                android:layout_marginBottom="14dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_card_phone"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:elevation="6dp">
+
+                <TextView
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
+                    android:gravity="center"
+                    android:text="📞"
+                    android:textSize="22sp"
+                    android:background="@drawable/bg_circle_white" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Phone Mode"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Phone, Messages &amp; offline apps only"
+                        android:textSize="12sp"
+                        android:textColor="#E6FFFFFF"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="›"
+                    android:textSize="26sp"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
+
+                </LinearLayout>
+            </ScrollView>
+
+            <!-- Footer -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="🎯  Focus Mode"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#E8365D"
-                android:fontFamily="sans-serif-medium" />
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_footer"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="© Rajib Tutorial • Diploma in EEE"
+                    android:textSize="12.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+
+                <TextView
+                    android:id="@+id/versionText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="v1.0"
+                    android:textSize="11sp"
+                    android:textColor="#CCFFFFFF"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Sidebar (drawer) -->
+        <LinearLayout
+            android:layout_width="290dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="start"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:clickable="true"
+            android:focusable="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_drawer_head"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="40dp"
+                android:paddingBottom="22dp">
+
+                <ImageView
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:src="@mipmap/ic_launcher_round" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Rajib Tutorial"
+                    android:textSize="19sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginTop="10dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Diploma EEE Courses"
+                    android:textSize="12.5sp"
+                    android:textColor="#E6FFFFFF" />
+            </LinearLayout>
+
+        <TextView
+            android:id="@+id/drawerHome"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginTop="6dp"
+            android:padding="14dp"
+            android:text="🏠   Home"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#2A1B4D"
+            android:background="@drawable/bg_drawer_item"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/drawerWeb"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginTop="6dp"
+            android:padding="14dp"
+            android:text="🌐   Web Section"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#2A1B4D"
+            android:background="@drawable/bg_drawer_item"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/drawerNative"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginTop="6dp"
+            android:padding="14dp"
+            android:text="📱   Native Section"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#2A1B4D"
+            android:background="@drawable/bg_drawer_item"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/drawerFocus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginTop="6dp"
+            android:padding="14dp"
+            android:text="🎯   Focus Mode"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#2A1B4D"
+            android:background="@drawable/bg_drawer_item"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/drawerPhone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginTop="6dp"
+            android:padding="14dp"
+            android:text="📞   Phone Mode"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#2A1B4D"
+            android:background="@drawable/bg_drawer_item"
+            android:clickable="true"
+            android:focusable="true" />
 
         </LinearLayout>
 
-        <!-- Version info -->
-        <TextView
-            android:id="@+id/versionText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="v1.0"
-            android:textSize="11sp"
-            android:textColor="#C4BDB6"
-            android:layout_marginTop="20dp" />
-
-    </LinearLayout>
+    </androidx.drawerlayout.widget.DrawerLayout>
 
     <!-- ══ WEBVIEW SECTION ══ -->
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
