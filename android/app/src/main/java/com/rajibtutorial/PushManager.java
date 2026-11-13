@@ -23,7 +23,9 @@ import java.util.Map;
 final class PushManager {
     private PushManager() {}
 
-    static final String CHANNEL_ID  = "rt_push_v2";
+    static final String CHANNEL_ID  = "rt_push_v3";
+    /** Explicit vibration pattern (same for the channel on API 26+ and the builder below it). */
+    static final long[] VIBE = {0, 350, 200, 350};
     static final String TOPIC_ALL   = "all";
 
     private static final String PREFS    = "PushPrefs";
@@ -62,12 +64,15 @@ final class PushManager {
         try {
             NotificationManager nm = c.getSystemService(NotificationManager.class);
             if (nm == null) return;
+            // Channel sound/vibration are frozen once created -> new id + drop the old ones
             try { nm.deleteNotificationChannel("rt_push_v1"); } catch (Exception ignored) {}
+            try { nm.deleteNotificationChannel("rt_push_v2"); } catch (Exception ignored) {}
             NotificationChannel ch = new NotificationChannel(
                 CHANNEL_ID, "Admin বার্তা", NotificationManager.IMPORTANCE_HIGH);
             ch.setDescription("Admin এর পাঠানো গুরুত্বপূর্ণ বার্তা");
             // Sound + vibration follow the phone's own system settings (default notification tone / pattern)
             ch.enableVibration(true);
+            ch.setVibrationPattern(VIBE);
             ch.enableLights(true);
             ch.setShowBadge(true);
             ch.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
