@@ -72,6 +72,13 @@
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- In-app browser for YouTube / Facebook (background audio) -->
+        <activity
+            android:name=".YouTubeActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- Focus Mode setup screen -->
         <activity
             android:name=".FocusActivity"
