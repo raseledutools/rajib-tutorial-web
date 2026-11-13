@@ -112,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
             startActivity(new Intent(this, FocusActivity.class)));
 
         findViewById(R.id.btnPhoneMode).setOnClickListener(v -> PhoneMode.showSetup(this));
+        AppLock.ensureService(this);   // keep Apps Lock watching after app restart
 
         // ── Header ☰ + sidebar ──
         getWindow().setStatusBarColor(0xFF7B2FF7);
@@ -245,6 +246,10 @@ public class MainActivity extends AppCompatActivity {
                 String url = req.getUrl().toString();
                 if (url.equals("rtapp://fullscreen"))     { enterFullscreen(); return true; }
                 if (url.equals("rtapp://exitfullscreen")) { exitFullscreen();  return true; }
+                if (url.startsWith("rtapp://open_apps_lock")) {
+                    startActivity(new Intent(MainActivity.this, AppsLockActivity.class));
+                    return true;
+                }
                 if (url.startsWith("rtapp://open_phone_mode")) {
                     PhoneMode.showSetup(MainActivity.this);
                     return true;
