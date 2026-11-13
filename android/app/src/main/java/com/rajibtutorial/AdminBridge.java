@@ -66,6 +66,8 @@ public class AdminBridge {
     // ── Cached OAuth2 token ───────────────────────────────────────────────
     private volatile String cachedAccessToken = null;
     private volatile long   tokenExpireMs     = 0;
+    private volatile String lastLookupError   = null;
+    private volatile String lastSendError     = null;
 
     public AdminBridge(Context ctx, WebView webView) {
         this.ctx     = ctx.getApplicationContext();
@@ -105,10 +107,14 @@ public class AdminBridge {
                     cb.done("✅ সব user এর কাছে পাঠানো হয়েছে");
 
                 } else if ("user".equals(target) && mobile != null && !mobile.isEmpty()) {
-                    // Fetch tokens for this mobile from Firestore
+                    // Fetch tokens for this mobile from Firestore (all number formats)
                     String[] tokens = getTokensForMobile(mobile);
+                    if (lastLookupError != null) {
+                        cb.done("❌ Token খোঁজা যায়নি: " + lastLookupError);
+                        return;
+                    }
                     if (tokens == null || tokens.length == 0) {
-                        cb.done("❌ এই user এর কোনো device registered নেই");
+                        cb.done("❌ এই user এর কোনো device registered নেই (user কে app একবার খুলতে বলুন)");
                         return;
                     }
                     int ok = 0, fail = 0;
@@ -118,18 +124,20 @@ public class AdminBridge {
                             ok++;
                         } catch (Exception e) {
                             fail++;
+                            lastSendError = e.getMessage();
                         }
                     }
                     logToFirestore(title, body, "user", mobile);
                     cb.done(ok > 0
                         ? "✅ " + ok + " টি device এ পাঠানো হয়েছে"
-                        : "❌ কোনো device এ পাঠানো যায়নি");
+                        : "❌ কোনো device এ পাঠানো যায়নি" + (lastSendError == null ? "" : " (" + lastSendError + ")"));
                 } else {
                     cb.done("❌ Invalid target: " + target);
                 }
 
-            } catch (Exception e) {
-                cb.done("❌ " + e.getMessage());
+            } catch (Throwable e) {
+                String m = e.getMessage();
+                cb.done("❌ " + (m == null || m.isEmpty() ? e.getClass().getSimpleName() : m));
             }
         }).start();
     }
@@ -206,7 +214,16 @@ public class AdminBridge {
             try (OutputStream os = conn.getOutputStream()) { os.write(bytes); }
             int code = conn.getResponseCode();
             if (code != 200) {
-                throw new Exception("FCM HTTP " + code);
+                String err = "";
+                try {
+                    java.io.InputStream es = conn.getErrorStream();
+                    if (es != null) {
+                        java.util.Scanner sc = new java.util.Scanner(es, "UTF-8").useDelimiter("\\A");
+                        err = sc.hasNext() ? sc.next() : "";
+                    }
+                } catch (Exception ignored) {}
+                if (err.length() > 160) err = err.substring(0, 160);
+                throw new Exception("FCM HTTP " + code + (err.isEmpty() ? "" : " " + err));
             }
         } finally {
             if (conn != null) conn.disconnect();
@@ -216,13 +233,17 @@ public class AdminBridge {
     // ── Firestore: get push tokens for a mobile number ───────────────────
     // Synchronous via CountDownLatch so we can call from a background thread
     private String[] getTokensForMobile(String mobile) {
+        lastLookupError = null;
+        lastSendError = null;
         final java.util.concurrent.CountDownLatch latch =
             new java.util.concurrent.CountDownLatch(1);
-        final java.util.List<String> result = new java.util.ArrayList<>();
+        final java.util.Set<String> result = new java.util.LinkedHashSet<>();
+        final java.util.List<String> variants = PushManager.mobileVariants(mobile);
+        if (variants.isEmpty()) return new String[0];
         try {
             FirebaseFirestore.getInstance()
                 .collection("push_tokens")
-                .whereEqualTo("mobile", mobile)
+                .whereIn("mobile", variants)
                 .get()
                 .addOnSuccessListener(snap -> {
                     for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) {
@@ -231,9 +252,11 @@ public class AdminBridge {
                     }
                     latch.countDown();
                 })
-                .addOnFailureListener(e -> latch.countDown());
-            latch.await(10, java.util.concurrent.TimeUnit.SECONDS);
-        } catch (Exception ignored) {}
+                .addOnFailureListener(e -> { lastLookupError = e.getMessage(); latch.countDown(); });
+            if (!latch.await(15, java.util.concurrent.TimeUnit.SECONDS) && result.isEmpty()) {
+                lastLookupError = "timeout (internet?)";
+            }
+        } catch (Exception e) { lastLookupError = e.getMessage(); }
         return result.toArray(new String[0]);
     }
 

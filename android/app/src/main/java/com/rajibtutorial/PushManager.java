@@ -34,6 +34,29 @@ final class PushManager {
         return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
+
+    /** Canonical form: digits only; Bangladesh numbers (+880 / 880 / 1xxxxxxxxx) -> 01xxxxxxxxx */
+    static String normMobile(String raw) {
+        String d = raw == null ? "" : raw.replaceAll("\\D", "");
+        if (d.startsWith("880") && d.length() == 13) d = "0" + d.substring(3);
+        else if (d.length() == 10 && d.startsWith("1")) d = "0" + d;
+        if (d.length() > 15) d = d.substring(0, 15);
+        return d;
+    }
+
+    /** All formats an old token document might have been saved with. */
+    static java.util.List<String> mobileVariants(String raw) {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        String d = raw == null ? "" : raw.replaceAll("\\D", "");
+        String n = normMobile(raw);
+        if (!d.isEmpty()) out.add(d);
+        if (!n.isEmpty()) {
+            out.add(n);
+            if (n.startsWith("0")) { out.add(n.substring(1)); out.add("880" + n.substring(1)); out.add("+880" + n.substring(1)); }
+        }
+        return new java.util.ArrayList<>(out);
+    }
+
     static void createChannel(Context c) {
         if (Build.VERSION.SDK_INT < 26) return;
         try {
@@ -72,8 +95,7 @@ final class PushManager {
 
     /** Called from JS bridge when a member logs in / out */
     static void setUser(Context c, String mobile) {
-        String m = mobile == null ? "" : mobile.replaceAll("\\D", "");
-        if (m.length() > 15) m = m.substring(0, 15);
+        String m = normMobile(mobile);
         p(c).edit().putString(K_MOBILE, m).apply();
         String token = p(c).getString(K_TOKEN, "");
         if (!token.isEmpty()) saveTokenToFirestore(c, token, m);
