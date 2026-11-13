@@ -2699,25 +2699,9 @@ window.ntSend=async function(){
     clearTimeout(_ntArmT);_ntArmT=setTimeout(ntDisarm,4000);return;
   }
   ntDisarm();btn.disabled=true;btn.textContent="পাঠানো হচ্ছে…";
-  const msg={notification:{title,body},data:{title,body,kind:"admin"},
-              android:{priority:"high",notification:{channelId:"rt_push_v1"}}};
   try{
-    if(all){
-      await _fcmSend({...msg,topic:"all"});
-      await setDoc(doc(db,"push_messages","msg_"+Date.now()),
-        {title,body,target:"all",mobile:"",at:Date.now(),result:{sent:"all"}});
-      showToast("✅ সব user এর কাছে পাঠানো হয়েছে");
-    }else{
-      const snap=await getDocs(query(collection(db,"push_tokens"),where("mobile","==",mobile)));
-      if(snap.empty){showToast("❌ এই user এর কোনো device registered নেই");btn.disabled=false;ntDisarm();return}
-      let ok=0,fail=0;
-      await Promise.all(snap.docs.map(async d=>{
-        try{await _fcmSend({...msg,token:d.data().token});ok++}catch(e){fail++}
-      }));
-      await setDoc(doc(db,"push_messages","msg_"+Date.now()),
-        {title,body,target:"user",mobile,at:Date.now(),result:{sent:ok,failed:fail}});
-      showToast(ok?"✅ "+ok+" টি device এ পাঠানো হয়েছে":"❌ কোনো device এ পাঠানো যায়নি");
-    }
+    const msg=await _fcmSendViaBridge(title,body,all?"all":"user",all?"":mobile);
+    showToast(msg);
     $("ntTitle").value="";$("ntBody").value="";ntCount();ntLoadHistory();
   }catch(e){showToast("❌ "+e.message)}
   btn.disabled=false;ntDisarm();
