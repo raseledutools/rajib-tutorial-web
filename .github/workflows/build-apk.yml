@@ -15,6 +15,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Bundle latest index.html into the APK (offline fallback)
+        run: |
+          mkdir -p android/app/src/main/assets
+          cp index.html android/app/src/main/assets/index.html
+          echo "Bundled index.html: $(wc -c < android/app/src/main/assets/index.html) bytes"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:

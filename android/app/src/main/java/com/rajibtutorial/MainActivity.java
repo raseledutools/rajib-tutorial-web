@@ -4,6 +4,8 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -12,6 +14,7 @@ import android.provider.Settings;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -198,8 +201,49 @@ public class MainActivity extends AppCompatActivity {
 
         // WebView এখনো load না হলে load করো
         if (webView.getUrl() == null) {
-            webView.loadUrl(SITE_URL);
+            loadSite();
         }
+    }
+
+    // ── Hybrid load: online site first (always latest, no reinstall), APK copy if offline ──
+    private boolean usingFallback = false;
+
+    private boolean isOnline() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            NetworkInfo ni = cm == null ? null : cm.getActiveNetworkInfo();
+            return ni != null && ni.isConnected();
+        } catch (Exception e) { return true; }
+    }
+
+    private void loadSite() {
+        usingFallback = false;
+        if (isOnline()) webView.loadUrl(SITE_URL);
+        else loadFallback();
+    }
+
+    /** Bundled index.html served under the SAME origin as the site, so login/localStorage stay the same. */
+    private void loadFallback() {
+        usingFallback = true;
+        String html;
+        try (java.io.InputStream in = getAssets().open("index.html");
+             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+            byte[] buf = new byte[16384];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            html = out.toString("UTF-8");
+        } catch (Exception e) {
+            html = "<html><body style='font-family:sans-serif;text-align:center;padding:40px'>"
+                 + "<h3>No internet</h3><p>Pull down to retry.</p></body></html>";
+        }
+        webView.loadDataWithBaseURL(SITE_URL, html, "text/html", "UTF-8", SITE_URL);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // net ফিরে এলে আবার online (latest) version-এ যাও
+        if (usingFallback && webView != null && isOnline()) loadSite();
     }
 
     // ── WebView setup ────────────────────────────────────────────────────
@@ -232,6 +276,11 @@ public class MainActivity extends AppCompatActivity {
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 progressBar.setVisibility(View.VISIBLE);
                 progressBar.setProgress(0);
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError err) {
+                if (req.isForMainFrame() && !usingFallback) loadFallback();
             }
 
             @Override
@@ -312,7 +361,10 @@ public class MainActivity extends AppCompatActivity {
         });
 
         swipeRefresh.setColorSchemeResources(android.R.color.holo_red_light);
-        swipeRefresh.setOnRefreshListener(() -> webView.reload());
+        swipeRefresh.setOnRefreshListener(() -> {
+            if (usingFallback || !isOnline()) loadSite();
+            else webView.reload();
+        });
     }
 
     // ── Update banner ─────────────────────────────────────────────────────
