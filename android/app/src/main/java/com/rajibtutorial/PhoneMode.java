@@ -75,21 +75,25 @@ final class PhoneMode {
         if (mode != MODE_TIMER && password != null) e.putString(K_PW, hash(password));
         else e.remove(K_PW);
         e.apply();
-        setHomeEnabled(c, true);
+        resetLauncherState(c);
     }
 
     static void stop(Context c) {
         p(c).edit().clear().apply();
-        setHomeEnabled(c, false);
         try { c.stopService(new Intent(c, PhoneGuardService.class)); } catch (Exception ignored) { }
     }
 
-    /** The HOME intent-filter lives on a disabled component, enabled only while Phone Mode runs. */
-    static void setHomeEnabled(Context c, boolean on) {
-        c.getPackageManager().setComponentEnabledSetting(
-            new ComponentName(c, PhoneLauncherActivity.class),
-            on ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP);
+    /**
+     * Older builds disabled PhoneLauncherActivity when Phone Mode was off (it was a HOME app).
+     * That saved state survives app updates, so reset it to the manifest default (enabled).
+     */
+    static void resetLauncherState(Context c) {
+        try {
+            c.getPackageManager().setComponentEnabledSetting(
+                new ComponentName(c, PhoneLauncherActivity.class),
+                PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
+                PackageManager.DONT_KILL_APP);
+        } catch (Exception ignored) { }
     }
 
     static String fmt(long ms) {
@@ -127,7 +131,7 @@ final class PhoneMode {
     }
 
     static boolean setupIncomplete(Context c) {
-        return !isDefaultHome(c) || !hasUsageAccess(c) || !hasOverlay(c);
+        return !hasUsageAccess(c) || !hasOverlay(c);
     }
 
     // ── Allowed apps ─────────────────────────────────────────
@@ -293,7 +297,7 @@ final class PhoneMode {
     }
 
     private static void begin(Activity a) {
-        setHomeEnabled(a, true);
+        resetLauncherState(a);
         a.startActivity(new Intent(a, PhoneLauncherActivity.class));
     }
 }

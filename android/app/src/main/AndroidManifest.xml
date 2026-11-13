@@ -100,22 +100,15 @@
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.RajibTutorial" />
 
-        <!-- Phone Mode launcher (HOME) — enabled only while Phone Mode is on -->
+        <!-- Phone Mode screen (NOT a HOME app — no "set as home" needed; Home press is bounced back by code) -->
         <activity
             android:name=".PhoneLauncherActivity"
-            android:exported="true"
-            android:enabled="false"
+            android:exported="false"
             android:launchMode="singleTask"
             android:excludeFromRecents="true"
             android:stateNotNeeded="true"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.RajibTutorial">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
+            android:theme="@style/Theme.RajibTutorial" />
 
         <service
             android:name=".PhoneGuardService"
