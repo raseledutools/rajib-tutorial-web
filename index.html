@@ -1695,7 +1695,8 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc }
+import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc,
+         query, where, orderBy, limit, getCountFromServer }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -2635,21 +2636,67 @@ window.memberLogout=async function(){
 // ─── Admin: members ──────────────────────────────────────
 window.openMembers=function(){renderMembers();goView("viewMembers")};
 
-// ─── Notification Center (admin) ─────────────────────────
-// Backend URL ও Admin key এখানে hardcoded — UI তে কোনো settings দরকার নেই
-const _NT_URL="REPLACE_BACKEND_URL".replace(/\/+$/,""); // deploy করার পর Render/Railway URL বসাও
-const _NT_KEY="27a1a6aa90ada9b4d5136f7dd34e2079ccf2d150b91b775dd096308c227fcc7c";
-let _ntTarget="all",_ntArmT=null;
-function ntCfg(){return{url:_NT_URL,key:_NT_KEY}}
-async function ntApi(path,opts){
-  let r;
-  try{
-    r=await fetch(_NT_URL+path,{...(opts||{}),headers:{"Content-Type":"application/json","x-admin-key":_NT_KEY}});
-  }catch(e){throw new Error("Server এ পৌঁছানো যায়নি — Server ঘুমিয়ে থাকলে ৩০ সেকেন্ড পর আবার চেষ্টা করুন")}
-  let d={};try{d=await r.json()}catch(e){}
-  if(!r.ok)throw new Error(d.error||("Server error "+r.status));
+// ─── Notification Center — direct FCM (no backend needed) ────────────────────
+// Firebase Service Account — browser থেকেই JWT বানিয়ে FCM REST API call করা হয়
+const _FCM_SA = {
+  project_id:   "mywebtools-f8d53",
+  client_email: "firebase-adminsdk-fbsvc@mywebtools-f8d53.iam.gserviceaccount.com",
+  private_key:  "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDWqseNhhm6ZpLz\nuGEJMdv61j1wKE6+mv2Jt6b4mM6jszlTk2IsbliKo9ZoUYxC2VMhShJFcb6ZjWif\nul5VVw+0/u5s2pxxdKR0odb0ZxEqsofF5EnZMdqX8zYcqK/7Ns+iDN/GXKuSJOgo\n+cQV4BODKJ1NTJb8932JYUJEa+DuyHUZgggXl63D5EtXkpweVk5mYMF1B3vaPv1c\nS9KX7FoXAFY3qILBrODG+FuaebUDR0t+1Q/ZFfjKbxmVzlgGGCx0iA4JP2D41Rk8\njv1bQJGHb8w78V/La4n1asHKB+D2xkFDlHALFgA4LX0xlp4627fR/kHpKs5NvfCM\ngtxH9oVLAgMBAAECggEAQb4lxUMHiB237apPFYjOjSClyj6d9yPyeAXlvgbWai4O\nZXkivObCeRs6I9KtuR9jpTNRKzFtpQs4uopSL6KtLcpRbMb62IhXgVy7Pzh9em0Y\nxdNnhnwNLTIQJXDIDJC5wDBfLBnfda+V5k6v7d8lOqrqmezV5P1K1hMSP3AmgBoW\nerj4W8YfbgRkSIRswzYGFc/kVDHeJkH29oDTzDD1Cx6IAB/9QXi4G3Wx+TbV9976\nqRdASrVnvapa0wknyBnps1mRIvHip44jwuHU5G5lwGEukYWY6YSbClBjV3pmNwm9\ngsZdRmbG+gJ00i+/y63LjaTxuFqPQSkQl28V1dBaUQKBgQD1y2ndFn4GtJkRoLQd\nkATc26EUslJCksYjDnINayUBbuwLqo65LqtjIkaR2yr+KDETjaoTqDF9yVQFB6Me\nR8MfzJfpneAxE0oEsND4VGY4XRoEi7gnLMcLTaUzOwAPjJGpfNvmTGir1a/KQlPE\nWZrWXC7qYGtH9mfYVREKxzgFgwKBgQDflIHqlV4hTJhmgpQXrlXQio7FfaoCCXHF\nZKVh+zEEJI7ZjHnTWep/2P3Jtc7BsDTCYYM661HB19fRgvUsYtIs/6Ybj6VeYcol\n9/Ic3+9APthz600gMWRLCbw5jNpQJyeJrPvBOxlEnB/DOhk7kBZuFpBnzi5oE+ko\n4XGSlcy+mQKBgQCMX2NSNGo9Ah75BkJXL8zXJUdVPpHkG1a05qcUKsCzlNmRwBJK\nh/CxaP3MhtKC3AlLFXiwSToakEQ/qyDpRiqVmo6XiOZkoJOBIkn1yJ2oSuN0/SZq\nmRQDzJAwNd3PA4ScuwYK/FA68oq2hDK6zEG1cmgIyo/6RSsBTXOyKBxCaQKBgGuW\nukHZaPebNUc3FO6kXPVCh9uvUg0y4EW93fvddcPpl7hGaiVzgm3NTKsxSvJXybu0\nUwMaVDh0lo1ieHrIfx1aVGO05z4Yzr8gpqiQdkAzPdPiajXQrtORNrt29WNWxCbz\nUB63QryKaJp4rcXE25ZUU18wj5JT6oJaol2IqoMZAoGBAKHeuI6HsSzBgUxfbBij\nG8ouPie8AgCXpPeB3gFRvZk8A/i73xYxzOf9zvv1XZWrrwEJC7qwS8Ww5kyMbjVO\n8jsuJQ3ESy2BBlyzi+B5iE6+85KUQTus/SLT0Ge/jytHzVoosL3zgJdAveDuNsAy\nTs2QZJE9zynpvH7Xr8YBgOWu\n-----END PRIVATE KEY-----\n"
+};
+
+let _fcmToken=null, _fcmTokenExp=0;
+
+// Base64url helpers
+function _b64u(str){return btoa(str).replace(/\+/g,"-").replace(/\//g,"_").replace(/=/g,"")}
+function _b64uJson(obj){return _b64u(unescape(encodeURIComponent(JSON.stringify(obj))))}
+
+// Import private key for Web Crypto
+async function _importKey(pem){
+  const b64=pem.replace(/-----[^-]+-----/g,"").replace(/\s/g,"");
+  const der=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+  return crypto.subtle.importKey("pkcs8",der,{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"]);
+}
+
+// Get short-lived OAuth2 access token for FCM
+async function _getFcmToken(){
+  const now=Math.floor(Date.now()/1000);
+  if(_fcmToken&&now<_fcmTokenExp-60)return _fcmToken;
+  const header=_b64uJson({alg:"RS256",typ:"JWT"});
+  const claim=_b64uJson({
+    iss:_FCM_SA.client_email,
+    scope:"https://www.googleapis.com/auth/firebase.messaging",
+    aud:"https://oauth2.googleapis.com/token",
+    iat:now, exp:now+3600
+  });
+  const unsigned=header+"."+claim;
+  const key=await _importKey(_FCM_SA.private_key);
+  const sig=await crypto.subtle.sign("RSASSA-PKCS1-v1_5",key,new TextEncoder().encode(unsigned));
+  const jwt=unsigned+"."+_b64u(String.fromCharCode(...new Uint8Array(sig)));
+  const r=await fetch("https://oauth2.googleapis.com/token",{
+    method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:"grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion="+jwt
+  });
+  const d=await r.json();
+  if(!d.access_token)throw new Error("FCM token নেওয়া যায়নি: "+(d.error_description||d.error||"unknown"));
+  _fcmToken=d.access_token; _fcmTokenExp=now+3600;
+  return _fcmToken;
+}
+
+// Send FCM message — topic (all) or individual token
+async function _fcmSend(payload){
+  const token=await _getFcmToken();
+  const r=await fetch(
+    "https://fcm.googleapis.com/v1/projects/"+_FCM_SA.project_id+"/messages:send",
+    {method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
+     body:JSON.stringify({message:payload})}
+  );
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.error?.message||"FCM error "+r.status);
   return d;
 }
+
+let _ntTarget="all",_ntArmT=null;
+
 window.openNotify=function(){
   $("ntMemberList").innerHTML=members.map(m=>{
     const mob=m.mobile||String(m.id||"").replace("_member_","");
@@ -2672,6 +2719,7 @@ function ntDisarm(){
   delete b.dataset.armed;
   b.textContent=_ntTarget==="all"?"🔔 সব user কে পাঠান":"🔔 এই user কে পাঠান";
 }
+
 window.ntSend=async function(){
   const title=$("ntTitle").value.trim(),body=$("ntBody").value.trim();
   const all=_ntTarget==="all",mobile=$("ntMobile").value.replace(/\D/g,"");
@@ -2679,30 +2727,50 @@ window.ntSend=async function(){
   if(!body){showToast("Message লিখুন");return}
   if(!all&&mobile.length<6){showToast("মোবাইল নম্বর দিন বা তালিকা থেকে বাছুন");return}
   const btn=$("ntSendBtn");
-  // broadcast needs a second tap (confirm() does not work inside the app's WebView)
   if(all&&!btn.dataset.armed){
     btn.dataset.armed="1";btn.textContent="⚠ সবার কাছে যাবে — আবার চাপুন";
     clearTimeout(_ntArmT);_ntArmT=setTimeout(ntDisarm,4000);return;
   }
   ntDisarm();btn.disabled=true;btn.textContent="পাঠানো হচ্ছে…";
+  const msg={notification:{title,body},data:{title,body,kind:"admin"},
+              android:{priority:"high",notification:{channelId:"rt_push_v1"}}};
   try{
-    const d=await ntApi("/notify",{method:"POST",body:JSON.stringify({title,body,target:all?"all":"user",mobile})});
-    showToast(all?"✅ সব user এর কাছে পাঠানো হয়েছে":"✅ "+d.sent+" টি device এ পাঠানো হয়েছে");
+    if(all){
+      await _fcmSend({...msg,topic:"all"});
+      await setDoc(doc(db,"push_messages","msg_"+Date.now()),
+        {title,body,target:"all",mobile:"",at:Date.now(),result:{sent:"all"}});
+      showToast("✅ সব user এর কাছে পাঠানো হয়েছে");
+    }else{
+      const snap=await getDocs(query(collection(db,"push_tokens"),where("mobile","==",mobile)));
+      if(snap.empty){showToast("❌ এই user এর কোনো device registered নেই");btn.disabled=false;ntDisarm();return}
+      let ok=0,fail=0;
+      await Promise.all(snap.docs.map(async d=>{
+        try{await _fcmSend({...msg,token:d.data().token});ok++}catch(e){fail++}
+      }));
+      await setDoc(doc(db,"push_messages","msg_"+Date.now()),
+        {title,body,target:"user",mobile,at:Date.now(),result:{sent:ok,failed:fail}});
+      showToast(ok?"✅ "+ok+" টি device এ পাঠানো হয়েছে":"❌ কোনো device এ পাঠানো যায়নি");
+    }
     $("ntTitle").value="";$("ntBody").value="";ntCount();ntLoadHistory();
   }catch(e){showToast("❌ "+e.message)}
   btn.disabled=false;ntDisarm();
 };
+
 async function ntLoadHistory(){
   const box=$("ntHistory"),st=$("ntStat");
   st.textContent="লোড হচ্ছে…";
   try{
-    const d=await ntApi("/history");
-    st.textContent="📱 Registered device: "+d.devices;
-    box.innerHTML=d.messages.length?d.messages.map(m=>{
-      const to=m.target==="all"?"সব user":"👤 "+esc(m.mobile);
-      const when=new Date(m.at).toLocaleString();
-      return`<div class="nt-hi"><strong>${esc(m.title)}</strong><p>${esc(m.body)}</p><span>${to} · ${esc(when)}</span></div>`;
-    }).join(""):`<span style="font-size:12.5px;color:var(--sub)">এখনো কোনো বার্তা পাঠানো হয়নি</span>`;
+    const [msgs,cnt]=await Promise.all([
+      getDocs(query(collection(db,"push_messages"),orderBy("at","desc"),limit(50))),
+      getCountFromServer(collection(db,"push_tokens"))
+    ]);
+    st.textContent="📱 Registered device: "+cnt.data().count;
+    box.innerHTML=msgs.empty?`<span style="font-size:12.5px;color:var(--sub)">এখনো কোনো বার্তা পাঠানো হয়নি</span>`:
+      msgs.docs.map(d=>{
+        const m=d.data(),to=m.target==="all"?"সব user":"👤 "+esc(m.mobile),
+              when=new Date(m.at).toLocaleString();
+        return`<div class="nt-hi"><strong>${esc(m.title)}</strong><p>${esc(m.body)}</p><span>${to} · ${esc(when)}</span></div>`;
+      }).join("");
   }catch(e){st.textContent="❌ "+e.message;box.innerHTML=""}
 }
 function renderMembers(){
