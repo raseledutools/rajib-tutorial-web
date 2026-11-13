@@ -2,6 +2,7 @@ package com.rajibtutorial;
 
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.media.RingtoneManager;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -63,7 +64,10 @@ public class PushService extends FirebaseMessagingService {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)   // sound + vibration (phone's system settings)
+            .setDefaults(NotificationCompat.DEFAULT_LIGHTS)
+            // API < 26: sound/vibration come from here; API 26+: from the channel (rt_push_v3)
+            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
+            .setVibrate(PushManager.VIBE)
             .setOnlyAlertOnce(true)                        // same message id arriving twice alerts once
             .setAutoCancel(true)
             .setContentIntent(pi);
