@@ -513,14 +513,9 @@ final class DiscussionScreen extends Screen {
                 break;
             }
             case "file": {
-                TextView ft = Ui.tv(a, FileViewer.icon(m.fileName, m.url) + "  " + (m.fileName.isEmpty() ? "File" : m.fileName), 14, fg, true);
-                ft.setMaxWidth(maxW);
-                ft.setPaintFlags(ft.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-                ft.setPadding(0, Ui.dp(a, 4), 0, Ui.dp(a, 6));
-                Ui.pressFx(ft);
-                ft.setOnClickListener(v -> FileViewer.open(a, m.url, m.fileName));
-                markDeletable(ft, m);
-                b.addView(ft);
+                View card = FileCard.build(a, m.url, m.fileName, mine, fg, sub, uri -> startUpload(uri));
+                markDeletable(card, m);
+                b.addView(card, new LinearLayout.LayoutParams(Ui.dp(a, 240), WRAP));
                 break;
             }
             case "call": {

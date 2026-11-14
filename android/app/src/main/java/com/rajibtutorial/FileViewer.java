@@ -58,7 +58,15 @@ final class FileViewer {
     private static final Set<String> TEXT = new HashSet<>(Arrays.asList(
         "txt", "csv", "json", "md", "log", "xml", "html", "htm", "java", "py", "js", "c", "cpp", "ino"));
 
-    private interface Prog { void on(int pct); }
+    interface Prog { void on(int pct); }
+
+    /** Lets the viewer send an edited copy of a file back into the Discussion. */
+    interface Reshare { void send(Uri uri); }
+
+    static final class TooLarge extends Exception {
+        final long size;
+        TooLarge(long size) { super("File is too large to preview"); this.size = size; }
+    }
 
     static String ext(String name, String url) {
         String s = (name != null && name.contains(".")) ? name : url;
@@ -77,11 +85,13 @@ final class FileViewer {
         return "📎";
     }
 
-    static void open(NativeHomeActivity a, String url, String name) {
+    static void open(NativeHomeActivity a, String url, String name) { open(a, url, name, null); }
+
+    static void open(NativeHomeActivity a, String url, String name, Reshare rs) {
         String e = ext(name, url);
         String title = (name == null || name.isEmpty()) ? "File" : name;
         if (e.equals("pdf")) pdf(a, url, title);
-        else if (OFFICE.contains(e)) office(a, url, title);
+        else if (OFFICE.contains(e)) office(a, url, title, rs);
         else if (TEXT.contains(e)) text(a, url, title);
         else external(a, url);
     }
@@ -146,7 +156,7 @@ final class FileViewer {
     }
 
     // ── Download to cache ───────────────────────────────────
-    private static File download(File cacheDir, String url, String ext, long maxBytes, Prog p) throws Exception {
+    static File download(File cacheDir, String url, String ext, long maxBytes, Prog p) throws Exception {
         File dir = new File(cacheDir, "disc");
         dir.mkdirs();
         File f = new File(dir, Integer.toHexString(url.hashCode()) + "." + ext);
@@ -159,6 +169,7 @@ final class FileViewer {
             int code = c.getResponseCode();
             if (code >= 400) throw new Exception("HTTP " + code);
             int total = c.getContentLength();
+            if (total > maxBytes) throw new TooLarge(total);
             InputStream in = c.getInputStream();
             OutputStream os = new FileOutputStream(tmp);
             byte[] buf = new byte[32 * 1024];
@@ -167,7 +178,7 @@ final class FileViewer {
             while ((n = in.read(buf)) > 0) {
                 os.write(buf, 0, n);
                 got += n;
-                if (got > maxBytes) { os.close(); in.close(); tmp.delete(); throw new Exception("File is too large to preview"); }
+                if (got > maxBytes) { os.close(); in.close(); tmp.delete(); throw new TooLarge(got); }
                 int pct = total > 0 ? (int) (got * 100 / total) : -1;
                 if (p != null && pct != last) { last = pct; p.on(pct); }
             }
@@ -181,37 +192,12 @@ final class FileViewer {
         }
     }
 
-    // ── PDF ─────────────────────────────────────────────────
-    private static final class Pdf {
-        final Object lock = new Object();
-        PdfRenderer r;
-        ParcelFileDescriptor pfd;
-        boolean closed = false;
-        int zoomIdx = 0;
-        final ExecutorService ex = Executors.newSingleThreadExecutor();
-        final LruCache<String, Bitmap> cache = new LruCache<String, Bitmap>(48 * 1024 * 1024) {
-            @Override protected int sizeOf(String k, Bitmap b) { return b.getByteCount(); }
-        };
-
-        void close() {
-            synchronized (lock) {
-                closed = true;
-                try { if (r != null) r.close(); } catch (Exception ignored) { }
-                try { if (pfd != null) pfd.close(); } catch (Exception ignored) { }
-                r = null;
-                pfd = null;
-            }
-            ex.shutdownNow();
-            cache.evictAll();
-        }
-    }
-
+    // ── PDF (pinch-to-zoom, drag, double-tap) ───────────────
     private static void pdf(final NativeHomeActivity a, final String url, final String title) {
-        final Handler h = new Handler(Looper.getMainLooper());
-        final Pdf st = new Pdf();
         final FrameLayout body = new FrameLayout(a);
         body.setBackgroundColor(PAPER);
         final TextView pageInd = Ui.tv(a, "", 12.5f, Ui.SUB, true);
+        final Handler h = new Handler(Looper.getMainLooper());
 
         final TextView label = Ui.tv(a, "Downloading…", 13.5f, Ui.SUB, false);
         final ProgressBar pb = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
@@ -220,142 +206,106 @@ final class FileViewer {
         final LinearLayout ld = loader(a, label, pb);
         body.addView(ld, new FrameLayout.LayoutParams(MATCH, MATCH));
 
+        final PdfPagesView[] view = {null};
+        final boolean[] closed = {false};
         final Dialog d = shell(a, title, body, pageInd);
-        d.setOnDismissListener(x -> st.close());
+        d.setOnDismissListener(x -> {
+            closed[0] = true;
+            if (view[0] != null) view[0].release();
+        });
         d.show();
 
         Store.async(() -> download(a.getCacheDir(), url, "pdf", 60L * 1024 * 1024, pct -> h.post(() -> {
             if (pct >= 0) { pb.setIndeterminate(false); pb.setProgress(pct); label.setText("Downloading…  " + pct + "%"); }
         })), (File f, Exception e) -> {
-            if (st.closed) return;
+            if (closed[0]) return;
             if (e != null || f == null) { label.setText(failText(e)); pb.setVisibility(View.GONE); return; }
-            synchronized (st.lock) {
-                try {
-                    st.pfd = ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
-                    st.r = new PdfRenderer(st.pfd);
-                } catch (Exception ex) {
-                    f.delete();
-                    label.setText("Cannot open this PDF (it may be damaged or password protected).");
-                    pb.setVisibility(View.GONE);
-                    return;
-                }
+            ParcelFileDescriptor pfd = null;
+            PdfRenderer r;
+            try {
+                pfd = ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
+                r = new PdfRenderer(pfd);
+            } catch (Exception ex) {
+                try { if (pfd != null) pfd.close(); } catch (Exception ignored) { }
+                f.delete();
+                label.setText("Cannot open this PDF (it may be damaged or password protected).");
+                pb.setVisibility(View.GONE);
+                return;
             }
             body.removeView(ld);
-            showPages(a, body, st, pageInd, h);
+            PdfPagesView v = new PdfPagesView(a, r, pfd, (page, count) -> pageInd.setText(page + " / " + count));
+            view[0] = v;
+            body.addView(v, new FrameLayout.LayoutParams(MATCH, MATCH));
         });
     }
 
-    private static Bitmap renderPage(PdfRenderer r, int idx, int w) {
-        PdfRenderer.Page p = r.openPage(idx);
+    // ── Office documents ────────────────────────────────────
+    private static String mimeFor(String e) {
+        switch (e) {
+            case "doc": return "application/msword";
+            case "docx": return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "xls": return "application/vnd.ms-excel";
+            case "xlsx": return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            case "ppt": return "application/vnd.ms-powerpoint";
+            case "pptx": return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+            default: return "*/*";
+        }
+    }
+
+    private static String safeName(String title, String ext) {
+        String n = title == null ? "file" : title.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+        if (n.isEmpty()) n = "file";
+        if (!n.toLowerCase(Locale.US).endsWith("." + ext)) n = n + "." + ext;
+        return n;
+    }
+
+    private static void copy(File src, File dst) throws Exception {
+        InputStream in = new java.io.FileInputStream(src);
+        OutputStream os = new FileOutputStream(dst);
         try {
-            int hgt = Math.max(1, Math.round(w * (float) p.getHeight() / Math.max(1, p.getWidth())));
-            Bitmap bm = Bitmap.createBitmap(w, hgt, Bitmap.Config.ARGB_8888);
-            bm.eraseColor(Color.WHITE);
-            p.render(bm, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
-            return bm;
+            byte[] buf = new byte[32 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
         } finally {
-            p.close();
+            in.close();
+            os.close();
         }
     }
 
-    private static void showPages(final NativeHomeActivity a, FrameLayout body, final Pdf st,
-                                  final TextView pageInd, final Handler h) {
-        final int count;
-        synchronized (st.lock) { count = st.r == null ? 0 : st.r.getPageCount(); }
-        final int sw = a.getResources().getDisplayMetrics().widthPixels;
-        final float[] zooms = {1f, 1.4f, 1.8f};
-
-        final ListView lv = new ListView(a);
-        lv.setBackgroundColor(PAPER);
-        lv.setCacheColorHint(Color.TRANSPARENT);
-        lv.setDivider(new ColorDrawable(PAPER));
-        lv.setDividerHeight(Ui.dp(a, 6));
-        final HorizontalScrollView hs = new HorizontalScrollView(a);
-        hs.setFillViewport(true);
-        hs.addView(lv, new FrameLayout.LayoutParams(sw, MATCH));
-        body.addView(hs, new FrameLayout.LayoutParams(MATCH, MATCH));
-        pageInd.setText("1 / " + count);
-
-        final BaseAdapter ad = new BaseAdapter() {
-            @Override public int getCount() { return count; }
-            @Override public Object getItem(int p) { return Integer.valueOf(p); }
-            @Override public long getItemId(int p) { return p; }
-            @Override public View getView(final int pos, View cv, ViewGroup parent) {
-                final ImageView iv;
-                if (cv instanceof ImageView) {
-                    iv = (ImageView) cv;
-                } else {
-                    iv = new ImageView(a);
-                    iv.setScaleType(ImageView.ScaleType.FIT_XY);
-                    iv.setBackgroundColor(Color.WHITE);
-                }
-                final int w = Math.round(sw * zooms[st.zoomIdx]);
-                final String key = pos + "@" + w;
-                iv.setTag(key);
-                Bitmap c = st.cache.get(key);
-                if (c != null) {
-                    iv.setImageBitmap(c);
-                    iv.setLayoutParams(new AbsListView.LayoutParams(w, c.getHeight()));
-                    return iv;
-                }
-                iv.setImageDrawable(null);
-                iv.setLayoutParams(new AbsListView.LayoutParams(w, Math.round(w * 1.41f)));
-                try {
-                    st.ex.execute(() -> {
-                        Bitmap bm = null;
-                        synchronized (st.lock) {
-                            if (st.closed || st.r == null) return;
-                            try { bm = renderPage(st.r, pos, w); } catch (Throwable ignored) { }
-                        }
-                        if (bm == null) return;
-                        final Bitmap fb = bm;
-                        st.cache.put(key, fb);
-                        h.post(() -> {
-                            if (st.closed || !key.equals(iv.getTag())) return;
-                            iv.setImageBitmap(fb);
-                            iv.setLayoutParams(new AbsListView.LayoutParams(w, fb.getHeight()));
-                        });
-                    });
-                } catch (Exception ignored) { }
-                return iv;
+    private static void edit(final NativeHomeActivity a, final String url, final String title, final String ext,
+                             final File[] editFile, final long[] stamp, final TextView sendBtn, final Reshare rs) {
+        a.toast("Preparing file for editing…");
+        Store.async(() -> {
+            File src = download(a.getCacheDir(), url, ext, 100L * 1024 * 1024, null);
+            File dir = new File(a.getCacheDir(), "edit");
+            dir.mkdirs();
+            File dst = new File(dir, safeName(title, ext));
+            copy(src, dst);
+            return dst;
+        }, (File f, Exception e) -> {
+            if (e != null || f == null) { a.toast("Could not prepare the file. Check your internet connection."); return; }
+            editFile[0] = f;
+            stamp[0] = f.lastModified();
+            Uri u = androidx.core.content.FileProvider.getUriForFile(a, a.getPackageName() + ".provider", f);
+            String mime = mimeFor(ext);
+            boolean started = false;
+            for (String act : new String[]{Intent.ACTION_EDIT, Intent.ACTION_VIEW}) {
+                Intent i = new Intent(act);
+                i.setDataAndType(u, mime);
+                i.setClipData(android.content.ClipData.newRawUri("file", u));
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                try { a.startActivity(i); started = true; break; } catch (Exception ignored) { }
             }
-        };
-        lv.setAdapter(ad);
-        lv.setOnScrollListener(new AbsListView.OnScrollListener() {
-            @Override public void onScrollStateChanged(AbsListView v, int s) { }
-            @Override public void onScroll(AbsListView v, int first, int vis, int total) {
-                pageInd.setText((first + 1) + " / " + count);
+            if (!started) {
+                a.toast("No editor found. Install WPS Office, Microsoft Office or Google Docs/Sheets/Slides.");
+                return;
             }
+            if (rs != null) sendBtn.setVisibility(View.VISIBLE);
         });
-
-        // zoom buttons
-        LinearLayout zb = new LinearLayout(a);
-        zb.setOrientation(LinearLayout.VERTICAL);
-        View.OnClickListener zoom = v -> {
-            int ni = st.zoomIdx + (v.getTag().equals("+") ? 1 : -1);
-            ni = Math.max(0, Math.min(zooms.length - 1, ni));
-            if (ni == st.zoomIdx) return;
-            st.zoomIdx = ni;
-            lv.setLayoutParams(new FrameLayout.LayoutParams(Math.round(sw * zooms[ni]), MATCH));
-            st.cache.evictAll();
-            ad.notifyDataSetChanged();
-        };
-        for (String s : new String[]{"+", "−"}) {
-            TextView b = Ui.tv(a, s, 22, Ui.WHITE, true);
-            b.setTag(s.equals("+") ? "+" : "-");
-            b.setGravity(Gravity.CENTER);
-            b.setBackground(Ui.circle(0xCC1E1B18));
-            Ui.pressFx(b);
-            b.setOnClickListener(zoom);
-            zb.addView(b, Ui.lpm(a, Ui.dp(a, 44), Ui.dp(a, 44), 0, 0, 0, 10));
-        }
-        FrameLayout.LayoutParams zp = new FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM | Gravity.END);
-        zp.setMargins(0, 0, Ui.dp(a, 14), Ui.dp(a, 10));
-        body.addView(zb, zp);
     }
 
-    // ── Office documents (Microsoft online viewer inside a WebView) ──
-    private static void office(final NativeHomeActivity a, String url, String title) {
+    private static void office(final NativeHomeActivity a, final String url, final String title, final Reshare rs) {
+        final String ext = ext(title, url);
         final FrameLayout body = new FrameLayout(a);
         body.setBackgroundColor(Ui.BG);
         final WebView w = new WebView(a);
@@ -372,7 +322,44 @@ final class FileViewer {
         });
         body.addView(w, new FrameLayout.LayoutParams(MATCH, MATCH));
         body.addView(spin, new FrameLayout.LayoutParams(Ui.dp(a, 36), Ui.dp(a, 36), Gravity.CENTER));
-        final Dialog d = shell(a, title, body, null);
+
+        // title-bar actions: Edit (opens an editor app) and Send (shares the edited copy back)
+        final File[] editFile = {null};
+        final long[] stamp = {0};
+        final boolean[] warned = {false};
+        LinearLayout actions = new LinearLayout(a);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        final TextView sendBtn = Ui.smallBtn(a, "⬆ Send", Ui.ACCENT, null);
+        sendBtn.setVisibility(View.GONE);
+        final Dialog[] dref = {null};
+        sendBtn.setOnClickListener(v -> {
+            File f = editFile[0];
+            if (f == null || rs == null) return;
+            if (f.lastModified() == stamp[0] && !warned[0]) {
+                warned[0] = true;
+                a.toast("No changes saved yet. Save in the editor first, then tap Send. Tap again to send as is.");
+                return;
+            }
+            try {
+                String base = title;
+                int dot = base.lastIndexOf('.');
+                if (dot > 0) base = base.substring(0, dot);
+                File out = new File(f.getParentFile(), safeName(base + " (edited)", ext));
+                copy(f, out);
+                Uri u = androidx.core.content.FileProvider.getUriForFile(a, a.getPackageName() + ".provider", out);
+                if (dref[0] != null) dref[0].dismiss();
+                rs.send(u);
+            } catch (Exception ex) {
+                a.toast("Could not send the edited file.");
+            }
+        });
+        final TextView editBtn = Ui.smallBtn(a, "✏️ Edit", Ui.TEXT, v -> edit(a, url, title, ext, editFile, stamp, sendBtn, rs));
+        actions.addView(editBtn);
+        actions.addView(sendBtn, Ui.lpm(a, WRAP, WRAP, 6, 0, 0, 0));
+
+        final Dialog d = shell(a, title, body, actions);
+        dref[0] = d;
         d.setOnDismissListener(x -> Media.destroy(w));
         d.show();
         try {
