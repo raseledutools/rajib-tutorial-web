@@ -49,6 +49,8 @@ public class NativeHomeActivity extends AppCompatActivity {
     private View homeView;
     private FrameLayout content;
     private TextView titleTv;
+    private LinearLayout topBar;
+    private View topLine;
     private LinearLayout userArea;
     private Dialog drawer;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -101,10 +103,12 @@ public class NativeHomeActivity extends AppCompatActivity {
         userArea.setOrientation(LinearLayout.HORIZONTAL);
         userArea.setGravity(Gravity.CENTER_VERTICAL);
         bar.addView(userArea, new LinearLayout.LayoutParams(WRAP, WRAP));
+        topBar = bar;
         root.addView(bar, new LinearLayout.LayoutParams(MATCH, Ui.dp(this, 52)));
 
         View line = new View(this);
         line.setBackgroundColor(Ui.BORDER);
+        topLine = line;
         root.addView(line, new LinearLayout.LayoutParams(MATCH, 1));
 
         content = new FrameLayout(this);
@@ -142,6 +146,23 @@ public class NativeHomeActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= 23) {
             int f = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
             if (Build.VERSION.SDK_INT >= 26) f |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            w.getDecorView().setSystemUiVisibility(f);
+        }
+    }
+
+    /** Discussion chat draws its own (WhatsApp-style) header: hide the app bar and go dark. */
+    void setChatChrome(boolean on) {
+        if (topBar != null) topBar.setVisibility(on ? View.GONE : View.VISIBLE);
+        if (topLine != null) topLine.setVisibility(on ? View.GONE : View.VISIBLE);
+        Window w = getWindow();
+        w.setStatusBarColor(on ? 0xFF1F2C34 : Color.WHITE);
+        w.setNavigationBarColor(on ? 0xFF0B141A : Color.WHITE);
+        if (Build.VERSION.SDK_INT >= 23) {
+            int f = 0;
+            if (!on) {
+                f |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+                if (Build.VERSION.SDK_INT >= 26) f |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
             w.getDecorView().setSystemUiVisibility(f);
         }
     }
