@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -14,6 +15,7 @@ import android.util.LruCache;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -35,6 +37,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.TreeMap;
 
 /**
  * Discussion: one group chat for all Premium members (and the admin).
@@ -56,6 +59,7 @@ final class DiscussionScreen extends Screen {
     private static final class Msg {
         String id = "", name = "", mobile = "", role = "", type = "text", text = "", url = "", fileName = "";
         long ts = 0;
+        Map<String, String> reacts = new TreeMap<>();   // sanitized user id -> emoji
     }
 
     private final NativeHomeActivity a;
@@ -109,6 +113,7 @@ final class DiscussionScreen extends Screen {
     void release() {
         released = true;
         stopPoll();
+        a.setChatChrome(false);
     }
 
     // ── Access ──────────────────────────────────────────────
@@ -130,6 +135,8 @@ final class DiscussionScreen extends Screen {
         int want = a.loading ? 0 : (hasAccess() ? 2 : 1);
         if (want == mode) return;
         mode = want;
+        host.setBackgroundColor(want == 2 ? D_BG : Ui.BG);
+        a.setChatChrome(want == 2);
         host.removeAllViews();
         if (want == 0) {
             stopPoll();
@@ -176,9 +183,12 @@ final class DiscussionScreen extends Screen {
     }
 
     // ── Chat UI ─────────────────────────────────────────────
-    private static final int WALL = 0xFFF4F0EC;
-    private static final int[] PALETTE = {0xFFE8365D, 0xFF6D4AF0, 0xFF0E9F8E, 0xFF2563EB,
-        0xFFD97706, 0xFF9333EA, 0xFF16A34A, 0xFFDB2777};
+    // WhatsApp-like dark palette
+    private static final int D_BG = 0xFF0B141A, D_BAR = 0xFF1F2C34, D_IN = 0xFF202C33, D_OUT = 0xFF005C4B;
+    private static final int D_TEXT = 0xFFE9EDEF, D_SUB = 0xFF8696A0, D_GREEN = 0xFF00A884, D_CHIP = 0xFF182229;
+    private static final int[] PALETTE = {0xFF53BDEB, 0xFFFFA726, 0xFFE57373, 0xFF4DB6AC,
+        0xFFBA68C8, 0xFF81C784, 0xFFF06292, 0xFFFFD54F};
+    private static final String[] EMOJIS = {"👍", "❤️", "😂", "😮", "😢", "🙏"};
 
     private static int colorFor(String key) {
         return PALETTE[Math.abs((key == null ? "" : key).hashCode()) % PALETTE.length];
@@ -197,9 +207,8 @@ final class DiscussionScreen extends Screen {
     }
 
     private TextView roundIcon(String icon, View.OnClickListener l) {
-        TextView t = Ui.tv(a, icon, 18, Ui.TEXT, false);
+        TextView t = Ui.tv(a, icon, 20, D_TEXT, false);
         t.setGravity(Gravity.CENTER);
-        t.setBackground(Ui.circle(Ui.CARD2));
         Ui.pressFx(t);
         t.setOnClickListener(l);
         return t;
@@ -208,34 +217,35 @@ final class DiscussionScreen extends Screen {
     private LinearLayout buildChat() {
         LinearLayout root = new LinearLayout(a);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Ui.BG);
+        root.setBackgroundColor(D_BG);
 
-        // header: group avatar, title, member count, call buttons
+        // header (the only one): back, group avatar, title, member count, call buttons
         LinearLayout head = new LinearLayout(a);
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        head.setBackgroundColor(Ui.BG);
-        head.setPadding(Ui.dp(a, 14), Ui.dp(a, 10), Ui.dp(a, 12), Ui.dp(a, 10));
+        head.setBackgroundColor(D_BAR);
+        head.setPadding(Ui.dp(a, 4), Ui.dp(a, 8), Ui.dp(a, 8), Ui.dp(a, 8));
+        TextView back = Ui.tv(a, "←", 24, D_TEXT, false);
+        back.setGravity(Gravity.CENTER);
+        Ui.pressFx(back);
+        back.setOnClickListener(v -> a.goHome());
+        head.addView(back, new LinearLayout.LayoutParams(Ui.dp(a, 44), Ui.dp(a, 44)));
         TextView gav = Ui.tv(a, "💬", 18, Ui.WHITE, true);
         gav.setGravity(Gravity.CENTER);
-        gav.setBackground(Ui.circle(Ui.ACCENT));
-        head.addView(gav, Ui.lpm(a, Ui.dp(a, 42), Ui.dp(a, 42), 0, 0, 12, 0));
+        gav.setBackground(Ui.circle(0xFF6A7175));
+        head.addView(gav, Ui.lpm(a, Ui.dp(a, 40), Ui.dp(a, 40), 0, 0, 10, 0));
         LinearLayout meta = new LinearLayout(a);
         meta.setOrientation(LinearLayout.VERTICAL);
-        meta.addView(Ui.tv(a, "Discussion Group", 16, Ui.TEXT, true));
-        headSub = Ui.ellipsized(a, subText(), 12, Ui.SUB, false, 1);
+        meta.addView(Ui.ellipsized(a, "Discussion Group", 16.5f, D_TEXT, true, 1));
+        headSub = Ui.ellipsized(a, subText(), 12, D_SUB, false, 1);
         meta.addView(headSub);
         head.addView(meta, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        head.addView(roundIcon("📞", v -> startCall(false)), Ui.lpm(a, Ui.dp(a, 40), Ui.dp(a, 40), 0, 0, 8, 0));
-        head.addView(roundIcon("🎥", v -> startCall(true)), new LinearLayout.LayoutParams(Ui.dp(a, 40), Ui.dp(a, 40)));
+        head.addView(roundIcon("🎥", v -> startCall(true)), new LinearLayout.LayoutParams(Ui.dp(a, 42), Ui.dp(a, 42)));
+        head.addView(roundIcon("📞", v -> startCall(false)), new LinearLayout.LayoutParams(Ui.dp(a, 42), Ui.dp(a, 42)));
         root.addView(head, new LinearLayout.LayoutParams(MATCH, WRAP));
 
-        View hl = new View(a);
-        hl.setBackgroundColor(Ui.BORDER);
-        root.addView(hl, new LinearLayout.LayoutParams(MATCH, 1));
-
         scroll = new ScrollView(a);
-        scroll.setBackgroundColor(WALL);
+        scroll.setBackgroundColor(D_BG);
         list = new LinearLayout(a);
         list.setOrientation(LinearLayout.VERTICAL);
         list.setPadding(Ui.dp(a, 10), Ui.dp(a, 10), Ui.dp(a, 10), Ui.dp(a, 10));
@@ -244,9 +254,9 @@ final class DiscussionScreen extends Screen {
 
         upWrap = new LinearLayout(a);
         upWrap.setOrientation(LinearLayout.VERTICAL);
-        upWrap.setBackgroundColor(Ui.BG);
+        upWrap.setBackgroundColor(D_BAR);
         upWrap.setPadding(Ui.dp(a, 14), Ui.dp(a, 8), Ui.dp(a, 14), Ui.dp(a, 8));
-        upInfo = Ui.tv(a, "", 12, Ui.SUB, false);
+        upInfo = Ui.tv(a, "", 12, D_SUB, false);
         upWrap.addView(upInfo);
         upBar = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
         upBar.setMax(100);
@@ -257,10 +267,10 @@ final class DiscussionScreen extends Screen {
         LinearLayout bar = new LinearLayout(a);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.BOTTOM);
-        bar.setBackgroundColor(Ui.BG);
+        bar.setBackgroundColor(D_BG);
         bar.setPadding(Ui.dp(a, 8), Ui.dp(a, 8), Ui.dp(a, 10), Ui.dp(a, 8));
 
-        TextView attach = Ui.tv(a, "📎", 21, Ui.TEXT, false);
+        TextView attach = Ui.tv(a, "📎", 21, D_SUB, false);
         attach.setGravity(Gravity.CENTER);
         Ui.pressFx(attach);
         attach.setOnClickListener(v -> attachMenu());
@@ -269,18 +279,18 @@ final class DiscussionScreen extends Screen {
         input = new EditText(a);
         input.setHint("Message");
         input.setTextSize(15);
-        input.setTextColor(Ui.TEXT);
-        input.setHintTextColor(0xFFA39C93);
+        input.setTextColor(D_TEXT);
+        input.setHintTextColor(D_SUB);
         input.setMaxLines(4);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
             | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-        input.setBackground(Ui.bg(a, Ui.CARD2, 22, 0));
+        input.setBackground(Ui.bg(a, D_BAR, 24, 0));
         input.setPadding(Ui.dp(a, 16), Ui.dp(a, 10), Ui.dp(a, 16), Ui.dp(a, 10));
         bar.addView(input, new LinearLayout.LayoutParams(0, WRAP, 1f));
 
         TextView send = Ui.tv(a, "➤", 18, Ui.WHITE, true);
         send.setGravity(Gravity.CENTER);
-        send.setBackground(Ui.circle(Ui.ACCENT));
+        send.setBackground(Ui.circle(D_GREEN));
         Ui.pressFx(send);
         send.setOnClickListener(v -> sendText());
         bar.addView(send, Ui.lpm(a, Ui.dp(a, 44), Ui.dp(a, 44), 8, 0, 0, 0));
@@ -346,6 +356,10 @@ final class DiscussionScreen extends Screen {
         m.fileName = str(d.data, "fileName");
         Object t = d.data.get("ts");
         m.ts = t instanceof Number ? ((Number) t).longValue() : 0L;
+        for (Map.Entry<String, Object> en : d.data.entrySet()) {
+            if (en.getKey().startsWith("r_") && en.getValue() instanceof String && !((String) en.getValue()).isEmpty())
+                m.reacts.put(en.getKey().substring(2), (String) en.getValue());
+        }
         return m;
     }
 
@@ -365,7 +379,9 @@ final class DiscussionScreen extends Screen {
             }
             List<Msg> out = new ArrayList<>();
             for (int i = docs.size() - 1; i >= 0; i--) out.add(toMsg(docs.get(i)));   // oldest → newest
-            String sig = out.size() + ":" + (out.isEmpty() ? "" : out.get(0).id + ":" + out.get(out.size() - 1).id);
+            StringBuilder rs = new StringBuilder();
+            for (Msg x : out) if (!x.reacts.isEmpty()) rs.append(x.id).append(x.reacts);
+            String sig = out.size() + ":" + (out.isEmpty() ? "" : out.get(0).id + ":" + out.get(out.size() - 1).id) + ":" + rs.toString().hashCode();
             if (force || !sig.equals(lastSig) || firstRender) {
                 lastSig = sig;
                 msgs = out;
@@ -378,7 +394,7 @@ final class DiscussionScreen extends Screen {
 
     private void showNote(String s) {
         list.removeAllViews();
-        TextView t = Ui.tv(a, s, 13.5f, Ui.SUB, false);
+        TextView t = Ui.tv(a, s, 13.5f, D_SUB, false);
         t.setGravity(Gravity.CENTER);
         list.addView(t, Ui.lpm(a, MATCH, WRAP, 0, 40, 0, 0));
     }
@@ -391,6 +407,7 @@ final class DiscussionScreen extends Screen {
     private void renderMessages() {
         if (list == null) return;
         boolean stick = firstRender || atBottom();
+        final int keepY = scroll.getScrollY();
         list.removeAllViews();
         if (msgs.isEmpty()) {
             showNote("No messages yet.\nSay hello 👋");
@@ -402,9 +419,9 @@ final class DiscussionScreen extends Screen {
             String day = dayFmt.format(new Date(m.ts));
             if (!day.equals(prevDay)) {
                 prevDay = day;
-                TextView chip = Ui.tv(a, day, 11, Ui.SUB, true);
+                TextView chip = Ui.tv(a, day, 11.5f, D_SUB, true);
                 chip.setGravity(Gravity.CENTER);
-                chip.setBackground(Ui.bg(a, Ui.CARD2, 10, 0));
+                chip.setBackground(Ui.bg(a, D_CHIP, 10, 0));
                 chip.setPadding(Ui.dp(a, 10), Ui.dp(a, 3), Ui.dp(a, 10), Ui.dp(a, 3));
                 LinearLayout w = new LinearLayout(a);
                 w.setGravity(Gravity.CENTER);
@@ -415,6 +432,7 @@ final class DiscussionScreen extends Screen {
         }
         firstRender = false;
         if (stick) scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
+        else scroll.post(() -> scroll.scrollTo(0, keepY));
     }
 
     // ── Bubbles ─────────────────────────────────────────────
@@ -422,17 +440,16 @@ final class DiscussionScreen extends Screen {
         return Store.adminIn || (!myId().isEmpty() && myId().equals(m.mobile));
     }
 
-    private void markDeletable(View v, final Msg m) {
-        if (!canDelete(m)) return;
-        v.setOnLongClickListener(x -> { confirmDelete(m); return true; });
+    private void markActions(View v, final Msg m) {
+        v.setOnLongClickListener(x -> { showActions(m); return true; });
     }
 
     private View bubble(final Msg m) {
         final boolean mine = !myId().isEmpty() && myId().equals(m.mobile);
         final String who = m.name.isEmpty() ? "Member" : m.name;
         final int uc = colorFor(m.mobile.isEmpty() ? m.name : m.mobile);
-        int fg = mine ? Ui.WHITE : Ui.TEXT;
-        int sub = mine ? 0xCCFFFFFF : Ui.SUB;
+        int fg = D_TEXT;
+        int sub = mine ? 0xB3E9EDEF : D_SUB;
         int maxW = Math.round(a.getResources().getDisplayMetrics().widthPixels * 0.68f);
 
         LinearLayout row = new LinearLayout(a);
@@ -452,12 +469,11 @@ final class DiscussionScreen extends Screen {
         b.setOrientation(LinearLayout.VERTICAL);
         float r = Ui.dp(a, 16), t = Ui.dp(a, 4);
         android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
-        g.setColor(mine ? Ui.ACCENT : Ui.WHITE);
+        g.setColor(mine ? D_OUT : D_IN);
         g.setCornerRadii(mine ? new float[]{r, r, r, r, t, t, r, r} : new float[]{r, r, r, r, r, r, t, t});
-        if (!mine) g.setStroke(Math.max(1, Ui.dp(a, 1)), 0x14000000);
         b.setBackground(g);
         b.setPadding(Ui.dp(a, 12), Ui.dp(a, 8), Ui.dp(a, 12), Ui.dp(a, 6));
-        markDeletable(b, m);
+        markActions(b, m);
 
         if (!mine) {
             LinearLayout nr = new LinearLayout(a);
@@ -469,7 +485,7 @@ final class DiscussionScreen extends Screen {
             n.setEllipsize(android.text.TextUtils.TruncateAt.END);
             nr.addView(n);
             if ("admin".equals(m.role)) {
-                TextView pill = Ui.pill(a, "ADMIN", Ui.WHITE, Ui.ACCENT);
+                TextView pill = Ui.pill(a, "ADMIN", Ui.WHITE, D_GREEN);
                 nr.addView(pill, Ui.lpm(a, WRAP, WRAP, 6, 0, 0, 0));
             }
             b.addView(nr, Ui.lpm(a, WRAP, WRAP, 0, 0, 0, 3));
@@ -483,7 +499,7 @@ final class DiscussionScreen extends Screen {
                 b.addView(iv, Ui.lpm(a, Ui.dp(a, 220), Ui.dp(a, 180), 0, 2, 0, 6));
                 loadBitmap(cdn(m.url, "w_600,q_auto,f_jpg", false), iv);
                 iv.setOnClickListener(v -> showImage(cdn(m.url, "w_1600,q_auto,f_jpg", false)));
-                markDeletable(iv, m);
+                markActions(iv, m);
                 break;
             }
             case "video": {
@@ -499,7 +515,7 @@ final class DiscussionScreen extends Screen {
                 b.addView(fl, Ui.lpm(a, Ui.dp(a, 220), Ui.dp(a, 150), 0, 2, 0, 6));
                 loadBitmap(cdn(m.url, "so_0,w_600,f_jpg", true), iv);
                 fl.setOnClickListener(v -> showPlayer(m));
-                markDeletable(fl, m);
+                markActions(fl, m);
                 break;
             }
             case "audio": {
@@ -508,13 +524,13 @@ final class DiscussionScreen extends Screen {
                 at.setPadding(0, Ui.dp(a, 4), 0, Ui.dp(a, 6));
                 Ui.pressFx(at);
                 at.setOnClickListener(v -> showPlayer(m));
-                markDeletable(at, m);
+                markActions(at, m);
                 b.addView(at);
                 break;
             }
             case "file": {
                 View card = FileCard.build(a, m.url, m.fileName, mine, fg, sub, uri -> startUpload(uri));
-                markDeletable(card, m);
+                markActions(card, m);
                 b.addView(card, new LinearLayout.LayoutParams(Ui.dp(a, 240), WRAP));
                 break;
             }
@@ -523,7 +539,7 @@ final class DiscussionScreen extends Screen {
                 b.addView(ct);
                 TextView cs = Ui.tv(a, (mine ? "You" : who) + " started a call", 12, sub, false);
                 b.addView(cs, Ui.lpm(a, WRAP, WRAP, 0, 2, 0, 8));
-                TextView join = Ui.btn(a, "Join call", mine ? Ui.B_OUTLINE : Ui.B_PRIMARY, v -> joinMenu());
+                TextView join = Ui.btn(a, "Join call", Ui.B_GREEN, v -> joinMenu());
                 join.setMinHeight(Ui.dp(a, 38));
                 b.addView(join, new LinearLayout.LayoutParams(Ui.dp(a, 170), WRAP));
                 break;
@@ -544,7 +560,15 @@ final class DiscussionScreen extends Screen {
         b.addView(time, Ui.lpm(a, WRAP, WRAP, 0, 3, 0, 0));
         ((LinearLayout.LayoutParams) time.getLayoutParams()).gravity = Gravity.END;
 
-        row.addView(b, new LinearLayout.LayoutParams(WRAP, WRAP));
+        LinearLayout colw = new LinearLayout(a);
+        colw.setOrientation(LinearLayout.VERTICAL);
+        colw.addView(b, new LinearLayout.LayoutParams(WRAP, WRAP));
+        if (!m.reacts.isEmpty()) {
+            LinearLayout.LayoutParams pp = Ui.lpm(a, WRAP, WRAP, 8, -9, 8, 0);
+            pp.gravity = mine ? Gravity.END : Gravity.START;
+            colw.addView(reactPill(m), pp);
+        }
+        row.addView(colw, new LinearLayout.LayoutParams(WRAP, WRAP));
         return row;
     }
 
@@ -735,6 +759,94 @@ final class DiscussionScreen extends Screen {
             if (!caption.isEmpty()) input.setText("");
             post(typeOf(r.mime), caption, r.url, r.name);
         });
+    }
+
+    // ── Reactions + long-press menu ─────────────────────────
+    private String rid() { return myId().replaceAll("[^A-Za-z0-9]", ""); }
+
+    private View reactPill(final Msg m) {
+        Map<String, Integer> cnt = new LinkedHashMap<>();
+        for (String e : m.reacts.values()) cnt.put(e, cnt.containsKey(e) ? cnt.get(e) + 1 : 1);
+        StringBuilder sb = new StringBuilder();
+        for (String e : cnt.keySet()) sb.append(e);
+        int total = m.reacts.size();
+        TextView t = Ui.tv(a, sb.toString() + (total > 1 ? " " + total : ""), 12.5f, D_TEXT, false);
+        t.setPadding(Ui.dp(a, 7), Ui.dp(a, 2), Ui.dp(a, 7), Ui.dp(a, 2));
+        t.setBackground(Ui.bg(a, D_BAR, 12, D_BG));
+        t.setOnClickListener(v -> showActions(m));
+        return t;
+    }
+
+    private void react(final Msg m, final String emoji) {
+        final String id = rid();
+        if (id.isEmpty()) { a.toast("Login required"); return; }
+        final Map<String, Object> d = new LinkedHashMap<>();
+        d.put("r_" + id, emoji);
+        if (emoji.isEmpty()) m.reacts.remove(id); else m.reacts.put(id, emoji);
+        renderMessages();
+        Store.async(() -> { Fs.update(m.id, d); return Boolean.TRUE; }, (Boolean ok, Exception e) -> {
+            if (released) return;
+            if (e != null) a.toast("Could not react. Try again.");
+            fetch(true);
+        });
+    }
+
+    private TextView sheetRow(String text, int color, View.OnClickListener l) {
+        TextView t = Ui.tv(a, text, 15.5f, color, false);
+        t.setPadding(Ui.dp(a, 20), Ui.dp(a, 14), Ui.dp(a, 20), Ui.dp(a, 14));
+        Ui.pressFx(t);
+        t.setOnClickListener(l);
+        return t;
+    }
+
+    /** WhatsApp-style long-press: emoji reaction bar + Copy / Delete. */
+    private void showActions(final Msg m) {
+        final Dialog d = new Dialog(a);
+        d.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        d.setCanceledOnTouchOutside(true);
+        LinearLayout col = new LinearLayout(a);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setPadding(Ui.dp(a, 22), Ui.dp(a, 10), Ui.dp(a, 22), Ui.dp(a, 10));
+
+        final String mineEmoji = m.reacts.get(rid());
+        LinearLayout er = new LinearLayout(a);
+        er.setOrientation(LinearLayout.HORIZONTAL);
+        er.setGravity(Gravity.CENTER);
+        er.setBackground(Ui.bg(a, D_BAR, 32, 0));
+        er.setPadding(Ui.dp(a, 6), Ui.dp(a, 6), Ui.dp(a, 6), Ui.dp(a, 6));
+        for (final String e : EMOJIS) {
+            TextView t = Ui.tv(a, e, 26, D_TEXT, false);
+            t.setGravity(Gravity.CENTER);
+            if (e.equals(mineEmoji)) t.setBackground(Ui.circle(0x33FFFFFF));
+            Ui.pressFx(t);
+            t.setOnClickListener(v -> { d.dismiss(); react(m, e.equals(mineEmoji) ? "" : e); });
+            er.addView(t, Ui.lpm(a, Ui.dp(a, 46), Ui.dp(a, 46), 1, 0, 1, 0));
+        }
+        col.addView(er, new LinearLayout.LayoutParams(WRAP, WRAP));
+
+        LinearLayout ac = new LinearLayout(a);
+        ac.setOrientation(LinearLayout.VERTICAL);
+        ac.setBackground(Ui.bg(a, D_BAR, 16, 0));
+        if (!m.text.isEmpty()) {
+            ac.addView(sheetRow("📋   Copy", D_TEXT, v -> {
+                d.dismiss();
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) a.getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("message", m.text));
+                a.toast("Copied");
+            }));
+        }
+        if (canDelete(m)) {
+            ac.addView(sheetRow("🗑   Delete", 0xFFFF6B6B, v -> { d.dismiss(); confirmDelete(m); }));
+        }
+        if (ac.getChildCount() > 0) col.addView(ac, Ui.lpm(a, MATCH, WRAP, 0, 10, 0, 0));
+
+        d.setContentView(col);
+        Window w = d.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            w.setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+        d.show();
     }
 
     // ── Delete ──────────────────────────────────────────────
