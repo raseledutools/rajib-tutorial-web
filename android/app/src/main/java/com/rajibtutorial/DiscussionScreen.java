@@ -7,10 +7,14 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.media.MediaPlayer;
+import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
 import android.util.LruCache;
 import android.view.Gravity;
 import android.view.View;
@@ -26,6 +30,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.VideoView;
 
+import java.io.File;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -60,6 +65,8 @@ final class DiscussionScreen extends Screen {
         String id = "", name = "", mobile = "", role = "", type = "text", text = "", url = "", fileName = "";
         long ts = 0;
         Map<String, String> reacts = new TreeMap<>();   // sanitized user id -> emoji
+        List<String> opts = new ArrayList<>();            // poll options
+        Map<String, Integer> votes = new TreeMap<>();     // sanitized user id -> chosen option index
     }
 
     private final NativeHomeActivity a;
@@ -73,7 +80,8 @@ final class DiscussionScreen extends Screen {
     private EditText input;
     private TextView upInfo;
     private ProgressBar upBar;
-    private TextView headSub;
+    private TextView headSub, sendBtn, recTimeTv;
+    private LinearLayout inputBar, recRow;
 
     private int mode = -1;            // 0 loading, 1 locked, 2 chat
     private boolean polling = false, fetching = false, pendingForce = false;
@@ -107,12 +115,14 @@ final class DiscussionScreen extends Screen {
     void onResume() { if (mode == 2) startPoll(); }
 
     @Override
-    void onPause() { stopPoll(); }
+    void onPause() { stopPoll(); if (voiceOn) cancelVoice(); stopVoicePlay(); }
 
     @Override
     void release() {
         released = true;
         stopPoll();
+        if (voiceOn) cancelVoice();
+        stopVoicePlay();
         a.setChatChrome(false);
     }
 
@@ -288,14 +298,47 @@ final class DiscussionScreen extends Screen {
         input.setPadding(Ui.dp(a, 16), Ui.dp(a, 10), Ui.dp(a, 16), Ui.dp(a, 10));
         bar.addView(input, new LinearLayout.LayoutParams(0, WRAP, 1f));
 
-        TextView send = Ui.tv(a, "➤", 18, Ui.WHITE, true);
-        send.setGravity(Gravity.CENTER);
-        send.setBackground(Ui.circle(D_GREEN));
-        Ui.pressFx(send);
-        send.setOnClickListener(v -> sendText());
-        bar.addView(send, Ui.lpm(a, Ui.dp(a, 44), Ui.dp(a, 44), 8, 0, 0, 0));
+        sendBtn = Ui.tv(a, "🎤", 18, Ui.WHITE, true);
+        sendBtn.setGravity(Gravity.CENTER);
+        sendBtn.setBackground(Ui.circle(D_GREEN));
+        Ui.pressFx(sendBtn);
+        sendBtn.setOnClickListener(v -> {
+            if (input.getText().toString().trim().isEmpty()) startVoice(); else sendText();
+        });
+        bar.addView(sendBtn, Ui.lpm(a, Ui.dp(a, 44), Ui.dp(a, 44), 8, 0, 0, 0));
+        input.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence c, int s0, int c0, int a0) { }
+            @Override public void onTextChanged(CharSequence c, int s0, int b0, int c0) { }
+            @Override public void afterTextChanged(Editable e) {
+                sendBtn.setText(e.toString().trim().isEmpty() ? "🎤" : "➤");
+            }
+        });
 
+        inputBar = bar;
         root.addView(bar, new LinearLayout.LayoutParams(MATCH, WRAP));
+
+        // voice-recording row (replaces the input bar while recording)
+        recRow = new LinearLayout(a);
+        recRow.setOrientation(LinearLayout.HORIZONTAL);
+        recRow.setGravity(Gravity.CENTER_VERTICAL);
+        recRow.setBackgroundColor(D_BAR);
+        recRow.setPadding(Ui.dp(a, 8), Ui.dp(a, 8), Ui.dp(a, 10), Ui.dp(a, 8));
+        TextView cancelV = Ui.tv(a, "🗑", 21, D_TEXT, false);
+        cancelV.setGravity(Gravity.CENTER);
+        Ui.pressFx(cancelV);
+        cancelV.setOnClickListener(v -> cancelVoice());
+        recRow.addView(cancelV, new LinearLayout.LayoutParams(Ui.dp(a, 44), Ui.dp(a, 44)));
+        recTimeTv = Ui.tv(a, "● 0:00", 16, 0xFFFF6B6B, true);
+        recTimeTv.setPadding(Ui.dp(a, 10), 0, 0, 0);
+        recRow.addView(recTimeTv, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        TextView sendV = Ui.tv(a, "➤", 18, Ui.WHITE, true);
+        sendV.setGravity(Gravity.CENTER);
+        sendV.setBackground(Ui.circle(D_GREEN));
+        Ui.pressFx(sendV);
+        sendV.setOnClickListener(v -> finishVoice());
+        recRow.addView(sendV, new LinearLayout.LayoutParams(Ui.dp(a, 44), Ui.dp(a, 44)));
+        recRow.setVisibility(View.GONE);
+        root.addView(recRow, new LinearLayout.LayoutParams(MATCH, WRAP));
         return root;
     }
 
@@ -315,6 +358,7 @@ final class DiscussionScreen extends Screen {
         m.col("🎬  Video", Ui.B_GHOST, v -> { m.dismiss(); pick("video/*"); });
         m.col("🎵  Audio", Ui.B_GHOST, v -> { m.dismiss(); pick("audio/*"); });
         m.col("📎  File / Document", Ui.B_GHOST, v -> { m.dismiss(); pick("*/*"); });
+        m.col("📊  Poll", Ui.B_GHOST, v -> { m.dismiss(); pollDialog(); });
         m.col("Cancel", Ui.B_OUTLINE, v -> m.dismiss());
         m.show();
     }
@@ -356,9 +400,13 @@ final class DiscussionScreen extends Screen {
         m.fileName = str(d.data, "fileName");
         Object t = d.data.get("ts");
         m.ts = t instanceof Number ? ((Number) t).longValue() : 0L;
+        Object op = d.data.get("opts");
+        if (op instanceof List) for (Object o : (List<?>) op) if (o instanceof String) m.opts.add((String) o);
         for (Map.Entry<String, Object> en : d.data.entrySet()) {
             if (en.getKey().startsWith("r_") && en.getValue() instanceof String && !((String) en.getValue()).isEmpty())
                 m.reacts.put(en.getKey().substring(2), (String) en.getValue());
+            if (en.getKey().startsWith("v_") && en.getValue() instanceof Number && ((Number) en.getValue()).intValue() >= 0)
+                m.votes.put(en.getKey().substring(2), ((Number) en.getValue()).intValue());
         }
         return m;
     }
@@ -380,7 +428,10 @@ final class DiscussionScreen extends Screen {
             List<Msg> out = new ArrayList<>();
             for (int i = docs.size() - 1; i >= 0; i--) out.add(toMsg(docs.get(i)));   // oldest → newest
             StringBuilder rs = new StringBuilder();
-            for (Msg x : out) if (!x.reacts.isEmpty()) rs.append(x.id).append(x.reacts);
+            for (Msg x : out) {
+                if (!x.reacts.isEmpty()) rs.append(x.id).append(x.reacts);
+                if (!x.votes.isEmpty()) rs.append(x.id).append(x.votes);
+            }
             String sig = out.size() + ":" + (out.isEmpty() ? "" : out.get(0).id + ":" + out.get(out.size() - 1).id) + ":" + rs.toString().hashCode();
             if (force || !sig.equals(lastSig) || firstRender) {
                 lastSig = sig;
@@ -519,6 +570,11 @@ final class DiscussionScreen extends Screen {
                 break;
             }
             case "audio": {
+                if (m.fileName.startsWith("Voice message")) {
+                    View vv = voiceView(m, sub);
+                    b.addView(vv, new LinearLayout.LayoutParams(Ui.dp(a, 230), WRAP));
+                    break;
+                }
                 TextView at = Ui.tv(a, "🎵  ▶  " + (m.fileName.isEmpty() ? "Audio" : m.fileName), 14, fg, true);
                 at.setMaxWidth(maxW);
                 at.setPadding(0, Ui.dp(a, 4), 0, Ui.dp(a, 6));
@@ -532,6 +588,10 @@ final class DiscussionScreen extends Screen {
                 View card = FileCard.build(a, m.url, m.fileName, mine, fg, sub, uri -> startUpload(uri));
                 markActions(card, m);
                 b.addView(card, new LinearLayout.LayoutParams(Ui.dp(a, 240), WRAP));
+                break;
+            }
+            case "poll": {
+                b.addView(pollView(m, fg, sub), new LinearLayout.LayoutParams(Ui.dp(a, 240), WRAP));
                 break;
             }
             case "call": {
@@ -548,7 +608,7 @@ final class DiscussionScreen extends Screen {
                 break;
         }
 
-        if (!m.text.isEmpty()) {
+        if (!m.text.isEmpty() && !"poll".equals(m.type)) {
             TextView tt = Ui.tv(a, m.text, 15, fg, false);
             tt.setMaxWidth(maxW);
             tt.setLineSpacing(0, 1.1f);
@@ -606,9 +666,10 @@ final class DiscussionScreen extends Screen {
             case "audio": body = "🎵 Audio"; break;
             case "file": body = "📎 " + (fileName.isEmpty() ? "File" : fileName); break;
             case "call": body = "📞 Started a group call — tap to join"; break;
+            case "poll": body = "📊 Poll: " + text; break;
             default: body = text; break;
         }
-        if (!"text".equals(type) && !"call".equals(type) && !text.isEmpty()) body += ": " + text;
+        if (!"text".equals(type) && !"call".equals(type) && !"poll".equals(type) && !text.isEmpty()) body += ": " + text;
         if (body.length() > 180) body = body.substring(0, 177) + "…";
         new AdminBridge(a.getApplicationContext(), null).sendChatPush(myName(), body, myId(), id);
     }
@@ -700,6 +761,11 @@ final class DiscussionScreen extends Screen {
     }
 
     private void post(final String type, final String text, final String url, final String fileName) {
+        post(type, text, url, fileName, null);
+    }
+
+    private void post(final String type, final String text, final String url, final String fileName,
+                      final Map<String, Object> extra) {
         final long ts = System.currentTimeMillis();
         final String id = PREFIX + String.format(Locale.US, "%013d", ts) + "_" + Integer.toString(new Random().nextInt(1679616) + 1679616, 36).substring(1);
         final Map<String, Object> d = new LinkedHashMap<>();
@@ -712,6 +778,7 @@ final class DiscussionScreen extends Screen {
         d.put("url", url);
         d.put("fileName", fileName);
         d.put("ts", Long.valueOf(ts));
+        if (extra != null) d.putAll(extra);
         Store.async(() -> { Fs.set(id, d); return Boolean.TRUE; }, (Boolean ok, Exception e) -> {
             if (released) return;
             if (e != null) {
@@ -758,6 +825,338 @@ final class DiscussionScreen extends Screen {
             }
             if (!caption.isEmpty()) input.setText("");
             post(typeOf(r.mime), caption, r.url, r.name);
+        });
+    }
+
+    // ── Voice messages ──────────────────────────────────────
+    private MediaRecorder mr;
+    private File voiceFile;
+    private long voiceT0;
+    private boolean voiceOn = false;
+
+    private final Runnable voiceTick = new Runnable() {
+        @Override public void run() {
+            if (!voiceOn || released) return;
+            long sec = (System.currentTimeMillis() - voiceT0) / 1000;
+            if (recTimeTv != null) recTimeTv.setText("● " + fmtDur(sec));
+            if (sec >= 300) { finishVoice(); return; }      // 5 minute limit
+            h.postDelayed(this, 500);
+        }
+    };
+
+    private static String fmtDur(long secs) {
+        return String.format(Locale.US, "%d:%02d", secs / 60, secs % 60);
+    }
+
+    private static String durOf(String fileName) {
+        java.util.regex.Matcher mt = java.util.regex.Pattern.compile("\\((\\d+:\\d\\d)\\)").matcher(fileName == null ? "" : fileName);
+        return mt.find() ? mt.group(1) : "";
+    }
+
+    private void startVoice() {
+        if (uploading) { a.toast("Please wait for the current upload"); return; }
+        if (voiceOn) return;
+        a.askPermission(android.Manifest.permission.RECORD_AUDIO, granted -> {
+            if (!granted) { a.toast("Microphone permission is needed for voice messages"); return; }
+            beginVoice();
+        });
+    }
+
+    @SuppressWarnings("deprecation")
+    private void beginVoice() {
+        if (released || voiceOn) return;
+        MediaRecorder r = null;
+        try {
+            stopVoicePlay();
+            File f = new File(a.getCacheDir(), "voice_" + System.currentTimeMillis() + ".m4a");
+            r = new MediaRecorder();
+            r.setAudioSource(MediaRecorder.AudioSource.MIC);
+            r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            r.setAudioChannels(1);
+            r.setAudioSamplingRate(22050);
+            r.setAudioEncodingBitRate(48000);
+            r.setOutputFile(f.getAbsolutePath());
+            r.prepare();
+            r.start();
+            mr = r;
+            voiceFile = f;
+            voiceT0 = System.currentTimeMillis();
+            voiceOn = true;
+            inputBar.setVisibility(View.GONE);
+            recRow.setVisibility(View.VISIBLE);
+            recTimeTv.setText("● 0:00");
+            h.post(voiceTick);
+        } catch (Exception e) {
+            if (r != null) { try { r.release(); } catch (Exception ignored) { } }
+            mr = null;
+            voiceOn = false;
+            a.toast("Could not start recording");
+        }
+    }
+
+    private void endVoiceUi() {
+        voiceOn = false;
+        h.removeCallbacks(voiceTick);
+        if (recRow != null) recRow.setVisibility(View.GONE);
+        if (inputBar != null) inputBar.setVisibility(View.VISIBLE);
+    }
+
+    private void cancelVoice() {
+        MediaRecorder r = mr;
+        mr = null;
+        endVoiceUi();
+        if (r != null) {
+            try { r.stop(); } catch (Exception ignored) { }
+            try { r.release(); } catch (Exception ignored) { }
+        }
+        if (voiceFile != null) { voiceFile.delete(); voiceFile = null; }
+    }
+
+    private void finishVoice() {
+        if (!voiceOn || mr == null) return;
+        long ms = System.currentTimeMillis() - voiceT0;
+        MediaRecorder r = mr;
+        mr = null;
+        endVoiceUi();
+        boolean ok = true;
+        try { r.stop(); } catch (Exception e) { ok = false; }
+        try { r.release(); } catch (Exception ignored) { }
+        final File f = voiceFile;
+        voiceFile = null;
+        if (!ok || f == null || ms < 1000 || !f.exists() || f.length() < 500) {
+            if (f != null) f.delete();
+            a.toast("Voice message is too short");
+            return;
+        }
+        sendVoice(f, ms / 1000);
+    }
+
+    private void sendVoice(final File f, final long secs) {
+        if (uploading || released) { f.delete(); return; }
+        uploading = true;
+        showUp(true, "voice message", 0);
+        final Cloud.Meta meta = new Cloud.Meta();
+        meta.name = "Voice message (" + fmtDur(secs) + ").m4a";
+        meta.mime = "audio/mp4";
+        meta.size = f.length();
+        final Context app = a.getApplicationContext();
+        Store.async(() -> Cloud.upload(app, Uri.fromFile(f), meta, pct -> h.post(() -> showUp(true, "voice message", pct))),
+            (Cloud.Result r, Exception e) -> {
+                uploading = false;
+                showUp(false, "", 0);
+                f.delete();
+                if (released) return;
+                if (e != null || r == null) {
+                    a.toast("Upload failed: " + (e != null && e.getMessage() != null ? e.getMessage() : "Upload failed"));
+                    return;
+                }
+                post("audio", "", r.url, meta.name);
+            });
+    }
+
+    // inline voice-message player
+    private MediaPlayer vMp;
+    private String vUrl = "";
+    private boolean vPlaying = false;
+    private TextView vPlay, vLbl;
+    private ProgressBar vBar;
+
+    private final Runnable vTick = new Runnable() {
+        @Override public void run() {
+            if (vMp == null || !vPlaying || released) return;
+            try {
+                int dur = Math.max(1, vMp.getDuration()), pos = vMp.getCurrentPosition();
+                if (vBar != null) vBar.setProgress(pos * 1000 / dur);
+                if (vLbl != null) vLbl.setText("🎤 " + fmtDur(pos / 1000));
+            } catch (Exception ignored) { }
+            h.postDelayed(this, 200);
+        }
+    };
+
+    private View voiceView(final Msg m, int sub) {
+        LinearLayout row = new LinearLayout(a);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        final TextView play = Ui.tv(a, "▶", 16, Ui.WHITE, true);
+        play.setGravity(Gravity.CENTER);
+        play.setBackground(Ui.circle(D_GREEN));
+        row.addView(play, new LinearLayout.LayoutParams(Ui.dp(a, 40), Ui.dp(a, 40)));
+        LinearLayout mid = new LinearLayout(a);
+        mid.setOrientation(LinearLayout.VERTICAL);
+        final ProgressBar pb = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
+        pb.setMax(1000);
+        mid.addView(pb, new LinearLayout.LayoutParams(MATCH, Ui.dp(a, 6)));
+        final String d = durOf(m.fileName);
+        final TextView lbl = Ui.tv(a, "🎤 " + (d.isEmpty() ? "Voice message" : d), 11.5f, sub, false);
+        mid.addView(lbl, Ui.lpm(a, WRAP, WRAP, 0, 4, 0, 0));
+        row.addView(mid, Ui.lpm(a, 0, WRAP, 10, 0, 0, 0));
+        ((LinearLayout.LayoutParams) mid.getLayoutParams()).weight = 1;
+        if (m.url.equals(vUrl)) {          // the list was rebuilt while this message is playing
+            vPlay = play; vBar = pb; vLbl = lbl;
+            play.setText(vPlaying ? "⏸" : "▶");
+        }
+        play.setOnClickListener(v -> toggleVoice(m, play, pb, lbl));
+        markActions(row, m);
+        markActions(play, m);
+        return row;
+    }
+
+    private void toggleVoice(final Msg m, final TextView play, final ProgressBar pb, final TextView lbl) {
+        if (m.url.equals(vUrl) && vMp != null) {
+            if (vPlaying) {
+                try { vMp.pause(); } catch (Exception ignored) { }
+                vPlaying = false;
+                play.setText("▶");
+            } else {
+                try { vMp.start(); } catch (Exception ignored) { }
+                vPlaying = true;
+                play.setText("⏸");
+                h.post(vTick);
+            }
+            return;
+        }
+        stopVoicePlay();
+        vUrl = m.url;
+        vPlay = play; vBar = pb; vLbl = lbl;
+        play.setText("…");
+        try {
+            final MediaPlayer mp = new MediaPlayer();
+            vMp = mp;
+            mp.setDataSource(m.url);
+            mp.setOnPreparedListener(p -> {
+                if (vMp != mp) return;
+                p.start();
+                vPlaying = true;
+                if (vPlay != null) vPlay.setText("⏸");
+                h.post(vTick);
+            });
+            mp.setOnCompletionListener(p -> { if (vMp == mp) stopVoicePlay(); });
+            mp.setOnErrorListener((p, w, x) -> {
+                a.toast("Cannot play this voice message");
+                if (vMp == mp) stopVoicePlay();
+                return true;
+            });
+            mp.prepareAsync();
+        } catch (Exception e) {
+            stopVoicePlay();
+            a.toast("Cannot play this voice message");
+        }
+    }
+
+    private void stopVoicePlay() {
+        h.removeCallbacks(vTick);
+        MediaPlayer mp = vMp;
+        vMp = null;
+        vPlaying = false;
+        vUrl = "";
+        if (mp != null) {
+            try { mp.stop(); } catch (Exception ignored) { }
+            try { mp.release(); } catch (Exception ignored) { }
+        }
+        if (vPlay != null) vPlay.setText("▶");
+        if (vBar != null) vBar.setProgress(0);
+        vPlay = null; vBar = null; vLbl = null;
+    }
+
+    // ── Polls ───────────────────────────────────────────────
+    private void addPollOption(LinearLayout box, List<Ui.Field> fs) {
+        Ui.Field f = Ui.field(a, "Option " + (fs.size() + 1), "Type an option", Ui.IN_TEXT);
+        fs.add(f);
+        box.addView(f.root);
+    }
+
+    private void pollDialog() {
+        final Ui.Modal md = new Ui.Modal(a, "Create poll", "Ask a question and add 2 to 6 options. Members vote with one tap.");
+        final Ui.Field q = Ui.field(a, "Question", "e.g. Which topic should we cover next?", Ui.IN_TEXT);
+        md.add(q.root);
+        final List<Ui.Field> fs = new ArrayList<>();
+        final LinearLayout optBox = new LinearLayout(a);
+        optBox.setOrientation(LinearLayout.VERTICAL);
+        md.add(optBox);
+        addPollOption(optBox, fs);
+        addPollOption(optBox, fs);
+        final TextView add = Ui.btn(a, "+  Add option", Ui.B_GHOST, null);
+        add.setOnClickListener(v -> {
+            if (fs.size() < 6) addPollOption(optBox, fs);
+            if (fs.size() >= 6) add.setVisibility(View.GONE);
+        });
+        md.add(add);
+        final TextView err = md.errorView();
+        md.addSpaced(err, 8);
+        md.actions("Cancel", "Send poll", Ui.B_PRIMARY, () -> {
+            String question = q.text();
+            List<Object> opts = new ArrayList<>();
+            for (Ui.Field f : fs) {
+                String t = f.text().replace('\n', ' ');
+                if (!t.isEmpty()) opts.add(t);
+            }
+            if (question.isEmpty()) { Ui.setErr(err, "Write the question first"); return; }
+            if (opts.size() < 2) { Ui.setErr(err, "Add at least two options"); return; }
+            md.dismiss();
+            Map<String, Object> extra = new LinkedHashMap<>();
+            extra.put("opts", opts);
+            post("poll", question, "", "", extra);
+        });
+        md.show();
+    }
+
+    private View pollView(final Msg m, int fg, int sub) {
+        LinearLayout w = new LinearLayout(a);
+        w.setOrientation(LinearLayout.VERTICAL);
+        w.addView(Ui.tv(a, "📊  POLL", 10.5f, D_GREEN, true));
+        TextView qt = Ui.tv(a, m.text, 15.5f, fg, true);
+        qt.setLineSpacing(0, 1.1f);
+        w.addView(qt, Ui.lpm(a, MATCH, WRAP, 0, 2, 0, 8));
+        int[] cnt = new int[m.opts.size()];
+        for (Integer i : m.votes.values()) if (i >= 0 && i < cnt.length) cnt[i]++;
+        int total = 0;
+        for (int c : cnt) total += c;
+        Integer mine = m.votes.get(rid());
+        for (int i = 0; i < m.opts.size(); i++) {
+            final int idx = i;
+            boolean sel = mine != null && mine == i;
+            int pct = total == 0 ? 0 : Math.round(cnt[i] * 100f / total);
+            LinearLayout opt = new LinearLayout(a);
+            opt.setOrientation(LinearLayout.VERTICAL);
+            opt.setBackground(Ui.bg(a, 0x22000000, 10, sel ? D_GREEN : 0));
+            opt.setPadding(Ui.dp(a, 10), Ui.dp(a, 8), Ui.dp(a, 10), Ui.dp(a, 8));
+            LinearLayout top = new LinearLayout(a);
+            top.setOrientation(LinearLayout.HORIZONTAL);
+            TextView lb = Ui.tv(a, (sel ? "✔  " : "") + m.opts.get(i), 14, fg, sel);
+            top.addView(lb, new LinearLayout.LayoutParams(0, WRAP, 1f));
+            top.addView(Ui.tv(a, cnt[i] + (total > 0 ? "  ·  " + pct + "%" : ""), 12, sub, false));
+            opt.addView(top, new LinearLayout.LayoutParams(MATCH, WRAP));
+            LinearLayout bar = new LinearLayout(a);
+            bar.setOrientation(LinearLayout.HORIZONTAL);
+            bar.setBackground(Ui.bg(a, 0x33FFFFFF, 3, 0));
+            View fill = new View(a);
+            fill.setBackground(Ui.bg(a, sel ? D_GREEN : 0xFF53BDEB, 3, 0));
+            bar.addView(fill, new LinearLayout.LayoutParams(0, Ui.dp(a, 5), Math.max(pct, 0)));
+            bar.addView(new View(a), new LinearLayout.LayoutParams(0, Ui.dp(a, 5), 100 - Math.max(pct, 0)));
+            opt.addView(bar, Ui.lpm(a, MATCH, Ui.dp(a, 5), 0, 6, 0, 0));
+            Ui.pressFx(opt);
+            opt.setOnClickListener(v -> vote(m, idx));
+            markActions(opt, m);
+            w.addView(opt, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 6));
+        }
+        w.addView(Ui.tv(a, total + (total == 1 ? " vote" : " votes") + "  ·  tap an option to vote", 11, sub, false));
+        return w;
+    }
+
+    private void vote(final Msg m, final int idx) {
+        final String id = rid();
+        if (id.isEmpty()) { a.toast("Login required"); return; }
+        Integer cur = m.votes.get(id);
+        final int nv = (cur != null && cur == idx) ? -1 : idx;     // tap the same option again to remove the vote
+        final Map<String, Object> d = new LinkedHashMap<>();
+        d.put("v_" + id, Long.valueOf(nv));
+        if (nv < 0) m.votes.remove(id); else m.votes.put(id, nv);
+        renderMessages();
+        Store.async(() -> { Fs.update(m.id, d); return Boolean.TRUE; }, (Boolean ok, Exception e) -> {
+            if (released) return;
+            if (e != null) a.toast("Could not vote. Try again.");
+            fetch(true);
         });
     }
 

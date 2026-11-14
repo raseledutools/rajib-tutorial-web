@@ -361,6 +361,30 @@ public class NativeHomeActivity extends AppCompatActivity {
         }
     }
 
+    // ── Runtime permission helper (voice messages need the microphone) ──
+    interface PermCb { void result(boolean granted); }
+    private PermCb permCb;
+
+    void askPermission(String perm, PermCb cb) {
+        if (android.os.Build.VERSION.SDK_INT < 23
+            || checkSelfPermission(perm) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            cb.result(true);
+            return;
+        }
+        permCb = cb;
+        requestPermissions(new String[]{perm}, 502);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(code, perms, res);
+        if (code == 502) {
+            PermCb cb = permCb;
+            permCb = null;
+            if (cb != null) cb.result(res.length > 0 && res[0] == android.content.pm.PackageManager.PERMISSION_GRANTED);
+        }
+    }
+
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
