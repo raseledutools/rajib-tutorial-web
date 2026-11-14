@@ -85,6 +85,45 @@ final class Fs {
         } catch (NotFound ignored) { }
     }
 
+
+    /**
+     * Newest documents whose id starts with {@code prefix} (ids sort chronologically),
+     * newest first. Uses a __name__ range query, so no composite index is needed.
+     */
+    static List<Doc> latestWithPrefix(String prefix, int limit) throws Exception {
+        String root = "projects/mywebtools-f8d53/databases/(default)/documents/tutorial_courses/";
+        char lastCh = prefix.charAt(prefix.length() - 1);
+        String lo = root + prefix;
+        String hi = root + prefix.substring(0, prefix.length() - 1) + (char) (lastCh + 1);
+        JSONArray filters = new JSONArray()
+            .put(nameFilter(lo, "GREATER_THAN_OR_EQUAL"))
+            .put(nameFilter(hi, "LESS_THAN"));
+        JSONObject q = new JSONObject();
+        q.put("from", new JSONArray().put(new JSONObject().put("collectionId", "tutorial_courses")));
+        q.put("where", new JSONObject().put("compositeFilter",
+            new JSONObject().put("op", "AND").put("filters", filters)));
+        q.put("orderBy", new JSONArray().put(new JSONObject()
+            .put("field", new JSONObject().put("fieldPath", "__name__"))
+            .put("direction", "DESCENDING")));
+        q.put("limit", limit);
+        String url = "https://firestore.googleapis.com/v1/projects/mywebtools-f8d53/databases/(default)/documents:runQuery?key=" + KEY;
+        String res = request("POST", url, new JSONObject().put("structuredQuery", q).toString());
+        JSONArray arr = new JSONArray(res);
+        List<Doc> out = new ArrayList<>();
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject o = arr.getJSONObject(i);
+            if (o.has("document")) out.add(parseDoc(o.getJSONObject("document")));
+        }
+        return out;
+    }
+
+    private static JSONObject nameFilter(String ref, String op) throws JSONException {
+        return new JSONObject().put("fieldFilter", new JSONObject()
+            .put("field", new JSONObject().put("fieldPath", "__name__"))
+            .put("op", op)
+            .put("value", new JSONObject().put("referenceValue", ref)));
+    }
+
     // ── HTTP ────────────────────────────────────────────────
 
     private static String docUrl(String id, List<String> mask) throws Exception {

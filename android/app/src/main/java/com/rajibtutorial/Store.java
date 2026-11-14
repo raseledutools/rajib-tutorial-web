@@ -262,6 +262,7 @@ final class Store {
                     continue;
                 }
                 if (d.id.startsWith("_member_")) { r.members.add(parseMember(d)); continue; }
+                if (d.id.startsWith("_disc_")) continue;   // Discussion chat messages — not courses
                 Course c = new Course();
                 c.id = d.id;
                 c.courseName = str(d.data, "courseName");
