@@ -3,10 +3,7 @@ package com.rajibtutorial;
 import android.content.ContentValues;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Rect;
+import android.media.Image;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioPlaybackCaptureConfiguration;
@@ -22,7 +19,6 @@ import android.os.Build;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
-import android.view.Surface;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -43,14 +39,19 @@ import java.util.Locale;
  */
 final class NativeRecorder {
     private static final int SAMPLE_RATE = 44100;
-    private static final int FPS = 15;
+    private static final int FPS = 10;
 
     private final Context ctx;
     private final MediaProjection projection;
     private final int w, h;
 
     private MediaCodec venc, aenc;
-    private Surface vsurf;
+    private final int ew, eh;                       // encoded size (multiple of 16)
+    private final int[] argb;                       // latest screen frame
+    private final byte[] yArr, uArr, vArr;          // converted planes
+    private boolean hasFrame = false, dirty = false;
+    private volatile int vIn = 0, vOut = 0, aOut = 0;
+    private Thread videoThread;
     private MediaMuxer muxer;
     private AudioRecord micRec, playRec;
     private ParcelFileDescriptor pfd;
@@ -59,8 +60,6 @@ final class NativeRecorder {
     private String label = "";
 
     private final Object frameLock = new Object();
-    private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
-    private final Rect dst;
 
     private volatile boolean running = false;
     private volatile boolean abort = false;
@@ -77,24 +76,35 @@ final class NativeRecorder {
         this.projection = mp;
         this.w = w;
         this.h = h;
-        this.dst = new Rect(0, 0, w, h);
+        this.ew = Math.max(16, w & ~15);
+        this.eh = Math.max(16, h & ~15);
+        this.argb = new int[ew * eh];
+        java.util.Arrays.fill(this.argb, 0xFF000000);
+        this.yArr = new byte[ew * eh];
+        this.uArr = new byte[(ew / 2) * (eh / 2)];
+        this.vArr = new byte[(ew / 2) * (eh / 2)];
     }
 
     String label() { return label; }
+
+    String info() {
+        return "video " + vOut + "/" + vIn + " frames, audio " + aOut + ", "
+            + String.format(Locale.US, "%.1f", Math.max(lastV, lastA) / 1000000.0) + "s"
+            + (hasAudio ? "" : ", no audio");
+    }
 
     /** @return true when recording really started */
     boolean start() {
         try {
             openOutput();
 
-            MediaFormat vf = MediaFormat.createVideoFormat("video/avc", w, h);
-            vf.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-            vf.setInteger(MediaFormat.KEY_BIT_RATE, 2500000);
+            MediaFormat vf = MediaFormat.createVideoFormat("video/avc", ew, eh);
+            vf.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
+            vf.setInteger(MediaFormat.KEY_BIT_RATE, 2000000);
             vf.setInteger(MediaFormat.KEY_FRAME_RATE, FPS);
             vf.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
             venc = MediaCodec.createEncoderByType("video/avc");
             venc.configure(vf, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            vsurf = venc.createInputSurface();
             venc.start();
 
             hasAudio = initAudio();
@@ -102,9 +112,8 @@ final class NativeRecorder {
             baseUs = System.nanoTime() / 1000L;
             running = true;
 
-            // make sure the video track gets its format even before the first real frame arrives
-            pushBlack();
-
+            videoThread = new Thread(this::videoLoop, "rec-video");
+            videoThread.start();
             drainThread = new Thread(this::drainLoop, "rec-drain");
             drainThread.start();
             if (hasAudio) {
@@ -202,7 +211,7 @@ final class NativeRecorder {
         final short[] pl = new short[2048];
         final byte[] out = new byte[mic.length * 2];
         long samples = 0;
-        final long base = System.nanoTime() / 1000L;
+        final long base = Math.max(0, System.nanoTime() / 1000L - baseUs);
         try {
             micRec.startRecording();
             if (playRec != null) {
@@ -246,7 +255,7 @@ final class NativeRecorder {
                 if (in == null) return;
                 in.clear();
                 if (data != null && len > 0) in.put(data, 0, Math.min(len, in.remaining()));
-                aenc.queueInputBuffer(idx, 0, in.position(), Math.max(0, ptsUs - baseUs),
+                aenc.queueInputBuffer(idx, 0, in.position(), Math.max(0, ptsUs),
                     eos ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
                 return;
             } catch (Throwable t) {
@@ -256,33 +265,109 @@ final class NativeRecorder {
     }
 
     // ── video frames ────────────────────────────────────────
-    void push(Bitmap b) {
+    /** Called with every new screen bitmap; only copies the pixels (cheap). */
+    void setFrame(Bitmap b) {
         if (!running || b == null || b.isRecycled()) return;
-        Surface s = vsurf;
-        if (s == null) return;
+        if (b.getWidth() < ew || b.getHeight() < eh) return;
         synchronized (frameLock) {
-            Canvas c = null;
             try {
-                c = s.lockCanvas(null);
-                c.drawBitmap(b, null, dst, paint);
-            } catch (Throwable ignored) {
-            } finally {
-                if (c != null) { try { s.unlockCanvasAndPost(c); } catch (Throwable ignored) { } }
+                b.getPixels(argb, 0, ew, 0, 0, ew, eh);
+                hasFrame = true;
+                dirty = true;
+            } catch (Throwable ignored) { }
+        }
+    }
+
+    /** Constant frame rate: encodes the latest frame every 1/FPS s with OUR OWN timestamps. */
+    private void videoLoop() {
+        final long period = 1000000000L / FPS;
+        final int[] local = new int[argb.length];
+        java.util.Arrays.fill(local, 0xFF000000);
+        long next = System.nanoTime();
+        try {
+            toYuv(local);
+            while (running) {
+                long now = System.nanoTime();
+                if (now < next) {
+                    try { Thread.sleep(Math.max(1, (next - now) / 1000000L)); } catch (InterruptedException e) { break; }
+                    continue;
+                }
+                next += period;
+                if (next < now) next = now + period;           // fell behind: don't burst
+                boolean conv = false;
+                synchronized (frameLock) {
+                    if (dirty) {
+                        System.arraycopy(argb, 0, local, 0, local.length);
+                        dirty = false;
+                        conv = true;
+                    }
+                }
+                if (conv) toYuv(local);
+                int idx = venc.dequeueInputBuffer(20000);
+                if (idx < 0) continue;
+                Image img = venc.getInputImage(idx);
+                if (img == null) { abort = true; break; }
+                fillImage(img);
+                long pts = Math.max(0, System.nanoTime() / 1000L - baseUs);
+                venc.queueInputBuffer(idx, 0, ew * eh * 3 / 2, pts, 0);
+                vIn++;
+            }
+        } catch (Throwable ignored) {
+        } finally {
+            for (int t = 0; t < 20 && !abort; t++) {
+                try {
+                    int idx = venc.dequeueInputBuffer(20000);
+                    if (idx < 0) continue;
+                    long pts = Math.max(0, System.nanoTime() / 1000L - baseUs);
+                    venc.queueInputBuffer(idx, 0, 0, pts, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                    break;
+                } catch (Throwable e) { break; }
             }
         }
     }
 
-    private void pushBlack() {
-        Surface s = vsurf;
-        if (s == null) return;
-        synchronized (frameLock) {
-            Canvas c = null;
-            try {
-                c = s.lockCanvas(null);
-                c.drawColor(Color.BLACK);
-            } catch (Throwable ignored) {
-            } finally {
-                if (c != null) { try { s.unlockCanvasAndPost(c); } catch (Throwable ignored) { } }
+    private void toYuv(int[] px) {
+        final int W = ew, H = eh;
+        for (int j = 0; j < H; j++) {
+            int row = j * W;
+            for (int i = 0; i < W; i++) {
+                int c = px[row + i];
+                int r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+                yArr[row + i] = (byte) (((66 * r + 129 * g + 25 * b + 128) >> 8) + 16);
+            }
+        }
+        final int cw = W / 2, ch = H / 2;
+        for (int j = 0; j < ch; j++) {
+            int r0 = (2 * j) * W, r1 = r0 + W;
+            for (int i = 0; i < cw; i++) {
+                int c0 = px[r0 + 2 * i], c1 = px[r0 + 2 * i + 1], c2 = px[r1 + 2 * i], c3 = px[r1 + 2 * i + 1];
+                int r = (((c0 >> 16) & 255) + ((c1 >> 16) & 255) + ((c2 >> 16) & 255) + ((c3 >> 16) & 255)) >> 2;
+                int g = (((c0 >> 8) & 255) + ((c1 >> 8) & 255) + ((c2 >> 8) & 255) + ((c3 >> 8) & 255)) >> 2;
+                int b = ((c0 & 255) + (c1 & 255) + (c2 & 255) + (c3 & 255)) >> 2;
+                int o = j * cw + i;
+                uArr[o] = (byte) (((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128);
+                vArr[o] = (byte) (((112 * r - 94 * g - 18 * b + 128) >> 8) + 128);
+            }
+        }
+    }
+
+    private void fillImage(Image img) {
+        Image.Plane[] pl = img.getPlanes();
+        copyPlane(pl[0], yArr, ew, eh);
+        copyPlane(pl[1], uArr, ew / 2, eh / 2);
+        copyPlane(pl[2], vArr, ew / 2, eh / 2);
+    }
+
+    private static void copyPlane(Image.Plane p, byte[] src, int pw, int ph) {
+        ByteBuffer b = p.getBuffer();
+        int rs = p.getRowStride(), ps = p.getPixelStride();
+        for (int r = 0; r < ph; r++) {
+            int base = r * rs;
+            if (ps == 1) {
+                b.position(base);
+                b.put(src, r * pw, pw);
+            } else {
+                for (int c = 0; c < pw; c++) b.put(base + c * ps, src[r * pw + c]);
             }
         }
     }
@@ -322,12 +407,13 @@ final class NativeRecorder {
         if (buf != null && info.size > 0 && muxStarted) {
             long pts = info.presentationTimeUs;
             if (video) {
-                pts -= baseUs;                       // surface timestamps are on the nanoTime clock
                 if (pts <= lastV) pts = lastV + 1;
                 lastV = pts;
+                vOut++;
             } else {
                 if (pts <= lastA) pts = lastA + 1;
                 lastA = pts;
+                aOut++;
             }
             if (pts < 0) pts = 0;
             info.presentationTimeUs = pts;
@@ -345,8 +431,8 @@ final class NativeRecorder {
     synchronized String stop() {
         if (!running && venc == null && muxer == null) return "";
         running = false;
+        try { if (videoThread != null) videoThread.join(2500); } catch (InterruptedException ignored) { }
         try { if (audioThread != null) audioThread.join(2500); } catch (InterruptedException ignored) { }
-        try { if (venc != null) venc.signalEndOfInputStream(); } catch (Throwable ignored) { }
         try { if (drainThread != null) drainThread.join(3000); } catch (InterruptedException ignored) { }
         abort = true;
         try { if (drainThread != null) drainThread.join(500); } catch (InterruptedException ignored) { }
@@ -362,11 +448,10 @@ final class NativeRecorder {
         try { if (venc != null) venc.release(); } catch (Throwable ignored) { }
         try { if (aenc != null) { aenc.stop(); } } catch (Throwable ignored) { }
         try { if (aenc != null) aenc.release(); } catch (Throwable ignored) { }
-        try { if (vsurf != null) vsurf.release(); } catch (Throwable ignored) { }
         try { if (micRec != null) micRec.release(); } catch (Throwable ignored) { }
         try { if (playRec != null) playRec.release(); } catch (Throwable ignored) { }
         try { if (pfd != null) pfd.close(); } catch (Throwable ignored) { }
-        muxer = null; venc = null; aenc = null; vsurf = null; micRec = null; playRec = null; pfd = null;
+        muxer = null; venc = null; aenc = null; micRec = null; playRec = null; pfd = null;
 
         if (uri != null) {
             try {

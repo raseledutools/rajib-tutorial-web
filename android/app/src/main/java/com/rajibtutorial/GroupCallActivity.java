@@ -217,6 +217,9 @@ public class GroupCallActivity extends AppCompatActivity {
         public String nativeRecStop() { return ScreenCaptureService.stopRec(); }
 
         @JavascriptInterface
+        public String nativeRecInfo() { return ScreenCaptureService.recInfo(); }
+
+        @JavascriptInterface
         public boolean recStart() { return openRec(); }
 
         @JavascriptInterface
