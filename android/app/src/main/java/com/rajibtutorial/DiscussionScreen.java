@@ -431,12 +431,12 @@ final class DiscussionScreen extends Screen {
                 break;
             }
             case "file": {
-                TextView t = Ui.tv(a, "📎  " + (m.fileName.isEmpty() ? "File" : m.fileName), 14, fg, true);
+                TextView t = Ui.tv(a, FileViewer.icon(m.fileName, m.url) + "  " + (m.fileName.isEmpty() ? "File" : m.fileName), 14, fg, true);
                 t.setMaxWidth(maxW);
                 t.setPaintFlags(t.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
                 t.setPadding(0, Ui.dp(a, 4), 0, Ui.dp(a, 6));
                 Ui.pressFx(t);
-                t.setOnClickListener(v -> openExternal(m.url));
+                t.setOnClickListener(v -> FileViewer.open(a, m.url, m.fileName));
                 markDeletable(t, m);
                 b.addView(t);
                 break;
@@ -536,16 +536,6 @@ final class DiscussionScreen extends Screen {
         d.setContentView(fl);
         d.show();
         vv.setVideoURI(Uri.parse(m.url));
-    }
-
-    private void openExternal(String url) {
-        try {
-            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            a.startActivity(i);
-        } catch (Exception e) {
-            a.toast("No app found to open this file");
-        }
     }
 
     // ── Sending ─────────────────────────────────────────────
