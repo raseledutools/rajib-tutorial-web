@@ -30,7 +30,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
 
-    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5;
+    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6;
 
     // state shared with screens / dialogs
     Store.Course curCourse = null;
@@ -287,6 +287,39 @@ public class NativeHomeActivity extends AppCompatActivity {
         closeDrawer();
     }
 
+    void openDiscussion() {
+        show(new DiscussionScreen(this), V_DISCUSS, "Discussion");
+        closeDrawer();
+    }
+
+    // ── File picker (Discussion attachments) ────────────────
+    interface PickCb { void onPicked(android.net.Uri uri); }
+    private static final int REQ_PICK = 7301;
+    private PickCb pickCb;
+
+    void pickFile(String mime, PickCb cb) {
+        pickCb = cb;
+        try {
+            Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+            i.setType(mime);
+            i.addCategory(Intent.CATEGORY_OPENABLE);
+            startActivityForResult(Intent.createChooser(i, "Select"), REQ_PICK);
+        } catch (Exception e) {
+            pickCb = null;
+            toast("Could not open the file picker");
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req == REQ_PICK) {
+            PickCb cb = pickCb;
+            pickCb = null;
+            if (res == RESULT_OK && data != null && data.getData() != null && cb != null) cb.onPicked(data.getData());
+        }
+    }
+
     void openMembers() {
         if (!Store.adminIn) return;
         show(new MembersScreen(this), V_MEMBERS, "Premium Members");
@@ -468,6 +501,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         boolean eOn = !Store.safeUrl(Store.live.examUrl).isEmpty();
         nav.addView(navItem("🎥  Live Class", currentView == V_LIVE && !liveExam, cOn, () -> openLive(false)));
         nav.addView(navItem("📝  Live Exam", currentView == V_LIVE && liveExam, eOn, () -> openLive(true)));
+        nav.addView(navItem("💬  Discussion", currentView == V_DISCUSS, false, this::openDiscussion));
         nav.addView(navLabel("Courses"));
         if (loading) {
             nav.addView(Ui.tv(this, "Loading…", 12, Ui.SUB, false));
