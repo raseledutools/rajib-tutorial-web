@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.FLASHLIGHT" />
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
 
+    <!-- Study Tools: live QR scanner -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <!-- Existing permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -68,6 +72,14 @@
         <!-- Native section (Java version of the web app) -->
         <activity
             android:name=".NativeHomeActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Study Tools: offline PDF / photo / QR utilities (bundled WebView + native bridge) -->
+        <activity
+            android:name=".StudyToolsActivity"
             android:exported="false"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden"

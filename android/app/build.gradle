@@ -77,6 +77,7 @@ dependencies {
     implementation 'androidx.drawerlayout:drawerlayout:1.2.0'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.webkit:webkit:1.11.0'   // WebViewAssetLoader (Study Tools offline pages)
     implementation 'com.twilio:voice-android:6.3.0'
 
     // Admin push notifications (works only once google-services.json is added)

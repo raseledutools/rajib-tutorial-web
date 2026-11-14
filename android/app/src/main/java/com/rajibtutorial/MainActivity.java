@@ -115,6 +115,9 @@ public class MainActivity extends AppCompatActivity {
         btnNativeSection.setOnClickListener(v ->
             startActivity(new Intent(this, NativeHomeActivity.class)));
 
+        findViewById(R.id.btnStudyTools).setOnClickListener(v ->
+            startActivity(new Intent(this, StudyToolsActivity.class)));
+
         findViewById(R.id.btnFocusMode).setOnClickListener(v ->
             startActivity(new Intent(this, FocusActivity.class)));
 
@@ -133,6 +136,10 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.drawerNative).setOnClickListener(v -> {
             homeScreen.closeDrawers();
             startActivity(new Intent(this, NativeHomeActivity.class));
+        });
+        findViewById(R.id.drawerStudyTools).setOnClickListener(v -> {
+            homeScreen.closeDrawers();
+            startActivity(new Intent(this, StudyToolsActivity.class));
         });
         findViewById(R.id.drawerFocus).setOnClickListener(v -> {
             homeScreen.closeDrawers();

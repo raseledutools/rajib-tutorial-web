@@ -201,6 +201,58 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/btnStudyTools"
+                android:layout_width="match_parent"
+                android:layout_height="82dp"
+                android:layout_marginBottom="14dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_card_tools"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:elevation="6dp">
+
+                <TextView
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
+                    android:gravity="center"
+                    android:text="🧰"
+                    android:textSize="22sp"
+                    android:background="@drawable/bg_circle_white" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Study Tools"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="PDF, Photo &amp; QR tools • Offline"
+                        android:textSize="12sp"
+                        android:textColor="#E6FFFFFF"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="›"
+                    android:textSize="26sp"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/btnFocusMode"
                 android:layout_width="match_parent"
                 android:layout_height="82dp"
@@ -419,6 +471,22 @@
             android:layout_marginTop="6dp"
             android:padding="14dp"
             android:text="📱   Native Section"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#2A1B4D"
+            android:background="@drawable/bg_drawer_item"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/drawerStudyTools"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginTop="6dp"
+            android:padding="14dp"
+            android:text="🧰   Study Tools"
             android:textSize="15sp"
             android:textStyle="bold"
             android:textColor="#2A1B4D"
