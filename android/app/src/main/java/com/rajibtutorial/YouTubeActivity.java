@@ -217,7 +217,7 @@ public class YouTubeActivity extends AppCompatActivity {
             ext.setOnClickListener(x -> {
                 String cur = webView.getUrl();
                 try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(cur != null ? cur : "https://studio.youtube.com/"))); }
-                catch (Exception e) { Toast.makeText(this, "Browser খোলা যায়নি", Toast.LENGTH_SHORT).show(); }
+                catch (Exception e) { Toast.makeText(this, "Could not open the browser", Toast.LENGTH_SHORT).show(); }
             });
             FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
             lp.setMargins(0, 24, 16, 0);

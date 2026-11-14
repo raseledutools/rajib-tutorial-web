@@ -71,8 +71,8 @@ final class PushManager {
             try { nm.deleteNotificationChannel("rt_push_v1"); } catch (Exception ignored) {}
             try { nm.deleteNotificationChannel("rt_push_v2"); } catch (Exception ignored) {}
             NotificationChannel ch = new NotificationChannel(
-                CHANNEL_ID, "Admin বার্তা", NotificationManager.IMPORTANCE_HIGH);
-            ch.setDescription("Admin এর পাঠানো গুরুত্বপূর্ণ বার্তা");
+                CHANNEL_ID, "Admin messages", NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("Important announcements from the admin");
             // Sound + vibration follow the phone's own system settings (default notification tone / pattern)
             ch.enableVibration(true);
             ch.setVibrationPattern(VIBE);
@@ -86,8 +86,8 @@ final class PushManager {
             nm.createNotificationChannel(ch);
 
             NotificationChannel chat = new NotificationChannel(
-                CHAT_CHANNEL, "Discussion বার্তা", NotificationManager.IMPORTANCE_HIGH);
-            chat.setDescription("Discussion গ্রুপের নতুন মেসেজ ও কল");
+                CHAT_CHANNEL, "Discussion messages", NotificationManager.IMPORTANCE_HIGH);
+            chat.setDescription("New messages and calls in the Discussion group");
             chat.enableVibration(true);
             chat.setVibrationPattern(VIBE);
             chat.setShowBadge(true);

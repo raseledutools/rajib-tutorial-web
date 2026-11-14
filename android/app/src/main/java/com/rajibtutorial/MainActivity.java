@@ -182,7 +182,7 @@ public class MainActivity extends AppCompatActivity {
                     if (total > 0) {
                         downloadStatus.setText(formatBytes(downloaded) + " / " + formatBytes(total));
                     } else {
-                        downloadStatus.setText("download হচ্ছে…");
+                        downloadStatus.setText("Downloading…");
                     }
                 });
             }
@@ -193,7 +193,7 @@ public class MainActivity extends AppCompatActivity {
                     // Progress bar 100% দেখাও
                     downloadProgressBar.setProgress(100);
                     downloadPercent.setText("100%");
-                    downloadStatus.setText("✅ Download সম্পন্ন");
+                    downloadStatus.setText("✅ Download complete");
                     // Install button দেখাও
                     pendingApkFile = apkFile;
                     btnInstallNow.setVisibility(View.VISIBLE);
@@ -205,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onError(String reason) {
                 runOnUiThread(() -> {
-                    downloadStatus.setText("❌ সমস্যা হয়েছে, আবার চেষ্টা করুন");
+                    downloadStatus.setText("❌ Something went wrong. Please try again.");
                     btnInstallNow.setVisibility(View.GONE);
                     new Handler().postDelayed(() ->
                         downloadOverlay.setVisibility(View.GONE), 3000);
@@ -415,7 +415,7 @@ public class MainActivity extends AppCompatActivity {
         String vNum  = version.replace("v", "");
         String vName = "1." + vNum;
         TextView tv  = updateBanner.findViewById(R.id.updateBannerText);
-        if (tv != null) tv.setText("v" + vName + " আপডেট");
+        if (tv != null) tv.setText("v" + vName + " update");
 
         updateBanner.setVisibility(View.VISIBLE);
         updateBanner.setTranslationX(600f);
@@ -453,17 +453,17 @@ public class MainActivity extends AppCompatActivity {
         downloadOverlay.setVisibility(View.VISIBLE);
         downloadProgressBar.setProgress(0);
         downloadPercent.setText("0%");
-        downloadStatus.setText("শুরু হচ্ছে…");
+        downloadStatus.setText("Starting…");
         updateChecker.startDownload(apkUrl, version);
     }
 
     // ── Sidebar "Check for Update" ───────────────────────────────────────
     private void checkUpdateManually() {
-        Toast.makeText(this, "🔄 আপডেট চেক করা হচ্ছে…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "🔄 Checking for updates…", Toast.LENGTH_SHORT).show();
         updateChecker.checkForUpdate(new UpdateChecker.ManualCheckListener() {
             @Override public void onUpToDate(int installedCode) {
                 Toast.makeText(MainActivity.this,
-                    "✅ আপনি সর্বশেষ version (v1." + installedCode + ") ব্যবহার করছেন",
+                    "✅ You are on the latest version (v1." + installedCode + ")",
                     Toast.LENGTH_LONG).show();
             }
 
@@ -471,19 +471,19 @@ public class MainActivity extends AppCompatActivity {
                 if (isFinishing()) return;
                 String vName = "1." + version.replace("v", "");
                 new AlertDialog.Builder(MainActivity.this)
-                    .setTitle("🎉 নতুন আপডেট এসেছে")
-                    .setMessage("Rajib Tutorial v" + vName + " পাওয়া গেছে।\n\nএখনই download ও install করবেন?")
-                    .setPositiveButton("এখনই আপডেট", (d, w) -> {
+                    .setTitle("🎉 Update available")
+                    .setMessage("Rajib Tutorial v" + vName + " is available.\n\nDownload and install now?")
+                    .setPositiveButton("Update now", (d, w) -> {
                         hideUpdateBanner();
                         beginUpdateDownload(apkUrl, version);
                     })
-                    .setNegativeButton("পরে", null)
+                    .setNegativeButton("Later", null)
                     .show();
             }
 
             @Override public void onError(String reason) {
                 Toast.makeText(MainActivity.this,
-                    "❌ আপডেট চেক করা যায়নি (" + reason + "). Internet দেখে আবার চেষ্টা করুন",
+                    "❌ Could not check for updates (" + reason + "). Check your internet connection and try again.",
                     Toast.LENGTH_LONG).show();
             }
         });
@@ -510,7 +510,7 @@ public class MainActivity extends AppCompatActivity {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                     && !getPackageManager().canRequestPackageInstalls()) {
                 Toast.makeText(this,
-                    "Install করার অনুমতি দিন, তারপর ফিরে এসে \"এখনই Install করুন\" চাপুন",
+                    "Allow installs from this app, then come back and tap \"Install now\"",
                     Toast.LENGTH_LONG).show();
                 startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:" + getPackageName())));
@@ -523,7 +523,7 @@ public class MainActivity extends AppCompatActivity {
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(install);
         } catch (Exception e) {
-            Toast.makeText(this, "Install করতে পারছে না: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Could not install: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -552,7 +552,7 @@ public class MainActivity extends AppCompatActivity {
         }
         // Download চলছে — cancel করবে না
         if (downloadOverlay.getVisibility() == View.VISIBLE) {
-            Toast.makeText(this, "আপডেট download হচ্ছে…", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Downloading update…", Toast.LENGTH_SHORT).show();
             return;
         }
         // Full-screen video
@@ -585,7 +585,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         backPressedOnce = true;
-        Toast.makeText(this, "আবার Back চাপলে বন্ধ হবে", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Press back again to exit", Toast.LENGTH_SHORT).show();
         backHandler.postDelayed(() -> backPressedOnce = false, 2000);
     }
 

@@ -96,7 +96,7 @@ public class AdminBridge {
             try {
                 String accessToken = getAccessToken();
                 if (accessToken == null) {
-                    cb.done("❌ Access token নেওয়া যায়নি");
+                    cb.done("❌ Could not obtain an access token");
                     return;
                 }
 
@@ -117,22 +117,22 @@ public class AdminBridge {
                         return;
                     }
                     if (!topicOk && r[0] == 0) {
-                        cb.done("❌ কোনো device এ পাঠানো যায়নি" + (lastSendError == null ? "" : " (" + lastSendError + ")"));
+                        cb.done("❌ Could not deliver to any device" + (lastSendError == null ? "" : " (" + lastSendError + ")"));
                         return;
                     }
                     logToFirestore(title, body, "all", "");
-                    cb.done("✅ সব user এর কাছে পাঠানো হয়েছে (" + r[0] + " টি device"
-                        + (r[1] > 0 ? ", " + r[1] + " টি ব্যর্থ" : "") + ")");
+                    cb.done("✅ Sent to all members (" + r[0] + " devices"
+                        + (r[1] > 0 ? ", " + r[1] + " failed" : "") + ")");
 
                 } else if ("user".equals(target) && mobile != null && !mobile.isEmpty()) {
                     // Fetch tokens for this mobile from Firestore (all number formats)
                     String[] tokens = getTokensForMobile(mobile);
                     if (lastLookupError != null) {
-                        cb.done("❌ Token খোঁজা যায়নি: " + lastLookupError);
+                        cb.done("❌ Could not look up device tokens: " + lastLookupError);
                         return;
                     }
                     if (tokens == null || tokens.length == 0) {
-                        cb.done("❌ এই user এর কোনো device registered নেই (user কে app একবার খুলতে বলুন)");
+                        cb.done("❌ This member has no registered device (ask them to open the app once)");
                         return;
                     }
                     int ok = 0, fail = 0;
@@ -147,8 +147,8 @@ public class AdminBridge {
                     }
                     logToFirestore(title, body, "user", mobile);
                     cb.done(ok > 0
-                        ? "✅ " + ok + " টি device এ পাঠানো হয়েছে"
-                        : "❌ কোনো device এ পাঠানো যায়নি" + (lastSendError == null ? "" : " (" + lastSendError + ")"));
+                        ? "✅ Delivered to " + ok + " device(s)"
+                        : "❌ Could not deliver to any device" + (lastSendError == null ? "" : " (" + lastSendError + ")"));
                 } else {
                     cb.done("❌ Invalid target: " + target);
                 }

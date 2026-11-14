@@ -56,14 +56,14 @@ final class NotifyScreen extends Screen {
 
         // ── Send card ──
         LinearLayout card = Ui.card(a);
-        card.addView(Ui.tv(a, "নতুন বার্তা পাঠান", 15, Ui.TEXT, true), Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 8));
+        card.addView(Ui.tv(a, "Send a new notification", 15, Ui.TEXT, true), Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 8));
         stat = Ui.tv(a, "…", 12.5f, Ui.SUB, false);
         card.addView(stat, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 12));
 
         LinearLayout seg = new LinearLayout(a);
         seg.setOrientation(LinearLayout.HORIZONTAL);
-        segAll = Ui.btn(a, "👥 সব user", Ui.B_OUTLINE, v -> setTarget(true));
-        segUser = Ui.btn(a, "👤 নির্দিষ্ট user", Ui.B_OUTLINE, v -> setTarget(false));
+        segAll = Ui.btn(a, "👥 All members", Ui.B_OUTLINE, v -> setTarget(true));
+        segUser = Ui.btn(a, "👤 One member", Ui.B_OUTLINE, v -> setTarget(false));
         seg.addView(segAll, Ui.lpm(a, 0, WRAP, 0, 0, 4, 0));
         seg.addView(segUser, Ui.lpm(a, 0, WRAP, 4, 0, 0, 0));
         ((LinearLayout.LayoutParams) segAll.getLayoutParams()).weight = 1;
@@ -72,17 +72,17 @@ final class NotifyScreen extends Screen {
 
         userBox = new LinearLayout(a);
         userBox.setOrientation(LinearLayout.VERTICAL);
-        fMobile = Ui.field(a, "Member (মোবাইল নম্বর)", "নম্বর লিখুন বা নিচের বাটনে তালিকা থেকে বাছুন", Ui.IN_PHONE);
+        fMobile = Ui.field(a, "Member mobile number", "Enter a number or choose from the list below", Ui.IN_PHONE);
         userBox.addView(fMobile.root);
-        userBox.addView(Ui.smallBtn(a, "📋 Member তালিকা থেকে বাছুন", Ui.ACCENT, v -> pickMember()),
+        userBox.addView(Ui.smallBtn(a, "📋 Choose from members", Ui.ACCENT, v -> pickMember()),
             Ui.lpm(a, WRAP, WRAP, 0, 0, 0, 12));
         card.addView(userBox);
 
-        fTitle = Ui.field(a, "Title", "যেমন: আজ রাতে Live Class", Ui.IN_TEXT);
+        fTitle = Ui.field(a, "Title", "e.g. Live class tonight at 8 PM", Ui.IN_TEXT);
         limit(fTitle.et, 100);
         card.addView(fTitle.root);
 
-        fBody = Ui.field(a, "Message", "বার্তা লিখুন…", Ui.IN_MULTI);
+        fBody = Ui.field(a, "Message", "Write your message…", Ui.IN_MULTI);
         limit(fBody.et, 500);
         fBody.et.addTextChangedListener(new android.text.TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int c, int af) { }
@@ -94,18 +94,18 @@ final class NotifyScreen extends Screen {
         cnt.setGravity(Gravity.END);
         card.addView(cnt, Ui.lpm(a, MATCH, WRAP, 0, -8, 0, 8));
 
-        sendBtn = Ui.btn(a, "🔔 সব user কে পাঠান", Ui.B_PRIMARY, v -> send());
+        sendBtn = Ui.btn(a, "🔔 Send to all members", Ui.B_PRIMARY, v -> send());
         card.addView(sendBtn, Ui.lpm(a, MATCH, WRAP, 0, 4, 0, 0));
         resultTv = Ui.tv(a, "", 13, Ui.SUB, true);
         resultTv.setVisibility(View.GONE);
         card.addView(resultTv, Ui.lpm(a, MATCH, WRAP, 0, 10, 0, 0));
-        card.addView(Ui.tv(a, "App বন্ধ থাকলেও (recent থেকে সরানো হলেও) phone এ notification আসবে। শুধু Force stop করা থাকলে বা internet না থাকলে আসবে না।",
+        card.addView(Ui.tv(a, "Members receive notifications even when the app is closed. Delivery is not possible if the app was force-stopped or the device is offline.",
             12, Ui.SUB, false), Ui.lpm(a, MATCH, WRAP, 0, 10, 0, 0));
         root.addView(card, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 14));
 
         // ── History card ──
         LinearLayout hc = Ui.card(a);
-        hc.addView(Ui.tv(a, "পাঠানো বার্তা", 15, Ui.TEXT, true), Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 8));
+        hc.addView(Ui.tv(a, "Sent notifications", 15, Ui.TEXT, true), Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 8));
         history = new LinearLayout(a);
         history.setOrientation(LinearLayout.VERTICAL);
         hc.addView(history);
@@ -138,11 +138,11 @@ final class NotifyScreen extends Screen {
     private void disarm() {
         main.removeCallbacks(disarm);
         armed = false;
-        if (sendBtn != null && !sending) sendBtn.setText(targetAll ? "🔔 সব user কে পাঠান" : "🔔 এই user কে পাঠান");
+        if (sendBtn != null && !sending) sendBtn.setText(targetAll ? "🔔 Send to all members" : "🔔 Send to this member");
     }
 
     private void pickMember() {
-        final Ui.Modal m = new Ui.Modal(a, "Member বাছুন", Store.members.isEmpty() ? "কোনো member নেই" : null);
+        final Ui.Modal m = new Ui.Modal(a, "Select a member", Store.members.isEmpty() ? "No members yet" : null);
         for (final Store.Member mb : Store.members) {
             String label = (mb.name.isEmpty() ? "Member" : mb.name) + " · " + mb.mobile;
             m.col(label, Ui.B_GHOST, v -> { fMobile.et.setText(mb.mobile); m.dismiss(); });
@@ -155,12 +155,12 @@ final class NotifyScreen extends Screen {
         if (sending) return;
         final String title = fTitle.text(), body = fBody.text();
         final String mobile = fMobile.text().replaceAll("\\D", "");
-        if (title.isEmpty()) { a.toast("Title লিখুন"); return; }
-        if (body.isEmpty()) { a.toast("Message লিখুন"); return; }
-        if (!targetAll && mobile.length() < 6) { a.toast("মোবাইল নম্বর দিন বা তালিকা থেকে বাছুন"); return; }
+        if (title.isEmpty()) { a.toast("Enter a title"); return; }
+        if (body.isEmpty()) { a.toast("Enter a message"); return; }
+        if (!targetAll && mobile.length() < 6) { a.toast("Enter a mobile number or choose a member"); return; }
         if (targetAll && !armed) {
             armed = true;
-            sendBtn.setText("⚠ সবার কাছে যাবে — আবার চাপুন");
+            sendBtn.setText("⚠ This goes to everyone — tap again to confirm");
             main.removeCallbacks(disarm);
             main.postDelayed(disarm, 4000);
             return;
@@ -168,10 +168,10 @@ final class NotifyScreen extends Screen {
         disarm();
         sending = true;
         sendBtn.setEnabled(false);
-        sendBtn.setText("পাঠানো হচ্ছে…");
+        sendBtn.setText("Sending…");
         resultTv.setVisibility(View.VISIBLE);
         resultTv.setTextColor(Ui.SUB);
-        resultTv.setText("⏳ পাঠানো হচ্ছে…");
+        resultTv.setText("⏳ Sending…");
         sender.send(title, body, targetAll ? "all" : "user", targetAll ? "" : mobile, msg -> main.post(() -> {
             sending = false;
             if (released) return;
@@ -181,7 +181,7 @@ final class NotifyScreen extends Screen {
             boolean okMsg = msg != null && msg.startsWith("✅");
             resultTv.setVisibility(View.VISIBLE);
             resultTv.setTextColor(okMsg ? 0xFF16A34A : Ui.RED);
-            resultTv.setText(msg == null ? "❌ অজানা সমস্যা" : msg);
+            resultTv.setText(msg == null ? "❌ Something went wrong" : msg);
             if (okMsg) {
                 fTitle.et.setText("");
                 fBody.et.setText("");
@@ -191,18 +191,18 @@ final class NotifyScreen extends Screen {
     }
 
     private void loadHistory() {
-        stat.setText("লোড হচ্ছে…");
+        stat.setText("Loading…");
         try {
             final FirebaseFirestore db = FirebaseFirestore.getInstance();
             db.collection("push_tokens").count().get(AggregateSource.SERVER)
-                .addOnSuccessListener(r -> { if (!released) stat.setText("📱 Registered device: " + r.getCount()); })
+                .addOnSuccessListener(r -> { if (!released) stat.setText("📱 Registered devices: " + r.getCount()); })
                 .addOnFailureListener(e -> { if (!released) stat.setText("❌ " + e.getMessage()); });
             db.collection("push_messages").orderBy("at", Query.Direction.DESCENDING).limit(50).get()
                 .addOnSuccessListener(snap -> {
                     if (released) return;
                     history.removeAllViews();
                     if (snap.isEmpty()) {
-                        history.addView(Ui.tv(a, "এখনো কোনো বার্তা পাঠানো হয়নি", 12.5f, Ui.SUB, false));
+                        history.addView(Ui.tv(a, "No notifications sent yet", 12.5f, Ui.SUB, false));
                         return;
                     }
                     DateFormat df = DateFormat.getDateTimeInstance();
@@ -211,7 +211,7 @@ final class NotifyScreen extends Screen {
                         String title = str(d.getString("title")), body = str(d.getString("body"));
                         String target = str(d.getString("target"));
                         Long at = d.getLong("at");
-                        String to = "all".equals(target) ? "সব user" : "👤 " + str(d.getString("mobile"));
+                        String to = "all".equals(target) ? "All members" : "👤 " + str(d.getString("mobile"));
                         String when = at == null ? "" : df.format(new Date(at));
                         LinearLayout row = new LinearLayout(a);
                         row.setOrientation(LinearLayout.VERTICAL);
