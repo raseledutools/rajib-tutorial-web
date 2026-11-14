@@ -43,23 +43,12 @@ public class ScreenCaptureService extends Service {
     static volatile byte[] frame = null;
     private static volatile ScreenCaptureService inst = null;
     private static volatile String lastRecLabel = "";
+    private static volatile String lastRecInfo = "";
+
+    static String recInfo() { return lastRecInfo; }
 
     private volatile NativeRecorder nrec = null;
-    private Bitmap lastCrop = null;
-    private long lastPushMs = 0;
-    private final Runnable tick = new Runnable() {
-        @Override public void run() {
-            // keep the recording alive on a still screen (ImageReader only fires when pixels change)
-            NativeRecorder r = nrec;
-            long now = SystemClock.uptimeMillis();
-            if (r != null && lastCrop != null && now - lastPushMs > 500) {
-                r.push(lastCrop);
-                lastPushMs = now;
-            }
-            Handler h = bg;
-            if (h != null && !cleaned) h.postDelayed(this, 250);
-        }
-    };
+    private volatile Bitmap lastCrop = null;
 
     private static final String EXTRA_CODE = "code", EXTRA_DATA = "data", CH = "rt_capture";
     private static final int NOTIF_ID = 7711;
@@ -105,6 +94,8 @@ public class ScreenCaptureService extends Service {
         if (mp == null || outW <= 0 || outH <= 0) return false;
         NativeRecorder r = new NativeRecorder(this, mp, outW, outH);
         if (!r.start()) return false;
+        Bitmap lc = lastCrop;            // a still screen sends no new frames - seed with the current one
+        if (lc != null) r.setFrame(lc);
         nrec = r;
         return true;
     }
@@ -115,6 +106,7 @@ public class ScreenCaptureService extends Service {
         if (r == null) return "";
         String label = r.stop();
         lastRecLabel = label;
+        lastRecInfo = r.info();
         return label;
     }
 
@@ -163,7 +155,6 @@ public class ScreenCaptureService extends Service {
             active = true;
             inst = this;
             frame = null;
-            bg.postDelayed(tick, 300);
             notifyStarted();
         } catch (Throwable t) {
             cleanup(true);
@@ -218,11 +209,18 @@ public class ScreenCaptureService extends Service {
             int bw = row / pixel;
             if (bmp == null || bmp.getWidth() != bw) bmp = Bitmap.createBitmap(bw, outH, Bitmap.Config.ARGB_8888);
             buf.rewind();
+            int needBytes = bw * outH * pixel;
+            if (buf.remaining() < needBytes) {   // last row has no padding -> would underflow
+                ByteBuffer t = ByteBuffer.allocateDirect(needBytes);
+                t.put(buf);
+                t.rewind();
+                buf = t;
+            }
             bmp.copyPixelsFromBuffer(buf);
             Bitmap crop = bw == outW ? bmp : Bitmap.createBitmap(bmp, 0, 0, outW, outH);
             lastCrop = crop;
             NativeRecorder rr = nrec;
-            if (rr != null) { rr.push(crop); lastPushMs = now; }
+            if (rr != null) rr.setFrame(crop);
             ByteArrayOutputStream bos = new ByteArrayOutputStream(64 * 1024);
             crop.compress(Bitmap.CompressFormat.JPEG, 60, bos);
             frame = bos.toByteArray();

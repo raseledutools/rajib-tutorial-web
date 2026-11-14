@@ -356,7 +356,8 @@ async function endRecord(){
     try{path=AndroidCall.nativeRecStop()}catch(e){}
     send('','rec',JSON.stringify({on:false}));
     refreshBtns();maybeStopCapture();
-    toast(path?('Recording saved on this phone: '+path):'Recording stopped (nothing was saved)');
+    let info='';try{info=AndroidCall.nativeRecInfo()}catch(e){}
+    toast(path?('Recording saved on this phone: '+path+(info?' ['+info+']':'')):('Recording stopped (nothing was saved)'+(info?' ['+info+']':'')));
     return;
   }
   try{rec.stop()}catch(e){}
