@@ -160,6 +160,35 @@ public class AdminBridge {
         }).start();
     }
 
+    /**
+     * Discussion message → every subscribed device (topic "discussion"), data-only so that
+     * PushService builds the notification (own messages suppressed, tap opens the chat).
+     * Fire-and-forget; runs on its own thread.
+     */
+    public void sendChatPush(final String title, final String body, final String fromId, final String mid) {
+        new Thread(() -> {
+            try {
+                String at = getAccessToken();
+                if (at == null) return;
+                JSONObject data = new JSONObject();
+                data.put("title", title);
+                data.put("body", body);
+                data.put("kind", "chat");
+                data.put("from", fromId);
+                data.put("id", mid);
+                data.put("time", String.valueOf(System.currentTimeMillis()));
+                JSONObject android = new JSONObject();
+                android.put("priority", "high");
+                android.put("ttl", "3600s");
+                JSONObject msg = new JSONObject();
+                msg.put("topic", PushManager.TOPIC_DISCUSSION);
+                msg.put("data", data);
+                msg.put("android", android);
+                sendFcm(at, new JSONObject().put("message", msg));
+            } catch (Throwable ignored) { }
+        }).start();
+    }
+
     // ── Build payloads (data-only: the app builds the notification itself, so the
     //    sound / vibration / tap-to-open-overlay behaviour is identical in every app state) ──
     private JSONObject buildPayload(String title, String body, String id, String key, String value) throws Exception {

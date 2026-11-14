@@ -17,6 +17,43 @@ import com.google.firebase.messaging.RemoteMessage;
  */
 public class PushService extends FirebaseMessagingService {
 
+    /** Discussion message: skip own messages and when the chat is open; tap opens the Discussion. */
+    private void showChat(RemoteMessage m) {
+        String from = m.getData().get("from");
+        String me = PushManager.discussionMe(this);
+        if (me.isEmpty() || me.equals(from)) return;          // not subscribed, or my own message
+        if (DiscussionScreen.isOpen()) return;                // already looking at the chat
+        String title = m.getData().get("title");
+        String body = m.getData().get("body");
+        if (title == null || title.isEmpty()) title = "Discussion";
+        if (body == null) body = "";
+        PushManager.createChannel(this);
+        String mid = m.getData().get("id");
+        int nid = (mid != null && !mid.isEmpty()) ? (mid.hashCode() & 0x7FFFFFFF) : (int) (System.currentTimeMillis() & 0x7FFFFFFF);
+        Intent open = new Intent(this, NativeHomeActivity.class)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            .putExtra(NativeHomeActivity.EXTRA_OPEN, "discussion");
+        PendingIntent pi = PendingIntent.getActivity(this, nid, open,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, PushManager.CHAT_CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_push)
+            .setColor(0xFFE8365D)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+            .setSubText("Discussion")
+            .setGroup("rt_discussion")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setAutoCancel(true)
+            .setContentIntent(pi);
+        try {
+            NotificationManagerCompat.from(this).notify(nid, b.build());
+        } catch (SecurityException ignored) { }
+    }
+
     @Override
     public void onNewToken(String token) {
         PushManager.onToken(this, token);
@@ -29,6 +66,7 @@ public class PushService extends FirebaseMessagingService {
             title = m.getNotification().getTitle();
             body = m.getNotification().getBody();
         }
+        if ("chat".equals(m.getData().get("kind"))) { showChat(m); return; }
         if (title == null) title = m.getData().get("title");
         if (body == null) body = m.getData().get("body");
         if (title == null || title.isEmpty()) title = "Rajib Tutorial";

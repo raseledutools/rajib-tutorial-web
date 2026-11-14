@@ -30,6 +30,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
 
+    static final String EXTRA_OPEN = "open";
     static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6;
 
     // state shared with screens / dialogs
@@ -113,6 +114,21 @@ public class NativeHomeActivity extends AppCompatActivity {
         renderUser();
         goHome();
         reload();
+        handleOpenIntent(getIntent());
+    }
+
+    private void handleOpenIntent(Intent i) {
+        if (i != null && "discussion".equals(i.getStringExtra(EXTRA_OPEN))) {
+            i.removeExtra(EXTRA_OPEN);
+            openDiscussion();
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent i) {
+        super.onNewIntent(i);
+        setIntent(i);
+        handleOpenIntent(i);
     }
 
     private void setRequestedOrientationPortrait() {
@@ -175,7 +191,21 @@ public class NativeHomeActivity extends AppCompatActivity {
     }
 
     /** Tells PushManager which member is logged in (same rule as the web: not admin, premium only). */
+    private String discSynced = null;
+
+    /** Premium members + admin receive Discussion pushes (FCM topic); everybody else is unsubscribed. */
+    private void syncDiscussionTopic() {
+        if (loading && Store.sessionMobile != null) return;
+        boolean on = Store.adminIn || Store.isPremium();
+        String me = Store.adminIn ? "admin" : (Store.sessionMobile == null ? "" : Store.sessionMobile);
+        String key = on + ":" + me;
+        if (key.equals(discSynced)) return;
+        discSynced = key;
+        try { PushManager.setDiscussion(getApplicationContext(), on, me); } catch (Throwable ignored) { }
+    }
+
     private void syncPushUser() {
+        syncDiscussionTopic();
         if (loading && Store.sessionMobile != null) return;   // members not loaded yet — wait
         String m = Store.sessionMobile != null ? Store.sessionMobile : "";   // admin phone logged in as member must register too
         if (m.equals(pushUserSynced)) return;

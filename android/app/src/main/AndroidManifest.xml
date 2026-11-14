@@ -85,6 +85,13 @@
             android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- Discussion group voice/video call (WebRTC in a WebView) -->
+        <activity
+            android:name=".GroupCallActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden" />
+
         <!-- Native fullscreen video player -->
         <activity
             android:name=".PlayerActivity"

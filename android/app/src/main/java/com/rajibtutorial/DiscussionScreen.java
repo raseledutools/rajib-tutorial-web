@@ -69,6 +69,7 @@ final class DiscussionScreen extends Screen {
     private EditText input;
     private TextView upInfo;
     private ProgressBar upBar;
+    private TextView headSub;
 
     private int mode = -1;            // 0 loading, 1 locked, 2 chat
     private boolean polling = false, fetching = false, pendingForce = false;
@@ -175,17 +176,66 @@ final class DiscussionScreen extends Screen {
     }
 
     // ── Chat UI ─────────────────────────────────────────────
+    private static final int WALL = 0xFFF4F0EC;
+    private static final int[] PALETTE = {0xFFE8365D, 0xFF6D4AF0, 0xFF0E9F8E, 0xFF2563EB,
+        0xFFD97706, 0xFF9333EA, 0xFF16A34A, 0xFFDB2777};
+
+    private static int colorFor(String key) {
+        return PALETTE[Math.abs((key == null ? "" : key).hashCode()) % PALETTE.length];
+    }
+
+    private int memberCount() {
+        int n = 0;
+        String today = Store.todayStr();
+        for (Store.Member m : Store.members) if (m.expiry.isEmpty() || today.compareTo(m.expiry) <= 0) n++;
+        return n;
+    }
+
+    private String subText() {
+        int n = memberCount();
+        return (n > 0 ? n + " members · " : "") + "messages, media & group calls";
+    }
+
+    private TextView roundIcon(String icon, View.OnClickListener l) {
+        TextView t = Ui.tv(a, icon, 18, Ui.TEXT, false);
+        t.setGravity(Gravity.CENTER);
+        t.setBackground(Ui.circle(Ui.CARD2));
+        Ui.pressFx(t);
+        t.setOnClickListener(l);
+        return t;
+    }
+
     private LinearLayout buildChat() {
         LinearLayout root = new LinearLayout(a);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Ui.BG);
 
-        TextView strip = Ui.tv(a, "💬  Premium group · share text, photos, audio, video & files", 12, Ui.SUB, false);
-        strip.setBackgroundColor(Ui.BG2);
-        strip.setPadding(Ui.dp(a, 14), Ui.dp(a, 8), Ui.dp(a, 14), Ui.dp(a, 8));
-        root.addView(strip, new LinearLayout.LayoutParams(MATCH, WRAP));
+        // header: group avatar, title, member count, call buttons
+        LinearLayout head = new LinearLayout(a);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setBackgroundColor(Ui.BG);
+        head.setPadding(Ui.dp(a, 14), Ui.dp(a, 10), Ui.dp(a, 12), Ui.dp(a, 10));
+        TextView gav = Ui.tv(a, "💬", 18, Ui.WHITE, true);
+        gav.setGravity(Gravity.CENTER);
+        gav.setBackground(Ui.circle(Ui.ACCENT));
+        head.addView(gav, Ui.lpm(a, Ui.dp(a, 42), Ui.dp(a, 42), 0, 0, 12, 0));
+        LinearLayout meta = new LinearLayout(a);
+        meta.setOrientation(LinearLayout.VERTICAL);
+        meta.addView(Ui.tv(a, "Discussion Group", 16, Ui.TEXT, true));
+        headSub = Ui.ellipsized(a, subText(), 12, Ui.SUB, false, 1);
+        meta.addView(headSub);
+        head.addView(meta, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        head.addView(roundIcon("📞", v -> startCall(false)), Ui.lpm(a, Ui.dp(a, 40), Ui.dp(a, 40), 0, 0, 8, 0));
+        head.addView(roundIcon("🎥", v -> startCall(true)), new LinearLayout.LayoutParams(Ui.dp(a, 40), Ui.dp(a, 40)));
+        root.addView(head, new LinearLayout.LayoutParams(MATCH, WRAP));
+
+        View hl = new View(a);
+        hl.setBackgroundColor(Ui.BORDER);
+        root.addView(hl, new LinearLayout.LayoutParams(MATCH, 1));
 
         scroll = new ScrollView(a);
+        scroll.setBackgroundColor(WALL);
         list = new LinearLayout(a);
         list.setOrientation(LinearLayout.VERTICAL);
         list.setPadding(Ui.dp(a, 10), Ui.dp(a, 10), Ui.dp(a, 10), Ui.dp(a, 10));
@@ -194,7 +244,7 @@ final class DiscussionScreen extends Screen {
 
         upWrap = new LinearLayout(a);
         upWrap.setOrientation(LinearLayout.VERTICAL);
-        upWrap.setBackgroundColor(Ui.BG2);
+        upWrap.setBackgroundColor(Ui.BG);
         upWrap.setPadding(Ui.dp(a, 14), Ui.dp(a, 8), Ui.dp(a, 14), Ui.dp(a, 8));
         upInfo = Ui.tv(a, "", 12, Ui.SUB, false);
         upWrap.addView(upInfo);
@@ -204,32 +254,28 @@ final class DiscussionScreen extends Screen {
         upWrap.setVisibility(View.GONE);
         root.addView(upWrap, new LinearLayout.LayoutParams(MATCH, WRAP));
 
-        View line = new View(a);
-        line.setBackgroundColor(Ui.BORDER);
-        root.addView(line, new LinearLayout.LayoutParams(MATCH, 1));
-
         LinearLayout bar = new LinearLayout(a);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.BOTTOM);
         bar.setBackgroundColor(Ui.BG);
-        bar.setPadding(Ui.dp(a, 6), Ui.dp(a, 6), Ui.dp(a, 8), Ui.dp(a, 6));
+        bar.setPadding(Ui.dp(a, 8), Ui.dp(a, 8), Ui.dp(a, 10), Ui.dp(a, 8));
 
-        TextView attach = Ui.tv(a, "📎", 22, Ui.TEXT, false);
+        TextView attach = Ui.tv(a, "📎", 21, Ui.TEXT, false);
         attach.setGravity(Gravity.CENTER);
         Ui.pressFx(attach);
         attach.setOnClickListener(v -> attachMenu());
-        bar.addView(attach, new LinearLayout.LayoutParams(Ui.dp(a, 44), Ui.dp(a, 44)));
+        bar.addView(attach, new LinearLayout.LayoutParams(Ui.dp(a, 42), Ui.dp(a, 44)));
 
         input = new EditText(a);
-        input.setHint("Write a message…");
-        input.setTextSize(14.5f);
+        input.setHint("Message");
+        input.setTextSize(15);
         input.setTextColor(Ui.TEXT);
         input.setHintTextColor(0xFFA39C93);
         input.setMaxLines(4);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
             | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         input.setBackground(Ui.bg(a, Ui.CARD2, 22, 0));
-        input.setPadding(Ui.dp(a, 14), Ui.dp(a, 10), Ui.dp(a, 14), Ui.dp(a, 10));
+        input.setPadding(Ui.dp(a, 16), Ui.dp(a, 10), Ui.dp(a, 16), Ui.dp(a, 10));
         bar.addView(input, new LinearLayout.LayoutParams(0, WRAP, 1f));
 
         TextView send = Ui.tv(a, "➤", 18, Ui.WHITE, true);
@@ -237,7 +283,7 @@ final class DiscussionScreen extends Screen {
         send.setBackground(Ui.circle(Ui.ACCENT));
         Ui.pressFx(send);
         send.setOnClickListener(v -> sendText());
-        bar.addView(send, Ui.lpm(a, Ui.dp(a, 44), Ui.dp(a, 44), 6, 0, 0, 0));
+        bar.addView(send, Ui.lpm(a, Ui.dp(a, 44), Ui.dp(a, 44), 8, 0, 0, 0));
 
         root.addView(bar, new LinearLayout.LayoutParams(MATCH, WRAP));
         return root;
@@ -264,15 +310,22 @@ final class DiscussionScreen extends Screen {
     }
 
     // ── Loading messages ────────────────────────────────────
+    private static volatile boolean OPEN = false;
+
+    /** True while the chat is on screen and polling (used to skip push notifications). */
+    static boolean isOpen() { return OPEN; }
+
     private void startPoll() {
         if (polling || released) return;
         polling = true;
+        OPEN = true;
         h.removeCallbacks(pollTask);
         h.post(pollTask);
     }
 
     private void stopPoll() {
         polling = false;
+        OPEN = false;
         h.removeCallbacks(pollTask);
     }
 
@@ -316,6 +369,7 @@ final class DiscussionScreen extends Screen {
             if (force || !sig.equals(lastSig) || firstRender) {
                 lastSig = sig;
                 msgs = out;
+                if (headSub != null) headSub.setText(subText());
                 renderMessages();
             }
             if (pendingForce) { pendingForce = false; fetch(true); }
@@ -375,25 +429,50 @@ final class DiscussionScreen extends Screen {
 
     private View bubble(final Msg m) {
         final boolean mine = !myId().isEmpty() && myId().equals(m.mobile);
+        final String who = m.name.isEmpty() ? "Member" : m.name;
+        final int uc = colorFor(m.mobile.isEmpty() ? m.name : m.mobile);
         int fg = mine ? Ui.WHITE : Ui.TEXT;
         int sub = mine ? 0xCCFFFFFF : Ui.SUB;
-        int maxW = Math.round(a.getResources().getDisplayMetrics().widthPixels * 0.72f);
+        int maxW = Math.round(a.getResources().getDisplayMetrics().widthPixels * 0.68f);
 
         LinearLayout row = new LinearLayout(a);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(mine ? Gravity.END : Gravity.START);
 
+        if (!mine) {
+            TextView av = Ui.tv(a, who.trim().isEmpty() ? "?" : who.trim().substring(0, 1).toUpperCase(), 14, Ui.WHITE, true);
+            av.setGravity(Gravity.CENTER);
+            av.setBackground(Ui.circle(uc));
+            LinearLayout.LayoutParams ap = Ui.lpm(a, Ui.dp(a, 34), Ui.dp(a, 34), 0, 0, 8, 0);
+            ap.gravity = Gravity.BOTTOM;
+            row.addView(av, ap);
+        }
+
         LinearLayout b = new LinearLayout(a);
         b.setOrientation(LinearLayout.VERTICAL);
-        b.setBackground(Ui.bg(a, mine ? Ui.ACCENT : Ui.CARD2, 16, 0));
+        float r = Ui.dp(a, 16), t = Ui.dp(a, 4);
+        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+        g.setColor(mine ? Ui.ACCENT : Ui.WHITE);
+        g.setCornerRadii(mine ? new float[]{r, r, r, r, t, t, r, r} : new float[]{r, r, r, r, r, r, t, t});
+        if (!mine) g.setStroke(Math.max(1, Ui.dp(a, 1)), 0x14000000);
+        b.setBackground(g);
         b.setPadding(Ui.dp(a, 12), Ui.dp(a, 8), Ui.dp(a, 12), Ui.dp(a, 6));
         markDeletable(b, m);
 
         if (!mine) {
-            String who = (m.name.isEmpty() ? "Member" : m.name) + ("admin".equals(m.role) ? "  ·  Admin" : "");
-            TextView n = Ui.tv(a, who, 11.5f, Ui.ACCENT2, true);
-            n.setMaxWidth(maxW);
-            b.addView(n, Ui.lpm(a, WRAP, WRAP, 0, 0, 0, 3));
+            LinearLayout nr = new LinearLayout(a);
+            nr.setOrientation(LinearLayout.HORIZONTAL);
+            nr.setGravity(Gravity.CENTER_VERTICAL);
+            TextView n = Ui.tv(a, who, 12.5f, uc, true);
+            n.setMaxWidth(maxW - Ui.dp(a, 70));
+            n.setSingleLine(true);
+            n.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            nr.addView(n);
+            if ("admin".equals(m.role)) {
+                TextView pill = Ui.pill(a, "ADMIN", Ui.WHITE, Ui.ACCENT);
+                nr.addView(pill, Ui.lpm(a, WRAP, WRAP, 6, 0, 0, 0));
+            }
+            b.addView(nr, Ui.lpm(a, WRAP, WRAP, 0, 0, 0, 3));
         }
 
         switch (m.type) {
@@ -424,24 +503,34 @@ final class DiscussionScreen extends Screen {
                 break;
             }
             case "audio": {
-                TextView t = Ui.tv(a, "🎵  ▶  " + (m.fileName.isEmpty() ? "Audio" : m.fileName), 14, fg, true);
-                t.setMaxWidth(maxW);
-                t.setPadding(0, Ui.dp(a, 4), 0, Ui.dp(a, 6));
-                Ui.pressFx(t);
-                t.setOnClickListener(v -> showPlayer(m));
-                markDeletable(t, m);
-                b.addView(t);
+                TextView at = Ui.tv(a, "🎵  ▶  " + (m.fileName.isEmpty() ? "Audio" : m.fileName), 14, fg, true);
+                at.setMaxWidth(maxW);
+                at.setPadding(0, Ui.dp(a, 4), 0, Ui.dp(a, 6));
+                Ui.pressFx(at);
+                at.setOnClickListener(v -> showPlayer(m));
+                markDeletable(at, m);
+                b.addView(at);
                 break;
             }
             case "file": {
-                TextView t = Ui.tv(a, FileViewer.icon(m.fileName, m.url) + "  " + (m.fileName.isEmpty() ? "File" : m.fileName), 14, fg, true);
-                t.setMaxWidth(maxW);
-                t.setPaintFlags(t.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-                t.setPadding(0, Ui.dp(a, 4), 0, Ui.dp(a, 6));
-                Ui.pressFx(t);
-                t.setOnClickListener(v -> FileViewer.open(a, m.url, m.fileName));
-                markDeletable(t, m);
-                b.addView(t);
+                TextView ft = Ui.tv(a, FileViewer.icon(m.fileName, m.url) + "  " + (m.fileName.isEmpty() ? "File" : m.fileName), 14, fg, true);
+                ft.setMaxWidth(maxW);
+                ft.setPaintFlags(ft.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+                ft.setPadding(0, Ui.dp(a, 4), 0, Ui.dp(a, 6));
+                Ui.pressFx(ft);
+                ft.setOnClickListener(v -> FileViewer.open(a, m.url, m.fileName));
+                markDeletable(ft, m);
+                b.addView(ft);
+                break;
+            }
+            case "call": {
+                TextView ct = Ui.tv(a, "📞  Group call", 15, fg, true);
+                b.addView(ct);
+                TextView cs = Ui.tv(a, (mine ? "You" : who) + " started a call", 12, sub, false);
+                b.addView(cs, Ui.lpm(a, WRAP, WRAP, 0, 2, 0, 8));
+                TextView join = Ui.btn(a, "Join call", mine ? Ui.B_OUTLINE : Ui.B_PRIMARY, v -> joinMenu());
+                join.setMinHeight(Ui.dp(a, 38));
+                b.addView(join, new LinearLayout.LayoutParams(Ui.dp(a, 170), WRAP));
                 break;
             }
             default:
@@ -449,19 +538,60 @@ final class DiscussionScreen extends Screen {
         }
 
         if (!m.text.isEmpty()) {
-            TextView t = Ui.tv(a, m.text, 14.5f, fg, false);
-            t.setMaxWidth(maxW);
-            t.setLineSpacing(0, 1.1f);
-            b.addView(t);
+            TextView tt = Ui.tv(a, m.text, 15, fg, false);
+            tt.setMaxWidth(maxW);
+            tt.setLineSpacing(0, 1.1f);
+            b.addView(tt);
         }
 
         TextView time = Ui.tv(a, m.ts > 0 ? timeFmt.format(new Date(m.ts)) : "", 10.5f, sub, false);
         time.setGravity(Gravity.END);
-        b.addView(time, Ui.lpm(a, WRAP, WRAP, 0, 2, 0, 0));
+        b.addView(time, Ui.lpm(a, WRAP, WRAP, 0, 3, 0, 0));
         ((LinearLayout.LayoutParams) time.getLayoutParams()).gravity = Gravity.END;
 
         row.addView(b, new LinearLayout.LayoutParams(WRAP, WRAP));
         return row;
+    }
+
+    // ── Group call ──────────────────────────────────────────
+    private void startCall(boolean video) {
+        long now = System.currentTimeMillis();
+        boolean recent = false;
+        for (Msg m : msgs) if ("call".equals(m.type) && now - m.ts < 15 * 60 * 1000L) recent = true;
+        if (!recent) post("call", "", "", "");        // announces the call (message + push to everybody)
+        launchCall(video);
+    }
+
+    private void joinMenu() {
+        final Ui.Modal m = new Ui.Modal(a, "Join group call", "Everyone in the Discussion group can join.");
+        m.col("🎤  Join with voice", Ui.B_GHOST, v -> { m.dismiss(); launchCall(false); });
+        m.col("🎥  Join with video", Ui.B_PRIMARY, v -> { m.dismiss(); launchCall(true); });
+        m.col("Cancel", Ui.B_OUTLINE, v -> m.dismiss());
+        m.show();
+    }
+
+    private void launchCall(boolean video) {
+        Intent i = new Intent(a, GroupCallActivity.class)
+            .putExtra(GroupCallActivity.EXTRA_UID, myId())
+            .putExtra(GroupCallActivity.EXTRA_NAME, myName())
+            .putExtra(GroupCallActivity.EXTRA_VIDEO, video);
+        a.startActivity(i);
+    }
+
+    // ── Push notification for every new message ─────────────
+    private void pushOut(String type, String text, String fileName, String id) {
+        String body;
+        switch (type) {
+            case "image": body = "📷 Photo"; break;
+            case "video": body = "🎬 Video"; break;
+            case "audio": body = "🎵 Audio"; break;
+            case "file": body = "📎 " + (fileName.isEmpty() ? "File" : fileName); break;
+            case "call": body = "📞 Started a group call — tap to join"; break;
+            default: body = text; break;
+        }
+        if (!"text".equals(type) && !"call".equals(type) && !text.isEmpty()) body += ": " + text;
+        if (body.length() > 180) body = body.substring(0, 177) + "…";
+        new AdminBridge(a.getApplicationContext(), null).sendChatPush(myName(), body, myId(), id);
     }
 
     /** Cloudinary on-the-fly transformation (thumbnails). Other hosts are returned untouched. */
@@ -550,7 +680,7 @@ final class DiscussionScreen extends Screen {
         post("text", t, "", "");
     }
 
-    private void post(final String type, final String text, String url, String fileName) {
+    private void post(final String type, final String text, final String url, final String fileName) {
         final long ts = System.currentTimeMillis();
         final String id = PREFIX + String.format(Locale.US, "%013d", ts) + "_" + Integer.toString(new Random().nextInt(1679616) + 1679616, 36).substring(1);
         final Map<String, Object> d = new LinkedHashMap<>();
@@ -570,6 +700,7 @@ final class DiscussionScreen extends Screen {
                 if ("text".equals(type) && input != null && input.getText().length() == 0) input.setText(text);
             } else {
                 fetch(true);
+                pushOut(type, text, fileName, id);
             }
         });
     }

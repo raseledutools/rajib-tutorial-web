@@ -27,6 +27,9 @@ final class PushManager {
     /** Explicit vibration pattern (same for the channel on API 26+ and the builder below it). */
     static final long[] VIBE = {0, 350, 200, 350};
     static final String TOPIC_ALL   = "all";
+    static final String TOPIC_DISCUSSION = "discussion";
+    static final String CHAT_CHANNEL = "rt_chat_v1";
+    private static final String K_DISC_ME = "disc_me";
 
     private static final String PREFS    = "PushPrefs";
     private static final String K_TOKEN  = "token";
@@ -81,6 +84,17 @@ final class PushManager {
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
             nm.createNotificationChannel(ch);
+
+            NotificationChannel chat = new NotificationChannel(
+                CHAT_CHANNEL, "Discussion বার্তা", NotificationManager.IMPORTANCE_HIGH);
+            chat.setDescription("Discussion গ্রুপের নতুন মেসেজ ও কল");
+            chat.enableVibration(true);
+            chat.setVibrationPattern(VIBE);
+            chat.setShowBadge(true);
+            chat.setSound(snd, new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+            nm.createNotificationChannel(chat);
         } catch (Exception ignored) {}
     }
 
@@ -103,6 +117,19 @@ final class PushManager {
         catch (Throwable ignored) {}
         saveTokenToFirestore(c, token, p(c).getString(K_MOBILE, ""));
     }
+
+    /** Join / leave the Discussion push topic (premium members + admin). */
+    static void setDiscussion(Context c, boolean on, String myId) {
+        p(c).edit().putString(K_DISC_ME, on ? myId : "").apply();
+        try {
+            if (FirebaseApp.getApps(c).isEmpty()) return;
+            if (on) FirebaseMessaging.getInstance().subscribeToTopic(TOPIC_DISCUSSION);
+            else FirebaseMessaging.getInstance().unsubscribeFromTopic(TOPIC_DISCUSSION);
+        } catch (Throwable ignored) { }
+    }
+
+    /** Id of the signed-in discussion user on this device ("" = not subscribed). */
+    static String discussionMe(Context c) { return p(c).getString(K_DISC_ME, ""); }
 
     /** Called from JS bridge when a member logs in / out */
     static void setUser(Context c, String mobile) {
