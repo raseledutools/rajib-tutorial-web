@@ -32,7 +32,7 @@ import java.net.URL;
 public class UpdateChecker {
 
     private static final String CHANNEL_ID   = "rt_update_v2";
-    private static final String CHANNEL_NAME = "আপডেট বিজ্ঞপ্তি";
+    private static final String CHANNEL_NAME = "App updates";
     private static final int    NOTIF_ID     = 2001;
     private static final String PREFS_NAME   = "UpdatePrefs";
     private static final String KEY_LAST_TAG = "last_tag";
@@ -76,7 +76,7 @@ public class UpdateChecker {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel ch = new NotificationChannel(
                 CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH);
-            ch.setDescription("Rajib Tutorial নতুন সংস্করণের বিজ্ঞপ্তি");
+            ch.setDescription("Notifications about new Rajib Tutorial versions");
             ch.enableVibration(true);
             ch.setShowBadge(true);
             NotificationManager nm = context.getSystemService(NotificationManager.class);
@@ -117,7 +117,7 @@ public class UpdateChecker {
                     return;
                 }
                 if (apkUrl.isEmpty()) {
-                    if (manual != null) postMain(() -> manual.onError("APK file পাওয়া যায়নি"));
+                    if (manual != null) postMain(() -> manual.onError("Update file not found"));
                     return;
                 }
 
@@ -175,7 +175,7 @@ public class UpdateChecker {
                 int q = tag.indexOf('?'); if (q >= 0) tag = tag.substring(0, q);
                 return new String[]{ tag, REPO_URL + "/releases/download/" + tag + "/RajibTutorial.apk", "" };
             }
-            why1 = (code == 404) ? "কোনো release পাওয়া যায়নি" : "HTTP " + code;
+            why1 = (code == 404) ? "No release found" : "HTTP " + code;
         } catch (Exception e) {
             why1 = e.getClass().getSimpleName() + (e.getMessage() != null ? ": " + e.getMessage() : "");
         }
@@ -211,7 +211,7 @@ public class UpdateChecker {
                                                  String fileName, boolean hidden) {
         DownloadManager.Request req = new DownloadManager.Request(Uri.parse(apkUrl))
             .setTitle("Rajib Tutorial " + version)
-            .setDescription("আপডেট download হচ্ছে…")
+            .setDescription("Downloading update…")
             .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
             .setMimeType("application/vnd.android.package-archive");
         req.setNotificationVisibility(hidden
@@ -244,7 +244,7 @@ public class UpdateChecker {
                 id = dm.enqueue(buildRequest(apkUrl, version, fileName, false));
             } catch (Exception e) {
                 if (progressListener != null)
-                    progressListener.onError("Download শুরু করা যায়নি: " + e.getMessage());
+                    progressListener.onError("Could not start the download: " + e.getMessage());
                 return;
             }
         }
@@ -259,7 +259,7 @@ public class UpdateChecker {
                     c = dm.query(new DownloadManager.Query().setFilterById(downloadId));
                     if (c == null || !c.moveToFirst()) {
                         // download মুছে ফেলা/cancel হয়েছে
-                        if (progressListener != null) progressListener.onError("Download পাওয়া যায়নি");
+                        if (progressListener != null) progressListener.onError("Download not found");
                         return;
                     }
                     int statusIdx = c.getColumnIndex(DownloadManager.COLUMN_STATUS);
@@ -303,7 +303,7 @@ public class UpdateChecker {
     private void triggerInstall(Context ctx, String fileName) {
         File apkFile = new File(ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
         if (!apkFile.exists() || apkFile.length() < 1000) {
-            if (progressListener != null) progressListener.onError("APK file not found");
+            if (progressListener != null) progressListener.onError("Update file not found");
             return;
         }
         // Activity context দরকার — callback দিয়ে MainActivity কে জানাই
@@ -334,16 +334,16 @@ public class UpdateChecker {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setColor(0xE8365D)
-            .setContentTitle("Rajib Tutorial " + vName + " পাওয়া গেছে")
-            .setContentText("নতুন সংস্করণ install করতে এখানে চাপুন")
+            .setContentTitle("Rajib Tutorial " + vName + " is available")
+            .setContentText("Tap to download and install the new version")
             .setStyle(new NotificationCompat.BigTextStyle()
-                .setBigContentTitle("🎉 Rajib Tutorial " + vName + " এসেছে!")
+                .setBigContentTitle("🎉 Rajib Tutorial " + vName + " is here!")
                 .bigText(cleanBody.isEmpty()
-                    ? "নতুন সংস্করণে bug fix ও উন্নতি করা হয়েছে।"
-                    : cleanBody + "\n\nনিচের বাটনে চাপলে download ও install হবে।")
-                .setSummaryText("সংস্করণ " + vName))
-            .addAction(android.R.drawable.stat_sys_download, "⬇️  এখনই আপডেট করুন", dlPi)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "পরে দেখব", dismissPi)
+                    ? "This version includes bug fixes and improvements."
+                    : cleanBody + "\n\nTap the button below to download and install.")
+                .setSummaryText("Version " + vName))
+            .addAction(android.R.drawable.stat_sys_download, "⬇️  Update now", dlPi)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Later", dismissPi)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(dlPi);
@@ -367,8 +367,8 @@ public class UpdateChecker {
             if (old.exists()) old.delete();
 
             DownloadManager.Request req = new DownloadManager.Request(Uri.parse(apkUrl))
-                .setTitle("Rajib Tutorial " + version + " download হচ্ছে")
-                .setDescription("সম্পন্ন হলে install এর জন্য tap করুন")
+                .setTitle("Rajib Tutorial " + version + " is downloading")
+                .setDescription("Tap to install when the download completes")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setDestinationInExternalFilesDir(ctx, Environment.DIRECTORY_DOWNLOADS, fileName)
                 .setMimeType("application/vnd.android.package-archive");

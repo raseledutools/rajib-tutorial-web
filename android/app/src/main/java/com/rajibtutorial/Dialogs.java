@@ -100,15 +100,15 @@ final class Dialogs {
             m.add(t);
         }
         m.col("Become Premium", Ui.B_PRIMARY, v -> { m.dismiss(); pay(); });
-        if (!na) m.col("I'm already Premium: Login", Ui.B_OUTLINE, v -> { m.dismiss(); memberLogin(); });
+        if (!na) m.col("Already a Premium member? Log in", Ui.B_OUTLINE, v -> { m.dismiss(); memberLogin(); });
         m.col("Maybe later", Ui.B_GHOST, v -> m.dismiss());
         m.show();
     }
 
     void contactAdmin() {
-        final Ui.Modal m = new Ui.Modal(a, "Admin-কে Contact করুন", "Premium access পেতে নিচের WhatsApp নম্বরে যোগাযোগ করুন:");
+        final Ui.Modal m = new Ui.Modal(a, "Contact Admin", "To get Premium access, contact the admin on WhatsApp:");
         m.col("WhatsApp: " + Store.WHATSAPP_NUM, Ui.B_GREEN, v -> openUrl(Store.WHATSAPP));
-        m.col("বন্ধ করুন", Ui.B_GHOST, v -> m.dismiss());
+        m.col("Close", Ui.B_GHOST, v -> m.dismiss());
         m.show();
     }
 
@@ -203,7 +203,7 @@ final class Dialogs {
         m.add(links);
         LinearLayout wa = new LinearLayout(a);
         wa.setGravity(Gravity.CENTER);
-        wa.addView(Ui.tv(a, "যোগাযোগ: ", 12, Ui.SUB, false));
+        wa.addView(Ui.tv(a, "Contact: ", 12, Ui.SUB, false));
         wa.addView(link("WhatsApp " + Store.WHATSAPP_NUM, Store.WHATSAPP));
         m.addSpaced(wa, 8);
         m.show();
@@ -221,12 +221,12 @@ final class Dialogs {
         m.actions("Cancel", "Login", Ui.B_PRIMARY, () -> {
             final String mobile = Store.normMobile(mob.text());
             if (!mobile.matches("^01\\d{9}$")) {
-                Ui.setErr(err, "একটি সঠিক ১১-সংখ্যার মোবাইল নম্বর দিন (01XXXXXXXXX)।");
+                Ui.setErr(err, "Enter a valid 11-digit mobile number (01XXXXXXXXX).");
                 return;
             }
             final TextView ok = m.lastOk;
             ok.setEnabled(false);
-            ok.setText("যাচাই করা হচ্ছে…");
+            ok.setText("Verifying…");
             Store.memberAuth(mobile, false, (Store.AuthResult r, Exception e) -> {
                 ok.setEnabled(true);
                 ok.setText("Login");
@@ -241,7 +241,7 @@ final class Dialogs {
                 if (r.err != null) { Ui.setErr(err, r.err); return; }
                 m.dismiss();
                 a.onSessionChanged();
-                a.toast("স্বাগতম, " + r.name);
+                a.toast("Welcome, " + r.name);
                 a.resumePending();
             });
         });
@@ -249,9 +249,9 @@ final class Dialogs {
     }
 
     private void deviceConflict(String other) {
-        final Ui.Modal m = new Ui.Modal(a, "অন্য একটি device-এ এই নম্বর দিয়ে login আছে",
-            "এই নম্বরটি এখন " + other + "-এ সক্রিয়।\nআপনি কি সেই device logout করে এই device-এ login করতে চান?");
-        m.col("হ্যাঁ, এই device-এ login করুন", Ui.B_PRIMARY, v -> {
+        final Ui.Modal m = new Ui.Modal(a, "Already logged in on another device",
+            "This number is currently active on " + other + ".\nDo you want to log out of that device and continue on this one?");
+        m.col("Yes, log in on this device", Ui.B_PRIMARY, v -> {
             if (pendingDeviceMobile == null) return;
             final String mobile = pendingDeviceMobile;
             m.dismiss();
@@ -261,11 +261,11 @@ final class Dialogs {
                 if (r.noAccess) { contactAdmin(); return; }
                 pendingDeviceMobile = null;
                 a.onSessionChanged();
-                a.toast("স্বাগতম, " + r.name);
+                a.toast("Welcome, " + r.name);
                 a.resumePending();
             });
         });
-        m.col("না, বাতিল করুন", Ui.B_GHOST, v -> m.dismiss());
+        m.col("No, cancel", Ui.B_GHOST, v -> m.dismiss());
         m.show();
     }
 
@@ -544,16 +544,16 @@ final class Dialogs {
         Object did = mm.activeDevice == null ? null : mm.activeDevice.get("deviceId");
         TextView cur = Ui.tv(a, mm.activeDevice != null
             ? "Currently logged in:\n" + (lbl instanceof String ? lbl : "Unknown device") + "\nDevice ID: " + (did instanceof String ? did : "")
-            : "এই member এখন কোনো device-এ login করা নেই।", 13, Ui.TEXT, false);
+            : "This member is not logged in on any device.", 13, Ui.TEXT, false);
         cur.setBackground(Ui.bg(a, Ui.BG2, 10, 0));
         cur.setPadding(Ui.dp(a, 12), Ui.dp(a, 12), Ui.dp(a, 12), Ui.dp(a, 12));
         m.add(cur);
         m.addSpaced(Ui.tv(a, "ALLOWED DEVICES", 11.5f, Ui.SUB, true), 14);
-        m.add(Ui.tv(a, "শুধু এই device গুলো login করতে পারবে। Empty রাখলে যেকোনো device থেকে login করা যাবে (তবে একসময়ে শুধু একটি)।", 12, Ui.SUB, false));
+        m.add(Ui.tv(a, "Only these devices can log in. Leave the list empty to allow any device (one active device at a time).", 12, Ui.SUB, false));
         LinearLayout list = new LinearLayout(a);
         list.setOrientation(LinearLayout.VERTICAL);
         if (mm.allowedDevices.isEmpty()) {
-            list.addView(Ui.tv(a, "কোনো device restrict করা নেই।", 12.5f, Ui.SUB, false));
+            list.addView(Ui.tv(a, "No device restrictions are set.", 12.5f, Ui.SUB, false));
         }
         for (int i = 0; i < mm.allowedDevices.size(); i++) {
             final String dv = mm.allowedDevices.get(i);
@@ -562,7 +562,7 @@ final class Dialogs {
             row.setPadding(0, Ui.dp(a, 6), 0, Ui.dp(a, 6));
             String shown = dv.length() > 12 ? dv.substring(dv.length() - 12) : dv;
             row.addView(Ui.tv(a, "Device " + (i + 1) + ": " + shown, 12.5f, Ui.TEXT, false), new LinearLayout.LayoutParams(0, WRAP, 1f));
-            row.addView(Ui.smallBtn(a, "বাদ দিন", Ui.RED, v -> {
+            row.addView(Ui.smallBtn(a, "Remove", Ui.RED, v -> {
                 final List<Object> next = new ArrayList<>();
                 for (String x : mm.allowedDevices) if (!x.equals(dv)) next.add(x);
                 run(() -> {
@@ -570,14 +570,14 @@ final class Dialogs {
                     u.put("allowedDevices", next);
                     Fs.update(id, u);
                     return Boolean.TRUE;
-                }, () -> { m.dismiss(); a.toast("Device সরানো হয়েছে"); a.reload(deviceTask(id)); });
+                }, () -> { m.dismiss(); a.toast("Device removed"); a.reload(deviceTask(id)); });
             }));
             list.addView(row);
         }
         m.add(list);
         if (did instanceof String && !mm.allowedDevices.contains(did)) {
             final String fid = (String) did;
-            m.col("+ বর্তমান device allowed-list এ যোগ করুন", Ui.B_OUTLINE, v -> {
+            m.col("+ Allow the current device", Ui.B_OUTLINE, v -> {
                 final List<Object> next = new ArrayList<>(mm.allowedDevices);
                 next.add(fid);
                 run(() -> {
@@ -585,18 +585,18 @@ final class Dialogs {
                     u.put("allowedDevices", next);
                     Fs.update(id, u);
                     return Boolean.TRUE;
-                }, () -> { m.dismiss(); a.toast("Device allowed-list এ যোগ হয়েছে"); a.reload(deviceTask(id)); });
+                }, () -> { m.dismiss(); a.toast("Device allowed"); a.reload(deviceTask(id)); });
             });
         }
-        m.col("Device Logout করুন", Ui.B_RED, v -> run(() -> {
+        m.col("Log out device", Ui.B_RED, v -> run(() -> {
             Map<String, Object> u = new LinkedHashMap<>();
             u.put("activeDevice", null);
             u.put("sessionToken", null);
             u.put("sessionDevice", null);
             Fs.update(id, u);
             return Boolean.TRUE;
-        }, () -> { m.dismiss(); a.toast("Device logout করা হয়েছে"); a.reload(); }));
-        m.col("বন্ধ করুন", Ui.B_GHOST, v -> m.dismiss());
+        }, () -> { m.dismiss(); a.toast("Device logged out"); a.reload(); }));
+        m.col("Close", Ui.B_GHOST, v -> m.dismiss());
         m.show();
     }
 

@@ -126,7 +126,7 @@ public class NotificationDetailActivity extends Activity {
         hc.addView(bell, new LinearLayout.LayoutParams(dp(68), dp(68)));
 
         TextView chip = new TextView(this);
-        chip.setText("\uD83D\uDCE2  Admin বার্তা");
+        chip.setText("\uD83D\uDCE2  Admin message");
         chip.setTextColor(0xFFFFFFFF);
         chip.setTextSize(12);
         chip.setTypeface(Typeface.DEFAULT_BOLD);
@@ -197,9 +197,9 @@ public class NotificationDetailActivity extends Activity {
         GradientDrawable closeBg = new GradientDrawable();
         closeBg.setCornerRadius(dp(14));
         closeBg.setColor(0xFFF1EEF8);
-        TextView close = pill("বন্ধ করুন", closeBg, PURPLE, v -> finish());
+        TextView close = pill("Close", closeBg, PURPLE, v -> finish());
         GradientDrawable openBg = grad(new int[]{PINK, ORANGE}, GradientDrawable.Orientation.LEFT_RIGHT, r(14, 14, 14, 14, d));
-        TextView open = pill("অ্যাপ খুলুন  \u2192", openBg, 0xFFFFFFFF, v -> {
+        TextView open = pill("Open app  \u2192", openBg, 0xFFFFFFFF, v -> {
             startActivity(new Intent(this, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP));
             finish();

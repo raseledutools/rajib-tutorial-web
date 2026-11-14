@@ -339,7 +339,7 @@ final class Store {
         if (sessionMobile != null && !isPremium()) {
             Member m = curMember();
             String msg = (m != null && !m.expiry.isEmpty() && todayStr().compareTo(m.expiry) > 0)
-                ? "আপনার Premium membership মেয়াদোত্তীর্ণ হয়েছে" : null;
+                ? "Your Premium membership has expired" : null;
             sessionMobile = null; sessionToken = null; saveSession();
             return msg;
         }
@@ -359,17 +359,17 @@ final class Store {
             try {
                 d = Fs.get("_member_" + mobile);
             } catch (Exception e) {
-                r.err = "এখন verify করা যাচ্ছে না। আবার চেষ্টা করুন।";
+                r.err = "We couldn't verify your access right now. Please try again.";
                 return new Object[]{r, null};
             }
             Member m = d == null ? null : parseMember(d);
             if (m == null || !m.isMember) { r.noAccess = true; return new Object[]{r, null}; }
             if (!m.expiry.isEmpty() && todayStr().compareTo(m.expiry) > 0) {
-                r.err = "এই Premium membership মেয়াদোত্তীর্ণ। অনুগ্রহ করে নবায়ন করুন।";
+                r.err = "This Premium membership has expired. Please renew it to continue.";
                 return new Object[]{r, null};
             }
             if (!m.allowedDevices.isEmpty() && !m.allowedDevices.contains(deviceId)) {
-                r.err = "এই device থেকে login করার অনুমতি নেই। Admin এর সাথে যোগাযোগ করুন।";
+                r.err = "This device is not allowed to log in. Please contact the admin.";
                 return new Object[]{r, null};
             }
             boolean otherActive = !force && !m.sessionToken.isEmpty() && !m.sessionDevice.isEmpty()
@@ -377,7 +377,7 @@ final class Store {
             if (otherActive) {
                 r.deviceConflict = true;
                 Object lbl = m.activeDevice == null ? null : m.activeDevice.get("label");
-                r.otherDevice = lbl instanceof String ? (String) lbl : "অন্য device";
+                r.otherDevice = lbl instanceof String ? (String) lbl : "another device";
                 return new Object[]{r, null};
             }
             String token = UUID.randomUUID().toString().replace("-", "");
@@ -392,7 +392,7 @@ final class Store {
             try {
                 Fs.update("_member_" + mobile, upd);
             } catch (Exception e) {
-                r.err = "এখন verify করা যাচ্ছে না। আবার চেষ্টা করুন।";
+                r.err = "We couldn't verify your access right now. Please try again.";
                 return new Object[]{r, null};
             }
             m.activeDevice = dev; m.sessionToken = token; m.sessionDevice = deviceId;
@@ -401,7 +401,7 @@ final class Store {
         }, (Object[] res, Exception e) -> {
             if (e != null || res == null) {
                 AuthResult x = new AuthResult();
-                x.err = "এখন verify করা যাচ্ছে না। আবার চেষ্টা করুন।";
+                x.err = "We couldn't verify your access right now. Please try again.";
                 cb.done(x, null);
                 return;
             }
@@ -431,17 +431,17 @@ final class Store {
         if (mobile == null || adminIn) { cb.done("", null); return; }
         async(() -> {
             Fs.Doc d = Fs.get("_member_" + mobile);
-            if (d == null) return forPlay ? "" : "এই account টি মুছে ফেলা হয়েছে।";
+            if (d == null) return forPlay ? "" : "This account has been removed.";
             Member m = parseMember(d);
             if (!m.sessionToken.isEmpty() && !m.sessionToken.equals(token)) {
-                return forPlay ? "এই video চালু করা যাচ্ছে না। আপনার account অন্য device-এ login হয়েছে।"
-                               : "আপনার account অন্য একটি device-এ login হয়েছে। এই session শেষ।";
+                return forPlay ? "This video can't be played because your account is logged in on another device."
+                               : "Your account was logged in on another device. This session has ended.";
             }
             if (forPlay && !m.allowedDevices.isEmpty() && !m.allowedDevices.contains(deviceId)) {
-                return "এই device-এ video দেখার অনুমতি নেই।";
+                return "This device is not allowed to watch videos.";
             }
             if (!m.expiry.isEmpty() && todayStr().compareTo(m.expiry) > 0) {
-                return "আপনার Premium membership মেয়াদোত্তীর্ণ।";
+                return "Your Premium membership has expired.";
             }
             return "";
         }, (String r, Exception e) -> cb.done(e != null ? null : r, null));

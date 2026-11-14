@@ -615,7 +615,7 @@
             android:id="@+id/updateBannerText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="নতুন আপডেট"
+            android:text="New update"
             android:textColor="#FFFFFF"
             android:textSize="12.5sp"
             android:textStyle="bold"
@@ -659,7 +659,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="⬇️  আপডেট download হচ্ছে"
+                android:text="⬇️  Downloading update"
                 android:textSize="14sp"
                 android:textStyle="bold"
                 android:textColor="#1E1B18"
@@ -692,18 +692,18 @@
             android:id="@+id/downloadStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="শুরু হচ্ছে..."
+            android:text="Starting…"
             android:textSize="11.5sp"
             android:textColor="#9E988F"
             android:layout_marginTop="6dp" />
 
-        <!-- Install button — download শেষে দেখাবে -->
+        <!-- Install button — shown when the download finishes -->
         <TextView
             android:id="@+id/btnInstallNow"
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:gravity="center"
-            android:text="⬇️  এখনই Install করুন"
+            android:text="⬇️  Install now"
             android:textSize="14sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
