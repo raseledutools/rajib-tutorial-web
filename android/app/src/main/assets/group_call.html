@@ -1,0 +1,169 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-system,Roboto,Segoe UI,sans-serif;overflow:hidden}
+#top{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 12px;background:linear-gradient(#000a,#0000);font-size:14px}
+#top b{font-size:16px}#top span{opacity:.75;font-size:13px}
+#grid{position:absolute;inset:0;display:grid;gap:6px;padding:62px 6px 104px;align-content:center}
+.tile{position:relative;background:#1b1e25;border-radius:16px;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center}
+.tile video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+.tile.screen video{object-fit:contain}
+.tile .av{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700}
+.tile .nm{position:absolute;left:8px;bottom:8px;max-width:80%;padding:3px 9px;border-radius:12px;background:#000a;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .st{position:absolute;right:8px;top:8px;font-size:15px}
+.tile.speaking{outline:3px solid #34d399}
+#bar{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;gap:14px;padding:14px 12px calc(env(safe-area-inset-bottom,0px) + 16px);background:linear-gradient(#0000,#000c)}
+.btn{width:54px;height:54px;border-radius:50%;border:0;background:#2b2f38;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center}
+.btn.off{background:#fff;color:#111}.btn.end{background:#e8365d}
+#msg{position:fixed;left:50%;transform:translateX(-50%);bottom:110px;z-index:6;background:#000c;padding:8px 14px;border-radius:14px;font-size:13px;display:none;max-width:90%;text-align:center}
+#wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 40px;opacity:.7;font-size:15px;pointer-events:none}
+</style></head>
+<body>
+<div id="top"><b>Group call</b><span id="count">1 in call</span></div>
+<div id="grid"></div>
+<div id="wait">Waiting for others to join…<br>Everyone in the Discussion group has been notified.</div>
+<div id="msg"></div>
+<div id="bar">
+  <button class="btn" id="bMic" onclick="toggleMic()">🎤</button>
+  <button class="btn" id="bCam" onclick="toggleCam()">📹</button>
+  <button class="btn" id="bFlip" onclick="flipCam()">🔄</button>
+  <button class="btn end" onclick="leaveCall()">📞</button>
+</div>
+<script>
+// STUN + a public TURN relay (best effort; replace with your own TURN for production reliability)
+const ICE=[
+  {urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']},
+  {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}
+];
+const INFO=JSON.parse(AndroidCall.info());
+const me=INFO.id, myName=INFO.name||'Me';
+let local=null, peers={}, early={}, micOn=true, camOn=false, facing='user', joinTs=Date.now(), left=false;
+const grid=document.getElementById('grid');
+const COLORS=['#e8365d','#6d4af0','#0e9f8e','#2563eb','#f59e0b','#9333ea','#16a34a','#db2777'];
+function colorOf(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))|0;return COLORS[Math.abs(h)%COLORS.length]}
+function toast(t){const m=document.getElementById('msg');m.textContent=t;m.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>m.style.display='none',3500)}
+function layout(){
+  const n=grid.children.length;
+  const cols=n<=1?1:(n<=4?2:3);
+  grid.style.gridTemplateColumns='repeat('+cols+',1fr)';
+  grid.style.gridAutoRows=(n<=2&&cols===1)?'1fr':'1fr';
+  document.getElementById('count').textContent=n+(n===1?' in call':' in call');
+  document.getElementById('wait').style.display=n<=1?'flex':'none';
+}
+function makeTile(id,name,isLocal){
+  let t=document.getElementById('t_'+id); if(t) return t;
+  t=document.createElement('div');t.className='tile';t.id='t_'+id;
+  const v=document.createElement('video');v.autoplay=true;v.playsInline=true;if(isLocal){v.muted=true;if(facing==='user')v.style.transform='scaleX(-1)'}
+  const av=document.createElement('div');av.className='av';av.style.background=colorOf(id);av.textContent=(name||'?').trim().charAt(0).toUpperCase();
+  const nm=document.createElement('div');nm.className='nm';nm.textContent=isLocal?name+' (You)':name;
+  const st=document.createElement('div');st.className='st';st.id='st_'+id;
+  t.append(av,v,nm,st);grid.appendChild(t);layout();return t;
+}
+function setStream(id,stream){
+  const t=document.getElementById('t_'+id);if(!t)return;
+  const v=t.querySelector('video');v.srcObject=stream;
+  const hasVid=stream.getVideoTracks().some(x=>x.readyState==='live'&&!x.muted||x.enabled);
+  v.style.display=stream.getVideoTracks().length?'block':'none';
+  const p=v.play&&v.play();if(p&&p.catch)p.catch(()=>{});
+}
+async function startLocal(){
+  try{
+    local=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:INFO.video?{facingMode:'user',width:{ideal:640},height:{ideal:480},frameRate:{ideal:24}}:false});
+  }catch(e){
+    try{local=await navigator.mediaDevices.getUserMedia({audio:true});toast('Camera unavailable – joined with audio only')}
+    catch(e2){local=null;toast('Microphone unavailable – you can listen only')}
+  }
+  camOn=!!(local&&local.getVideoTracks().length);
+  document.getElementById('bCam').style.display=camOn?'flex':'none';
+  document.getElementById('bFlip').style.display=camOn?'flex':'none';
+  makeTile(me,myName,true);
+  if(local)setStream(me,local);
+}
+function send(to,kind,data){AndroidCall.send(to||'',kind,data||'')}
+function newPeer(id,name){
+  if(peers[id])return peers[id];
+  const pc=new RTCPeerConnection({iceServers:ICE});
+  const p={pc,name,remoteSet:false,queue:[],stream:new MediaStream()};
+  peers[id]=p;makeTile(id,name,false);
+  if(local)local.getTracks().forEach(t=>pc.addTrack(t,local));
+  pc.onicecandidate=e=>{if(e.candidate)send(id,'ice',JSON.stringify(e.candidate))};
+  pc.ontrack=e=>{p.stream=e.streams[0]||p.stream;setStream(id,p.stream)};
+  pc.onconnectionstatechange=()=>{
+    const s=pc.connectionState;
+    if(s==='failed'||s==='closed'){setTimeout(()=>{if(peers[id]&&peers[id].pc===pc&&pc.connectionState!=='connected')dropPeer(id)},4000)}
+  };
+  (early[id]||[]).forEach(c=>p.queue.push(c));delete early[id];
+  return p;
+}
+function dropPeer(id){
+  const p=peers[id];if(p){try{p.pc.close()}catch(e){}delete peers[id]}
+  const t=document.getElementById('t_'+id);if(t)t.remove();layout();
+}
+async function flush(p){p.remoteSet=true;for(const c of p.queue){try{await p.pc.addIceCandidate(c)}catch(e){}}p.queue=[]}
+async function callPeer(id,name){
+  const p=newPeer(id,name);
+  const o=await p.pc.createOffer();await p.pc.setLocalDescription(o);
+  send(id,'offer',JSON.stringify(p.pc.localDescription));
+}
+window.onSignal=async function(arr){
+  for(const s of arr){
+    try{
+      const from=s.from,name=s.name||'Member';
+      if(s.kind==='join'){
+        if(peers[from])continue;
+        const their=JSON.parse(s.data||'{}').ts||0;
+        // the one who was already in the call (earlier join) makes the offer
+        if(joinTs<their||(joinTs===their&&me<from))await callPeer(from,name);
+      }else if(s.kind==='offer'){
+        const p=newPeer(from,name);
+        await p.pc.setRemoteDescription(JSON.parse(s.data));await flush(p);
+        const a=await p.pc.createAnswer();await p.pc.setLocalDescription(a);
+        send(from,'answer',JSON.stringify(p.pc.localDescription));
+      }else if(s.kind==='answer'){
+        const p=peers[from];if(p&&!p.remoteSet){await p.pc.setRemoteDescription(JSON.parse(s.data));await flush(p)}
+      }else if(s.kind==='ice'){
+        const c=JSON.parse(s.data),p=peers[from];
+        if(!p){(early[from]=early[from]||[]).push(c)}
+        else if(p.remoteSet){try{await p.pc.addIceCandidate(c)}catch(e){}}
+        else p.queue.push(c);
+      }else if(s.kind==='leave'){dropPeer(from)}
+    }catch(e){console.log('signal error',e)}
+  }
+};
+function toggleMic(){
+  micOn=!micOn;if(local)local.getAudioTracks().forEach(t=>t.enabled=micOn);
+  const b=document.getElementById('bMic');b.classList.toggle('off',!micOn);b.textContent=micOn?'🎤':'🔇';
+  const st=document.getElementById('st_'+me);if(st)st.textContent=micOn?'':'🔇';
+}
+function toggleCam(){
+  if(!local)return;const on=!(local.getVideoTracks()[0]&&local.getVideoTracks()[0].enabled);
+  local.getVideoTracks().forEach(t=>t.enabled=on);
+  const b=document.getElementById('bCam');b.classList.toggle('off',!on);b.textContent=on?'📹':'🚫';
+  const t=document.getElementById('t_'+me);if(t)t.querySelector('video').style.display=on?'block':'none';
+}
+async function flipCam(){
+  if(!local||!local.getVideoTracks().length)return;
+  facing=facing==='user'?'environment':'user';
+  try{
+    const ns=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:640},height:{ideal:480}}});
+    const nt=ns.getVideoTracks()[0],old=local.getVideoTracks()[0];
+    Object.values(peers).forEach(p=>{const s=p.pc.getSenders().find(x=>x.track&&x.track.kind==='video');if(s)s.replaceTrack(nt)});
+    local.removeTrack(old);old.stop();local.addTrack(nt);
+    const v=document.getElementById('t_'+me).querySelector('video');v.srcObject=local;v.style.transform=facing==='user'?'scaleX(-1)':'none';
+  }catch(e){toast('Could not switch camera')}
+}
+function leaveCall(){
+  if(left)return;left=true;
+  send('','leave','');
+  Object.keys(peers).forEach(dropPeer);
+  if(local)local.getTracks().forEach(t=>t.stop());
+  setTimeout(()=>AndroidCall.leave(),500);
+}
+(async function(){
+  await startLocal();
+  AndroidCall.ready();                       // native side starts listening for signals
+  setTimeout(()=>send('','join',JSON.stringify({ts:joinTs})),300);
+})();
+</script></body></html>
