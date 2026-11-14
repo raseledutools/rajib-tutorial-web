@@ -80,7 +80,7 @@ final class DiscussionScreen extends Screen {
         @Override public void run() {
             if (!polling || released) return;
             fetch(false);
-            h.postDelayed(this, POLL_MS);
+            h.postDelayed(this, Fs.queryBroken ? POLL_MS * 2 : POLL_MS);
         }
     };
 
@@ -300,11 +300,14 @@ final class DiscussionScreen extends Screen {
         if (released) return;
         if (fetching) { if (force) pendingForce = true; return; }
         fetching = true;
-        Store.async(() -> Fs.latestWithPrefix(PREFIX, FETCH_LIMIT), (List<Fs.Doc> docs, Exception e) -> {
+        Store.async(() -> Fs.latestChat(PREFIX, FETCH_LIMIT), (List<Fs.Doc> docs, Exception e) -> {
             fetching = false;
             if (released) return;
             if (e != null || docs == null) {
-                if (msgs.isEmpty() && list != null && list.getChildCount() == 0) showNote("Could not load messages. Retrying…");
+                if (msgs.isEmpty() && list != null) {
+                    String why = e != null && e.getMessage() != null ? e.getMessage() : "";
+                    showNote("Could not load messages. Retrying…" + (why.isEmpty() ? "" : "\n\n" + why));
+                }
                 return;
             }
             List<Msg> out = new ArrayList<>();
@@ -563,7 +566,7 @@ final class DiscussionScreen extends Screen {
         Store.async(() -> { Fs.set(id, d); return Boolean.TRUE; }, (Boolean ok, Exception e) -> {
             if (released) return;
             if (e != null) {
-                a.toast("Could not send. Check your internet connection.");
+                a.toast("Could not send: " + (e.getMessage() == null ? "check your internet" : e.getMessage()));
                 if ("text".equals(type) && input != null && input.getText().length() == 0) input.setText(text);
             } else {
                 fetch(true);

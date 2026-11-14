@@ -117,6 +117,28 @@ final class Fs {
         return out;
     }
 
+    /** Set once the range query is rejected by the server (HTTP 4xx); chat then uses list() instead. */
+    static volatile boolean queryBroken = false;
+    static volatile String lastQueryError = "";
+
+    /** Chat messages, newest first: fast range query, with a list()-based fallback that always works. */
+    static List<Doc> latestChat(String prefix, int limit) throws Exception {
+        if (!queryBroken) {
+            try {
+                return latestWithPrefix(prefix, limit);
+            } catch (Exception e) {
+                String m = e.getMessage() == null ? e.toString() : e.getMessage();
+                if (!m.startsWith("HTTP 4")) throw e;       // network problem: just retry later
+                queryBroken = true;
+                lastQueryError = m;
+            }
+        }
+        List<Doc> out = new ArrayList<>();
+        for (Doc d : list()) if (d.id.startsWith(prefix)) out.add(d);
+        java.util.Collections.sort(out, (x, y) -> y.id.compareTo(x.id));
+        return out.size() > limit ? new ArrayList<>(out.subList(0, limit)) : out;
+    }
+
     private static JSONObject nameFilter(String ref, String op) throws JSONException {
         return new JSONObject().put("fieldFilter", new JSONObject()
             .put("field", new JSONObject().put("fieldPath", "__name__"))
