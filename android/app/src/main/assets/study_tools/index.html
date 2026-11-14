@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#7B2FF7">
+    <title>Study Tools</title>
+
+    <!-- 100% OFFLINE: every library is bundled in ./lib (no CDN, no internet needed) -->
+    <script src="lib/pdf-lib.min.js"></script>
+    <script src="lib/jspdf.umd.min.js"></script>
+    <script src="lib/qrcode.min.js"></script>
+    <script src="lib/html5-qrcode.min.js"></script>
+    <script src="lib/pdf.min.js"></script>
+    <script src="lib/FileSaver.min.js"></script>
+    <script>
+        // PDF.js worker (local file)
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
+    </script>
+
+    <style>
+        /* ফন্টটি ইন্টারনেট মুক্ত করে সিস্টেম ডিফল্ট ফন্টে সেট করা হয়েছে */
+        body { background-color: #f8fafc; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        
+        .tool-card {
+            background: white; border-radius: 16px; padding: 20px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            transition: all 0.3s; border: 1px solid #e2e8f0;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .tool-card:hover { 
+            transform: translateY(-4px); 
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            border-color: #3b82f6; 
+        }
+        .btn-action {
+            background: #2563eb; color: white; padding: 10px;
+            border-radius: 8px; width: 100%; margin-top: 15px;
+            font-weight: 600; transition: background 0.2s;
+            cursor: pointer; border: none;
+        }
+        .btn-action:hover { background: #1d4ed8; }
+        .icon-box {
+            width: 45px; height: 45px; display: flex;
+            align-items: center; justify-content: center;
+            border-radius: 10px; margin-bottom: 15px; font-size: 22px;
+        }
+        input, textarea, select { width: 100%; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px; margin-bottom: 5px; }
+        .hidden-canvas { display: none; }
+        #qr-result, #qr-reader-result { margin-top: 10px; display: flex; justify-content: center; flex-direction: column; align-items: center; }
+        .result-box { background: #f1f5f9; padding: 10px; border-radius: 6px; margin-top: 10px; font-weight: bold; text-align: center; font-size: 0.9em; color: #334155; }
+        
+        /* Download Button Styles */
+        .btn-download {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white; padding: 10px; border-radius: 8px; width: 100%; margin-top: 10px;
+            font-weight: 700; font-size: 0.95em; transition: all 0.2s;
+            cursor: pointer; border: none; box-shadow: 0 4px 12px rgba(16,185,129,0.35);
+            animation: popIn 0.3s ease;
+        }
+        .btn-download:hover { background: linear-gradient(135deg, #059669, #047857); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(16,185,129,0.45); }
+        .btn-download:active { transform: translateY(0); }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+        
+        .download-area { margin-top: 8px; }
+        .success-badge { display: inline-flex; align-items: center; gap: 5px; background: #d1fae5; color: #065f46; font-size: 0.78em; font-weight: 600; padding: 3px 10px; border-radius: 20px; margin-bottom: 6px; }
+        .drag-over { border: 2px dashed #4b5563; background-color: #f3f4f6; opacity: 0.7; }
+        
+        .scrollable-home-btn {
+            position: absolute; top: 15px; right: 15px;
+            background-color: #008CBA; color: white; padding: 6px 12px;
+            border-radius: 20px; text-decoration: none;
+            font-family: Arial, sans-serif; font-size: 13px; font-weight: bold;
+            z-index: 1000; box-shadow: 0px 3px 8px rgba(0,0,0,0.2);
+            transition: background-color 0.3s ease;
+        }
+        .scrollable-home-btn:hover { background-color: #005f7a; }
+        @keyframes liveScan { 0% { top: 0; } 100% { top: 100%; } }
+        #live-qr-modal { display: none; }
+        #live-qr-modal.active { display: flex !important; }
+    
+        /* ───────── Native-app feel ───────── */
+        * { -webkit-tap-highlight-color: transparent; }
+        html, body { overscroll-behavior: none; }
+        body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+               padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+        input, textarea, select, .result-box, #qr-reader-result, #live-qr-result-text, #age-result {
+            -webkit-user-select: text; user-select: text; }
+        button, label, a { touch-action: manipulation; }
+        .btn-action:active, .btn-download:active { transform: scale(.97); filter: brightness(.95); }
+        .tool-card { -webkit-tap-highlight-color: transparent; }
+        @media (hover: none) {
+            .tool-card:hover { transform: none; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border-color: #e2e8f0; }
+        }
+        input[type="file"]::file-selector-button {
+            background: #eef2ff; color: #3730a3; border: 0; border-radius: 8px;
+            padding: 8px 12px; margin-right: 10px; font-weight: 600; cursor: pointer;
+        }
+        /* in-page snackbar (saved / copied messages) */
+        #nb-toast {
+            position: fixed; left: 12px; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+            z-index: 10000; display: none; align-items: center; gap: 10px;
+            background: #1f2937; color: #fff; border-radius: 12px; padding: 12px 14px;
+            font-size: 13.5px; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+        }
+        #nb-toast span { flex: 1; word-break: break-word; }
+        #nb-toast button { background: #a78bfa; color: #1e1b4b; border: 0; border-radius: 8px;
+                           padding: 7px 14px; font-weight: 700; font-size: 13px; width: auto; margin: 0; }
+    </style>
+    <!-- Pre-built Tailwind (replaces the online cdn.tailwindcss.com script). Loaded AFTER the custom CSS, exactly like the CDN did. -->
+    <link rel="stylesheet" href="lib/tailwind.css">
+</head>
+<body class="p-6 md:p-10 relative">
+
+    <div class="max-w-6xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl font-extrabold text-slate-800">Study Tools</h1>
+            <p class="text-slate-500 mt-2">PDF &amp; Photo tools • Works 100% offline</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <div class="tool-card border-t-4 border-red-500">
+                <div>
+                    <div class="icon-box bg-red-100 text-red-600">✂️</div>
+                    <h3 class="text-lg font-bold text-slate-800">Split PDF</h3>
+                    <p class="text-slate-500 text-sm mb-3">Extract pages (e.g., 1, 3-5).</p>
+                </div>
+                <div>
+                    <input type="file" id="split-file" accept=".pdf" class="text-sm">
+                    <div class="flex gap-2">
+                        <input type="number" id="split-start" placeholder="Start" min="1" class="w-1/2">
+                        <input type="number" id="split-end" placeholder="End" min="1" class="w-1/2">
+                    </div>
+                    <button onclick="splitPDF()" class="btn-action bg-red-600">✂️ Extract Pages</button>
+                    <div id="split-download-area" class="download-area" style="display:none;"></div>
+                </div>
+            </div>
+
+            <div class="tool-card border-t-4 border-rose-500">
+                <div>
+                    <div class="icon-box bg-rose-100 text-rose-600">📐</div>
+                    <h3 class="text-lg font-bold text-slate-800">Photo Resizer</h3>
+                    <p class="text-slate-500 text-sm mb-3">Resize by exact pixels.</p>
+                </div>
+                <div>
+                    <input type="file" id="resize-file" accept="image/*" class="text-sm mb-2">
+                    <div class="flex gap-2">
+                        <input type="number" id="resize-w" placeholder="Width" class="w-1/2">
+                        <input type="number" id="resize-h" placeholder="Height" class="w-1/2">
+                    </div>
+                    <button onclick="customResize()" class="btn-action bg-rose-600">📐 Resize Now</button>
+                    <div id="resize-download-area" class="download-area" style="display:none;"></div>
+                </div>
+            </div>
+
+            <div class="tool-card border-t-4 border-yellow-500">
+                <div>
+                    <div class="icon-box bg-yellow-100 text-yellow-600">📱</div>
+                    <h3 class="text-lg font-bold text-slate-800">QR Generator</h3>
+                    <p class="text-slate-500 text-sm mb-3">Create QR from text/link.</p>
+                </div>
+                <div>
+                    <input type="text" id="qr-text" placeholder="Enter Link or Text..." required>
+                    <div id="qr-result"></div>
+                    <button onclick="generateQR()" class="btn-action bg-yellow-600">Generate QR</button>
+                    <div id="qr-download-area" class="download-area" style="display:none;"></div>
+                </div>
+            </div>
+
+            <div class="tool-card border-t-4 border-yellow-600">
+                <div>
+                    <div class="icon-box bg-yellow-100 text-yellow-700">📷</div>
+                    <h3 class="text-lg font-bold text-slate-800">QR Reader</h3>
+                    <p class="text-slate-500 text-sm mb-3">Read QR from Image or Camera.</p>
+                </div>
+                <div>
+                    <!-- Live Camera Button -->
+                    <button onclick="openLiveCameraScanner()" class="btn-action bg-teal-600" style="margin-top:0; background:#0d9488;">
+                        📹 Live Camera Scanner
+                    </button>
+                    <!-- Upload Image -->
+                    <p class="text-xs text-slate-400 text-center my-2">— অথবা ছবি আপলোড করো —</p>
+                    <input type="file" id="qr-input-file" accept="image/*" class="text-sm">
+                    <div id="qr-reader-result" class="text-xs break-all"></div>
+                    <button onclick="readQRCode()" class="btn-action bg-yellow-700">Scan Image</button>
+                </div>
+            </div>
+
+            <!-- ✅ LIVE CAMERA QR SCANNER MODAL -->
+            <div id="live-qr-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.88); z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
+                <p style="color:white; font-size:18px; font-weight:800; margin-bottom:14px;">📹 Live QR Scanner</p>
+                <div style="position:relative; width:300px; height:300px; border-radius:16px; overflow:hidden; border:3px solid #14b8a6; box-shadow: 0 0 0 4px rgba(20,184,166,0.3);">
+                    <video id="live-qr-video" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
+                    <div id="live-scan-line" style="position:absolute; left:0; top:0; width:100%; height:3px; background:linear-gradient(to right, transparent, #14b8a6, transparent); animation:liveScan 2s linear infinite;"></div>
+                    <!-- Corner markers -->
+                    <div style="position:absolute; top:8px; left:8px; width:22px; height:22px; border-top:3px solid #14b8a6; border-left:3px solid #14b8a6; border-radius:3px 0 0 0;"></div>
+                    <div style="position:absolute; top:8px; right:8px; width:22px; height:22px; border-top:3px solid #14b8a6; border-right:3px solid #14b8a6; border-radius:0 3px 0 0;"></div>
+                    <div style="position:absolute; bottom:8px; left:8px; width:22px; height:22px; border-bottom:3px solid #14b8a6; border-left:3px solid #14b8a6; border-radius:0 0 0 3px;"></div>
+                    <div style="position:absolute; bottom:8px; right:8px; width:22px; height:22px; border-bottom:3px solid #14b8a6; border-right:3px solid #14b8a6; border-radius:0 0 3px 0;"></div>
+                </div>
+                <canvas id="live-qr-canvas" style="display:none;"></canvas>
+
+                <!-- Result box -->
+                <div id="live-qr-result-box" style="display:none; margin-top:14px; background:white; border-radius:12px; padding:14px 18px; max-width:300px; width:90%; text-align:center;">
+                    <p style="font-size:12px; color:#059669; font-weight:700; margin-bottom:4px;">✅ QR Code পাওয়া গেছে!</p>
+                    <p id="live-qr-result-text" style="font-size:14px; color:#1e293b; word-break:break-all; margin:6px 0;"></p>
+                    <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px;">
+                        <button onclick="copyLiveQRResult()" style="background:#059669; color:white; border:none; padding:7px 14px; border-radius:7px; font-size:13px; cursor:pointer; font-weight:600;">📋 Copy</button>
+                        <a id="live-qr-open-link" href="#" target="_blank" style="display:none; background:#2563eb; color:white; padding:7px 14px; border-radius:7px; font-size:13px; text-decoration:none; font-weight:600;">🔗 Open</a>
+                        <button onclick="resumeLiveScan()" style="background:#f59e0b; color:white; border:none; padding:7px 14px; border-radius:7px; font-size:13px; cursor:pointer; font-weight:600;">🔄 আবার Scan</button>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; justify-content:center;">
+                    <button onclick="switchLiveCamera()" style="background:#475569; color:white; border:none; padding:10px 18px; border-radius:8px; font-size:14px; cursor:pointer; font-weight:600;">🔄 Camera Switch</button>
+                    <button onclick="closeLiveCameraScanner()" style="background:#ef4444; color:white; border:none; padding:10px 18px; border-radius:8px; font-size:14px; cursor:pointer; font-weight:600;">✖ বন্ধ করো</button>
+                </div>
+                <p id="live-camera-status" style="color:#94a3b8; font-size:13px; margin-top:12px;">Camera চালু হচ্ছে...</p>
+            </div>
+
+            <div class="tool-card border-t-4 border-gray-600">
+                <div class="mb-4 flex items-center gap-3">
+                    <div class="w-12 h-12 flex items-center justify-center rounded-lg bg-gray-100 text-gray-600 text-2xl shadow-inner">
+                        📄 <!-- FontAwesome এর বদলে ইমোজি -->
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800">Advanced PDF Merger</h3>
+                        <p class="text-slate-500 text-sm">Combine & reorder PDFs.</p>
+                    </div>
+                </div>
+                <div>
+                    <input type="file" id="merge-files" multiple accept=".pdf" class="hidden" onchange="handlePDFSelection(event)">
+                    <label for="merge-files" class="w-full cursor-pointer flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-xl text-sm mb-4 transition-all border border-gray-300 border-dashed">
+                        ➕ Select PDFs <!-- FontAwesome এর বদলে ইমোজি -->
+                    </label>
+                    <ul id="pdf-list" class="mb-4 space-y-2 max-h-40 overflow-y-auto pr-1"></ul>
+                    <button id="merge-btn" onclick="executeMerge()" class="hidden w-full bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95">
+                        📚 Merge PDFs Now <!-- FontAwesome এর বদলে ইমোজি -->
+                    </button>
+                    <div id="merge-download-area" class="download-area mt-4" style="display:none;"></div>
+                </div>
+            </div>
+
+            <div class="tool-card border-t-4 border-green-500">
+                <div>
+                    <div class="icon-box bg-green-100 text-green-600">📄</div>
+                    <h3 class="text-lg font-bold text-slate-800">Photo to PDF</h3>
+                    <p class="text-slate-500 text-sm mb-3">Images to single HQ PDF.</p>
+                </div>
+                <div>
+                    <input type="file" id="img-to-pdf-files" multiple accept="image/*" class="text-sm">
+                    <button onclick="imagesToPDF()" class="btn-action bg-green-600">📄 Create PDF</button>
+                    <div id="imgpdf-download-area" class="download-area" style="display:none;"></div>
+                </div>
+            </div>
+
+            <div class="tool-card border-t-4 border-blue-500">
+                <div>
+                    <div class="icon-box bg-blue-100 text-blue-600">👤</div>
+                    <h3 class="text-lg font-bold text-slate-800">Job Photo</h3>
+                    <p class="text-slate-500 text-sm mb-3">300x300 px | JPG.</p>
+                </div>
+                <div>
+                    <input type="file" id="job-photo-file" accept="image/*" class="text-sm">
+                    <button onclick="processImage(300, 300, 'job-photo.jpg', 'job-photo-file', 'job-download-area')" class="btn-action bg-blue-600">👤 Convert Photo</button>
+                    <div id="job-download-area" class="download-area" style="display:none;"></div>
+                </div>
+            </div>
+
+            <div class="tool-card border-t-4 border-indigo-500">
+                <div>
+                    <div class="icon-box bg-indigo-100 text-indigo-600">✍️</div>
+                    <h3 class="text-lg font-bold text-slate-800">Signature</h3>
+                    <p class="text-slate-500 text-sm mb-3">300x80 px | JPG.</p>
+                </div>
+                <div>
+                    <input type="file" id="sign-photo-file" accept="image/*" class="text-sm">
+                    <button onclick="processImage(300, 80, 'signature.jpg', 'sign-photo-file', 'sign-download-area')" class="btn-action bg-indigo-600">✍️ Convert Sign</button>
+                    <div id="sign-download-area" class="download-area" style="display:none;"></div>
+                </div>
+            </div>
+
+            <div class="tool-card border-t-4 border-orange-500">
+                <div>
+                    <div class="icon-box bg-orange-100 text-orange-600">🗜️</div>
+                    <h3 class="text-lg font-bold text-slate-800">Compress PDF</h3>
+                    <p class="text-slate-500 text-sm mb-3">Optimize PDF structure.</p>
+                </div>
+                <div>
+                    <input type="file" id="compress-file" accept=".pdf" class="text-sm">
+                    <button onclick="compressPDF()" class="btn-action bg-orange-600">🗜️ Compress & Save</button>
+                    <div id="compress-download-area" class="download-area" style="display:none;"></div>
+                </div>
+            </div>
+
+            <div class="tool-card border-t-4 border-lime-500">
+                <div>
+                    <div class="icon-box bg-lime-100 text-lime-700">📅</div>
+                    <h3 class="text-lg font-bold text-slate-800">Age Calculator</h3>
+                    <p class="text-slate-500 text-sm mb-3">Calculate exact age.</p>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">Date of Birth:</label>
+                    <input type="date" id="age-dob" class="text-sm">
+                    <label class="text-xs text-slate-500">Calculate as of (Optional):</label>
+                    <input type="date" id="age-target" class="text-sm">
+                    <button onclick="calculateAge()" class="btn-action bg-lime-600">Calculate Age</button>
+                    <div id="age-result" class="result-box hidden"></div>
+                </div>
+            </div>
+
+            <!-- ✅ NEW: PDF to High Quality Photo -->
+            <div class="tool-card border-t-4 border-violet-500">
+                <div>
+                    <div class="icon-box bg-violet-100 text-violet-600">🖼️</div>
+                    <h3 class="text-lg font-bold text-slate-800">PDF → High Quality Photo</h3>
+                    <p class="text-slate-500 text-sm mb-3">PDF এর প্রতিটি page কে HD PNG ছবিতে convert করো।</p>
+                </div>
+                <div>
+                    <input type="file" id="pdf-to-photo-file" accept=".pdf" class="text-sm">
+                    <div style="margin:8px 0 4px;">
+                        <label class="text-xs text-slate-500 font-semibold">Quality (DPI):</label>
+                        <select id="pdf-photo-dpi" style="width:100%; border:1px solid #cbd5e1; padding:6px; border-radius:6px; margin-top:4px; font-size:13px;">
+                            <option value="1.5">Normal (150 DPI)</option>
+                            <option value="2" selected>High (200 DPI)</option>
+                            <option value="3">Ultra HD (300 DPI)</option>
+                            <option value="4">Super HD (400 DPI)</option>
+                        </select>
+                    </div>
+                    <button onclick="pdfToHighQualityPhoto()" class="btn-action bg-violet-600">🖼️ Convert to PNG</button>
+                    <div id="pdf-photo-progress" style="display:none; margin-top:10px; font-size:13px; color:#7c3aed; font-weight:600; text-align:center;"></div>
+                    <div id="pdf-photo-download-area" class="download-area" style="display:none;"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Hidden Canvas -->
+    <canvas id="canvas" class="hidden-canvas"></canvas>
+
+    <script>
+        const { PDFDocument, rgb, degrees } = PDFLib;
+
+        // ═══════════════════════════════════════════════════════════
+        //  Native bridge helpers (window.AndroidTools is injected by StudyToolsActivity)
+        //  In a normal browser NB is null and the old FileSaver path is used.
+        // ═══════════════════════════════════════════════════════════
+        const NB = window.AndroidTools || null;
+
+        function esc(s) {
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        let _toastTimer = null;
+        function toast(msg, actionLabel, actionFn, ms) {
+            const box = document.getElementById('nb-toast');
+            const txt = document.getElementById('nb-toast-msg');
+            const btn = document.getElementById('nb-toast-btn');
+            txt.textContent = msg;
+            if (actionLabel && actionFn) {
+                btn.textContent = actionLabel;
+                btn.style.display = 'inline-block';
+                btn.onclick = () => { box.style.display = 'none'; actionFn(); };
+            } else {
+                btn.style.display = 'none';
+                btn.onclick = null;
+            }
+            box.style.display = 'flex';
+            clearTimeout(_toastTimer);
+            _toastTimer = setTimeout(() => { box.style.display = 'none'; }, ms || (actionFn ? 6000 : 2500));
+        }
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onload = () => { const s = r.result; resolve(s.substring(s.indexOf(',') + 1)); };
+                r.onerror = () => reject(r.error || new Error('read failed'));
+                r.readAsDataURL(blob);
+            });
+        }
+
+        function dataUrlToBlob(u) {
+            const parts = u.split(',');
+            const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/png';
+            const bin = atob(parts[1]);
+            const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            return new Blob([arr], { type: mime });
+        }
+
+        // Saves a Blob → Downloads/StudyTools (app) or FileSaver (browser). Resolves {ok, name, uri, mime, where}
+        async function saveBlob(blob, filename) {
+            if (!NB) { saveAs(blob, filename); return { ok: true, name: filename, browser: true }; }
+            const id = NB.beginSave(filename, blob.type || 'application/octet-stream');
+            if (!id) {
+                toast('❌ Save করা গেলো না — Storage permission দিয়ে আবার চেষ্টা করুন');
+                return { ok: false };
+            }
+            try {
+                const CHUNK = 768 * 1024;
+                for (let o = 0; o < blob.size; o += CHUNK) {
+                    const b64 = await blobToBase64(blob.slice(o, o + CHUNK));
+                    if (!NB.appendChunk(id, b64)) throw new Error('write failed');
+                }
+                const info = JSON.parse(NB.endSave(id));
+                if (!info.ok) throw new Error(info.error || 'save failed');
+                return info;
+            } catch (e) {
+                try { NB.abortSave(id); } catch (_) {}
+                toast('❌ Save error: ' + (e && e.message ? e.message : e));
+                return { ok: false };
+            }
+        }
+
+        function showSaved(info) {
+            if (!info || !info.ok || info.browser) return;
+            toast('✅ Saved: ' + info.name + '  (' + info.where + ')', 'Open', () => NB.openFile(info.uri, info.mime || ''));
+        }
+
+        function openExternal(url) {
+            if (NB) NB.openUrl(url); else window.open(url, '_blank');
+        }
+
+        async function copyText(t) {
+            try {
+                if (NB && NB.copyText) { NB.copyText(t); return true; }
+                await navigator.clipboard.writeText(t);
+                return true;
+            } catch (e) { return false; }
+        }
+
+        // 🔥 Global Download System 🔥
+        window.downloadData = {};
+
+        window.triggerDownload = async function(fileId, silent) {
+            const d = window.downloadData[fileId];
+            if (!d) { alert("File not found! Please process the file again."); return { ok: false }; }
+            const info = await saveBlob(d.blob, d.filename);
+            if (!silent) showSaved(info);
+            return info;
+        };
+
+        window.downloadQR = async function(dataUrl) {
+            const info = await saveBlob(dataUrlToBlob(dataUrl), 'qrcode.png');
+            showSaved(info);
+        };
+
+        // Back button handler used by the native Activity: true = handled here
+        window.__nativeBack = function() {
+            const modal = document.getElementById('live-qr-modal');
+            if (modal && modal.style.display !== 'none') { window.closeLiveCameraScanner(); return true; }
+            return false;
+        };
+
+        // --- Helper functions ---
+        const readFileAsync = (file) => {
+            return new Promise((resolve, reject) => {
+                let reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        };
+
+        const readImageAsync = (file) => {
+            return new Promise((resolve, reject) => {
+                let reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        };
+
+        // --- PDF Merger Variables & Functions ---
+        let selectedPDFs = [];
+        let dragStartIndex = -1;
+
+        function handlePDFSelection(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                for (let i = 0; i < files.length; i++) {
+                    selectedPDFs.push(files[i]);
+                }
+                renderPDFList();
+            }
+            event.target.value = ''; 
+        }
+
+        function renderPDFList() {
+            const listContainer = document.getElementById('pdf-list');
+            const mergeBtn = document.getElementById('merge-btn');
+            listContainer.innerHTML = '';
+
+            if (selectedPDFs.length === 0) {
+                mergeBtn.classList.add('hidden');
+                listContainer.innerHTML = '<p class="text-xs text-center text-gray-400 py-4 italic">No files selected yet.</p>';
+                return;
+            }
+
+            if (selectedPDFs.length >= 2) {
+                mergeBtn.classList.remove('hidden');
+            } else {
+                mergeBtn.classList.add('hidden');
+            }
+
+            selectedPDFs.forEach((file, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between bg-white border border-gray-200 rounded-lg p-3 shadow-sm cursor-grab transition-all group';
+                li.draggable = true;
+                
+                li.ondragstart = (e) => dragStart(e, index);
+                li.ondragover = (e) => dragOver(e);
+                li.ondragleave = (e) => dragLeave(e);
+                li.ondrop = (e) => drop(e, index);
+
+                let fileName = file.name;
+                if(fileName.length > 25) fileName = fileName.substring(0, 22) + '...';
+                const safeFull = esc(file.name);
+                fileName = esc(fileName);
+
+                li.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <span class="text-gray-300 group-hover:text-gray-500 cursor-grab text-xl">🤚</span>
+                        <span class="text-sm font-semibold text-gray-700 truncate" title="${safeFull}">${fileName}</span>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button onclick="moveUp(${index})" class="w-7 h-7 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed" ${index === 0 ? 'disabled' : ''}>
+                            🔼
+                        </button>
+                        <button onclick="moveDown(${index})" class="w-7 h-7 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed" ${index === selectedPDFs.length - 1 ? 'disabled' : ''}>
+                            🔽
+                        </button>
+                        <button onclick="removeFile(${index})" class="w-7 h-7 rounded bg-red-50 hover:bg-red-500 text-red-500 hover:text-white flex items-center justify-center transition-colors ml-1">
+                            ❌
+                        </button>
+                    </div>
+                `;
+                listContainer.appendChild(li);
+            });
+        }
+
+        function dragStart(e, index) { dragStartIndex = index; e.dataTransfer.effectAllowed = 'move'; }
+        function dragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+        function dragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+        function drop(e, targetIndex) {
+            e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+            if (dragStartIndex === targetIndex) return;
+            const draggedItem = selectedPDFs.splice(dragStartIndex, 1)[0];
+            selectedPDFs.splice(targetIndex, 0, draggedItem);
+            renderPDFList();
+        }
+
+        window.moveUp = (index) => { if (index === 0) return; const item = selectedPDFs.splice(index, 1)[0]; selectedPDFs.splice(index - 1, 0, item); renderPDFList(); }
+        window.moveDown = (index) => { if (index === selectedPDFs.length - 1) return; const item = selectedPDFs.splice(index, 1)[0]; selectedPDFs.splice(index + 1, 0, item); renderPDFList(); }
+        window.removeFile = (index) => { selectedPDFs.splice(index, 1); renderPDFList(); }
+
+        window.executeMerge = async () => {
+            const btn = document.getElementById('merge-btn');
+            if (selectedPDFs.length < 2) { alert("Please select at least 2 PDFs to merge."); return; }
+
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Processing...';
+
+            try {
+                const { PDFDocument } = PDFLib;
+                const mergedPdf = await PDFDocument.create();
+
+                for (let file of selectedPDFs) {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdfDoc = await PDFDocument.load(arrayBuffer);
+                    const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+                    copiedPages.forEach((page) => mergedPdf.addPage(page));
+                }
+
+                const mergedPdfFile = await mergedPdf.save();
+                const blob = new Blob([mergedPdfFile], { type: 'application/pdf' });
+                
+                const fileId = 'merge_' + Date.now();
+                window.downloadData[fileId] = { blob: blob, filename: 'Merged_Document_RaselTools.pdf' };
+
+                const area = document.getElementById('merge-download-area');
+                area.style.display = 'block';
+                area.innerHTML = `
+                    <span class="success-badge">✅ Merged Successfully!</span>
+                    <button onclick="triggerDownload('${fileId}')" class="btn-download">
+                        ⬇️ Download Merged PDF
+                    </button>`;
+
+                btn.innerHTML = '✅ Merged Successfully!';
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '📚 Merge PDFs Now';
+                }, 2000);
+
+            } catch (error) {
+                console.error("Merging error:", error);
+                alert("Error merging PDFs. Ensure they are valid PDF files without passwords.");
+                btn.disabled = false;
+                btn.innerHTML = '📚 Merge PDFs Now';
+            }
+        };
+
+        // --- Other Tool Functions ---
+
+        async function splitPDF() {
+            const fileInput = document.getElementById('split-file');
+            const startPage = parseInt(document.getElementById('split-start').value);
+            const endPage = parseInt(document.getElementById('split-end').value);
+
+            if (!fileInput.files[0] || !startPage || !endPage) return alert("Please select file and page range");
+
+            const pdfBytes = await readFileAsync(fileInput.files[0]);
+            const pdfDoc = await PDFDocument.load(pdfBytes);
+            const newPdf = await PDFDocument.create();
+
+            const totalPages = pdfDoc.getPageCount();
+            if(startPage < 1 || endPage > totalPages || startPage > endPage) return alert("Invalid page range");
+
+            const range = [];
+            for (let i = startPage - 1; i < endPage; i++) range.push(i);
+
+            const copiedPages = await newPdf.copyPages(pdfDoc, range);
+            copiedPages.forEach((page) => newPdf.addPage(page));
+
+            const pdfData = await newPdf.save();
+            const blob = new Blob([pdfData], { type: 'application/pdf' });
+            
+            const fileId = 'split_' + Date.now();
+            window.downloadData[fileId] = { blob: blob, filename: `split_pages_${startPage}-${endPage}.pdf` };
+
+            const area = document.getElementById('split-download-area');
+            area.style.display = 'block';
+            area.innerHTML = `
+                <span class="success-badge">✅ Ready!</span>
+                <button onclick="triggerDownload('${fileId}')" class="btn-download">
+                    ⬇️ Download PDF (Pages ${startPage}–${endPage})
+                </button>`;
+        }
+
+        function customResize() {
+            const fileInput = document.getElementById('resize-file');
+            const w = parseInt(document.getElementById('resize-w').value);
+            const h = parseInt(document.getElementById('resize-h').value);
+
+            if(!fileInput.files[0] || !w || !h) return alert("Select file and enter dimensions.");
+            processImage(w, h, `resized_${w}x${h}.jpg`, 'resize-file', 'resize-download-area');
+        }
+
+        function generateQR() {
+            const text = document.getElementById('qr-text').value;
+            const container = document.getElementById('qr-result');
+            container.innerHTML = "";
+            const area = document.getElementById('qr-download-area');
+            area.style.display = 'none';
+            
+            if(!text) return alert("Enter text");
+
+            new QRCode(container, {
+                text: text,
+                width: 128,
+                height: 128
+            });
+
+            setTimeout(() => {
+                const img = container.querySelector('img');
+                if(img) {
+                    area.style.display = 'block';
+                    area.innerHTML = `
+                        <span class="success-badge">✅ QR Code Ready!</span>
+                        <button onclick="downloadQR('${img.src}')" class="btn-download">
+                            ⬇️ Download QR Code
+                        </button>`;
+                }
+            }, 500);
+        }
+
+        function readQRCode() {
+            const fileInput = document.getElementById('qr-input-file');
+            const resultBox = document.getElementById('qr-reader-result');
+
+            if (!fileInput.files[0]) return alert("Select an image with QR code");
+
+            const html5QrCode = new Html5Qrcode("qr-reader-dummy-id"); 
+            
+            html5QrCode.scanFile(fileInput.files[0], true)
+            .then(decodedText => {
+                resultBox.innerHTML = '';
+                const wrap = document.createElement('div');
+                wrap.className = 'bg-green-100 text-green-700 p-2 rounded mt-2';
+                const strong = document.createElement('strong');
+                strong.textContent = 'Result:';
+                wrap.appendChild(strong);
+                wrap.appendChild(document.createElement('br'));
+                wrap.appendChild(document.createTextNode(decodedText));
+                resultBox.appendChild(wrap);
+                const copyBtn = document.createElement('button');
+                copyBtn.innerText = "Copy Text";
+                copyBtn.className = "text-xs mt-1 text-blue-600 underline";
+                copyBtn.onclick = async () => {
+                     await copyText(decodedText);
+                     toast("📋 Copied!");
+                };
+                resultBox.appendChild(copyBtn);
+                if (/^https?:\/\//i.test(decodedText)) {
+                    const openBtn = document.createElement('button');
+                    openBtn.innerText = "Open Link";
+                    openBtn.className = "text-xs mt-1 ml-3 text-blue-600 underline";
+                    openBtn.onclick = () => openExternal(decodedText);
+                    resultBox.appendChild(openBtn);
+                }
+            })
+            .catch(err => {
+                resultBox.innerHTML = `<div class="text-red-500 mt-2">Error: Could not read QR code. Ensure image is clear.</div>`;
+                console.error(err);
+            });
+        }
+
+        async function imagesToPDF() {
+            const fileInput = document.getElementById('img-to-pdf-files');
+            if (fileInput.files.length === 0) return alert("Select images");
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            for (let i = 0; i < fileInput.files.length; i++) {
+                const dataUrl = await readImageAsync(fileInput.files[i]);
+                const imgProps = doc.getImageProperties(dataUrl);
+                const pdfWidth = doc.internal.pageSize.getWidth();
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                if (i > 0) doc.addPage();
+                doc.addImage(dataUrl, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            }
+
+            const pdfBlob = doc.output('blob');
+            const fileId = 'imgpdf_' + Date.now();
+            window.downloadData[fileId] = { blob: pdfBlob, filename: 'images_combined.pdf' };
+
+            const area = document.getElementById('imgpdf-download-area');
+            area.style.display = 'block';
+            area.innerHTML = `
+                <span class="success-badge">✅ ${fileInput.files.length} image(s) combined!</span>
+                <button onclick="triggerDownload('${fileId}')" class="btn-download">
+                    ⬇️ Download PDF
+                </button>`;
+        }
+
+        function processImage(targetW, targetH, filename, elementId, downloadAreaId) {
+            const fileInput = document.getElementById(elementId);
+            if (!fileInput.files[0]) return alert("Select an image");
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.getElementById('canvas');
+                    canvas.width = targetW;
+                    canvas.height = targetH;
+                    const ctx = canvas.getContext('2d');
+                    
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.fillRect(0,0, targetW, targetH);
+                    ctx.drawImage(img, 0, 0, targetW, targetH);
+                    
+                    canvas.toBlob(function(blob) {
+                        const fileId = 'imgproc_' + Date.now() + Math.floor(Math.random()*1000);
+                        window.downloadData[fileId] = { blob: blob, filename: filename };
+
+                        if (downloadAreaId) {
+                            const area = document.getElementById(downloadAreaId);
+                            area.style.display = 'block';
+                            area.innerHTML = `
+                                <span class="success-badge">✅ ${targetW}×${targetH}px ready!</span>
+                                <button onclick="triggerDownload('${fileId}')" class="btn-download">
+                                    ⬇️ Download ${filename}
+                                </button>`;
+                        } else {
+                            saveBlob(blob, filename).then(showSaved);
+                        }
+                    }, 'image/jpeg', 0.9);
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(fileInput.files[0]);
+        }
+
+        async function compressPDF() {
+            const fileInput = document.getElementById('compress-file');
+            if (!fileInput.files[0]) return alert("Please select a PDF");
+
+            const pdfBytes = await readFileAsync(fileInput.files[0]);
+            const pdfDoc = await PDFDocument.load(pdfBytes);
+            const pdfData = await pdfDoc.save({ useObjectStreams: false }); 
+            const blob = new Blob([pdfData], { type: 'application/pdf' });
+            
+            const origKB = Math.round(fileInput.files[0].size / 1024);
+            const newKB = Math.round(pdfData.length / 1024);
+
+            const fileId = 'comp_' + Date.now();
+            window.downloadData[fileId] = { blob: blob, filename: 'compressed_doc.pdf' };
+
+            const area = document.getElementById('compress-download-area');
+            area.style.display = 'block';
+            area.innerHTML = `
+                <span class="success-badge">✅ ${origKB}KB → ${newKB}KB</span>
+                <button onclick="triggerDownload('${fileId}')" class="btn-download">
+                    ⬇️ Download Compressed PDF
+                </button>`;
+        }
+
+        function calculateAge() {
+            const dobInput = document.getElementById('age-dob').value;
+            const targetInput = document.getElementById('age-target').value || new Date().toISOString().split('T')[0];
+            
+            if(!dobInput) return alert("Please select Date of Birth");
+
+            const dob = new Date(dobInput);
+            const target = new Date(targetInput);
+            
+            let years = target.getFullYear() - dob.getFullYear();
+            let months = target.getMonth() - dob.getMonth();
+            let days = target.getDate() - dob.getDate();
+
+            if (days < 0) {
+                months--;
+                const prevMonth = new Date(target.getFullYear(), target.getMonth(), 0);
+                days += prevMonth.getDate();
+            }
+            if (months < 0) {
+                years--;
+                months += 12;
+            }
+
+            const resultBox = document.getElementById('age-result');
+            resultBox.innerText = `${years} Years, ${months} Months, ${days} Days`;
+            resultBox.classList.remove('hidden');
+        }
+
+        // ========== PDF TO HIGH QUALITY PHOTO ==========
+        async function pdfToHighQualityPhoto() {
+            const fileInput = document.getElementById('pdf-to-photo-file');
+            const scale = parseFloat(document.getElementById('pdf-photo-dpi').value);
+            const progressEl = document.getElementById('pdf-photo-progress');
+            const downloadArea = document.getElementById('pdf-photo-download-area');
+
+            if (!fileInput.files[0]) return alert("PDF file select করো");
+
+            progressEl.style.display = 'block';
+            progressEl.textContent = '⏳ PDF লোড হচ্ছে...';
+            downloadArea.style.display = 'none';
+            downloadArea.innerHTML = '';
+
+            try {
+                const arrayBuffer = await fileInput.files[0].arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const totalPages = pdf.numPages;
+
+                progressEl.textContent = `📄 মোট ${totalPages} পেজ পাওয়া গেছে। Convert শুরু হচ্ছে...`;
+
+                const downloadLinks = [];
+
+                for (let i = 1; i <= totalPages; i++) {
+                    progressEl.textContent = `🖼️ Page ${i} / ${totalPages} convert হচ্ছে...`;
+
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({ scale: scale });
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    const ctx = canvas.getContext('2d');
+
+                    // সাদা background
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const fileId = 'pdfphoto_p' + i + '_' + Date.now();
+
+                    await new Promise(resolve => {
+                        canvas.toBlob(function(blob) {
+                            window.downloadData[fileId] = {
+                                blob: blob,
+                                filename: `page_${i}_HD.png`
+                            };
+                            downloadLinks.push({ fileId, page: i, dataUrl });
+                            resolve();
+                        }, 'image/png');
+                    });
+                }
+
+                progressEl.textContent = `✅ সব ${totalPages} পেজ convert সম্পন্ন!`;
+
+                downloadArea.style.display = 'block';
+                let html = `<span class="success-badge">✅ ${totalPages} টি HD PNG তৈরি হয়েছে!</span>`;
+
+                downloadLinks.forEach(({ fileId, page, dataUrl }) => {
+                    html += `
+                        <div style="display:flex; align-items:center; gap:8px; margin:6px 0; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px;">
+                            <img src="${dataUrl}" style="width:48px; height:60px; object-fit:cover; border-radius:4px; border:1px solid #e2e8f0;" />
+                            <button onclick="triggerDownload('${fileId}')" class="btn-download" style="margin:0; flex:1; padding:8px;">
+                                ⬇️ Page ${page} Download
+                            </button>
+                        </div>`;
+                });
+
+                // সব একসাথে download button (যদি একাধিক পেজ)
+                if (totalPages > 1) {
+                    html += `
+                        <button onclick="downloadAllPages()" class="btn-download" style="background:linear-gradient(135deg,#7c3aed,#6d28d9); margin-top:8px;">
+                            📦 সব পেজ একসাথে Download (${totalPages} PNG)
+                        </button>`;
+                    window._allPdfPhotoIds = downloadLinks.map(d => d.fileId);
+                }
+
+                downloadArea.innerHTML = html;
+
+            } catch (err) {
+                progressEl.textContent = '❌ Error: ' + err.message;
+                console.error(err);
+            }
+        }
+
+        window.downloadAllPages = async function() {
+            const ids = window._allPdfPhotoIds || [];
+            let okCount = 0, last = null;
+            for (let i = 0; i < ids.length; i++) {
+                if (!NB) await new Promise(r => setTimeout(r, 300));
+                const info = await triggerDownload(ids[i], true);
+                if (info && info.ok) { okCount++; last = info; }
+            }
+            if (NB && okCount) toast('✅ ' + okCount + ' files saved  (' + last.where + ')');
+        };
+
+        const dummyDiv = document.createElement('div');
+        dummyDiv.id = "qr-reader-dummy-id";
+        dummyDiv.style.display = "none";
+        document.body.appendChild(dummyDiv);
+
+        // ========== LIVE CAMERA QR SCANNER ==========
+        let liveStream = null;
+        let liveScanInterval = null;
+        let liveFacingMode = 'environment';
+        let liveScanning = true;
+
+        window.openLiveCameraScanner = async function() {
+            const modal = document.getElementById('live-qr-modal');
+            modal.style.display = 'flex';
+            document.getElementById('live-qr-result-box').style.display = 'none';
+            liveScanning = true;
+            await startLiveCamera();
+        };
+
+        async function startLiveCamera() {
+            const status = document.getElementById('live-camera-status');
+            status.textContent = 'Camera চালু হচ্ছে...';
+            if (liveStream) liveStream.getTracks().forEach(t => t.stop());
+            try {
+                liveStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: liveFacingMode, width: { ideal: 640 }, height: { ideal: 640 } }
+                });
+                const video = document.getElementById('live-qr-video');
+                video.srcObject = liveStream;
+                video.play();
+                status.textContent = '🟢 Camera চালু — QR Code এর দিকে ধরো';
+                if (liveScanInterval) clearInterval(liveScanInterval);
+                liveScanInterval = setInterval(scanLiveFrame, 250);
+            } catch (err) {
+                status.textContent = '❌ Camera error: ' + err.message;
+            }
+        }
+
+        let liveBusy = false;
+        function scanLiveFrame() {
+            if (!liveScanning || liveBusy) return;
+            const video = document.getElementById('live-qr-video');
+            const canvas = document.getElementById('live-qr-canvas');
+            if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            // html5-qrcode এর scanFile ব্যবহার করে decode করব
+            liveBusy = true;
+            canvas.toBlob(function(blob) {
+                if (!blob || !liveScanning) { liveBusy = false; return; }
+                const file = new File([blob], 'frame.png', { type: 'image/png' });
+                const tempQr = new Html5Qrcode("live-qr-dummy");
+                tempQr.scanFile(file, false)
+                    .then(function(decoded) {
+                        if (liveScanning && decoded) {
+                            liveScanning = false;
+                            showLiveResult(decoded);
+                        }
+                    })
+                    .catch(function() {})
+                    .then(function() { liveBusy = false; });
+            }, 'image/png');
+        }
+
+        function showLiveResult(text) {
+            document.getElementById('live-qr-result-text').textContent = text;
+            const linkEl = document.getElementById('live-qr-open-link');
+            if (text.startsWith('http://') || text.startsWith('https://')) {
+                linkEl.href = '#';
+                linkEl.onclick = function(e) { e.preventDefault(); openExternal(text); };
+                linkEl.style.display = 'inline-block';
+            } else {
+                linkEl.style.display = 'none';
+            }
+            document.getElementById('live-qr-result-box').style.display = 'block';
+            document.getElementById('live-camera-status').textContent = '✅ QR Code Scan সফল!';
+        }
+
+        window.resumeLiveScan = function() {
+            document.getElementById('live-qr-result-box').style.display = 'none';
+            document.getElementById('live-camera-status').textContent = '🟢 Ready — QR Code এর দিকে ধরো';
+            liveScanning = true;
+        };
+
+        window.closeLiveCameraScanner = function() {
+            document.getElementById('live-qr-modal').style.display = 'none';
+            if (liveStream) liveStream.getTracks().forEach(t => t.stop());
+            if (liveScanInterval) clearInterval(liveScanInterval);
+            liveStream = null;
+        };
+
+        window.switchLiveCamera = function() {
+            liveFacingMode = liveFacingMode === 'environment' ? 'user' : 'environment';
+            startLiveCamera();
+        };
+
+        window.copyLiveQRResult = function() {
+            const text = document.getElementById('live-qr-result-text').textContent;
+            copyText(text).then(() => toast('📋 Copied!'));
+        };
+
+        // live-qr dummy div
+        const liveDummyDiv = document.createElement('div');
+        liveDummyDiv.id = "live-qr-dummy";
+        liveDummyDiv.style.display = "none";
+        document.body.appendChild(liveDummyDiv);
+
+    </script>
+    
+    <div id="nb-toast"><span id="nb-toast-msg"></span><button id="nb-toast-btn" type="button" style="display:none"></button></div>
+</body>
+</html>
