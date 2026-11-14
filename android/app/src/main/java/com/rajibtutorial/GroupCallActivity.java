@@ -209,6 +209,13 @@ public class GroupCallActivity extends AppCompatActivity {
         @JavascriptInterface
         public void stopCapture() { runOnUiThread(() -> ScreenCaptureService.stop(GroupCallActivity.this)); }
 
+        /** Native MP4 recording (runs in the foreground service, works on any screen). */
+        @JavascriptInterface
+        public boolean nativeRecStart() { return ScreenCaptureService.startRec(); }
+
+        @JavascriptInterface
+        public String nativeRecStop() { return ScreenCaptureService.stopRec(); }
+
         @JavascriptInterface
         public boolean recStart() { return openRec(); }
 

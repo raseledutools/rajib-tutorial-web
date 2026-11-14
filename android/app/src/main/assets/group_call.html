@@ -49,7 +49,7 @@ const ICE=[
 const INFO=JSON.parse(AndroidCall.info());
 const me=INFO.id, myName=INFO.name||'Me';
 let local=null, peers={}, early={}, micOn=true, camOn=false, facing='user', joinTs=Date.now(), left=false;
-let sharing=false, recording=false, capOn=false, askPending=false, wantShare=false, wantRec=false, shareTrack=null, pump=null, pumping=false;
+let sharing=false, recording=false, nativeRec=false, capOn=false, askPending=false, wantShare=false, wantRec=false, shareTrack=null, pump=null, pumping=false;
 let rec=null, recCtx=null, recDest=null, recQ=Promise.resolve(), recTimer=null, recT0=0, recDone=null, mixedIds=new Set(), pend={};
 const grid=document.getElementById('grid');
 const COLORS=['#e8365d','#6d4af0','#0e9f8e','#2563eb','#f59e0b','#9333ea','#16a34a','#db2777'];
@@ -305,6 +305,15 @@ function cleanupRec(){
 function toggleRecord(){if(recording){endRecord();return}needCapture('rec')}
 async function beginRecord(){
   wantRec=false;if(recording)return;
+  // preferred: native MP4 recorder (real duration, keeps recording on any screen)
+  try{
+    if(window.AndroidCall&&AndroidCall.nativeRecStart&&AndroidCall.nativeRecStart()){
+      nativeRec=true;recording=true;recT0=Date.now();recTimer=setInterval(updRecUi,1000);updRecUi();
+      send('','rec',JSON.stringify({on:true}));
+      refreshBtns();toast('Recording… everyone in the call sees a 🔴 notice. The MP4 is saved only on your phone.');
+      return;
+    }
+  }catch(e){}
   if(!window.MediaRecorder){toast('Recording is not supported on this phone');maybeStopCapture();return}
   let mime='video/webm;codecs=vp8,opus';
   if(!MediaRecorder.isTypeSupported(mime))mime=MediaRecorder.isTypeSupported('video/webm')?'video/webm':'';
@@ -342,6 +351,14 @@ async function beginRecord(){
 }
 async function endRecord(){
   if(!recording)return;recording=false;clearInterval(recTimer);
+  if(nativeRec){
+    nativeRec=false;let path='';
+    try{path=AndroidCall.nativeRecStop()}catch(e){}
+    send('','rec',JSON.stringify({on:false}));
+    refreshBtns();maybeStopCapture();
+    toast(path?('Recording saved on this phone: '+path):'Recording stopped (nothing was saved)');
+    return;
+  }
   try{rec.stop()}catch(e){}
   send('','rec',JSON.stringify({on:false}));
   refreshBtns();maybeStopCapture();
