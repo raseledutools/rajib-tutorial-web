@@ -41,6 +41,25 @@ public class ScreenCaptureService extends Service {
     static volatile Cb cb;
     static volatile boolean active = false;
     static volatile byte[] frame = null;
+    private static volatile ScreenCaptureService inst = null;
+    private static volatile String lastRecLabel = "";
+
+    private volatile NativeRecorder nrec = null;
+    private Bitmap lastCrop = null;
+    private long lastPushMs = 0;
+    private final Runnable tick = new Runnable() {
+        @Override public void run() {
+            // keep the recording alive on a still screen (ImageReader only fires when pixels change)
+            NativeRecorder r = nrec;
+            long now = SystemClock.uptimeMillis();
+            if (r != null && lastCrop != null && now - lastPushMs > 500) {
+                r.push(lastCrop);
+                lastPushMs = now;
+            }
+            Handler h = bg;
+            if (h != null && !cleaned) h.postDelayed(this, 250);
+        }
+    };
 
     private static final String EXTRA_CODE = "code", EXTRA_DATA = "data", CH = "rt_capture";
     private static final int NOTIF_ID = 7711;
@@ -62,6 +81,41 @@ public class ScreenCaptureService extends Service {
             .putExtra(EXTRA_CODE, resultCode)
             .putExtra(EXTRA_DATA, data);
         ContextCompat.startForegroundService(c, i);
+    }
+
+    /** Starts the native MP4 recording. Needs the capture to be running. */
+    static boolean startRec() {
+        ScreenCaptureService s = inst;
+        if (s == null || !active) return false;
+        return s.beginNativeRec();
+    }
+
+    /** Stops the native recording; returns where it was saved ("" when nothing was saved). */
+    static String stopRec() {
+        ScreenCaptureService s = inst;
+        // when the system already stopped the capture, the service finalised the file itself
+        if (s == null) return lastRecLabel;
+        String r = s.endNativeRec();
+        return r.isEmpty() ? lastRecLabel : r;
+    }
+
+    private synchronized boolean beginNativeRec() {
+        if (nrec != null) return true;
+        lastRecLabel = "";
+        if (mp == null || outW <= 0 || outH <= 0) return false;
+        NativeRecorder r = new NativeRecorder(this, mp, outW, outH);
+        if (!r.start()) return false;
+        nrec = r;
+        return true;
+    }
+
+    private synchronized String endNativeRec() {
+        NativeRecorder r = nrec;
+        nrec = null;
+        if (r == null) return "";
+        String label = r.stop();
+        lastRecLabel = label;
+        return label;
     }
 
     static void stop(Context c) {
@@ -107,7 +161,9 @@ public class ScreenCaptureService extends Service {
             vd = mp.createVirtualDisplay("rt-capture", outW, outH, dm.densityDpi,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, ir.getSurface(), null, bg);
             active = true;
+            inst = this;
             frame = null;
+            bg.postDelayed(tick, 300);
             notifyStarted();
         } catch (Throwable t) {
             cleanup(true);
@@ -164,6 +220,9 @@ public class ScreenCaptureService extends Service {
             buf.rewind();
             bmp.copyPixelsFromBuffer(buf);
             Bitmap crop = bw == outW ? bmp : Bitmap.createBitmap(bmp, 0, 0, outW, outH);
+            lastCrop = crop;
+            NativeRecorder rr = nrec;
+            if (rr != null) { rr.push(crop); lastPushMs = now; }
             ByteArrayOutputStream bos = new ByteArrayOutputStream(64 * 1024);
             crop.compress(Bitmap.CompressFormat.JPEG, 60, bos);
             frame = bos.toByteArray();
@@ -177,6 +236,8 @@ public class ScreenCaptureService extends Service {
         if (cleaned) return;
         cleaned = true;
         active = false;
+        inst = null;
+        try { endNativeRec(); } catch (Throwable ignored) { }
         try { if (vd != null) vd.release(); } catch (Throwable ignored) { }
         try { if (ir != null) { ir.setOnImageAvailableListener(null, null); ir.close(); } } catch (Throwable ignored) { }
         try { if (mp != null) mp.stop(); } catch (Throwable ignored) { }
