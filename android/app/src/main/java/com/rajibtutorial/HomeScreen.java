@@ -101,6 +101,16 @@ final class HomeScreen extends Screen {
         stats.addView(statCell(Ui.tv(a, "8", 22, Ui.TEXT, true), "Semesters Covered"), new LinearLayout.LayoutParams(0, WRAP, 1f));
         hero.addView(stats, Ui.lpm(a, MATCH, WRAP, 0, 20, 0, 0));
 
+        // ── Circulars & question banks ──
+        LinearLayout quick = new LinearLayout(a);
+        quick.setOrientation(LinearLayout.HORIZONTAL);
+        quick.setPadding(Ui.dp(a, 16), Ui.dp(a, 18), Ui.dp(a, 16), 0);
+        quick.addView(quickTile("📢", "Current\nCircular", Store.R_CIRCULAR), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        quick.addView(quickTile("📚", "Question\nBank", Store.R_QBANK), Ui.lpm(a, 0, WRAP, 8, 0, 8, 0));
+        ((LinearLayout.LayoutParams) quick.getChildAt(1).getLayoutParams()).weight = 1;
+        quick.addView(quickTile("🆕", "Recent\nQuestions", Store.R_RECENT), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        root.addView(quick, new LinearLayout.LayoutParams(MATCH, WRAP));
+
         // ── Catalogue ──
         LinearLayout sec = new LinearLayout(a);
         sec.setOrientation(LinearLayout.VERTICAL);
@@ -153,6 +163,23 @@ final class HomeScreen extends Screen {
 
         refresh();
         return sv;
+    }
+
+    private View quickTile(String icon, String label, final String type) {
+        LinearLayout t = new LinearLayout(a);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.setGravity(Gravity.CENTER);
+        t.setBackground(Ui.bg(a, Ui.BG, 16, Ui.BORDER));
+        t.setPadding(Ui.dp(a, 6), Ui.dp(a, 14), Ui.dp(a, 6), Ui.dp(a, 12));
+        TextView ic = Ui.tv(a, icon, 24, Ui.TEXT, false);
+        ic.setGravity(Gravity.CENTER);
+        t.addView(ic);
+        TextView tx = Ui.tv(a, label, 12, Ui.TEXT, true);
+        tx.setGravity(Gravity.CENTER);
+        t.addView(tx, Ui.lpm(a, MATCH, WRAP, 0, 6, 0, 0));
+        Ui.pressFx(t);
+        t.setOnClickListener(v -> a.openResources(type));
+        return t;
     }
 
     private View statCell(TextView num, String label) {

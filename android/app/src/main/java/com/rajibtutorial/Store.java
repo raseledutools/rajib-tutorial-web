@@ -250,10 +250,39 @@ final class Store {
         return m;
     }
 
+    // ── Circulars & question banks (admin-managed links) ─────
+    static final String R_CIRCULAR = "circular", R_QBANK = "qbank", R_RECENT = "recent";
+    static final String[] QB_CATS = {"BUET", "PSC", "Other"};
+
+    static final class Resource {
+        String id = "", type = "", category = "", title = "", url = "", note = "";
+        long at = 0;
+    }
+    static List<Resource> resources = new ArrayList<>();
+
+    static Resource findResource(String id) {
+        for (Resource r : resources) if (r.id.equals(id)) return r;
+        return null;
+    }
+
+    static Resource parseResource(Fs.Doc d) {
+        Resource r = new Resource();
+        r.id = d.id;
+        r.type = str(d.data, "type");
+        r.category = str(d.data, "category");
+        r.title = str(d.data, "title");
+        r.url = str(d.data, "url");
+        r.note = str(d.data, "note");
+        Object at = d.data.get("at");
+        r.at = at instanceof Number ? ((Number) at).longValue() : 0L;
+        return r;
+    }
+
     // ── Loading ─────────────────────────────────────────────
     private static final class Loaded {
         List<Course> courses = new ArrayList<>();
         List<Member> members = new ArrayList<>();
+        List<Resource> resources = new ArrayList<>();
         Live live = new Live();
     }
 
@@ -274,6 +303,7 @@ final class Store {
                     continue;
                 }
                 if (d.id.startsWith("_member_")) { r.members.add(parseMember(d)); continue; }
+                if (d.id.startsWith("_res_")) { r.resources.add(parseResource(d)); continue; }
                 if (d.id.startsWith("_disc_") || d.id.startsWith("_call_")) continue;   // Discussion chat / call signalling — not courses
                 Course c = new Course();
                 c.id = d.id;
@@ -304,6 +334,8 @@ final class Store {
             if (e != null || r == null) { cb.done(false, e); return; }
             courses = r.courses;
             members = r.members;
+            resources = r.resources;
+            java.util.Collections.sort(resources, (x, y) -> Long.compare(y.at, x.at));   // newest first
             live = r.live;
             String vm = validateSession();
             if (vm != null) pendingToast = vm;

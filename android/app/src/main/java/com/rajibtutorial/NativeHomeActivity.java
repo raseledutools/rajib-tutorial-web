@@ -31,7 +31,8 @@ public class NativeHomeActivity extends AppCompatActivity {
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
 
     static final String EXTRA_OPEN = "open";
-    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6, V_INBOX = 7;
+    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6, V_INBOX = 7, V_RES = 8;
+    String resType = "";
 
     // state shared with screens / dialogs
     Store.Course curCourse = null;
@@ -359,6 +360,12 @@ public class NativeHomeActivity extends AppCompatActivity {
         closeDrawer();
     }
 
+    void openResources(String type) {
+        resType = type;
+        show(new ResourceScreen(this, type), V_RES, Dialogs.resTypeName(type));
+        closeDrawer();
+    }
+
     void openDiscussion() {
         show(new DiscussionScreen(this), V_DISCUSS, "Discussion");
         closeDrawer();
@@ -637,6 +644,9 @@ public class NativeHomeActivity extends AppCompatActivity {
         nav.addView(navItem("📝  Live Exam", currentView == V_LIVE && liveExam, eOn, () -> openLive(true)));
         nav.addView(navItem("💬  Discussion", currentView == V_DISCUSS, false, this::openDiscussion));
         nav.addView(navItem("🔔  Notifications", currentView == V_INBOX, false, this::openInbox));
+        nav.addView(navItem("📢  Current Circular", currentView == V_RES && Store.R_CIRCULAR.equals(resType), false, () -> openResources(Store.R_CIRCULAR)));
+        nav.addView(navItem("📚  Question Bank", currentView == V_RES && Store.R_QBANK.equals(resType), false, () -> openResources(Store.R_QBANK)));
+        nav.addView(navItem("🆕  Recent Question Bank", currentView == V_RES && Store.R_RECENT.equals(resType), false, () -> openResources(Store.R_RECENT)));
         nav.addView(navLabel("Courses"));
         if (loading) {
             nav.addView(Ui.tv(this, "Loading…", 12, Ui.SUB, false));
