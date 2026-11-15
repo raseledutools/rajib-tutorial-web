@@ -34,8 +34,7 @@ final class NotifyScreen extends Screen {
     private TextView stat, cnt, sendBtn, segAll, segUser, resultTv;
     private LinearLayout userBox, history;
     private Ui.Field fMobile, fTitle, fBody;
-    private boolean targetAll = true, armed = false, sending = false, released = false;
-    private final Runnable disarm = this::disarm;
+    private boolean targetAll = true, sending = false, released = false;
 
     NotifyScreen(NativeHomeActivity host) {
         a = host;
@@ -99,7 +98,7 @@ final class NotifyScreen extends Screen {
         resultTv = Ui.tv(a, "", 13, Ui.SUB, true);
         resultTv.setVisibility(View.GONE);
         card.addView(resultTv, Ui.lpm(a, MATCH, WRAP, 0, 10, 0, 0));
-        card.addView(Ui.tv(a, "Members receive notifications even when the app is closed. Delivery is not possible if the app was force-stopped or the device is offline.",
+        card.addView(Ui.tv(a, "Members receive notifications even when the app is closed. If the message contains a web link, tapping the notification opens that link directly. Delivery is not possible if the app was force-stopped or the device is offline.",
             12, Ui.SUB, false), Ui.lpm(a, MATCH, WRAP, 0, 10, 0, 0));
         root.addView(card, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 14));
 
@@ -132,12 +131,10 @@ final class NotifyScreen extends Screen {
         segUser.setBackground(Ui.bg(a, !all ? Ui.ACCENT_SOFT : Ui.BG, 12, !all ? Ui.ACCENT : 0x33000000));
         segUser.setTextColor(!all ? Ui.ACCENT2 : Ui.TEXT);
         userBox.setVisibility(all ? View.GONE : View.VISIBLE);
-        disarm();
+        resetSendLabel();
     }
 
-    private void disarm() {
-        main.removeCallbacks(disarm);
-        armed = false;
+    private void resetSendLabel() {
         if (sendBtn != null && !sending) sendBtn.setText(targetAll ? "🔔 Send to all members" : "🔔 Send to this member");
     }
 
@@ -158,14 +155,6 @@ final class NotifyScreen extends Screen {
         if (title.isEmpty()) { a.toast("Enter a title"); return; }
         if (body.isEmpty()) { a.toast("Enter a message"); return; }
         if (!targetAll && mobile.length() < 6) { a.toast("Enter a mobile number or choose a member"); return; }
-        if (targetAll && !armed) {
-            armed = true;
-            sendBtn.setText("⚠ This goes to everyone — tap again to confirm");
-            main.removeCallbacks(disarm);
-            main.postDelayed(disarm, 4000);
-            return;
-        }
-        disarm();
         sending = true;
         sendBtn.setEnabled(false);
         sendBtn.setText("Sending…");
@@ -176,7 +165,7 @@ final class NotifyScreen extends Screen {
             sending = false;
             if (released) return;
             sendBtn.setEnabled(true);
-            disarm();
+            resetSendLabel();
             a.toast(msg);
             boolean okMsg = msg != null && msg.startsWith("✅");
             resultTv.setVisibility(View.VISIBLE);
@@ -217,7 +206,9 @@ final class NotifyScreen extends Screen {
                         row.setOrientation(LinearLayout.VERTICAL);
                         row.setPadding(0, Ui.dp(a, 10), 0, Ui.dp(a, 10));
                         row.addView(Ui.tv(a, title, 13.5f, Ui.TEXT, true));
-                        row.addView(Ui.tv(a, body, 12.5f, Ui.TEXT, false), Ui.lpm(a, MATCH, WRAP, 0, 3, 0, 3));
+                        TextView bodyTv = Ui.tv(a, body, 12.5f, Ui.TEXT, false);
+                        Links.linkify(bodyTv, Ui.ACCENT2);
+                        row.addView(bodyTv, Ui.lpm(a, MATCH, WRAP, 0, 3, 0, 3));
                         row.addView(Ui.tv(a, to + " · " + when, 11.5f, Ui.SUB, false));
                         if (!first) {
                             View line = new View(a);
@@ -243,6 +234,5 @@ final class NotifyScreen extends Screen {
     @Override
     void release() {
         released = true;
-        main.removeCallbacks(disarm);
     }
 }

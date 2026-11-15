@@ -185,7 +185,7 @@ public class NotificationDetailActivity extends Activity {
         msg.setTextColor(0xFF2A2430);
         msg.setTextSize(16);
         msg.setLineSpacing(0, 1.3f);
-        msg.setTextIsSelectable(true);
+        Links.linkify(msg, PURPLE);
         sv.addView(msg);
         msgRow.addView(sv, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         bodyBox.addView(msgRow, new LinearLayout.LayoutParams(

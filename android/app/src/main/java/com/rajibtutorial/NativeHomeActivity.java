@@ -31,7 +31,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
 
     static final String EXTRA_OPEN = "open";
-    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6;
+    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6, V_INBOX = 7;
 
     // state shared with screens / dialogs
     Store.Course curCourse = null;
@@ -52,6 +52,8 @@ public class NativeHomeActivity extends AppCompatActivity {
     private LinearLayout topBar;
     private View topLine;
     private LinearLayout userArea;
+    private View bellDot;
+    private long lastUnreadCheck = 0;
     private Dialog drawer;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean polling = false;
@@ -99,6 +101,22 @@ public class NativeHomeActivity extends AppCompatActivity {
         bar.addView(burger, new LinearLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 52)));
         titleTv = Ui.ellipsized(this, "Rajib Tutorial", 16.5f, Ui.TEXT, true, 1);
         bar.addView(titleTv, new LinearLayout.LayoutParams(0, WRAP, 1f));
+
+        // Notification bell (top of the home bar): opens the list of all admin notifications
+        FrameLayout bell = new FrameLayout(this);
+        TextView bellIc = Ui.tv(this, "🔔", 20, Ui.TEXT, false);
+        bellIc.setGravity(Gravity.CENTER);
+        bell.addView(bellIc, new FrameLayout.LayoutParams(MATCH, MATCH));
+        bellDot = new View(this);
+        bellDot.setBackground(Ui.circle(Ui.RED));
+        bellDot.setVisibility(View.GONE);
+        FrameLayout.LayoutParams dotLp = new FrameLayout.LayoutParams(Ui.dp(this, 10), Ui.dp(this, 10), Gravity.TOP | Gravity.END);
+        dotLp.topMargin = Ui.dp(this, 11);
+        dotLp.rightMargin = Ui.dp(this, 7);
+        bell.addView(bellDot, dotLp);
+        Ui.pressFx(bell);
+        bell.setOnClickListener(v -> openInbox());
+        bar.addView(bell, new LinearLayout.LayoutParams(Ui.dp(this, 42), Ui.dp(this, 52)));
         userArea = new LinearLayout(this);
         userArea.setOrientation(LinearLayout.HORIZONTAL);
         userArea.setGravity(Gravity.CENTER_VERTICAL);
@@ -125,6 +143,9 @@ public class NativeHomeActivity extends AppCompatActivity {
         if (i != null && "discussion".equals(i.getStringExtra(EXTRA_OPEN))) {
             i.removeExtra(EXTRA_OPEN);
             openDiscussion();
+        } else if (i != null && "inbox".equals(i.getStringExtra(EXTRA_OPEN))) {
+            i.removeExtra(EXTRA_OPEN);
+            openInbox();
         }
     }
 
@@ -401,6 +422,42 @@ public class NativeHomeActivity extends AppCompatActivity {
         closeDrawer();
     }
 
+    void openInbox() {
+        if (bellDot != null) bellDot.setVisibility(View.GONE);
+        show(new InboxScreen(this), V_INBOX, "Notifications");
+        closeDrawer();
+    }
+
+    /** Shows / hides the red dot on the bell. {@code check} = ask the server whether something new arrived. */
+    void updateBell(boolean check) {
+        if (bellDot == null) return;
+        if (!check) { bellDot.setVisibility(View.GONE); return; }
+        long now = System.currentTimeMillis();
+        if (now - lastUnreadCheck < 15000) return;
+        lastUnreadCheck = now;
+        try {
+            com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("push_messages")
+                .orderBy("at", com.google.firebase.firestore.Query.Direction.DESCENDING).limit(30).get()
+                .addOnSuccessListener(snap -> {
+                    if (isFinishing() || bellDot == null) return;
+                    long seen = PushManager.inboxSeen(this);
+                    if (seen == 0) { PushManager.inboxMarkSeen(this, now); return; }   // first run: nothing is "new"
+                    boolean fresh = false;
+                    for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) {
+                        Long at = d.getLong("at");
+                        if (at == null || at <= seen) continue;
+                        String target = d.getString("target");
+                        String mob = d.getString("mobile");
+                        boolean mine = "all".equals(target)
+                            || (Store.sessionMobile != null && mob != null && !mob.isEmpty()
+                                && PushManager.normMobile(mob).equals(PushManager.normMobile(Store.sessionMobile)));
+                        if (mine) { fresh = true; break; }
+                    }
+                    bellDot.setVisibility(fresh && currentView != V_INBOX ? View.VISIBLE : View.GONE);
+                });
+        } catch (Throwable ignored) { }
+    }
+
     void openNotify() {
         if (!Store.adminIn) return;
         show(new NotifyScreen(this), V_NOTIFY, "Notification Center");
@@ -430,6 +487,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         super.onResume();
         if (screen != null) screen.onResume();
         if (Store.sessionMobile != null) startPoll();
+        updateBell(true);
     }
 
     @Override
@@ -577,6 +635,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         nav.addView(navItem("🎥  Live Class", currentView == V_LIVE && !liveExam, cOn, () -> openLive(false)));
         nav.addView(navItem("📝  Live Exam", currentView == V_LIVE && liveExam, eOn, () -> openLive(true)));
         nav.addView(navItem("💬  Discussion", currentView == V_DISCUSS, false, this::openDiscussion));
+        nav.addView(navItem("🔔  Notifications", currentView == V_INBOX, false, this::openInbox));
         nav.addView(navLabel("Courses"));
         if (loading) {
             nav.addView(Ui.tv(this, "Loading…", 12, Ui.SUB, false));
