@@ -2,6 +2,7 @@ package com.rajibtutorial;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.app.DownloadManager;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -13,6 +14,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.text.Editable;
@@ -323,7 +325,11 @@ public class StudyToolsActivity extends AppCompatActivity {
         LinearLayout card = W.card(this);
         LinearLayout head = W.row(this);
         head.addView(W.sectionTitle(this, "Recent files"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView clear = W.text(this, "Clear", 13, W.BLUE, true);
+        TextView folder = W.text(this, "📁 Folder", 13, W.BLUE, true);
+        folder.setPadding(W.dp(this, 8), W.dp(this, 4), W.dp(this, 8), W.dp(this, 4));
+        folder.setOnClickListener(v -> openFolder());
+        head.addView(folder);
+        TextView clear = W.text(this, "Clear", 13, W.SUB, true);
         clear.setPadding(W.dp(this, 8), W.dp(this, 4), 0, W.dp(this, 4));
         clear.setOnClickListener(v -> { prefs().edit().remove("recent").apply(); refreshRecents(); });
         head.addView(clear);
@@ -341,7 +347,7 @@ public class StudyToolsActivity extends AppCompatActivity {
             t.addView(W.text(this, W.size(s.size) + " · Downloads/" + SAVE_FOLDER, 11.5f, W.SUB, false));
             r.addView(t, W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 12, 0, 0, 0));
             ((LinearLayout.LayoutParams) t.getLayoutParams()).weight = 1f;
-            r.setOnClickListener(v -> openSaved(s));
+            r.setOnClickListener(v -> viewSaved(list, list.indexOf(s)));
             r.setClickable(true);
             card.addView(r);
         }
@@ -644,6 +650,30 @@ public class StudyToolsActivity extends AppCompatActivity {
         }
     }
 
+    /** Opens the in-app viewer (PDF / photo) for saved files. */
+    void viewSaved(List<Saved> list, int index) {
+        ToolViewer.show(this, list, index);
+    }
+
+    /** Opens Downloads/StudyTools in the phone's file manager. */
+    void openFolder() {
+        try {
+            Uri u = DocumentsContract.buildDocumentUri("com.android.externalstorage.documents",
+                "primary:" + Environment.DIRECTORY_DOWNLOADS + "/" + SAVE_FOLDER);
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setDataAndType(u, DocumentsContract.Document.MIME_TYPE_DIR);
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(i);
+            return;
+        } catch (Exception ignored) { }
+        try {
+            startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));
+            toast("Open the “" + SAVE_FOLDER + "” folder inside Downloads");
+        } catch (Exception e) {
+            toast("No file manager found. Look in Downloads/" + SAVE_FOLDER);
+        }
+    }
+
     void shareSaved(List<Saved> list) {
         try {
             Intent i;
@@ -706,15 +736,33 @@ public class StudyToolsActivity extends AppCompatActivity {
             card.addView(W.text(this, "+ " + (files.size() - shown) + " more", 12, W.SUB, false),
                 W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 4, 0, 0));
         }
-        card.addView(W.text(this, "Saved in Downloads/" + SAVE_FOLDER, 12, W.SUB, false),
-            W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 8, 0, 0));
+        LinearLayout where = W.column(this);
+        where.setBackground(W.rect(this, W.alpha(W.BLUE, 0x0F), 10));
+        int wp = W.dp(this, 12);
+        where.setPadding(wp, W.dp(this, 10), wp, W.dp(this, 10));
+        where.addView(W.text(this, "Saved to", 11.5f, W.SUB, false));
+        TextView link = W.text(this, "📁  Phone storage › Download › " + SAVE_FOLDER, 13.5f, W.BLUE, true);
+        link.setPaintFlags(link.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        link.setPadding(0, W.dp(this, 4), 0, W.dp(this, 2));
+        where.addView(link);
+        where.addView(W.text(this, "Tap to open this folder", 11, W.SUB, false));
+        where.setClickable(true);
+        where.setOnClickListener(v -> openFolder());
+        card.addView(where, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 10, 0, 0));
 
         LinearLayout btns = W.row(this);
-        btns.addView(W.softBtn(this, "Open", W.BLUE, v -> openSaved(files.get(0))),
-            new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        btns.addView(W.softBtn(this, "Share", W.GREEN, v -> shareSaved(files)),
-            W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 10, 0, 0, 0));
-        ((LinearLayout.LayoutParams) btns.getChildAt(1).getLayoutParams()).weight = 1f;
+        boolean viewable = ToolViewer.canView(files.get(0));
+        TextView view = W.softBtn(this, viewable ? "👁 View" : "Open", W.BLUE,
+            v -> { if (viewable) viewSaved(files, 0); else openSaved(files.get(0)); });
+        btns.addView(view, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        if (viewable) {
+            TextView ow = W.softBtn(this, "Open with", W.PURPLE, v -> openSaved(files.get(0)));
+            btns.addView(ow, W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 8, 0, 0, 0));
+            ((LinearLayout.LayoutParams) ow.getLayoutParams()).weight = 1f;
+        }
+        TextView sh = W.softBtn(this, "Share", W.GREEN, v -> shareSaved(files));
+        btns.addView(sh, W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 8, 0, 0, 0));
+        ((LinearLayout.LayoutParams) sh.getLayoutParams()).weight = 1f;
         card.addView(btns, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 12, 0, 0));
         return card;
     }
