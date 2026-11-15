@@ -128,6 +128,42 @@ final class PushManager {
         } catch (Throwable ignored) { }
     }
 
+    // ── Local copy of received admin messages (fallback for the notification inbox) ──
+    private static final String K_INBOX = "inbox";
+    private static final String K_SEEN  = "inbox_seen";
+
+    /** Stores a received admin message (newest first, max 100, same id only once). */
+    static synchronized void inboxAdd(Context c, String id, String title, String body, long at) {
+        try {
+            org.json.JSONArray old = new org.json.JSONArray(p(c).getString(K_INBOX, "[]"));
+            org.json.JSONArray out = new org.json.JSONArray();
+            org.json.JSONObject o = new org.json.JSONObject();
+            o.put("id", id == null ? "" : id);
+            o.put("title", title == null ? "" : title);
+            o.put("body", body == null ? "" : body);
+            o.put("at", at);
+            out.put(o);
+            for (int i = 0; i < old.length() && out.length() < 100; i++) {
+                org.json.JSONObject x = old.getJSONObject(i);
+                if (id != null && !id.isEmpty() && id.equals(x.optString("id"))) continue;
+                out.put(x);
+            }
+            p(c).edit().putString(K_INBOX, out.toString()).apply();
+        } catch (Throwable ignored) { }
+    }
+
+    /** Locally stored admin messages, newest first. */
+    static synchronized org.json.JSONArray inboxLoad(Context c) {
+        try { return new org.json.JSONArray(p(c).getString(K_INBOX, "[]")); }
+        catch (Throwable t) { return new org.json.JSONArray(); }
+    }
+
+    /** Time of the newest message the user has seen in the inbox (0 = never). */
+    static long inboxSeen(Context c) { return p(c).getLong(K_SEEN, 0L); }
+    static void inboxMarkSeen(Context c, long at) {
+        if (at > inboxSeen(c)) p(c).edit().putLong(K_SEEN, at).apply();
+    }
+
     /** Id of the signed-in discussion user on this device ("" = not subscribed). */
     static String discussionMe(Context c) { return p(c).getString(K_DISC_ME, ""); }
 

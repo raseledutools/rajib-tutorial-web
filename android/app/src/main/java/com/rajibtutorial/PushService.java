@@ -83,14 +83,24 @@ public class PushService extends FirebaseMessagingService {
             if (t != null && !t.isEmpty()) when = Long.parseLong(t);
         } catch (NumberFormatException ignored) { }
 
-        // Tap -> overlay page with the full message
-        Intent open = new Intent(this, NotificationDetailActivity.class)
+        PushManager.inboxAdd(this, mid, title, body, when);
+
+        // Detail page (full message)
+        Intent detail = new Intent(this, NotificationDetailActivity.class)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)
             .putExtra(NotificationDetailActivity.EXTRA_TITLE, title)
             .putExtra(NotificationDetailActivity.EXTRA_BODY, body)
             .putExtra(NotificationDetailActivity.EXTRA_TIME, when);
-        PendingIntent pi = PendingIntent.getActivity(this, nid, open,
+        PendingIntent detailPi = PendingIntent.getActivity(this, nid, detail,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        // Message contains a web link -> one tap on the notification opens that link directly
+        final String url = Links.firstUrl(body, title);
+        PendingIntent pi = detailPi;
+        if (url != null) {
+            pi = PendingIntent.getActivity(this, nid ^ 0x2A5F, Links.viewIntent(url),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        }
 
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, PushManager.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_push)
@@ -109,6 +119,7 @@ public class PushService extends FirebaseMessagingService {
             .setOnlyAlertOnce(true)                        // same message id arriving twice alerts once
             .setAutoCancel(true)
             .setContentIntent(pi);
+        if (url != null) b.addAction(0, "View message", detailPi);
         try {
             NotificationManagerCompat.from(this).notify(nid, b.build());
         } catch (SecurityException ignored) { }   // notification permission denied
