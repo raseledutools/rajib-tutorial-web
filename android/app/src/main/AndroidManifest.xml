@@ -80,7 +80,7 @@
             android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- Study Tools: offline PDF / photo / QR utilities (bundled WebView + native bridge) -->
+        <!-- Study Tools: native PDF / photo / QR utilities (no WebView, WPS-style UI) -->
         <activity
             android:name=".StudyToolsActivity"
             android:exported="false"

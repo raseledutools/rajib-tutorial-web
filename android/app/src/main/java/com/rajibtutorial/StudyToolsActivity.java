@@ -1,14 +1,13 @@
 package com.rajibtutorial;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
-import android.content.ActivityNotFoundException;
-import android.content.ClipData;
-import android.content.ClipboardManager;
+import android.app.AlertDialog;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
@@ -16,291 +15,549 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
-import android.util.Base64;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.JavascriptInterface;
-import android.webkit.JsResult;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.MimeTypeMap;
-import android.webkit.PermissionRequest;
-import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
+import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
-import androidx.webkit.WebViewAssetLoader;
 
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader;
+
+import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
- * Study Tools — PDF / photo / QR utilities that run 100% offline.
- *
- * The UI is the bundled page assets/study_tools/index.html (all libraries are local,
- * nothing is downloaded). It is served through WebViewAssetLoader on a private https
- * origin, every request to any other host is blocked, and the page talks to Java through
- * the window.AndroidTools bridge (save to Downloads, open file, clipboard, open link).
+ * Study Tools — fully native (no WebView). PDF / photo / QR utilities that run 100% offline.
+ * Design follows the WPS Office look: light background, white cards, tinted icon tiles, blue pill buttons.
  */
 public class StudyToolsActivity extends AppCompatActivity {
 
-    private static final String HOST = "appassets.androidplatform.net";
-    private static final String START_URL = "https://" + HOST + "/assets/study_tools/index.html";
-    private static final String SAVE_FOLDER = "StudyTools";
+    static final String SAVE_FOLDER = "StudyTools";
     private static final int REQ_CAMERA = 710;
     private static final int REQ_STORAGE = 711;
-    private static final int PAGE_BG = 0xFFF8FAFC;
 
-    private WebView webView;
-    private WebViewAssetLoader assetLoader;
-    private PermissionRequest pendingPerm;
-    private ValueCallback<Uri[]> filePathCb;
+    // ───────── small shared types ─────────
+    interface Cb<T> { void on(T value); }
+    interface Updater { void msg(String m); }
+    interface Task { Runnable run(Updater u) throws Exception; }
+    interface Factory { ToolPage make(StudyToolsActivity a); }
 
-    private final Map<String, SaveJob> jobs = new ConcurrentHashMap<>();
-    private final Set<String> savedUris = Collections.synchronizedSet(new HashSet<String>());
+    static final class Picked {
+        Uri uri; String name; long size; File file;
+    }
 
-    private final ActivityResultLauncher<Intent> fileLauncher =
-        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
-            if (filePathCb == null) return;
-            Uri[] res = WebChromeClient.FileChooserParams.parseResult(r.getResultCode(), r.getData());
-            filePathCb.onReceiveValue(res);
-            filePathCb = null;
+    static final class Saved {
+        String name, uri, mime; long size;
+    }
+
+    private static final class ToolDef {
+        final String emoji, label, section; final int color; final Factory f;
+        ToolDef(String emoji, int color, String label, String section, Factory f) {
+            this.emoji = emoji; this.color = color; this.label = label; this.section = section; this.f = f;
+        }
+    }
+
+    // ───────── state ─────────
+    final ExecutorService io = Executors.newSingleThreadExecutor();
+    private FrameLayout host;
+    private View homeView;
+    private LinearLayout sectionsBox, recentBox;
+    private EditText searchBox;
+    private final ArrayList<ToolPage> stack = new ArrayList<>();
+    private final List<ToolDef> tools = new ArrayList<>();
+
+    private AlertDialog busyDlg;
+    private TextView busyTv;
+    private Cb<List<Picked>> pickCb;
+    private Runnable camGranted;
+
+    private final ActivityResultLauncher<String[]> pickOne =
+        registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+            if (uri == null) { pickCb = null; return; }
+            deliver(Collections.singletonList(uri));
         });
 
-    @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
+    private final ActivityResultLauncher<String[]> pickMany =
+        registerForActivityResult(new ActivityResultContracts.OpenMultipleDocuments(), uris -> {
+            if (uris == null || uris.isEmpty()) { pickCb = null; return; }
+            deliver(uris);
+        });
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        PDFBoxResourceLoader.init(getApplicationContext());
 
-        getWindow().setStatusBarColor(0xFF7B2FF7);
-        getWindow().setNavigationBarColor(PAGE_BG);
-        if (Build.VERSION.SDK_INT >= 26) {
-            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        getWindow().setStatusBarColor(W.SURFACE);
+        getWindow().setNavigationBarColor(W.SURFACE);
+        if (Build.VERSION.SDK_INT >= 23) {
+            int f = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (Build.VERSION.SDK_INT >= 26) f |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            getWindow().getDecorView().setSystemUiVisibility(f);
         }
 
-        // ── Layout: native top bar + WebView ──
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(PAGE_BG);
+        cleanCache();
+        registerTools();
 
-        LinearLayout bar = new LinearLayout(this);
-        bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setBackgroundResource(R.drawable.bg_header);
-        bar.setElevation(Ui.dp(this, 4));
+        host = new FrameLayout(this);
+        host.setBackgroundColor(W.BG);
+        setContentView(host);
 
-        TextView back = new TextView(this);
-        back.setText("←");
-        back.setTextSize(24);
-        back.setTextColor(0xFFFFFFFF);
+        homeView = buildHome();
+        host.addView(homeView);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (stack.isEmpty()) refreshRecents();
+    }
+
+    @Override
+    protected void onPause() {
+        for (ToolPage p : stack) p.onPause();
+        super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        for (ToolPage p : stack) p.onDestroy();
+        stack.clear();
+        idle();
+        io.shutdownNow();
+        super.onDestroy();
+    }
+
+    // ═════════════════════════ tool registry ═════════════════════════
+    private void registerTools() {
+        String pdf = "PDF Tools", photo = "Photo Tools", more = "QR & More";
+        tools.add(new ToolDef("📚", W.RED, "Merge PDF", pdf, PdfTools.Merge::new));
+        tools.add(new ToolDef("✂️", W.ORANGE, "Split PDF", pdf, PdfTools.Split::new));
+        tools.add(new ToolDef("🗜️", W.PURPLE, "Compress PDF", pdf, PdfTools.Compress::new));
+        tools.add(new ToolDef("🖼️", W.PINK, "PDF to Photo", pdf, PdfTools.ToPhoto::new));
+        tools.add(new ToolDef("📄", W.GREEN, "Photo to PDF", pdf, PdfTools.FromPhotos::new));
+
+        tools.add(new ToolDef("📐", W.BLUE, "Photo Resizer", photo, a -> new PhotoTools.Resize(a, 0)));
+        tools.add(new ToolDef("👤", W.TEAL, "Job Photo", photo, a -> new PhotoTools.Resize(a, 1)));
+        tools.add(new ToolDef("✍️", W.PURPLE, "Signature", photo, a -> new PhotoTools.Resize(a, 2)));
+
+        tools.add(new ToolDef("📱", W.ORANGE, "QR Generator", more, QrTools.Generator::new));
+        tools.add(new ToolDef("📷", W.TEAL, "QR Reader", more, QrTools.Reader::new));
+        tools.add(new ToolDef("📅", W.LIME, "Age Calculator", more, AgeTool::new));
+    }
+
+    // ═════════════════════════ home screen ═════════════════════════
+    private View buildHome() {
+        LinearLayout root = W.column(this);
+
+        // top bar
+        LinearLayout bar = W.row(this);
+        bar.setBackgroundColor(W.SURFACE);
+        TextView back = W.text(this, "←", 24, W.TEXT, false);
         back.setGravity(Gravity.CENTER);
-        back.setClickable(true);
-        back.setFocusable(true);
-        back.setOnClickListener(v -> handleBack());
-        bar.addView(back, new LinearLayout.LayoutParams(Ui.dp(this, 56), ViewGroup.LayoutParams.MATCH_PARENT));
-
-        TextView title = new TextView(this);
-        title.setText("Study Tools");
-        title.setTextSize(19);
-        title.setTextColor(0xFFFFFFFF);
-        title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        back.setOnClickListener(v -> finish());
+        bar.addView(back, W.lp(W.dp(this, 56), W.dp(this, 56)));
+        TextView title = W.text(this, "Study Tools", 20, W.TEXT, true);
         bar.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        root.addView(bar, W.lp(ViewGroup.LayoutParams.MATCH_PARENT, W.dp(this, 56)));
 
-        TextView ico = new TextView(this);
-        ico.setText("🧰");
-        ico.setTextSize(22);
-        LinearLayout.LayoutParams icoLp = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        icoLp.rightMargin = Ui.dp(this, 16);
-        bar.addView(ico, icoLp);
+        ScrollView sv = new ScrollView(this);
+        sv.setFillViewport(false);
+        sv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        LinearLayout col = W.column(this);
+        int pad = W.dp(this, 16);
+        col.setPadding(pad, W.dp(this, 4), pad, pad);
+        sv.addView(col, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        root.addView(bar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 56)));
-
-        webView = new WebView(this);
-        webView.setBackgroundColor(PAGE_BG);
-        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        root.addView(webView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-        setContentView(root);
-
-        // ── WebView: local assets only ──
-        assetLoader = new WebViewAssetLoader.Builder()
-            .setDomain(HOST)
-            .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
-            .build();
-
-        WebSettings s = webView.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setAllowFileAccess(false);
-        s.setSupportZoom(false);
-        s.setBuiltInZoomControls(false);
-        s.setDisplayZoomControls(false);
-        s.setTextZoom(100);
-        s.setMediaPlaybackRequiresUserGesture(false);
-        s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
-
-        webView.addJavascriptInterface(new ToolsBridge(), "AndroidTools");
-
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
-                Uri u = req.getUrl();
-                if (HOST.equals(u.getHost())) {
-                    WebResourceResponse r = assetLoader.shouldInterceptRequest(u);
-                    return r != null ? r : blocked(404, "Not found");
-                }
-                String sc = u.getScheme();
-                if ("data".equals(sc) || "blob".equals(sc) || "about".equals(sc)) return null;
-                return blocked(403, "Offline");   // nothing leaves the device
-            }
-
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
-                return !HOST.equals(req.getUrl().getHost());   // never navigate away from the tools page
-            }
+        // search (white strip under the bar, like WPS)
+        searchBox = W.input(this, "🔍  Search tools", android.text.InputType.TYPE_CLASS_TEXT);
+        searchBox.setBackground(W.rect(this, W.SURFACE, 22));
+        searchBox.setPadding(W.dp(this, 18), W.dp(this, 11), W.dp(this, 18), W.dp(this, 11));
+        searchBox.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void afterTextChanged(Editable s) { rebuildSections(s.toString()); }
         });
+        col.addView(searchBox, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 6, 0, 14));
 
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public boolean onShowFileChooser(WebView w, ValueCallback<Uri[]> cb, FileChooserParams p) {
-                if (filePathCb != null) filePathCb.onReceiveValue(null);
-                filePathCb = cb;
-                try {
-                    fileLauncher.launch(buildPickerIntent(p));
-                } catch (Exception e) {
-                    filePathCb = null;
-                    cb.onReceiveValue(null);
-                    return false;
-                }
-                return true;
-            }
+        // banner
+        LinearLayout banner = W.row(this);
+        int bp = W.dp(this, 18);
+        banner.setPadding(bp, bp, bp, bp);
+        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+            new int[]{0xFF3B7BFF, 0xFF2455E6});
+        g.setCornerRadius(W.dp(this, 18));
+        banner.setBackground(g);
+        LinearLayout bt = W.column(this);
+        bt.addView(W.text(this, "PDF · Photo · QR", 18, 0xFFFFFFFF, true));
+        TextView bs = W.text(this, "Everything you need for study & forms.\nWorks 100% offline.", 12.5f, 0xDDFFFFFF, false);
+        bs.setLineSpacing(0, 1.15f);
+        bt.addView(bs, W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 4, 0, 0));
+        banner.addView(bt, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView bi = W.text(this, "🧰", 38, 0xFFFFFFFF, false);
+        banner.addView(bi);
+        col.addView(banner, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 0, 0, 16));
 
-            @Override
-            public void onPermissionRequest(final PermissionRequest req) {
-                runOnUiThread(() -> {
-                    boolean video = false;
-                    for (String r : req.getResources()) {
-                        if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) video = true;
-                    }
-                    if (!video || !HOST.equals(req.getOrigin().getHost())) { req.deny(); return; }
-                    if (ContextCompat.checkSelfPermission(StudyToolsActivity.this, Manifest.permission.CAMERA)
-                            == PackageManager.PERMISSION_GRANTED) {
-                        req.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-                    } else {
-                        pendingPerm = req;
-                        ActivityCompat.requestPermissions(StudyToolsActivity.this,
-                            new String[]{Manifest.permission.CAMERA}, REQ_CAMERA);
-                    }
-                });
-            }
+        recentBox = W.column(this);
+        col.addView(recentBox, W.lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-            @Override
-            public void onPermissionRequestCanceled(PermissionRequest request) {
-                if (request == pendingPerm) pendingPerm = null;
-            }
-
-            // Native-looking dialogs (no "The page at https://… says" header)
-            @Override
-            public boolean onJsAlert(WebView v, String url, String message, final JsResult result) {
-                new AlertDialog.Builder(StudyToolsActivity.this)
-                    .setMessage(message)
-                    .setPositiveButton("OK", (d, w) -> result.confirm())
-                    .setOnCancelListener(d -> result.cancel())
-                    .show();
-                return true;
-            }
-
-            @Override
-            public boolean onJsConfirm(WebView v, String url, String message, final JsResult result) {
-                new AlertDialog.Builder(StudyToolsActivity.this)
-                    .setMessage(message)
-                    .setPositiveButton("OK", (d, w) -> result.confirm())
-                    .setNegativeButton("Cancel", (d, w) -> result.cancel())
-                    .setOnCancelListener(d -> result.cancel())
-                    .show();
-                return true;
-            }
-        });
-
-        webView.loadUrl(START_URL);
+        sectionsBox = W.column(this);
+        col.addView(sectionsBox, W.lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        rebuildSections("");
+        refreshRecents();
+        return root;
     }
 
-    private static WebResourceResponse blocked(int code, String reason) {
-        return new WebResourceResponse("text/plain", "UTF-8", code, reason,
-            Collections.<String, String>emptyMap(), new ByteArrayInputStream(new byte[0]));
+    private void rebuildSections(String query) {
+        sectionsBox.removeAllViews();
+        String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        String[] order = {"PDF Tools", "Photo Tools", "QR & More"};
+        boolean any = false;
+        for (String sec : order) {
+            List<ToolDef> list = new ArrayList<>();
+            for (ToolDef d : tools) {
+                if (!d.section.equals(sec)) continue;
+                if (!q.isEmpty() && !d.label.toLowerCase(Locale.ROOT).contains(q)) continue;
+                list.add(d);
+            }
+            if (list.isEmpty()) continue;
+            any = true;
+            LinearLayout card = W.card(this);
+            card.addView(W.sectionTitle(this, sec));
+            card.addView(W.space(this, 8));
+            card.addView(grid(list));
+            sectionsBox.addView(card, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 0, 0, 14));
+        }
+        if (!any) {
+            TextView t = W.text(this, "No tools found", 14, W.SUB, false);
+            t.setGravity(Gravity.CENTER);
+            t.setPadding(0, W.dp(this, 30), 0, 0);
+            sectionsBox.addView(t);
+        }
     }
 
-    private static Intent buildPickerIntent(WebChromeClient.FileChooserParams p) {
-        Intent i = new Intent(Intent.ACTION_GET_CONTENT);
-        i.addCategory(Intent.CATEGORY_OPENABLE);
-        List<String> mimes = new ArrayList<>();
-        String[] acc = p.getAcceptTypes();
-        if (acc != null) {
-            for (String a : acc) {
-                if (a == null) continue;
-                a = a.trim();
-                if (a.isEmpty()) continue;
-                if (a.startsWith(".")) {
-                    String m = MimeTypeMap.getSingleton().getMimeTypeFromExtension(a.substring(1).toLowerCase(Locale.ROOT));
-                    if (m != null) mimes.add(m);
+    private View grid(List<ToolDef> list) {
+        LinearLayout g = W.column(this);
+        final int cols = 4;
+        for (int i = 0; i < list.size(); i += cols) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            for (int j = 0; j < cols; j++) {
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+                if (i + j < list.size()) {
+                    final ToolDef d = list.get(i + j);
+                    row.addView(W.tile(this, d.emoji, d.color, d.label, v -> openPage(d.f.make(this))), lp);
                 } else {
-                    mimes.add(a);
+                    row.addView(new View(this), lp);
                 }
             }
+            g.addView(row);
         }
-        if (mimes.isEmpty()) {
-            i.setType("*/*");
-        } else if (mimes.size() == 1) {
-            i.setType(mimes.get(0));
-        } else {
-            i.setType("*/*");
-            i.putExtra(Intent.EXTRA_MIME_TYPES, mimes.toArray(new String[0]));
-        }
-        if (p.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
-            i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-        }
-        return i;
+        return g;
     }
 
-    // ── Back handling: let the page close its own overlay (live scanner) first ──
-    private void handleBack() {
-        if (webView == null) { finish(); return; }
-        webView.evaluateJavascript(
-            "(function(){return !!(window.__nativeBack && window.__nativeBack());})()",
-            value -> { if (!"true".equals(value)) finish(); });
+    // ───────── recent files ─────────
+    private SharedPreferences prefs() { return getSharedPreferences("study_tools", MODE_PRIVATE); }
+
+    void addRecent(Saved s) {
+        try {
+            JSONArray old = new JSONArray(prefs().getString("recent", "[]"));
+            JSONArray neu = new JSONArray();
+            JSONObject o = new JSONObject();
+            o.put("name", s.name); o.put("uri", s.uri); o.put("mime", s.mime); o.put("size", s.size);
+            neu.put(o);
+            for (int i = 0; i < old.length() && neu.length() < 6; i++) {
+                JSONObject x = old.getJSONObject(i);
+                if (!s.uri.equals(x.optString("uri"))) neu.put(x);
+            }
+            prefs().edit().putString("recent", neu.toString()).apply();
+        } catch (Exception ignored) { }
+    }
+
+    private void refreshRecents() {
+        if (recentBox == null) return;
+        recentBox.removeAllViews();
+        final List<Saved> list = new ArrayList<>();
+        try {
+            JSONArray arr = new JSONArray(prefs().getString("recent", "[]"));
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.getJSONObject(i);
+                Saved s = new Saved();
+                s.name = o.optString("name"); s.uri = o.optString("uri");
+                s.mime = o.optString("mime"); s.size = o.optLong("size");
+                list.add(s);
+            }
+        } catch (Exception ignored) { }
+        if (list.isEmpty() || !searchBox.getText().toString().trim().isEmpty()) return;
+
+        LinearLayout card = W.card(this);
+        LinearLayout head = W.row(this);
+        head.addView(W.sectionTitle(this, "Recent files"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView clear = W.text(this, "Clear", 13, W.BLUE, true);
+        clear.setPadding(W.dp(this, 8), W.dp(this, 4), 0, W.dp(this, 4));
+        clear.setOnClickListener(v -> { prefs().edit().remove("recent").apply(); refreshRecents(); });
+        head.addView(clear);
+        card.addView(head);
+        for (final Saved s : list) {
+            LinearLayout r = W.row(this);
+            r.setPadding(0, W.dp(this, 10), 0, W.dp(this, 2));
+            boolean isPdf = s.mime != null && s.mime.contains("pdf");
+            TextView bd = W.badge(this, isPdf ? "PDF" : "IMG", isPdf ? W.RED : W.BLUE);
+            r.addView(bd, W.lp(W.dp(this, 40), W.dp(this, 40)));
+            LinearLayout t = W.column(this);
+            TextView n = W.text(this, s.name, 14, W.TEXT, true);
+            n.setSingleLine(true); n.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+            t.addView(n);
+            t.addView(W.text(this, W.size(s.size) + " · Downloads/" + SAVE_FOLDER, 11.5f, W.SUB, false));
+            r.addView(t, W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 12, 0, 0, 0));
+            ((LinearLayout.LayoutParams) t.getLayoutParams()).weight = 1f;
+            r.setOnClickListener(v -> openSaved(s));
+            r.setClickable(true);
+            card.addView(r);
+        }
+        recentBox.addView(card, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 0, 0, 14));
+    }
+
+    // ═════════════════════════ navigation ═════════════════════════
+    void openPage(ToolPage p) {
+        hideKeyboard();
+        stack.add(p);
+        host.removeAllViews();
+        host.addView(buildPage(p));
+    }
+
+    private void closeTop() {
+        hideKeyboard();
+        if (stack.isEmpty()) { finish(); return; }
+        ToolPage p = stack.remove(stack.size() - 1);
+        p.onDestroy();
+        host.removeAllViews();
+        if (stack.isEmpty()) {
+            host.addView(homeView);
+            refreshRecents();
+        } else {
+            host.addView(buildPage(stack.get(stack.size() - 1)));
+        }
+    }
+
+    private View buildPage(ToolPage p) {
+        LinearLayout root = W.column(this);
+        root.setBackgroundColor(W.BG);
+
+        LinearLayout bar = W.row(this);
+        bar.setBackgroundColor(W.SURFACE);
+        TextView back = W.text(this, "←", 24, W.TEXT, false);
+        back.setGravity(Gravity.CENTER);
+        back.setOnClickListener(v -> onBackPressed());
+        bar.addView(back, W.lp(W.dp(this, 56), W.dp(this, 56)));
+        bar.addView(W.text(this, p.title(), 18, W.TEXT, true), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        root.addView(bar, W.lp(ViewGroup.LayoutParams.MATCH_PARENT, W.dp(this, 56)));
+
+        ScrollView sv = new ScrollView(this);
+        sv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        sv.setFillViewport(true);
+        LinearLayout wrap = W.column(this);
+        int pad = W.dp(this, 16);
+        wrap.setPadding(pad, W.dp(this, 8), pad, pad);
+        wrap.addView(p.body(), W.lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        sv.addView(wrap, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        View foot = p.footer();
+        if (foot != null) {
+            LinearLayout strip = W.column(this);
+            strip.setBackgroundColor(W.SURFACE);
+            strip.setElevation(W.dp(this, 6));
+            int fp = W.dp(this, 14);
+            strip.setPadding(fp, W.dp(this, 10), fp, W.dp(this, 10));
+            strip.addView(foot, W.lp(ViewGroup.LayoutParams.MATCH_PARENT, W.dp(this, 52)));
+            root.addView(strip, W.lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        return root;
     }
 
     @Override
     public void onBackPressed() {
-        handleBack();
+        if (stack.isEmpty()) { finish(); return; }
+        ToolPage top = stack.get(stack.size() - 1);
+        if (top.onBack()) return;
+        closeTop();
+    }
+
+    private void hideKeyboard() {
+        try {
+            View f = getCurrentFocus();
+            if (f != null) {
+                InputMethodManager im = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (im != null) im.hideSoftInputFromWindow(f.getWindowToken(), 0);
+            }
+        } catch (Exception ignored) { }
+    }
+
+    // ═════════════════════════ busy / background work ═════════════════════════
+    void busy(String msg) {
+        if (isFinishing()) return;
+        if (busyDlg == null) {
+            LinearLayout l = W.row(this);
+            int p = W.dp(this, 22);
+            l.setPadding(p, p, p, p);
+            ProgressBar pb = new ProgressBar(this);
+            l.addView(pb, W.lp(W.dp(this, 36), W.dp(this, 36)));
+            busyTv = W.text(this, msg, 15, W.TEXT, false);
+            l.addView(busyTv, W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 16, 0, 0, 0));
+            busyDlg = new AlertDialog.Builder(this).setView(l).setCancelable(false).create();
+            busyDlg.show();
+        } else {
+            busyTv.setText(msg);
+            if (!busyDlg.isShowing()) busyDlg.show();
+        }
+    }
+
+    private void busyText(String m) { if (busyTv != null) busyTv.setText(m); }
+
+    void idle() {
+        try { if (busyDlg != null && busyDlg.isShowing()) busyDlg.dismiss(); } catch (Exception ignored) { }
+        busyDlg = null;
+        busyTv = null;
+    }
+
+    /** Runs work off the main thread; the Runnable it returns is executed on the UI thread afterwards. */
+    void background(String msg, final Task t) {
+        busy(msg);
+        io.execute(() -> {
+            try {
+                final Runnable done = t.run(m -> runOnUiThread(() -> busyText(m)));
+                runOnUiThread(() -> { idle(); if (done != null) done.run(); });
+            } catch (final Throwable e) {
+                runOnUiThread(() -> { idle(); showError(e); });
+            }
+        });
+    }
+
+    void showError(Throwable e) {
+        String m;
+        if (e instanceof OutOfMemoryError) m = "Not enough memory for this file. Try a smaller file or lower quality.";
+        else if ("PERMISSION".equals(e.getMessage())) m = "Storage permission is needed. Allow it, then try again.";
+        else if (e.getMessage() != null && !e.getMessage().isEmpty()) m = e.getMessage();
+        else m = "Something went wrong.";
+        if (isFinishing()) return;
+        new AlertDialog.Builder(this).setTitle("Couldn't finish").setMessage(m)
+            .setPositiveButton("OK", null).show();
+    }
+
+    void toast(String m) { Toast.makeText(this, m, Toast.LENGTH_SHORT).show(); }
+
+    // ═════════════════════════ file picking ═════════════════════════
+    void pick(boolean multiple, String[] mimes, Cb<List<Picked>> cb) {
+        pickCb = cb;
+        try {
+            if (multiple) pickMany.launch(mimes); else pickOne.launch(mimes);
+        } catch (Exception e) {
+            pickCb = null;
+            toast("No file picker found");
+        }
+    }
+
+    private void deliver(final List<Uri> uris) {
+        final Cb<List<Picked>> cb = pickCb;
+        pickCb = null;
+        if (cb == null) return;
+        background("Loading…", u -> {
+            final List<Picked> out = new ArrayList<>();
+            File dir = new File(getCacheDir(), "picked");
+            //noinspection ResultOfMethodCallIgnored
+            dir.mkdirs();
+            for (Uri uri : uris) {
+                Picked p = new Picked();
+                p.uri = uri;
+                p.name = queryName(uri);
+                File f = new File(dir, System.nanoTime() + "_" + safeName(p.name));
+                try (InputStream in = getContentResolver().openInputStream(uri);
+                     OutputStream os = new FileOutputStream(f)) {
+                    if (in == null) throw new Exception("Can't open " + p.name);
+                    byte[] buf = new byte[64 * 1024];
+                    int n;
+                    while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
+                }
+                p.file = f;
+                p.size = f.length();
+                out.add(p);
+            }
+            return () -> cb.on(out);
+        });
+    }
+
+    private String queryName(Uri uri) {
+        Cursor c = null;
+        try {
+            c = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null);
+            if (c != null && c.moveToFirst()) {
+                String n = c.getString(0);
+                if (n != null && !n.isEmpty()) return n;
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (c != null) c.close();
+        }
+        String last = uri.getLastPathSegment();
+        return last != null ? last : "file";
+    }
+
+    private void cleanCache() {
+        for (String d : new String[]{"picked", "out"}) {
+            File dir = new File(getCacheDir(), d);
+            File[] fs = dir.listFiles();
+            if (fs != null) for (File f : fs) //noinspection ResultOfMethodCallIgnored
+                f.delete();
+        }
+    }
+
+    /** Scratch file for tool output (inside the cache; cleaned on next start). */
+    File tempOut(String name) {
+        File dir = new File(getCacheDir(), "out");
+        //noinspection ResultOfMethodCallIgnored
+        dir.mkdirs();
+        return new File(dir, System.nanoTime() + "_" + safeName(name));
+    }
+
+    // ═════════════════════════ camera permission ═════════════════════════
+    void requestCamera(Runnable granted) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            granted.run();
+            return;
+        }
+        camGranted = granted;
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQ_CAMERA);
     }
 
     @Override
@@ -308,221 +565,162 @@ public class StudyToolsActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(code, perms, results);
         boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
         if (code == REQ_CAMERA) {
-            if (pendingPerm != null) {
-                if (ok) pendingPerm.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-                else pendingPerm.deny();
-                pendingPerm = null;
-            }
+            Runnable r = camGranted;
+            camGranted = null;
+            if (ok && r != null) r.run(); else if (!ok) toast("Camera permission denied");
         } else if (code == REQ_STORAGE) {
-            Toast.makeText(this, ok ? "Storage allowed — tap Download again" : "Storage permission denied",
-                Toast.LENGTH_LONG).show();
+            toast(ok ? "Storage allowed — tap the button again" : "Storage permission denied");
         }
     }
 
-    @Override
-    protected void onPause() {
-        // release the camera if the app goes to background
-        if (webView != null) {
-            webView.evaluateJavascript("window.closeLiveCameraScanner&&window.closeLiveCameraScanner()", null);
-            webView.onPause();
-        }
-        super.onPause();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (webView != null) webView.onResume();
-    }
-
-    @Override
-    protected void onDestroy() {
-        for (SaveJob j : jobs.values()) j.abort(this);
-        jobs.clear();
-        if (filePathCb != null) { filePathCb.onReceiveValue(null); filePathCb = null; }
-        if (webView != null) {
-            ViewGroup parent = (ViewGroup) webView.getParent();
-            if (parent != null) parent.removeView(webView);
-            webView.destroy();
-            webView = null;
-        }
-        super.onDestroy();
-    }
-
-    // ═════════════════════════ JS ↔ Java bridge ═════════════════════════
-
-    /** One file being written chunk by chunk (large PDFs/PNGs never travel as one giant string). */
-    private static final class SaveJob {
-        OutputStream os;
-        Uri uri;        // API 29+: MediaStore row
-        File file;      // API < 29: file in public Downloads
-        String name;
-        String mime;
-
-        void abort(Context c) {
-            try { if (os != null) os.close(); } catch (Exception ignored) { }
-            try {
-                if (uri != null) c.getContentResolver().delete(uri, null, null);
-                if (file != null) //noinspection ResultOfMethodCallIgnored
-                    file.delete();
-            } catch (Exception ignored) { }
-        }
-    }
-
-    public final class ToolsBridge {
-
-        @JavascriptInterface
-        public boolean isNative() { return true; }
-
-        /** Returns a job id, or null if the file can't be created. */
-        @JavascriptInterface
-        public String beginSave(String name, String mime) {
-            try {
-                SaveJob j = new SaveJob();
-                j.name = safeName(name);
-                j.mime = (mime == null || mime.isEmpty()) ? guessMime(j.name) : mime;
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    ContentValues cv = new ContentValues();
-                    cv.put(MediaStore.MediaColumns.DISPLAY_NAME, j.name);
-                    cv.put(MediaStore.MediaColumns.MIME_TYPE, j.mime);
-                    cv.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + SAVE_FOLDER);
-                    cv.put(MediaStore.MediaColumns.IS_PENDING, 1);
-                    Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
-                    if (uri == null) return null;
-                    j.uri = uri;
-                    OutputStream raw = getContentResolver().openOutputStream(uri);
-                    if (raw == null) { j.abort(StudyToolsActivity.this); return null; }
-                    j.os = new BufferedOutputStream(raw);
-                } else {
-                    if (ContextCompat.checkSelfPermission(StudyToolsActivity.this,
-                            Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                        runOnUiThread(() -> ActivityCompat.requestPermissions(StudyToolsActivity.this,
-                            new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_STORAGE));
-                        return null;
-                    }
-                    File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), SAVE_FOLDER);
-                    if (!dir.exists() && !dir.mkdirs()) return null;
-                    j.file = uniqueFile(dir, j.name);
-                    j.os = new BufferedOutputStream(new FileOutputStream(j.file));
-                }
-                String id = UUID.randomUUID().toString();
-                jobs.put(id, j);
-                return id;
+    // ═════════════════════════ saving / opening ═════════════════════════
+    /** Copies a finished file into Downloads/StudyTools. Call from a background thread. */
+    Saved saveFile(File src, String name, String mime) throws Exception {
+        name = safeName(name);
+        if (mime == null || mime.isEmpty()) mime = guessMime(name);
+        Saved s = new Saved();
+        s.mime = mime;
+        s.size = src.length();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentValues cv = new ContentValues();
+            cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+            cv.put(MediaStore.MediaColumns.MIME_TYPE, mime);
+            cv.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + SAVE_FOLDER);
+            cv.put(MediaStore.MediaColumns.IS_PENDING, 1);
+            Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+            if (uri == null) throw new Exception("Can't create the file in Downloads");
+            try (OutputStream os = getContentResolver().openOutputStream(uri);
+                 InputStream in = new FileInputStream(src)) {
+                if (os == null) throw new Exception("Can't write to Downloads");
+                copy(in, os);
             } catch (Exception e) {
-                return null;
+                getContentResolver().delete(uri, null, null);
+                throw e;
             }
-        }
-
-        @JavascriptInterface
-        public boolean appendChunk(String id, String base64) {
-            SaveJob j = jobs.get(id);
-            if (j == null || j.os == null) return false;
-            try {
-                j.os.write(Base64.decode(base64, Base64.DEFAULT));
-                return true;
-            } catch (Exception e) {
-                return false;
+            ContentValues done = new ContentValues();
+            done.put(MediaStore.MediaColumns.IS_PENDING, 0);
+            getContentResolver().update(uri, done, null, null);
+            s.uri = uri.toString();
+            s.name = queryName(uri);
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                runOnUiThread(() -> ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_STORAGE));
+                throw new Exception("PERMISSION");
             }
-        }
-
-        /** Returns JSON: {ok, name, uri, mime, where} or {ok:false, error}. */
-        @JavascriptInterface
-        public String endSave(String id) {
-            SaveJob j = jobs.remove(id);
-            JSONObject out = new JSONObject();
-            try {
-                if (j == null) throw new IllegalStateException("unknown save job");
-                j.os.flush();
-                j.os.close();
-                String finalName = j.name;
-                String uriStr;
-                if (j.uri != null) {
-                    ContentValues cv = new ContentValues();
-                    cv.put(MediaStore.MediaColumns.IS_PENDING, 0);
-                    getContentResolver().update(j.uri, cv, null, null);
-                    finalName = displayName(j.uri, j.name);
-                    uriStr = j.uri.toString();
-                } else {
-                    finalName = j.file.getName();
-                    MediaScannerConnection.scanFile(StudyToolsActivity.this,
-                        new String[]{j.file.getAbsolutePath()}, new String[]{j.mime}, null);
-                    uriStr = FileProvider.getUriForFile(StudyToolsActivity.this,
-                        getPackageName() + ".provider", j.file).toString();
-                }
-                savedUris.add(uriStr);
-                out.put("ok", true);
-                out.put("name", finalName);
-                out.put("uri", uriStr);
-                out.put("mime", j.mime);
-                out.put("where", "Downloads/" + SAVE_FOLDER);
-            } catch (Exception e) {
-                if (j != null) j.abort(StudyToolsActivity.this);
-                try {
-                    out.put("ok", false);
-                    out.put("error", String.valueOf(e.getMessage()));
-                } catch (Exception ignored) { }
+            File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), SAVE_FOLDER);
+            if (!dir.exists() && !dir.mkdirs()) throw new Exception("Can't create Downloads/" + SAVE_FOLDER);
+            File dst = uniqueFile(dir, name);
+            try (OutputStream os = new FileOutputStream(dst); InputStream in = new FileInputStream(src)) {
+                copy(in, os);
             }
-            return out.toString();
+            MediaScannerConnection.scanFile(this, new String[]{dst.getAbsolutePath()}, new String[]{mime}, null);
+            s.name = dst.getName();
+            s.uri = FileProvider.getUriForFile(this, getPackageName() + ".provider", dst).toString();
         }
+        //noinspection ResultOfMethodCallIgnored
+        src.delete();
+        final Saved fin = s;
+        runOnUiThread(() -> addRecent(fin));
+        return s;
+    }
 
-        @JavascriptInterface
-        public void abortSave(String id) {
-            SaveJob j = jobs.remove(id);
-            if (j != null) j.abort(StudyToolsActivity.this);
-        }
+    private static void copy(InputStream in, OutputStream os) throws Exception {
+        byte[] buf = new byte[64 * 1024];
+        int n;
+        while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
+        os.flush();
+    }
 
-        /** Only files this bridge saved can be opened. */
-        @JavascriptInterface
-        public boolean openFile(final String uri, final String mime) {
-            if (uri == null || !savedUris.contains(uri)) return false;
-            runOnUiThread(() -> {
-                try {
-                    Intent i = new Intent(Intent.ACTION_VIEW);
-                    i.setDataAndType(Uri.parse(uri), (mime == null || mime.isEmpty()) ? "*/*" : mime);
-                    i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    startActivity(i);
-                } catch (ActivityNotFoundException e) {
-                    Toast.makeText(StudyToolsActivity.this, "No app found to open this file", Toast.LENGTH_SHORT).show();
-                } catch (Exception ignored) { }
-            });
-            return true;
-        }
-
-        /** http(s) links only. */
-        @JavascriptInterface
-        public boolean openUrl(final String url) {
-            if (url == null) return false;
-            final Uri u = Uri.parse(url.trim());
-            String sc = u.getScheme();
-            if (!"http".equalsIgnoreCase(sc) && !"https".equalsIgnoreCase(sc)) return false;
-            runOnUiThread(() -> {
-                try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, u));
-                } catch (Exception e) {
-                    Toast.makeText(StudyToolsActivity.this, "Can't open this link", Toast.LENGTH_SHORT).show();
-                }
-            });
-            return true;
-        }
-
-        @JavascriptInterface
-        public boolean copyText(final String text) {
-            runOnUiThread(() -> {
-                ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("Study Tools", text == null ? "" : text));
-            });
-            return true;
-        }
-
-        @JavascriptInterface
-        public void toast(final String msg) {
-            runOnUiThread(() -> Toast.makeText(StudyToolsActivity.this, msg, Toast.LENGTH_SHORT).show());
+    void openSaved(Saved s) {
+        try {
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setDataAndType(Uri.parse(s.uri), s.mime == null || s.mime.isEmpty() ? "*/*" : s.mime);
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(i);
+        } catch (Exception e) {
+            toast("No app found to open this file (or it was moved)");
         }
     }
 
-    // ── helpers ──
-    private static String safeName(String n) {
+    void shareSaved(List<Saved> list) {
+        try {
+            Intent i;
+            if (list.size() == 1) {
+                i = new Intent(Intent.ACTION_SEND);
+                i.setType(list.get(0).mime);
+                i.putExtra(Intent.EXTRA_STREAM, Uri.parse(list.get(0).uri));
+            } else {
+                i = new Intent(Intent.ACTION_SEND_MULTIPLE);
+                i.setType("*/*");
+                ArrayList<Uri> us = new ArrayList<>();
+                for (Saved s : list) us.add(Uri.parse(s.uri));
+                i.putParcelableArrayListExtra(Intent.EXTRA_STREAM, us);
+            }
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(i, "Share"));
+        } catch (Exception e) {
+            toast("Can't share this file");
+        }
+    }
+
+    void copyText(String t) {
+        android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("Study Tools", t == null ? "" : t));
+        toast("Copied");
+    }
+
+    void openUrl(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url.trim())));
+        } catch (Exception e) {
+            toast("Can't open this link");
+        }
+    }
+
+    // ═════════════════════════ shared result card ═════════════════════════
+    /** Green "done" card with Open / Share buttons. */
+    View resultCard(String headline, String detail, final List<Saved> files) {
+        LinearLayout card = W.card(this);
+        LinearLayout head = W.row(this);
+        TextView ok = W.text(this, "✓", 18, 0xFFFFFFFF, true);
+        ok.setGravity(Gravity.CENTER);
+        ok.setBackground(W.rect(this, W.GREEN, 16));
+        head.addView(ok, W.lp(W.dp(this, 32), W.dp(this, 32)));
+        head.addView(W.text(this, headline, 16, W.TEXT, true), W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 12, 0, 0, 0));
+        card.addView(head);
+
+        if (detail != null) {
+            card.addView(W.text(this, detail, 13, W.SUB, false), W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 8, 0, 0));
+        }
+        int shown = Math.min(files.size(), 3);
+        for (int i = 0; i < shown; i++) {
+            Saved s = files.get(i);
+            TextView n = W.text(this, "📎 " + s.name + "  (" + W.size(s.size) + ")", 13, W.TEXT, false);
+            n.setSingleLine(true);
+            n.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+            card.addView(n, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 6, 0, 0));
+        }
+        if (files.size() > shown) {
+            card.addView(W.text(this, "+ " + (files.size() - shown) + " more", 12, W.SUB, false),
+                W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 4, 0, 0));
+        }
+        card.addView(W.text(this, "Saved in Downloads/" + SAVE_FOLDER, 12, W.SUB, false),
+            W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 8, 0, 0));
+
+        LinearLayout btns = W.row(this);
+        btns.addView(W.softBtn(this, "Open", W.BLUE, v -> openSaved(files.get(0))),
+            new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        btns.addView(W.softBtn(this, "Share", W.GREEN, v -> shareSaved(files)),
+            W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 10, 0, 0, 0));
+        ((LinearLayout.LayoutParams) btns.getChildAt(1).getLayoutParams()).weight = 1f;
+        card.addView(btns, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 12, 0, 0));
+        return card;
+    }
+
+    // ═════════════════════════ helpers ═════════════════════════
+    static String safeName(String n) {
         if (n == null) n = "";
         n = n.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
         if (n.isEmpty()) n = "file";
@@ -530,7 +728,12 @@ public class StudyToolsActivity extends AppCompatActivity {
         return n;
     }
 
-    private static String guessMime(String name) {
+    static String baseName(String n) {
+        int dot = n.lastIndexOf('.');
+        return dot > 0 ? n.substring(0, dot) : n;
+    }
+
+    static String guessMime(String name) {
         String ext = "";
         int dot = name.lastIndexOf('.');
         if (dot >= 0) ext = name.substring(dot + 1).toLowerCase(Locale.ROOT);
@@ -549,20 +752,5 @@ public class StudyToolsActivity extends AppCompatActivity {
             if (!f.exists()) return f;
         }
         return new File(dir, base + "_" + System.currentTimeMillis() + ext);
-    }
-
-    private String displayName(Uri uri, String fallback) {
-        android.database.Cursor c = null;
-        try {
-            c = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null);
-            if (c != null && c.moveToFirst()) {
-                String n = c.getString(0);
-                if (n != null && !n.isEmpty()) return n;
-            }
-        } catch (Exception ignored) {
-        } finally {
-            if (c != null) c.close();
-        }
-        return fallback;
     }
 }
