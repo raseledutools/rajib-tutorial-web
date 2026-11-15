@@ -85,7 +85,10 @@ final class Dialogs {
     }
 
     // ── Premium gate / pay / member login ───────────────────
-    void premiumGate(String reason) {
+    void premiumGate(String reason) { premiumGate(reason, null); }
+
+    /** {@code course} (optional): when it has a price, a "Buy this course" button is offered. */
+    void premiumGate(String reason, final Store.Course course) {
         final boolean na = "noaccess".equals(reason);
         final Ui.Modal m = new Ui.Modal(a,
             na ? "Course not included" : "Premium required",
@@ -99,7 +102,12 @@ final class Dialogs {
             t.setPadding(Ui.dp(a, 13), Ui.dp(a, 11), Ui.dp(a, 13), Ui.dp(a, 11));
             m.add(t);
         }
-        m.col("Become Premium", Ui.B_PRIMARY, v -> { m.dismiss(); pay(); });
+        if (course != null && course.price > 0) {
+            m.col("Buy this course · " + Store.priceLabel(course.price), Ui.B_PRIMARY, v -> { m.dismiss(); payCourse(course); });
+            m.col("Become Premium (all courses)", Ui.B_OUTLINE, v -> { m.dismiss(); pay(); });
+        } else {
+            m.col("Become Premium", Ui.B_PRIMARY, v -> { m.dismiss(); pay(); });
+        }
         if (!na) m.col("Already a Premium member? Log in", Ui.B_OUTLINE, v -> { m.dismiss(); memberLogin(); });
         m.col("Maybe later", Ui.B_GHOST, v -> m.dismiss());
         m.show();
@@ -109,6 +117,59 @@ final class Dialogs {
         final Ui.Modal m = new Ui.Modal(a, "Contact Admin", "To get Premium access, contact the admin on WhatsApp:");
         m.col("WhatsApp: " + Store.WHATSAPP_NUM, Ui.B_GREEN, v -> openUrl(Store.WHATSAPP));
         m.col("Close", Ui.B_GHOST, v -> m.dismiss());
+        m.show();
+    }
+
+    /** Buy one course with bKash — the price is the one the admin set on the course. */
+    void payCourse(final Store.Course c) {
+        final Ui.Modal m = new Ui.Modal(a, "Buy this course",
+            "Pay securely with bKash. The course is unlocked automatically right after payment.");
+        LinearLayout box = new LinearLayout(a);
+        box.setOrientation(LinearLayout.HORIZONTAL);
+        box.setGravity(Gravity.CENTER_VERTICAL);
+        box.setBackground(Ui.bg(a, Ui.BG, 12, Ui.BORDER));
+        box.setPadding(Ui.dp(a, 14), Ui.dp(a, 12), Ui.dp(a, 14), Ui.dp(a, 12));
+        LinearLayout left = new LinearLayout(a);
+        left.setOrientation(LinearLayout.VERTICAL);
+        left.addView(Ui.ellipsized(a, c.title, 14, Ui.TEXT, true, 2));
+        if (!c.courseName.isEmpty()) left.addView(Ui.tv(a, c.courseName, 11.5f, Ui.SUB, false));
+        box.addView(left, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        box.addView(Ui.tv(a, Store.priceLabel(c.price), 18, Ui.ACCENT, true));
+        m.add(box);
+
+        final Ui.Field name = Ui.field(a, "Your Name *", "Full name", Ui.IN_TEXT);
+        final Ui.Field mobile = Ui.field(a, "Mobile Number *", "01XXXXXXXXX", Ui.IN_PHONE);
+        final TextView err = m.errorView();
+        m.addSpaced(name.root, 10).add(mobile.root).add(err);
+
+        final TextView payBtn = Ui.btn(a, "Pay " + Store.priceLabel(c.price) + " with bKash", Ui.B_PRIMARY, null);
+        payBtn.setBackground(Ui.bg(a, 0xFFE2136E, 11, 0));
+        payBtn.setOnClickListener(v -> {
+            String n = name.text();
+            String mob = Store.normMobile(mobile.text());
+            Ui.setErr(err, "");
+            if (n.length() < 2) { Ui.setErr(err, "Please enter your name."); return; }
+            if (!mob.matches("^01\\d{9}$")) { Ui.setErr(err, "Enter a valid 11-digit mobile number (01XXXXXXXXX)."); return; }
+            payBtn.setEnabled(false);
+            payBtn.setAlpha(0.65f);
+            payBtn.setText("Connecting to bKash… (may take up to 30 seconds)");
+            final String fn = n, fm = mob;
+            Store.async(() -> Store.createPayment(fn, fm, "course", c.id), (String url, Exception e) -> {
+                payBtn.setEnabled(true);
+                payBtn.setAlpha(1f);
+                payBtn.setText("Pay " + Store.priceLabel(c.price) + " with bKash");
+                if (e == null && url != null) {
+                    m.dismiss();
+                    PaymentActivity.start(a, url);
+                } else if (e instanceof java.io.IOException) {
+                    Ui.setErr(err, "Server is waking up or unreachable. Please wait 30 seconds and try again.");
+                } else {
+                    Ui.setErr(err, e != null && e.getMessage() != null ? e.getMessage() : "Could not start the payment. Please try again.");
+                }
+            });
+        });
+        m.addSpaced(payBtn, 6);
+        m.col("Cancel", Ui.B_GHOST, v -> m.dismiss());
         m.show();
     }
 
@@ -293,8 +354,9 @@ final class Dialogs {
         for (String s : Store.SUBJECTS) subs.add(s);
         if (ec != null && !ec.subject.isEmpty() && !subs.contains(ec.subject)) subs.add(ec.subject);
         final Spinner subSp = Ui.spinner(a, subs, ec == null || ec.subject.isEmpty() ? "Select subject" : ec.subject);
-        if (ec != null) { name.et.setText(ec.courseName); title.et.setText(ec.title); desc.et.setText(ec.description); }
-        m.add(name.root).add(title.root).add(Ui.labeled(a, "Semester", semSp)).add(Ui.labeled(a, "Subject", subSp)).add(desc.root);
+        final Ui.Field price = Ui.field(a, "Price (৳) — shown to students when buying", "e.g. 500 (leave empty = no price)", Ui.IN_PHONE);
+        if (ec != null) { name.et.setText(ec.courseName); title.et.setText(ec.title); desc.et.setText(ec.description); if (ec.price > 0) price.et.setText(String.valueOf(ec.price)); }
+        m.add(name.root).add(title.root).add(Ui.labeled(a, "Semester", semSp)).add(Ui.labeled(a, "Subject", subSp)).add(price.root).add(desc.root);
         m.actions("Cancel", "Save", Ui.B_PRIMARY, () -> {
             final String n = name.text(), t = title.text();
             if (n.isEmpty() || t.isEmpty()) { a.toast("Please enter Course Name and Title"); return; }
@@ -306,6 +368,7 @@ final class Dialogs {
             data.put("className", cls);
             data.put("subject", sub);
             data.put("description", desc.text());
+            data.put("price", Long.valueOf(Store.parsePrice(price.text())));
             if (ec == null) {
                 for (Store.Course c : Store.courses) {
                     if (c.title.trim().equalsIgnoreCase(t) && c.courseName.trim().equalsIgnoreCase(n)) {

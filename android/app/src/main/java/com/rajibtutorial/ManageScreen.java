@@ -62,7 +62,7 @@ final class ManageScreen extends Screen {
                 if (!s.isEmpty()) meta += (meta.isEmpty() ? "" : " · ") + s;
             }
             if (!meta.isEmpty()) info.addView(Ui.tv(a, meta, 12, Ui.SUB, false));
-            info.addView(Ui.tv(a, Store.lessonsLabel(c.videos.size()), 12, Ui.ACCENT2, false));
+            info.addView(Ui.tv(a, Store.lessonsLabel(c.videos.size()) + (c.price > 0 ? "   ·   " + Store.priceLabel(c.price) : "   ·   No price set"), 12, Ui.ACCENT2, false));
             top.addView(info, new LinearLayout.LayoutParams(0, WRAP, 1f));
             top.addView(Ui.smallBtn(a, "✎ Edit", Ui.ACCENT, v -> a.dialogs.course(c.id)), Ui.lpm(a, WRAP, WRAP, 6, 0, 0, 0));
             top.addView(Ui.smallBtn(a, "🗑", Ui.RED, v -> a.dialogs.confirmDelCourse(c.id)), Ui.lpm(a, WRAP, WRAP, 6, 0, 0, 0));
