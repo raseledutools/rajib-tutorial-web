@@ -21,7 +21,7 @@ final class CourseScreen extends Screen {
     private final NativeHomeActivity a;
     private LinearLayout root, listWrap;
     private FrameLayout playerFrame;
-    private TextView cpTitle, cpSub, playerTitle, playerMeta;
+    private TextView cpTitle, cpSub, playerTitle, playerMeta, buyBtn;
     private WebView web;
     private VideoView video;
     private boolean released = false;
@@ -49,6 +49,9 @@ final class CourseScreen extends Screen {
         cpSub = Ui.tv(a, "", 12.5f, Ui.SUB, false);
         head.addView(cpTitle);
         head.addView(cpSub);
+        buyBtn = Ui.btn(a, "", Ui.B_PRIMARY, v -> { if (a.curCourse != null) a.dialogs.payCourse(a.curCourse); });
+        buyBtn.setVisibility(View.GONE);
+        head.addView(buyBtn, Ui.lpm(a, MATCH, WRAP, 0, 8, 0, 2));
         root.addView(head, new LinearLayout.LayoutParams(MATCH, WRAP));
 
         // player (16:9)
@@ -87,6 +90,7 @@ final class CourseScreen extends Screen {
         Store.Course c = a.curCourse;
         cpTitle.setText(c == null ? "Course" : c.title);
         cpSub.setText(c == null ? "" : Store.lessonsLabel(c.videos.size()));
+        updateBuy();
         showPlaceholder("Select a lesson to start watching");
         renderList();
         return root;
@@ -100,7 +104,16 @@ final class CourseScreen extends Screen {
             cpTitle.setText(c.title);
             cpSub.setText(Store.lessonsLabel(c.videos.size()));
         }
+        updateBuy();
         renderList();
+    }
+
+    /** "Buy this course" bar: only for a priced course the viewer cannot watch yet. */
+    private void updateBuy() {
+        Store.Course c = a.curCourse;
+        boolean show = c != null && c.price > 0 && !Store.courseAllowed(c);
+        buyBtn.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (show) buyBtn.setText("Buy this course · " + Store.priceLabel(c.price));
     }
 
     // ── Player ──────────────────────────────────────────────
@@ -139,7 +152,7 @@ final class CourseScreen extends Screen {
         if (want == null) return;
         if (!Store.courseAllowed(c)) {
             a.pendingVid = vid;
-            a.dialogs.premiumGate(Store.isPremium() ? "noaccess" : "login");
+            a.dialogs.premiumGate(Store.isPremium() ? "noaccess" : "login", c);
             return;
         }
         final Store.Video fw = want;

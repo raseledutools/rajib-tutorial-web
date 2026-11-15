@@ -56,6 +56,7 @@ final class Store {
 
     static final class Course {
         String id = "", courseName = "", title = "", className = "", subject = "", description = "";
+        int price = 0;                      // taka, 0 = no price set
         List<Video> videos = new ArrayList<>();
     }
 
@@ -217,6 +218,16 @@ final class Store {
         return m;
     }
 
+    static int parsePrice(Object o) {
+        try {
+            if (o instanceof Number) return Math.max(0, ((Number) o).intValue());
+            if (o instanceof String) return Math.max(0, Integer.parseInt(((String) o).replaceAll("\\D", "")));
+        } catch (Exception ignored) { }
+        return 0;
+    }
+
+    static String priceLabel(int p) { return "\u09F3" + p; }
+
     static Member parseMember(Fs.Doc d) {
         Member m = new Member();
         m.id = d.id;
@@ -271,6 +282,7 @@ final class Store {
                 c.className = str(d.data, "className");
                 c.subject = str(d.data, "subject");
                 c.description = str(d.data, "description");
+                c.price = parsePrice(d.data.get("price"));
                 Object vo = d.data.get("videos");
                 if (vo instanceof List) {
                     for (Object o : (List<Object>) vo) {
@@ -502,6 +514,11 @@ final class Store {
     // ── bKash payment ───────────────────────────────────────
     /** Returns the bKash URL, or throws an Exception whose message is shown to the user. */
     static String createPayment(String name, String mobile, String plan) throws Exception {
+        return createPayment(name, mobile, plan, null);
+    }
+
+    /** plan "course" + courseId = buy a single course (the server must read the price from the course itself). */
+    static String createPayment(String name, String mobile, String plan, String courseId) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL(BACKEND + "/api/tutorial/bkash/create").openConnection();
         try {
             c.setConnectTimeout(45000);
@@ -513,6 +530,7 @@ final class Store {
             b.put("name", name);
             b.put("mobile", mobile);
             b.put("plan", plan);
+            if (courseId != null && !courseId.isEmpty()) b.put("courseId", courseId);
             byte[] bytes = b.toString().getBytes("UTF-8");
             OutputStream os = c.getOutputStream();
             os.write(bytes);

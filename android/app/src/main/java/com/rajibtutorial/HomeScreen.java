@@ -283,7 +283,9 @@ final class HomeScreen extends Screen {
         if (meta.isEmpty()) meta = "Diploma in EEE";
         txt.addView(Ui.ellipsized(a, meta, 12, Ui.SUB, false, 1));
         if (!c.description.isEmpty()) txt.addView(Ui.ellipsized(a, c.description, 12, Ui.SUB, false, 2));
-        txt.addView(Ui.tv(a, "▶  " + Store.lessonsLabel(c.videos.size()), 11.5f, Ui.ACCENT2, true), Ui.lpm(a, WRAP, WRAP, 0, 4, 0, 0));
+        String extra = "";
+        if (c.price > 0) extra = Store.courseAllowed(c) && !Store.adminIn ? "   ·   ✓ Unlocked" : "   ·   " + Store.priceLabel(c.price);
+        txt.addView(Ui.tv(a, "▶  " + Store.lessonsLabel(c.videos.size()) + extra, 11.5f, Ui.ACCENT2, true), Ui.lpm(a, WRAP, WRAP, 0, 4, 0, 0));
         row.addView(txt, new LinearLayout.LayoutParams(0, WRAP, 1f));
         row.addView(Ui.tv(a, "›", 26, Ui.ACCENT, false));
         return row;
