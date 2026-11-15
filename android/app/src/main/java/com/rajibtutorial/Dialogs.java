@@ -359,9 +359,9 @@ final class Dialogs {
         final Store.Resource er = editId == null ? null : Store.findResource(editId);
         final boolean hasCat = Store.R_QBANK.equals(type);
         final Ui.Modal m = new Ui.Modal(a, (er == null ? "Add " : "Edit ") + resTypeName(type),
-            "Paste a link to the PDF / Google Drive file / web page.");
+            "Upload a PDF or image from your phone, or paste a link (Google Drive / web page).");
         final Ui.Field title = Ui.field(a, "Title *", Store.R_CIRCULAR.equals(type) ? "e.g. Bangladesh Railway Sub-Assistant Engineer circular" : "e.g. BUET Diploma Admission Test 2025", Ui.IN_TEXT);
-        final Ui.Field url = Ui.field(a, "Link (https://…) *", "https://…", Ui.IN_PLAIN);
+        final Ui.Field url = Ui.field(a, "File link (filled automatically after upload) *", "https://…", Ui.IN_PLAIN);
         final Ui.Field note = Ui.field(a, "Note (optional)", "e.g. Last date 30 Nov · 25 posts", Ui.IN_TEXT);
         final List<String> cats = new ArrayList<>();
         for (String c : Store.QB_CATS) cats.add(c);
@@ -369,10 +369,42 @@ final class Dialogs {
         if (!cats.contains(sel)) cats.add(sel);
         final Spinner catSp = Ui.spinner(a, cats, sel);
         if (er != null) { title.et.setText(er.title); url.et.setText(er.url); note.et.setText(er.note); }
-        m.add(title.root).add(url.root);
+        m.add(title.root);
         if (hasCat) m.add(Ui.labeled(a, "Category", catSp));
-        m.add(note.root);
+
+        // upload a PDF / image from the phone — or paste a link instead
+        final boolean[] uploading = {false};
+        final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
+        final TextView upBtn = Ui.smallBtn(a, "📎  Upload PDF / image from phone", Ui.ACCENT, null);
+        upBtn.setOnClickListener(v -> {
+            if (uploading[0]) return;
+            a.pickFile("*/*", uri -> {
+                uploading[0] = true;
+                upBtn.setText("Uploading… 0%");
+                final android.content.Context app = a.getApplicationContext();
+                Store.async(() -> {
+                    final Cloud.Meta meta = Cloud.meta(app, uri);
+                    if (meta.size > Cloud.MAX_BYTES) throw new Exception("File is too large (max 100 MB)");
+                    return new Object[]{meta, Cloud.upload(app, uri, meta, pct -> ui.post(() -> upBtn.setText("Uploading… " + pct + "%")))};
+                }, (Object[] out, Exception e) -> {
+                    uploading[0] = false;
+                    if (e != null || out == null) {
+                        upBtn.setText("📎  Upload PDF / image from phone");
+                        a.toast("Upload failed: " + (e != null && e.getMessage() != null ? e.getMessage() : "try again"));
+                        return;
+                    }
+                    Cloud.Meta meta = (Cloud.Meta) out[0];
+                    Cloud.Result r = (Cloud.Result) out[1];
+                    url.et.setText(r.url);
+                    if (title.text().isEmpty()) title.et.setText(meta.name.replaceAll("\\.[A-Za-z0-9]{1,5}$", ""));
+                    upBtn.setText("✓ Uploaded: " + meta.name);
+                });
+            });
+        });
+        m.add(upBtn);
+        m.add(url.root).add(note.root);
         m.actions("Cancel", "Save", Ui.B_PRIMARY, () -> {
+            if (uploading[0]) { a.toast("Please wait — the file is still uploading"); return; }
             final String t = title.text();
             final String u = Store.safeUrl(url.text());
             if (t.isEmpty()) { a.toast("Please enter a title"); return; }

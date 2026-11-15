@@ -43,6 +43,22 @@ final class ManageScreen extends Screen {
         ((LinearLayout.LayoutParams) acts.getChildAt(1).getLayoutParams()).weight = 1;
         root.addView(acts, Ui.lpm(a, MATCH, WRAP, 0, 12, 0, 14));
 
+        // Circulars & question banks (upload PDFs / images, edit, delete)
+        root.addView(Ui.tv(a, "Circulars & Question Banks", 14, Ui.TEXT, true), Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 8));
+        LinearLayout resRow = new LinearLayout(a);
+        resRow.setOrientation(LinearLayout.HORIZONTAL);
+        String[] rl = {"📢 Circular", "📚 Question Bank", "🆕 Recent"};
+        String[] rt = {Store.R_CIRCULAR, Store.R_QBANK, Store.R_RECENT};
+        for (int i = 0; i < 3; i++) {
+            final String type = rt[i];
+            TextView b = Ui.btn(a, rl[i], Ui.B_OUTLINE, v -> a.openResources(type));
+            b.setTextSize(12.5f);
+            LinearLayout.LayoutParams lp = Ui.lpm(a, 0, WRAP, i == 0 ? 0 : 3, 0, i == 2 ? 0 : 3, 0);
+            lp.weight = 1;
+            resRow.addView(b, lp);
+        }
+        root.addView(resRow, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 16));
+
         if (Store.courses.isEmpty()) {
             TextView t = Ui.tv(a, "No courses yet. Click “+ Add Course” to create one.", 13.5f, Ui.SUB, false);
             t.setGravity(Gravity.CENTER);
