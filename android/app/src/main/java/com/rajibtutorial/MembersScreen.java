@@ -56,7 +56,7 @@ final class MembersScreen extends Screen {
             LinearLayout info = new LinearLayout(a);
             info.setOrientation(LinearLayout.VERTICAL);
             info.addView(Ui.tv(a, m.name, 15, Ui.TEXT, true));
-            info.addView(Ui.tv(a, m.mobile, 12.5f, Ui.SUB, false));
+            info.addView(Ui.tv(a, m.mobile + (m.batch.isEmpty() ? "" : "  ·  👥 " + m.batch), 12.5f, Ui.SUB, false));
             LinearLayout st = new LinearLayout(a);
             st.setOrientation(LinearLayout.HORIZONTAL);
             st.setGravity(Gravity.CENTER_VERTICAL);

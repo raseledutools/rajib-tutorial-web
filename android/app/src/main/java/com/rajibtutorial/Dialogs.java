@@ -456,13 +456,26 @@ final class Dialogs {
         final Ui.Field name = Ui.field(a, "Name *", "Student name", Ui.IN_TEXT);
         final Ui.Field mob = Ui.field(a, "Mobile Number *", "01XXXXXXXXX", Ui.IN_PHONE);
         final Ui.Field exp = Ui.field(a, "Valid Until (optional, YYYY-MM-DD)", "e.g. 2026-12-31", Ui.IN_PLAIN);
+        final Ui.Field batch = Ui.field(a, "Batch (optional)", "e.g. Batch 1", Ui.IN_TEXT);
         if (em != null) {
             name.et.setText(em.name);
             mob.et.setText(em.mobile);
             mob.et.setEnabled(false);
             exp.et.setText(em.expiry);
+            batch.et.setText(em.batch);
         }
-        m.add(name.root).add(mob.root).add(exp.root);
+        m.add(name.root).add(mob.root).add(batch.root);
+        if (!Store.batchNames().isEmpty()) {
+            m.add(Ui.smallBtn(a, "📋 Choose existing batch", Ui.ACCENT, v -> {
+                final Ui.Modal pm = new Ui.Modal(a, "Select a batch", null);
+                for (final String bn : Store.batchNames()) {
+                    pm.col(bn + " · " + Store.batchCount(bn) + " members", Ui.B_GHOST, x -> { batch.et.setText(bn); pm.dismiss(); });
+                }
+                pm.col("Close", Ui.B_OUTLINE, x -> pm.dismiss());
+                pm.show();
+            }));
+        }
+        m.add(exp.root);
 
         final boolean allInit = em == null || Store.hasAll(em);
         final CheckBox all = new CheckBox(a);
@@ -497,6 +510,7 @@ final class Dialogs {
             final String n = name.text();
             final String mobile = Store.normMobile(mob.text());
             final String expiry = exp.text();
+            final String batchName = batch.text().trim();
             final boolean allC = all.isChecked();
             final List<Object> sel = new ArrayList<>();
             for (int i = 0; i < boxes.size(); i++) if (boxes.get(i).isChecked()) sel.add(ids.get(i));
@@ -514,6 +528,7 @@ final class Dialogs {
                 Map<String, Object> d = new LinkedHashMap<>();
                 d.put("name", n);
                 d.put("expiry", expiry);
+                d.put("batch", batchName);
                 d.put("allCourses", Boolean.valueOf(allC));
                 d.put("courseIds", sel);
                 if (isEdit) {
