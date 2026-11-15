@@ -350,6 +350,63 @@ final class Dialogs {
         m.show();
     }
 
+    static String resTypeName(String type) {
+        return Store.R_CIRCULAR.equals(type) ? "Circular" : Store.R_RECENT.equals(type) ? "Recent Question Bank" : "Question Bank";
+    }
+
+    /** Admin: add / edit a circular or a question-bank link. */
+    void resource(final String type, final String editId, String presetCat) {
+        final Store.Resource er = editId == null ? null : Store.findResource(editId);
+        final boolean hasCat = Store.R_QBANK.equals(type);
+        final Ui.Modal m = new Ui.Modal(a, (er == null ? "Add " : "Edit ") + resTypeName(type),
+            "Paste a link to the PDF / Google Drive file / web page.");
+        final Ui.Field title = Ui.field(a, "Title *", Store.R_CIRCULAR.equals(type) ? "e.g. Bangladesh Railway Sub-Assistant Engineer circular" : "e.g. BUET Diploma Admission Test 2025", Ui.IN_TEXT);
+        final Ui.Field url = Ui.field(a, "Link (https://…) *", "https://…", Ui.IN_PLAIN);
+        final Ui.Field note = Ui.field(a, "Note (optional)", "e.g. Last date 30 Nov · 25 posts", Ui.IN_TEXT);
+        final List<String> cats = new ArrayList<>();
+        for (String c : Store.QB_CATS) cats.add(c);
+        String sel = er != null && !er.category.isEmpty() ? er.category : (presetCat != null && !presetCat.isEmpty() ? presetCat : Store.QB_CATS[0]);
+        if (!cats.contains(sel)) cats.add(sel);
+        final Spinner catSp = Ui.spinner(a, cats, sel);
+        if (er != null) { title.et.setText(er.title); url.et.setText(er.url); note.et.setText(er.note); }
+        m.add(title.root).add(url.root);
+        if (hasCat) m.add(Ui.labeled(a, "Category", catSp));
+        m.add(note.root);
+        m.actions("Cancel", "Save", Ui.B_PRIMARY, () -> {
+            final String t = title.text();
+            final String u = Store.safeUrl(url.text());
+            if (t.isEmpty()) { a.toast("Please enter a title"); return; }
+            if (u.isEmpty()) { a.toast("Link must start with http:// or https://"); return; }
+            final Map<String, Object> d = new LinkedHashMap<>();
+            d.put("type", type);
+            d.put("title", t);
+            d.put("url", u);
+            d.put("note", note.text());
+            d.put("category", hasCat ? String.valueOf(catSp.getSelectedItem()) : "");
+            final boolean isEdit = er != null;
+            run(() -> {
+                if (isEdit) {
+                    Fs.update(editId, d);
+                } else {
+                    d.put("at", Long.valueOf(System.currentTimeMillis()));
+                    Fs.set("_res_" + Long.toString(System.currentTimeMillis(), 36), d);
+                }
+                return Boolean.TRUE;
+            }, () -> {
+                a.toast(isEdit ? "Updated" : "Added");
+                m.dismiss();
+                a.reload();
+            });
+        });
+        m.show();
+    }
+
+    void confirmDelResource(final String id) {
+        Store.Resource r = Store.findResource(id);
+        confirm("Delete this item?", "“" + (r == null ? id : r.title) + "” will be removed for everyone.", () ->
+            run(() -> { Fs.delete(id); return Boolean.TRUE; }, () -> { a.toast("Deleted"); a.reload(); }));
+    }
+
     void confirmDelCourse(final String cid) {
         Store.Course c = Store.findCourse(cid);
         confirm("Delete course?", "“" + (c == null ? cid : c.title) + "” and all its videos will be permanently deleted.", () ->
