@@ -535,7 +535,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         login.setMinHeight(Ui.dp(this, 36));
         login.setTextSize(12.5f);
         login.setPadding(Ui.dp(this, 12), Ui.dp(this, 6), Ui.dp(this, 12), Ui.dp(this, 6));
-        TextView prem = Ui.btn(this, "★ Premium", Ui.B_PRIMARY, v -> dialogs.premiumGate(null));
+        TextView prem = Ui.btn(this, "★ Premium", Ui.B_PRIMARY, v -> dialogs.pay());
         prem.setMinHeight(Ui.dp(this, 36));
         prem.setTextSize(12.5f);
         prem.setPadding(Ui.dp(this, 12), Ui.dp(this, 6), Ui.dp(this, 12), Ui.dp(this, 6));

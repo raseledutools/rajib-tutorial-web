@@ -104,9 +104,9 @@ final class Dialogs {
         }
         if (course != null && course.price > 0) {
             m.col("Buy this course · " + Store.priceLabel(course.price), Ui.B_PRIMARY, v -> { m.dismiss(); payCourse(course); });
-            m.col("Become Premium (all courses)", Ui.B_OUTLINE, v -> { m.dismiss(); pay(); });
+            m.col("See all courses & prices", Ui.B_OUTLINE, v -> { m.dismiss(); pay(); });
         } else {
-            m.col("Become Premium", Ui.B_PRIMARY, v -> { m.dismiss(); pay(); });
+            m.col("See courses & prices", Ui.B_PRIMARY, v -> { m.dismiss(); pay(); });
         }
         if (!na) m.col("Already a Premium member? Log in", Ui.B_OUTLINE, v -> { m.dismiss(); memberLogin(); });
         m.col("Maybe later", Ui.B_GHOST, v -> m.dismiss());
@@ -173,82 +173,41 @@ final class Dialogs {
         m.show();
     }
 
+    /** Courses & prices: every course the admin has priced, tap one to buy it with bKash. */
     void pay() {
-        final Ui.Modal m = new Ui.Modal(a, "Become Premium",
-            "Choose a plan and pay securely with bKash. Your Premium access is activated automatically right after payment.");
-        final String[] vals = {"1month", "6month", "1year"};
-        final String[] names = {"1 Month", "6 Months", "1 Year"};
-        final String[] badges = {"", "SAVE 40%", "BEST VALUE"};
-        final String[] subs = {"Full access to all video lessons", "Best for a full semester", "Complete diploma preparation"};
-        final String[] prices = {"৳50", "৳300", "৳500"};
-        final int[] sel = {0};
-        final List<LinearLayout> rows = new ArrayList<>();
-        for (int i = 0; i < 3; i++) {
-            final int idx = i;
+        final Ui.Modal m = new Ui.Modal(a, "Courses & prices",
+            "Choose a course and pay securely with bKash. The course is unlocked automatically right after payment.");
+        int shown = 0;
+        for (final Store.Course c : Store.courses) {
+            if (c.price <= 0 || Store.courseAllowed(c)) continue;
+            shown++;
             LinearLayout row = new LinearLayout(a);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setBackground(Ui.bg(a, Ui.BG, 14, Ui.BORDER));
             row.setPadding(Ui.dp(a, 14), Ui.dp(a, 12), Ui.dp(a, 14), Ui.dp(a, 12));
             LinearLayout left = new LinearLayout(a);
             left.setOrientation(LinearLayout.VERTICAL);
-            LinearLayout top = new LinearLayout(a);
-            top.setOrientation(LinearLayout.HORIZONTAL);
-            top.setGravity(Gravity.CENTER_VERTICAL);
-            top.addView(Ui.tv(a, names[i], 14, Ui.TEXT, true));
-            if (!badges[i].isEmpty()) {
-                TextView b = Ui.pill(a, badges[i], Ui.GREEN, 0x2917915A);
-                top.addView(b, Ui.lpm(a, WRAP, WRAP, 8, 0, 0, 0));
-            }
-            left.addView(top);
-            left.addView(Ui.tv(a, subs[i], 11.5f, Ui.SUB, false));
+            left.addView(Ui.ellipsized(a, c.title, 14, Ui.TEXT, true, 2));
+            String sub = Store.lessonsLabel(c.videos.size());
+            if (!c.className.isEmpty()) sub = c.className + "  ·  " + sub;
+            left.addView(Ui.tv(a, sub, 11.5f, Ui.SUB, false));
             row.addView(left, new LinearLayout.LayoutParams(0, WRAP, 1f));
-            row.addView(Ui.tv(a, prices[i], 16, Ui.ACCENT, true));
-            row.setOnClickListener(v -> {
-                sel[0] = idx;
-                for (int k = 0; k < rows.size(); k++) paintPlan(rows.get(k), k == idx);
-            });
+            row.addView(Ui.tv(a, Store.priceLabel(c.price), 16, Ui.ACCENT, true), Ui.lpm(a, WRAP, WRAP, 10, 0, 0, 0));
             Ui.pressFx(row);
-            rows.add(row);
+            row.setOnClickListener(v -> { m.dismiss(); payCourse(c); });
             m.box.addView(row, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 8));
         }
-        for (int k = 0; k < rows.size(); k++) paintPlan(rows.get(k), k == 0);
+        if (shown == 0) {
+            TextView none = Ui.tv(a, Store.isPremium()
+                ? "You already have access to every priced course."
+                : "Course prices have not been set yet. Please contact the admin.", 13.5f, Ui.SUB, false);
+            none.setGravity(Gravity.CENTER);
+            m.addSpaced(none, 12);
+        }
+        m.col("Close", Ui.B_GHOST, v -> m.dismiss());
 
-        final Ui.Field name = Ui.field(a, "Your Name *", "Full name", Ui.IN_TEXT);
-        final Ui.Field mobile = Ui.field(a, "Mobile Number *", "01XXXXXXXXX", Ui.IN_PHONE);
-        final TextView err = m.errorView();
-        m.addSpaced(name.root, 6).add(mobile.root).add(err);
-
-        final TextView payBtn = Ui.btn(a, "Pay with bKash", Ui.B_PRIMARY, null);
-        payBtn.setBackground(Ui.bg(a, 0xFFE2136E, 11, 0));
-        payBtn.setOnClickListener(v -> {
-            String n = name.text();
-            String mob = Store.normMobile(mobile.text());
-            Ui.setErr(err, "");
-            if (n.length() < 2) { Ui.setErr(err, "Please enter your name."); return; }
-            if (!mob.matches("^01\\d{9}$")) { Ui.setErr(err, "Enter a valid 11-digit mobile number (01XXXXXXXXX)."); return; }
-            payBtn.setEnabled(false);
-            payBtn.setAlpha(0.65f);
-            payBtn.setText("Connecting to bKash… (may take up to 30 seconds)");
-            final String plan = vals[sel[0]];
-            final String fn = n, fm = mob;
-            Store.async(() -> Store.createPayment(fn, fm, plan), (String url, Exception e) -> {
-                payBtn.setEnabled(true);
-                payBtn.setAlpha(1f);
-                payBtn.setText("Pay with bKash");
-                if (e == null && url != null) {
-                    m.dismiss();
-                    PaymentActivity.start(a, url);      // bKash opens inside the app
-                } else if (e instanceof java.io.IOException) {
-                    Ui.setErr(err, "Server is waking up or unreachable. Please wait 30 seconds and try again.");
-                } else {
-                    Ui.setErr(err, e != null && e.getMessage() != null ? e.getMessage() : "Could not start the payment. Please try again.");
-                }
-            });
-        });
-        m.addSpaced(payBtn, 6);
-        m.col("Cancel", Ui.B_GHOST, v -> m.dismiss());
-
-        TextView note = Ui.tv(a, "Payment is processed securely by bKash. Already Premium? ", 12, Ui.SUB, false);
+        TextView note = Ui.tv(a, "Payment is processed securely by bKash. Already have access? ", 12, Ui.SUB, false);
         note.setGravity(Gravity.CENTER);
         m.addSpaced(note, 12);
         LinearLayout links = new LinearLayout(a);
@@ -268,10 +227,6 @@ final class Dialogs {
         wa.addView(link("WhatsApp " + Store.WHATSAPP_NUM, Store.WHATSAPP));
         m.addSpaced(wa, 8);
         m.show();
-    }
-
-    private void paintPlan(LinearLayout row, boolean on) {
-        row.setBackground(Ui.bg(a, on ? Ui.ACCENT_SOFT : Ui.BG, 14, on ? Ui.ACCENT : 0x33000000));
     }
 
     void memberLogin() {
