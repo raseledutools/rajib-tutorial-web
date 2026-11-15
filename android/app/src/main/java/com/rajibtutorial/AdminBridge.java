@@ -149,6 +149,35 @@ public class AdminBridge {
                     cb.done(ok > 0
                         ? "✅ Delivered to " + ok + " device(s)"
                         : "❌ Could not deliver to any device" + (lastSendError == null ? "" : " (" + lastSendError + ")"));
+                } else if ("batch".equals(target) && mobile != null && !mobile.trim().isEmpty()) {
+                    // for target "batch" the 4th argument carries the batch name
+                    final String batch = mobile.trim();
+                    final String bk = Store.batchKey(batch);
+                    final java.util.Set<String> want = new java.util.HashSet<>();
+                    for (Store.Member m : new java.util.ArrayList<>(Store.members)) {
+                        if (bk.equals(Store.batchKey(m.batch))) want.add(PushManager.normMobile(m.mobile));
+                    }
+                    if (want.isEmpty()) { cb.done("❌ No members in this batch"); return; }
+                    lastLookupError = null;
+                    lastSendError = null;
+                    java.util.Set<String> tokens = getTokensForMobileSet(want);
+                    if (lastLookupError != null && tokens.isEmpty()) {
+                        cb.done("❌ Could not look up device tokens: " + lastLookupError);
+                        return;
+                    }
+                    if (tokens.isEmpty()) {
+                        cb.done("❌ None of the " + want.size() + " members in " + batch
+                            + " has a registered device yet (they must open the app and log in once)");
+                        return;
+                    }
+                    int[] r = sendToTokenSet(accessToken, tokens, title, body, "m" + System.currentTimeMillis());
+                    if (r[0] == 0) {
+                        cb.done("❌ Could not deliver to any device" + (lastSendError == null ? "" : " (" + lastSendError + ")"));
+                        return;
+                    }
+                    logToFirestore(title, body, "batch", "", batch);
+                    cb.done("✅ Sent to " + batch + " (" + r[0] + " devices"
+                        + (r[1] > 0 ? ", " + r[1] + " failed" : "") + ", " + want.size() + " members)");
                 } else {
                     cb.done("❌ Invalid target: " + target);
                 }
@@ -226,7 +255,12 @@ public class AdminBridge {
     private int[] sendToAllTokens(final String accessToken, final String title, final String body, final String mid) {
         lastLookupError = null;
         lastSendError = null;
-        final java.util.Set<String> tokens = getAllTokens();
+        return sendToTokenSet(accessToken, getAllTokens(), title, body, mid);
+    }
+
+    /** Sends one message to every token in the set (parallel). @return {ok, fail, total} */
+    private int[] sendToTokenSet(final String accessToken, final java.util.Set<String> tokens,
+                                 final String title, final String body, final String mid) {
         if (tokens.isEmpty()) return new int[]{0, 0, 0};
         final java.util.concurrent.atomic.AtomicInteger ok = new java.util.concurrent.atomic.AtomicInteger();
         final java.util.concurrent.atomic.AtomicInteger fail = new java.util.concurrent.atomic.AtomicInteger();
@@ -265,6 +299,28 @@ public class AdminBridge {
                 })
                 .addOnFailureListener(e -> { lastLookupError = e.getMessage(); latch.countDown(); });
             if (!latch.await(15, java.util.concurrent.TimeUnit.SECONDS) && result.isEmpty()) {
+                lastLookupError = "timeout (internet?)";
+            }
+        } catch (Exception e) { lastLookupError = e.getMessage(); }
+        return result;
+    }
+
+    /** Device tokens whose saved mobile number is in the given set (numbers already normalised). */
+    private java.util.Set<String> getTokensForMobileSet(final java.util.Set<String> mobiles) {
+        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        final java.util.Set<String> result = java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<String>());
+        try {
+            FirebaseFirestore.getInstance().collection("push_tokens").limit(5000).get()
+                .addOnSuccessListener(snap -> {
+                    for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) {
+                        String tok = d.getString("token");
+                        String mob = d.getString("mobile");
+                        if (tok != null && !tok.isEmpty() && mob != null && mobiles.contains(PushManager.normMobile(mob))) result.add(tok);
+                    }
+                    latch.countDown();
+                })
+                .addOnFailureListener(e -> { lastLookupError = e.getMessage(); latch.countDown(); });
+            if (!latch.await(20, java.util.concurrent.TimeUnit.SECONDS) && result.isEmpty()) {
                 lastLookupError = "timeout (internet?)";
             }
         } catch (Exception e) { lastLookupError = e.getMessage(); }
@@ -348,12 +404,17 @@ public class AdminBridge {
 
     // ── Firestore: log sent message ───────────────────────────────────────
     private void logToFirestore(String title, String body, String target, String mobile) {
+        logToFirestore(title, body, target, mobile, "");
+    }
+
+    private void logToFirestore(String title, String body, String target, String mobile, String batch) {
         try {
             java.util.Map<String, Object> data = new java.util.HashMap<>();
             data.put("title",  title);
             data.put("body",   body);
             data.put("target", target);
             data.put("mobile", mobile);
+            if (batch != null && !batch.isEmpty()) data.put("batch", batch);
             data.put("at",     System.currentTimeMillis());
             java.util.Map<String, Object> result = new java.util.HashMap<>();
             result.put("sent", target.equals("all") ? "all" : "token");

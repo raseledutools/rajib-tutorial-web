@@ -35,7 +35,7 @@ final class InboxScreen extends Screen {
     InboxScreen(NativeHomeActivity host) { a = host; }
 
     private static final class Item {
-        String title, body; long at; boolean personal;
+        String title, body, tag = ""; long at;
     }
 
     @Override
@@ -66,12 +66,6 @@ final class InboxScreen extends Screen {
         list.addView(t, Ui.lpm(a, MATCH, WRAP, 0, 28, 0, 12));
     }
 
-    private boolean mine(String target, String mobile) {
-        if ("all".equals(target)) return true;
-        if (Store.sessionMobile == null || mobile == null || mobile.isEmpty()) return false;
-        return PushManager.normMobile(mobile).equals(PushManager.normMobile(Store.sessionMobile));
-    }
-
     private void load() {
         try {
             FirebaseFirestore.getInstance().collection("push_messages")
@@ -81,13 +75,13 @@ final class InboxScreen extends Screen {
                     List<Item> items = new ArrayList<>();
                     for (DocumentSnapshot d : snap.getDocuments()) {
                         String target = d.getString("target");
-                        if (!mine(target, d.getString("mobile"))) continue;
+                        if (!Store.notifForMe(target, d.getString("mobile"), d.getString("batch"))) continue;
                         Item it = new Item();
                         it.title = nz(d.getString("title"));
                         it.body = nz(d.getString("body"));
                         Long at = d.getLong("at");
                         it.at = at == null ? 0L : at;
-                        it.personal = !"all".equals(target);
+                        it.tag = "batch".equals(target) ? "Your batch: " + nz(d.getString("batch")) : ("all".equals(target) ? "" : "For you");
                         items.add(it);
                     }
                     render(items);
@@ -148,7 +142,7 @@ final class InboxScreen extends Screen {
             c.addView(open, Ui.lpm(a, WRAP, WRAP, 0, 0, 0, 8));
         }
         String when = it.at == 0 ? "" : "🕒  " + df.format(new Date(it.at));
-        if (it.personal) when += (when.isEmpty() ? "" : "   ·   ") + "For you";
+        if (!it.tag.isEmpty()) when += (when.isEmpty() ? "" : "   ·   ") + it.tag;
         if (!when.isEmpty()) c.addView(Ui.tv(a, when, 11.5f, Ui.SUB, false));
         return c;
     }

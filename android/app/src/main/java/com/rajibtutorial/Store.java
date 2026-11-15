@@ -60,7 +60,7 @@ final class Store {
     }
 
     static final class Member {
-        String id = "", name = "", mobile = "", expiry = "";
+        String id = "", name = "", mobile = "", expiry = "", batch = "";
         boolean isMember = false;
         Boolean allCourses = null;          // null = field not set
         List<String> courseIds = null;      // null = field not set
@@ -223,6 +223,7 @@ final class Store {
         m.name = str(d.data, "name");
         m.mobile = str(d.data, "mobile");
         m.expiry = str(d.data, "expiry");
+        m.batch = str(d.data, "batch").trim();
         m.isMember = Boolean.TRUE.equals(d.data.get("isMember"));
         Object ac = d.data.get("allCourses");
         m.allCourses = ac instanceof Boolean ? (Boolean) ac : null;
@@ -301,6 +302,39 @@ final class Store {
     static Course findCourse(String id) {
         for (Course c : courses) if (c.id.equals(id)) return c;
         return null;
+    }
+
+    // ── Batches (independent of semester) ───────────────────
+    static String batchKey(String b) { return b == null ? "" : b.trim().toLowerCase(java.util.Locale.ROOT); }
+
+    /** Distinct batch names currently used by members (first-seen spelling), sorted. */
+    static List<String> batchNames() {
+        java.util.TreeMap<String, String> map = new java.util.TreeMap<>();
+        for (Member m : members) {
+            String k = batchKey(m.batch);
+            if (!k.isEmpty() && !map.containsKey(k)) map.put(k, m.batch.trim());
+        }
+        return new ArrayList<>(map.values());
+    }
+
+    static int batchCount(String batch) {
+        String k = batchKey(batch);
+        int n = 0;
+        if (k.isEmpty()) return 0;
+        for (Member m : members) if (k.equals(batchKey(m.batch))) n++;
+        return n;
+    }
+
+    /** Is a sent notification (target all / batch / user) meant for the logged-in member? */
+    static boolean notifForMe(String target, String mobile, String batch) {
+        if ("all".equals(target)) return true;
+        if (sessionMobile == null) return false;
+        if ("batch".equals(target)) {
+            Member me = curMember();
+            return me != null && !batchKey(batch).isEmpty() && batchKey(batch).equals(batchKey(me.batch));
+        }
+        if (mobile == null || mobile.isEmpty()) return false;
+        return PushManager.normMobile(mobile).equals(PushManager.normMobile(sessionMobile));
     }
 
     // ── Premium rules ───────────────────────────────────────

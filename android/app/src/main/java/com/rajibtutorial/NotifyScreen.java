@@ -31,10 +31,12 @@ final class NotifyScreen extends Screen {
     private final AdminBridge sender;
 
     private ScrollView sv;
-    private TextView stat, cnt, sendBtn, segAll, segUser, resultTv;
-    private LinearLayout userBox, history;
-    private Ui.Field fMobile, fTitle, fBody;
-    private boolean targetAll = true, sending = false, released = false;
+    private TextView stat, cnt, sendBtn, segAll, segBatch, segUser, resultTv, batchInfo;
+    private LinearLayout userBox, batchBox, history;
+    private Ui.Field fMobile, fBatch, fTitle, fBody;
+    private static final int T_ALL = 0, T_BATCH = 1, T_USER = 2;
+    private int target = T_ALL;
+    private boolean sending = false, released = false;
 
     NotifyScreen(NativeHomeActivity host) {
         a = host;
@@ -61,13 +63,31 @@ final class NotifyScreen extends Screen {
 
         LinearLayout seg = new LinearLayout(a);
         seg.setOrientation(LinearLayout.HORIZONTAL);
-        segAll = Ui.btn(a, "👥 All members", Ui.B_OUTLINE, v -> setTarget(true));
-        segUser = Ui.btn(a, "👤 One member", Ui.B_OUTLINE, v -> setTarget(false));
-        seg.addView(segAll, Ui.lpm(a, 0, WRAP, 0, 0, 4, 0));
-        seg.addView(segUser, Ui.lpm(a, 0, WRAP, 4, 0, 0, 0));
+        segAll = Ui.btn(a, "👥 All", Ui.B_OUTLINE, v -> setTarget(T_ALL));
+        segBatch = Ui.btn(a, "🎓 Batch", Ui.B_OUTLINE, v -> setTarget(T_BATCH));
+        segUser = Ui.btn(a, "👤 One", Ui.B_OUTLINE, v -> setTarget(T_USER));
+        seg.addView(segAll, Ui.lpm(a, 0, WRAP, 0, 0, 3, 0));
+        seg.addView(segBatch, Ui.lpm(a, 0, WRAP, 3, 0, 3, 0));
+        seg.addView(segUser, Ui.lpm(a, 0, WRAP, 3, 0, 0, 0));
         ((LinearLayout.LayoutParams) segAll.getLayoutParams()).weight = 1;
+        ((LinearLayout.LayoutParams) segBatch.getLayoutParams()).weight = 1;
         ((LinearLayout.LayoutParams) segUser.getLayoutParams()).weight = 1;
         card.addView(seg, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 14));
+
+        batchBox = new LinearLayout(a);
+        batchBox.setOrientation(LinearLayout.VERTICAL);
+        fBatch = Ui.field(a, "Batch", "e.g. Batch 1", Ui.IN_TEXT);
+        fBatch.et.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st, int c, int af) { }
+            @Override public void onTextChanged(CharSequence s, int st, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable e) { updateBatchInfo(); }
+        });
+        batchBox.addView(fBatch.root);
+        batchBox.addView(Ui.smallBtn(a, "📋 Choose a batch", Ui.ACCENT, v -> pickBatch()),
+            Ui.lpm(a, WRAP, WRAP, 0, 0, 0, 6));
+        batchInfo = Ui.tv(a, "", 12, Ui.SUB, false);
+        batchBox.addView(batchInfo, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 12));
+        card.addView(batchBox);
 
         userBox = new LinearLayout(a);
         userBox.setOrientation(LinearLayout.VERTICAL);
@@ -110,7 +130,7 @@ final class NotifyScreen extends Screen {
         hc.addView(history);
         root.addView(hc);
 
-        setTarget(true);
+        setTarget(T_ALL);
         updateCount();
         loadHistory();
         return sv;
@@ -124,18 +144,45 @@ final class NotifyScreen extends Screen {
         if (cnt != null && fBody != null) cnt.setText(fBody.et.getText().length() + " / 500");
     }
 
-    private void setTarget(boolean all) {
-        targetAll = all;
-        segAll.setBackground(Ui.bg(a, all ? Ui.ACCENT_SOFT : Ui.BG, 12, all ? Ui.ACCENT : 0x33000000));
-        segAll.setTextColor(all ? Ui.ACCENT2 : Ui.TEXT);
-        segUser.setBackground(Ui.bg(a, !all ? Ui.ACCENT_SOFT : Ui.BG, 12, !all ? Ui.ACCENT : 0x33000000));
-        segUser.setTextColor(!all ? Ui.ACCENT2 : Ui.TEXT);
-        userBox.setVisibility(all ? View.GONE : View.VISIBLE);
+    private void styleSeg(TextView t, boolean on) {
+        t.setBackground(Ui.bg(a, on ? Ui.ACCENT_SOFT : Ui.BG, 12, on ? Ui.ACCENT : 0x33000000));
+        t.setTextColor(on ? Ui.ACCENT2 : Ui.TEXT);
+    }
+
+    private void setTarget(int t) {
+        target = t;
+        styleSeg(segAll, t == T_ALL);
+        styleSeg(segBatch, t == T_BATCH);
+        styleSeg(segUser, t == T_USER);
+        batchBox.setVisibility(t == T_BATCH ? View.VISIBLE : View.GONE);
+        userBox.setVisibility(t == T_USER ? View.VISIBLE : View.GONE);
+        updateBatchInfo();
         resetSendLabel();
     }
 
     private void resetSendLabel() {
-        if (sendBtn != null && !sending) sendBtn.setText(targetAll ? "🔔 Send to all members" : "🔔 Send to this member");
+        if (sendBtn == null || sending) return;
+        sendBtn.setText(target == T_ALL ? "🔔 Send to all members"
+            : target == T_BATCH ? "🔔 Send to this batch" : "🔔 Send to this member");
+    }
+
+    private void updateBatchInfo() {
+        if (batchInfo == null || fBatch == null) return;
+        String b = fBatch.text().trim();
+        if (b.isEmpty()) { batchInfo.setText(Store.batchNames().isEmpty()
+            ? "No batches yet. Set a batch on each member in Premium Members." : ""); return; }
+        int n = Store.batchCount(b);
+        batchInfo.setText(n == 0 ? "⚠ No members in this batch" : "👥 " + n + " member" + (n == 1 ? "" : "s") + " in this batch");
+    }
+
+    private void pickBatch() {
+        final java.util.List<String> names = Store.batchNames();
+        final Ui.Modal m = new Ui.Modal(a, "Select a batch", names.isEmpty() ? "No batches yet" : null);
+        for (final String bn : names) {
+            m.col(bn + " · " + Store.batchCount(bn) + " members", Ui.B_GHOST, v -> { fBatch.et.setText(bn); m.dismiss(); });
+        }
+        m.col("Close", Ui.B_OUTLINE, v -> m.dismiss());
+        m.show();
     }
 
     private void pickMember() {
@@ -152,16 +199,21 @@ final class NotifyScreen extends Screen {
         if (sending) return;
         final String title = fTitle.text(), body = fBody.text();
         final String mobile = fMobile.text().replaceAll("\\D", "");
+        final String batch = fBatch.text().trim();
         if (title.isEmpty()) { a.toast("Enter a title"); return; }
         if (body.isEmpty()) { a.toast("Enter a message"); return; }
-        if (!targetAll && mobile.length() < 6) { a.toast("Enter a mobile number or choose a member"); return; }
+        if (target == T_USER && mobile.length() < 6) { a.toast("Enter a mobile number or choose a member"); return; }
+        if (target == T_BATCH && batch.isEmpty()) { a.toast("Enter or choose a batch"); return; }
+        if (target == T_BATCH && Store.batchCount(batch) == 0) { a.toast("No members in this batch"); return; }
         sending = true;
         sendBtn.setEnabled(false);
         sendBtn.setText("Sending…");
         resultTv.setVisibility(View.VISIBLE);
         resultTv.setTextColor(Ui.SUB);
         resultTv.setText("⏳ Sending…");
-        sender.send(title, body, targetAll ? "all" : "user", targetAll ? "" : mobile, msg -> main.post(() -> {
+        sender.send(title, body,
+            target == T_ALL ? "all" : target == T_BATCH ? "batch" : "user",
+            target == T_ALL ? "" : target == T_BATCH ? batch : mobile, msg -> main.post(() -> {
             sending = false;
             if (released) return;
             sendBtn.setEnabled(true);
@@ -200,7 +252,9 @@ final class NotifyScreen extends Screen {
                         String title = str(d.getString("title")), body = str(d.getString("body"));
                         String target = str(d.getString("target"));
                         Long at = d.getLong("at");
-                        String to = "all".equals(target) ? "All members" : "👤 " + str(d.getString("mobile"));
+                        String tg = target;
+                        String to = "all".equals(tg) ? "All members"
+                            : "batch".equals(tg) ? "🎓 " + str(d.getString("batch")) : "👤 " + str(d.getString("mobile"));
                         String when = at == null ? "" : df.format(new Date(at));
                         LinearLayout row = new LinearLayout(a);
                         row.setOrientation(LinearLayout.VERTICAL);

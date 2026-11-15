@@ -447,10 +447,7 @@ public class NativeHomeActivity extends AppCompatActivity {
                         Long at = d.getLong("at");
                         if (at == null || at <= seen) continue;
                         String target = d.getString("target");
-                        String mob = d.getString("mobile");
-                        boolean mine = "all".equals(target)
-                            || (Store.sessionMobile != null && mob != null && !mob.isEmpty()
-                                && PushManager.normMobile(mob).equals(PushManager.normMobile(Store.sessionMobile)));
+                        boolean mine = Store.notifForMe(target, d.getString("mobile"), d.getString("batch"));
                         if (mine) { fresh = true; break; }
                     }
                     bellDot.setVisibility(fresh && currentView != V_INBOX ? View.VISIBLE : View.GONE);
