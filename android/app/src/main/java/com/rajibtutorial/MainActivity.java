@@ -266,6 +266,10 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         // net ফিরে এলে আবার online (latest) version-এ যাও
         if (usingFallback && webView != null && isOnline()) loadSite();
+        if (PaymentActivity.pending && webView != null) {   // back from the bKash page: refresh premium status
+            PaymentActivity.pending = false;
+            webView.reload();
+        }
     }
 
     /** YouTube Studio opened inside this app (desktop site, file picker enabled for the video). */
@@ -359,6 +363,7 @@ public class MainActivity extends AppCompatActivity {
                     return true;
                 }
                 if (url.startsWith("https://raseledutools.github.io")) return false;
+                if (PaymentActivity.isPaymentUrl(url)) { PaymentActivity.start(MainActivity.this, url); return true; }   // bKash stays in-app
                 try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { }
                 return true;
             }
