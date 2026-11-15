@@ -123,6 +123,13 @@
             android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- In-app bKash payment page -->
+        <activity
+            android:name=".PaymentActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden"
+            android:theme="@style/Theme.RajibTutorial" />
+
         <!-- Focus Mode setup screen -->
         <activity
             android:name=".FocusActivity"

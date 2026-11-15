@@ -488,6 +488,10 @@ public class NativeHomeActivity extends AppCompatActivity {
         if (screen != null) screen.onResume();
         if (Store.sessionMobile != null) startPoll();
         updateBell(true);
+        if (PaymentActivity.pending) {      // back from the bKash page: refresh member / premium status
+            PaymentActivity.pending = false;
+            reload();
+        }
     }
 
     @Override

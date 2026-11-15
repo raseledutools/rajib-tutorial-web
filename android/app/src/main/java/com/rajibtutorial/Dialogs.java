@@ -176,7 +176,7 @@ final class Dialogs {
                 payBtn.setText("Pay with bKash");
                 if (e == null && url != null) {
                     m.dismiss();
-                    openUrl(url);
+                    PaymentActivity.start(a, url);      // bKash opens inside the app
                 } else if (e instanceof java.io.IOException) {
                     Ui.setErr(err, "Server is waking up or unreachable. Please wait 30 seconds and try again.");
                 } else {
