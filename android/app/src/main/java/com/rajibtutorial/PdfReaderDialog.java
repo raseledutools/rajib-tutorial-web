@@ -78,6 +78,15 @@ final class PdfReaderDialog {
         new PdfReaderDialog(a, pdf, name, saved, onClose).open();
     }
 
+    /** The reader works on a scratch copy in the app cache; remove it the moment the reader closes. */
+    private void dropTempCopy() {
+        try {
+            String p = pdf.getCanonicalPath();
+            if (p.startsWith(a.getCacheDir().getCanonicalPath())) //noinspection ResultOfMethodCallIgnored
+                pdf.delete();
+        } catch (Exception ignored) { }
+    }
+
     // ═════════════════════════ build ═════════════════════════
     private void open() {
         PdfRenderer renderer;
@@ -87,6 +96,7 @@ final class PdfReaderDialog {
             renderer = new PdfRenderer(pfd);
         } catch (Exception e) {
             a.showError(new Exception("Can't open this PDF. It may be damaged or password-protected."));
+            dropTempCopy();
             if (onClose != null) onClose.run();
             return;
         }
@@ -169,6 +179,7 @@ final class PdfReaderDialog {
         d.setOnDismissListener(x -> {
             hh.removeCallbacksAndMessages(null);
             view.release();
+            dropTempCopy();
             if (onClose != null) onClose.run();
         });
         d.show();
