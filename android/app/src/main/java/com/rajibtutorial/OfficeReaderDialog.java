@@ -118,7 +118,7 @@ final class OfficeReaderDialog {
         TextView ico = W.text(a, ext.startsWith("x") ? "📗" : ext.startsWith("p") ? "📙" : "📘", 44, W.TEXT, false);
         ico.setGravity(Gravity.CENTER);
         loading.addView(ico);
-        final TextView msg = W.text(a, "Preparing " + kind(ext) + " file…", 14, W.SUB, false);
+        final TextView msg = W.text(a, "Opening…", 14, W.SUB, false);
         msg.setGravity(Gravity.CENTER);
         loading.addView(msg, W.lp(a, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 12, 0, 0));
         final ProgressBar pb = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
@@ -157,7 +157,7 @@ final class OfficeReaderDialog {
                 if (closed[0]) return;
                 pb.setIndeterminate(false);
                 pb.setProgress(pct);
-                msg.setText("Preparing " + kind(ext) + " file…  " + pct + "%");
+                msg.setText("Opening…");
             }));
             return r.url;
         }, (String url, Exception e) -> {
