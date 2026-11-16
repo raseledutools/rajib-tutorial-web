@@ -1,14 +1,20 @@
 package com.rajibtutorial;
 
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Intent;
 import android.graphics.pdf.PdfRenderer;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.ParcelFileDescriptor;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -23,62 +29,116 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Full-screen PDF reader: pages with text selection, plus a "Text" screen with the whole document text. */
+/**
+ * Full-screen PDF reader (WPS-like):
+ *  - bottom tab bar: Read · Text · Reading mode · Go to · More
+ *  - header + tab bar fade away after 3 s, while scrolling, and come back on tap
+ *  - pure Reading mode: no header/footer, no text selection, warm paper colour; tap shows an exit pill
+ */
 final class PdfReaderDialog {
-    private PdfReaderDialog() { }
 
     private static final int MAX_SHOWN = 200_000;
+    private static final long AUTO_HIDE_MS = 3000;
 
-    static void show(final StudyToolsActivity a, final File pdf, final String name, final StudyToolsActivity.Saved saved) {
-        final PdfRenderer renderer;
-        final ParcelFileDescriptor pfd;
+    private final StudyToolsActivity a;
+    private final File pdf;
+    private final String name;
+    private final StudyToolsActivity.Saved saved;
+    private final Runnable onClose;
+
+    private Dialog d;
+    private FrameLayout content;
+    private LinearLayout topBar, bottomBar;
+    private TextView ind, exitPill;
+    private PdfReaderView view;
+    private final TextView[] tabIcon = new TextView[5];
+    private final TextView[] tabLbl = new TextView[5];
+
+    private boolean chrome = true, reading = false, textMode = false;
+    private String fullText;
+    private float textSize = 16f;
+
+    private final Handler hh = new Handler(Looper.getMainLooper());
+    private final Runnable hideR = this::hideChrome;
+    private final Runnable hidePillR = () -> { if (exitPill != null) exitPill.setVisibility(View.GONE); };
+
+    private PdfReaderDialog(StudyToolsActivity a, File pdf, String name, StudyToolsActivity.Saved saved, Runnable onClose) {
+        this.a = a;
+        this.pdf = pdf;
+        this.name = name;
+        this.saved = saved;
+        this.onClose = onClose;
+    }
+
+    static void show(StudyToolsActivity a, File pdf, String name, StudyToolsActivity.Saved saved) {
+        show(a, pdf, name, saved, null);
+    }
+
+    static void show(StudyToolsActivity a, File pdf, String name, StudyToolsActivity.Saved saved, Runnable onClose) {
+        new PdfReaderDialog(a, pdf, name, saved, onClose).open();
+    }
+
+    // ═════════════════════════ build ═════════════════════════
+    private void open() {
+        PdfRenderer renderer;
+        ParcelFileDescriptor pfd;
         try {
             pfd = ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_READ_ONLY);
             renderer = new PdfRenderer(pfd);
         } catch (Exception e) {
             a.showError(new Exception("Can't open this PDF. It may be damaged or password-protected."));
+            if (onClose != null) onClose.run();
             return;
         }
 
-        final Dialog d = new Dialog(a, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
-        final LinearLayout root = W.column(a);
+        d = new Dialog(a, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        FrameLayout root = new FrameLayout(a);
         root.setBackgroundColor(0xFF15171B);
 
-        // ── top bar ──
-        LinearLayout top = W.row(a);
+        content = new FrameLayout(a);
+        root.addView(content, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // ── header ──
+        topBar = W.row(a);
+        topBar.setBackgroundColor(0xEE181A1F);
         TextView close = W.text(a, "✕", 20, 0xFFFFFFFF, false);
         close.setGravity(Gravity.CENTER);
         close.setOnClickListener(v -> d.dismiss());
-        top.addView(close, W.lp(W.dp(a, 52), W.dp(a, 52)));
+        topBar.addView(close, W.lp(W.dp(a, 52), W.dp(a, 52)));
         TextView title = W.text(a, name, 15, 0xFFFFFFFF, true);
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.MIDDLE);
-        top.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        final TextView ind = W.text(a, "", 13, 0xCCFFFFFF, false);
-        ind.setPadding(W.dp(a, 8), 0, W.dp(a, 8), 0);
-        top.addView(ind);
-        final TextView modeBtn = W.text(a, "Aa  Text", 13, 0xFFFFFFFF, true);
-        modeBtn.setGravity(Gravity.CENTER);
-        modeBtn.setPadding(W.dp(a, 12), W.dp(a, 8), W.dp(a, 12), W.dp(a, 8));
-        W.ripple(modeBtn, 0x33FFFFFF, 16);
-        top.addView(modeBtn, W.lp(a, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 0, 10, 0));
-        root.addView(top, W.lp(ViewGroup.LayoutParams.MATCH_PARENT, W.dp(a, 52)));
+        topBar.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        ind = W.text(a, "", 13, 0xCCFFFFFF, false);
+        ind.setPadding(W.dp(a, 8), 0, W.dp(a, 16), 0);
+        topBar.addView(ind);
+        root.addView(topBar, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, W.dp(a, 52), Gravity.TOP));
 
-        final FrameLayout content = new FrameLayout(a);
-        root.addView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-        final FrameLayout bottom = new FrameLayout(a);
-        bottom.setBackgroundColor(0xFF1F2227);
-        root.addView(bottom, W.lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        // ── bottom tab bar ──
+        bottomBar = W.row(a);
+        bottomBar.setBackgroundColor(0xF01F2227);
+        bottomBar.addView(tab(0, "📖", "Read", v -> { if (reading) exitReading(); showPages(); }), tabLp());
+        bottomBar.addView(tab(1, "Aa", "Text", v -> { if (reading) exitReading(); showTextScreen(); }), tabLp());
+        bottomBar.addView(tab(2, "👓", "Reading", v -> enterReading()), tabLp());
+        bottomBar.addView(tab(3, "🔢", "Go to", v -> goToDialog()), tabLp());
+        bottomBar.addView(tab(4, "⋯", "More", v -> moreMenu()), tabLp());
+        root.addView(bottomBar, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, W.dp(a, 58), Gravity.BOTTOM));
 
-        // ── state ──
-        final boolean[] textMode = {false};
-        final String[] full = {null};
-        final float[] textSize = {16f};
-        final TextView[] textView = {null};
+        // ── exit pill (reading mode) ──
+        exitPill = W.text(a, "✕  Exit reading mode", 13.5f, 0xFFFFFFFF, true);
+        exitPill.setGravity(Gravity.CENTER);
+        exitPill.setPadding(W.dp(a, 18), W.dp(a, 10), W.dp(a, 18), W.dp(a, 10));
+        W.ripple(exitPill, 0xE6262A31, 22);
+        exitPill.setVisibility(View.GONE);
+        exitPill.setOnClickListener(v -> exitReading());
+        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        plp.topMargin = W.dp(a, 40);
+        root.addView(exitPill, plp);
 
-        final PdfReaderView view = new PdfReaderView(a, renderer, pfd, pdf, new PdfReaderView.Host() {
+        view = new PdfReaderView(a, renderer, pfd, pdf, new PdfReaderView.Host() {
             @Override public void onPage(int page, int count) {
-                if (!textMode[0]) ind.setText(page + " / " + count);
+                if (!textMode) ind.setText(page + " / " + count);
             }
             @Override public void onCopy(String text) { a.copyText(text); }
             @Override public void onShare(String text) {
@@ -90,56 +150,139 @@ final class PdfReaderDialog {
                 } catch (Exception e) { a.toast("Can't share"); }
             }
             @Override public void onNote(String msg) { a.toast(msg); }
+            @Override public void onTap() {
+                if (reading) showPill();
+                else if (chrome) hideChrome();
+                else showChrome();
+            }
+            @Override public void onScrollStart() { hideChrome(); }
         });
 
-        final Runnable showPages = () -> {
-            textMode[0] = false;
-            modeBtn.setText("Aa  Text");
-            content.removeAllViews();
-            content.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            bottom.removeAllViews();
-            bottom.addView(pageBar(a, saved));
-        };
-
-        final Runnable showText = () -> {
-            textMode[0] = true;
-            modeBtn.setText("📄  Pages");
-            ind.setText("");
-            content.removeAllViews();
-            bottom.removeAllViews();
-            final String text = full[0];
-            if (text == null || text.isEmpty()) {
-                TextView m = W.text(a, "This PDF has no selectable text.\nIt looks like a scanned image.", 15, 0xCCFFFFFF, false);
-                m.setGravity(Gravity.CENTER);
-                content.addView(m, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-                return;
+        d.setContentView(root);
+        d.setOnKeyListener((dlg, code, ev) -> {
+            if (code == KeyEvent.KEYCODE_BACK && ev.getAction() == KeyEvent.ACTION_UP && reading) {
+                exitReading();
+                return true;
             }
-            ScrollView sv = new ScrollView(a);
-            sv.setBackgroundColor(0xFFF7F5F2);
-            TextView tv = W.text(a, text.length() > MAX_SHOWN
-                ? text.substring(0, MAX_SHOWN) + "\n\n… (showing the first " + MAX_SHOWN + " characters — Copy all copies everything)"
-                : text, textSize[0], 0xFF1B1F27, false);
-            tv.setTextIsSelectable(true);
-            tv.setLineSpacing(0, 1.3f);
-            int p = W.dp(a, 16);
-            tv.setPadding(p, p, p, p * 2);
-            sv.addView(tv, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            content.addView(sv, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            textView[0] = tv;
+            return false;
+        });
+        d.setOnDismissListener(x -> {
+            hh.removeCallbacksAndMessages(null);
+            view.release();
+            if (onClose != null) onClose.run();
+        });
+        d.show();
+        if (d.getWindow() != null) {
+            d.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            d.getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        }
+        showPages();
+    }
 
-            LinearLayout bar = W.row(a);
-            int bp = W.dp(a, 10);
-            bar.setPadding(bp, bp, bp, bp);
-            addBtn(a, bar, "Copy all", v -> a.copyText(text));
-            addBtn(a, bar, "Share .txt", v -> shareTxt(a, name, text));
-            addBtn(a, bar, "A−", v -> { textSize[0] = Math.max(11f, textSize[0] - 2f); tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize[0]); });
-            addBtn(a, bar, "A+", v -> { textSize[0] = Math.min(30f, textSize[0] + 2f); tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize[0]); });
-            bottom.addView(bar);
-        };
+    private LinearLayout.LayoutParams tabLp() {
+        return new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+    }
 
-        modeBtn.setOnClickListener(v -> {
-            if (textMode[0]) { showPages.run(); return; }
-            if (full[0] != null) { showText.run(); return; }
+    private View tab(int i, String icon, String label, final View.OnClickListener l) {
+        LinearLayout t = W.column(a);
+        t.setGravity(Gravity.CENTER);
+        TextView ic = W.text(a, icon, 18, 0xCCFFFFFF, true);
+        ic.setGravity(Gravity.CENTER);
+        TextView lb = W.text(a, label, 10.5f, 0xCCFFFFFF, false);
+        lb.setGravity(Gravity.CENTER);
+        t.addView(ic);
+        t.addView(lb);
+        tabIcon[i] = ic;
+        tabLbl[i] = lb;
+        W.ripple(t, 0x00000000, 0);
+        t.setOnClickListener(v -> { scheduleHide(); l.onClick(v); });
+        return t;
+    }
+
+    private void highlight(int active) {
+        for (int i = 0; i < 5; i++) {
+            int c = i == active ? 0xFF6FA3FF : 0xCCFFFFFF;
+            tabIcon[i].setTextColor(c);
+            tabLbl[i].setTextColor(c);
+        }
+    }
+
+    // ═════════════════════════ header / footer visibility ═════════════════════════
+    private void scheduleHide() {
+        hh.removeCallbacks(hideR);
+        if (!textMode && !reading) hh.postDelayed(hideR, AUTO_HIDE_MS);
+    }
+
+    private void showChrome() {
+        if (reading) return;
+        chrome = true;
+        fadeIn(topBar);
+        fadeIn(bottomBar);
+        scheduleHide();
+    }
+
+    private void hideChrome() {
+        if (textMode || reading || !chrome) return;
+        chrome = false;
+        hh.removeCallbacks(hideR);
+        fadeOut(topBar);
+        fadeOut(bottomBar);
+    }
+
+    private void fadeIn(View v) {
+        v.animate().cancel();
+        v.setVisibility(View.VISIBLE);
+        v.animate().alpha(1f).setDuration(160).start();
+    }
+
+    private void fadeOut(final View v) {
+        v.animate().cancel();
+        v.animate().alpha(0f).setDuration(200).withEndAction(() -> {
+            if (!chrome) v.setVisibility(View.GONE);
+        }).start();
+    }
+
+    private void showPill() {
+        exitPill.setVisibility(View.VISIBLE);
+        hh.removeCallbacks(hidePillR);
+        hh.postDelayed(hidePillR, 2500);
+    }
+
+    // ═════════════════════════ modes ═════════════════════════
+    private void showPages() {
+        textMode = false;
+        content.removeAllViews();
+        content.setPadding(0, 0, 0, 0);
+        content.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        highlight(0);
+        if (!reading) showChrome();
+    }
+
+    private void enterReading() {
+        if (textMode) showPages();
+        reading = true;
+        hh.removeCallbacks(hideR);
+        chrome = false;
+        topBar.animate().cancel();
+        bottomBar.animate().cancel();
+        topBar.setVisibility(View.GONE);
+        bottomBar.setVisibility(View.GONE);
+        view.setReadingMode(true);
+        a.toast("Reading mode — tap the screen for the exit button");
+    }
+
+    private void exitReading() {
+        reading = false;
+        view.setReadingMode(false);
+        exitPill.setVisibility(View.GONE);
+        showChrome();
+    }
+
+    private void showTextScreen() {
+        if (fullText == null) {
             a.background("Reading text…", u -> {
                 StringBuilder sb = new StringBuilder();
                 PDDocument doc = null;
@@ -162,49 +305,112 @@ final class PdfReaderDialog {
                     try { if (doc != null) doc.close(); } catch (Exception ignored) { }
                 }
                 final String res = sb.toString();
-                return () -> { full[0] = res; showText.run(); };
+                return () -> { fullText = res; buildTextScreen(); };
             });
-        });
-
-        d.setContentView(root);
-        d.setOnDismissListener(x -> view.release());
-        d.show();
-        showPages.run();
-        a.toast("Long-press a word to select text");
-    }
-
-    private static View pageBar(final StudyToolsActivity a, final StudyToolsActivity.Saved saved) {
-        LinearLayout bar = W.row(a);
-        int bp = W.dp(a, 10);
-        bar.setPadding(bp, bp, bp, bp);
-        if (saved == null) {
-            TextView hint = W.text(a, "Pinch to zoom · long-press a word to select · tap “Text” for full text", 12, 0xAAFFFFFF, false);
-            hint.setGravity(Gravity.CENTER);
-            bar.addView(hint, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            return bar;
+            return;
         }
-        addBtn(a, bar, "📁 Folder", v -> a.openFolder());
-        addBtn(a, bar, "Open with", v -> a.openSaved(saved));
-        addBtn(a, bar, "Share", v -> {
-            List<StudyToolsActivity.Saved> one = new ArrayList<>();
-            one.add(saved);
-            a.shareSaved(one);
-        });
-        return bar;
+        buildTextScreen();
     }
 
-    private static void addBtn(StudyToolsActivity a, LinearLayout bar, String label, View.OnClickListener l) {
+    private void buildTextScreen() {
+        textMode = true;
+        hh.removeCallbacks(hideR);
+        chrome = true;
+        fadeIn(topBar);
+        fadeIn(bottomBar);
+        ind.setText("");
+        highlight(1);
+        content.removeAllViews();
+
+        final String text = fullText;
+        if (text == null || text.isEmpty()) {
+            TextView m = W.text(a, "This PDF has no selectable text.\nIt looks like a scanned image.", 15, 0xCCFFFFFF, false);
+            m.setGravity(Gravity.CENTER);
+            content.addView(m, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            return;
+        }
+
+        LinearLayout col = W.column(a);
+        col.setPadding(0, W.dp(a, 52), 0, W.dp(a, 58));
+
+        LinearLayout tools = W.row(a);
+        tools.setBackgroundColor(0xFF1F2227);
+        int bp = W.dp(a, 8);
+        tools.setPadding(bp, bp, bp, bp);
+        final ScrollView sv = new ScrollView(a);
+        sv.setBackgroundColor(0xFFF7F5F2);
+        final TextView tv = W.text(a, text.length() > MAX_SHOWN
+            ? text.substring(0, MAX_SHOWN) + "\n\n… (showing the first " + MAX_SHOWN + " characters — Copy all copies everything)"
+            : text, textSize, 0xFF1B1F27, false);
+        tv.setTextIsSelectable(true);
+        tv.setLineSpacing(0, 1.3f);
+        int p = W.dp(a, 16);
+        tv.setPadding(p, p, p, p * 2);
+        sv.addView(tv, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        addChip(tools, "Copy all", v -> a.copyText(text));
+        addChip(tools, "Share .txt", v -> shareTxt(text));
+        addChip(tools, "A−", v -> { textSize = Math.max(11f, textSize - 2f); tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize); });
+        addChip(tools, "A+", v -> { textSize = Math.min(30f, textSize + 2f); tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize); });
+
+        col.addView(tools, W.lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        col.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        content.addView(col, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void addChip(LinearLayout row, String label, View.OnClickListener l) {
         TextView b = W.text(a, label, 13, 0xFFFFFFFF, true);
         b.setGravity(Gravity.CENTER);
-        b.setPadding(W.dp(a, 8), W.dp(a, 11), W.dp(a, 8), W.dp(a, 11));
-        W.ripple(b, 0x26FFFFFF, 18);
+        b.setPadding(W.dp(a, 8), W.dp(a, 9), W.dp(a, 8), W.dp(a, 9));
+        W.ripple(b, 0x26FFFFFF, 16);
         b.setOnClickListener(l);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        if (bar.getChildCount() > 0) lp.leftMargin = W.dp(a, 8);
-        bar.addView(b, lp);
+        if (row.getChildCount() > 0) lp.leftMargin = W.dp(a, 8);
+        row.addView(b, lp);
     }
 
-    private static void shareTxt(final StudyToolsActivity a, final String name, final String text) {
+    // ═════════════════════════ tab actions ═════════════════════════
+    private void goToDialog() {
+        if (textMode) { a.toast("Switch to Read to jump to a page"); return; }
+        final int n = view.pageCount();
+        final EditText in = W.input(a, "1 – " + n, InputType.TYPE_CLASS_NUMBER);
+        FrameLayout wrap = new FrameLayout(a);
+        wrap.setPadding(W.dp(a, 20), W.dp(a, 8), W.dp(a, 20), 0);
+        wrap.addView(in);
+        new AlertDialog.Builder(a).setTitle("Go to page").setView(wrap)
+            .setPositiveButton("Go", (dlg, w) -> {
+                try {
+                    int p = Integer.parseInt(in.getText().toString().trim());
+                    view.goToPage(p);
+                } catch (Exception e) { a.toast("Enter a page number"); }
+            })
+            .setNegativeButton("Cancel", null).show();
+    }
+
+    private void moreMenu() {
+        final List<String> items = new ArrayList<>();
+        items.add("Share PDF");
+        items.add("Open with another app");
+        if (saved != null) items.add("Open folder");
+        new AlertDialog.Builder(a).setItems(items.toArray(new String[0]), (dlg, which) -> {
+            String it = items.get(which);
+            if (it.startsWith("Share")) {
+                if (saved != null) {
+                    List<StudyToolsActivity.Saved> one = new ArrayList<>();
+                    one.add(saved);
+                    a.shareSaved(one);
+                } else {
+                    a.shareFile(pdf, "application/pdf");
+                }
+            } else if (it.startsWith("Open with")) {
+                if (saved != null) a.openSaved(saved); else a.openFile(pdf, "application/pdf");
+            } else {
+                a.openFolder();
+            }
+        }).show();
+    }
+
+    private void shareTxt(final String text) {
         a.background("Saving text…", u -> {
             String base = StudyToolsActivity.baseName(name);
             File tmp = a.tempOut(base + ".txt");
