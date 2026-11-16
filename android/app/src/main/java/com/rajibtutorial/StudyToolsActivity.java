@@ -108,16 +108,31 @@ public class StudyToolsActivity extends AppCompatActivity {
     private final TextView[] tabIc = new TextView[3], tabLb = new TextView[3];
 
     private final ActivityResultLauncher<String[]> pickOne =
-        registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+        registerForActivityResult(new KeepOpenDoc(), uri -> {
             if (uri == null) { pickCb = null; return; }
             deliver(Collections.singletonList(uri));
         });
 
     private final ActivityResultLauncher<String[]> pickMany =
-        registerForActivityResult(new ActivityResultContracts.OpenMultipleDocuments(), uris -> {
+        registerForActivityResult(new KeepOpenDocs(), uris -> {
             if (uris == null || uris.isEmpty()) { pickCb = null; return; }
             deliver(uris);
         });
+
+    /** File picker that asks for a lasting grant, so a recent file keeps opening straight from its folder. */
+    static final class KeepOpenDoc extends ActivityResultContracts.OpenDocument {
+        @Override public Intent createIntent(Context c, String[] input) {
+            return super.createIntent(c, input).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        }
+    }
+
+    static final class KeepOpenDocs extends ActivityResultContracts.OpenMultipleDocuments {
+        @Override public Intent createIntent(Context c, String[] input) {
+            return super.createIntent(c, input).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        }
+    }
 
     @Override
     protected void onCreate(Bundle b) {
@@ -179,6 +194,7 @@ public class StudyToolsActivity extends AppCompatActivity {
         stack.clear();
         idle();
         io.shutdownNow();
+        if (!viewMode) cleanCache();
         super.onDestroy();
     }
 
@@ -398,7 +414,7 @@ public class StudyToolsActivity extends AppCompatActivity {
     }
 
     private final ActivityResultLauncher<String[]> docPicker =
-        registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+        registerForActivityResult(new KeepOpenDoc(), uri -> {
             if (uri == null) return;
             try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
             catch (Exception ignored) { }
@@ -470,15 +486,19 @@ public class StudyToolsActivity extends AppCompatActivity {
             int c = e.startsWith("x") ? W.GREEN : e.startsWith("p") ? W.ORANGE : W.BLUE;
             String tag = e.startsWith("x") ? "XLS" : e.startsWith("p") ? "PPT" : "DOC";
             r.addView(W.badge(this, tag, c), W.lp(W.dp(this, 40), W.dp(this, 40)));
-            TextView n = W.text(this, it[0], 14, W.TEXT, true);
-            n.setSingleLine(true);
-            n.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
-            r.addView(n, W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 12, 0, 0, 0));
-            ((LinearLayout.LayoutParams) n.getLayoutParams()).weight = 1f;
+            r.addView(recentText(it[0], it[1]), W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 12, 0, 0, 0));
+            ((LinearLayout.LayoutParams) r.getChildAt(1).getLayoutParams()).weight = 1f;
+            r.addView(folderBtn(Uri.parse(it[1])));
             r.setClickable(true);
             r.setOnClickListener(v -> {
-                try { openDocUri(Uri.parse(it[1]), it[0], false); }
-                catch (Exception ex) { toast("Couldn't open this file. It may have been moved or deleted."); }
+                Uri u = Uri.parse(it[1]);
+                if (!canRead(u)) {
+                    forgetRecent("recent_doc", it[1]);
+                    toast("This file was moved or deleted. Open it again from its folder.");
+                    refreshDocRecents();
+                    return;
+                }
+                openDocUri(u, it[0], false);
             });
             card.addView(r);
         }
@@ -527,13 +547,20 @@ public class StudyToolsActivity extends AppCompatActivity {
             LinearLayout r = W.row(this);
             r.setPadding(0, W.dp(this, 10), 0, W.dp(this, 2));
             r.addView(W.badge(this, "PDF", W.RED), W.lp(W.dp(this, 40), W.dp(this, 40)));
-            TextView n = W.text(this, it[0], 14, W.TEXT, true);
-            n.setSingleLine(true);
-            n.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
-            r.addView(n, W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 12, 0, 0, 0));
-            ((LinearLayout.LayoutParams) n.getLayoutParams()).weight = 1f;
+            r.addView(recentText(it[0], it[1]), W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 12, 0, 0, 0));
+            ((LinearLayout.LayoutParams) r.getChildAt(1).getLayoutParams()).weight = 1f;
+            r.addView(folderBtn(Uri.parse(it[1])));
             r.setClickable(true);
-            r.setOnClickListener(v -> openPdfUri(Uri.parse(it[1]), it[0], false));
+            r.setOnClickListener(v -> {
+                Uri u = Uri.parse(it[1]);
+                if (!canRead(u)) {
+                    forgetRecent("recent_pdf", it[1]);
+                    toast("This PDF was moved or deleted. Open it again from its folder.");
+                    refreshPdfRecents();
+                    return;
+                }
+                openPdfUri(u, it[0], false);
+            });
             card.addView(r);
         }
         pdfRecentBox.addView(card);
@@ -557,6 +584,82 @@ public class StudyToolsActivity extends AppCompatActivity {
                 PdfReaderDialog.show(this, tmp, shown, null, finishOnClose ? this::finish : null);
             };
         });
+    }
+
+    /** True when the original file can still be read (moved / deleted / lost access → false). */
+    boolean canRead(Uri uri) {
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            return in != null;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Folder of a picked file, e.g. "Download/Books" (empty when the provider doesn't say). */
+    static String folderOf(Uri uri) {
+        try {
+            String id = DocumentsContract.getDocumentId(uri);        // "primary:Download/Books/a.pdf"
+            int colon = id.indexOf(':');
+            String path = colon >= 0 ? id.substring(colon + 1) : id;
+            int slash = path.lastIndexOf('/');
+            return slash > 0 ? path.substring(0, slash) : (colon >= 0 && "primary".equals(id.substring(0, colon)) ? "Internal storage" : "");
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private View recentText(String name, String uri) {
+        LinearLayout t = W.column(this);
+        TextView n = W.text(this, name, 14, W.TEXT, true);
+        n.setSingleLine(true);
+        n.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+        t.addView(n);
+        String f = folderOf(Uri.parse(uri));
+        if (!f.isEmpty()) {
+            TextView sub = W.text(this, "📁 " + f, 11.5f, W.SUB, false);
+            sub.setSingleLine(true);
+            sub.setEllipsize(android.text.TextUtils.TruncateAt.START);
+            t.addView(sub);
+        }
+        return t;
+    }
+
+    private View folderBtn(final Uri uri) {
+        TextView b = W.text(this, "📁", 18, W.TEXT, false);
+        b.setGravity(Gravity.CENTER);
+        b.setOnClickListener(v -> openFolderOf(uri));
+        b.setLayoutParams(W.lp(W.dp(this, 40), W.dp(this, 40)));
+        return b;
+    }
+
+    /** Opens the folder that holds a recent file in the file manager. */
+    void openFolderOf(Uri uri) {
+        try {
+            String id = DocumentsContract.getDocumentId(uri);
+            int slash = id.lastIndexOf('/');
+            if (slash > 0) {
+                Uri dir = DocumentsContract.buildDocumentUri(uri.getAuthority(), id.substring(0, slash));
+                Intent i = new Intent(Intent.ACTION_VIEW);
+                i.setDataAndType(dir, DocumentsContract.Document.MIME_TYPE_DIR);
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivity(i);
+                return;
+            }
+        } catch (Exception ignored) { }
+        openFolder();
+    }
+
+    /** Drops a dead entry from a recent list (pref key = recent / recent_pdf / recent_doc). */
+    private void forgetRecent(String key, String uri) {
+        try {
+            JSONArray old = new JSONArray(prefs().getString(key, "[]"));
+            JSONArray neu = new JSONArray();
+            for (int i = 0; i < old.length(); i++) {
+                JSONObject x = old.getJSONObject(i);
+                if (!uri.equals(x.optString("uri"))) neu.put(x);
+            }
+            prefs().edit().putString(key, neu.toString()).apply();
+        } catch (Exception ignored) { }
     }
 
     void shareFile(File f, String mime) {
@@ -691,7 +794,15 @@ public class StudyToolsActivity extends AppCompatActivity {
             t.addView(W.text(this, W.size(s.size) + " · Downloads/" + SAVE_FOLDER, 11.5f, W.SUB, false));
             r.addView(t, W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 12, 0, 0, 0));
             ((LinearLayout.LayoutParams) t.getLayoutParams()).weight = 1f;
-            r.setOnClickListener(v -> viewSaved(list, list.indexOf(s)));
+            r.setOnClickListener(v -> {
+                if (!canRead(Uri.parse(s.uri))) {
+                    forgetRecent("recent", s.uri);
+                    toast("This file was moved or deleted from Downloads/" + SAVE_FOLDER);
+                    refreshRecents();
+                    return;
+                }
+                viewSaved(list, list.indexOf(s));
+            });
             r.setClickable(true);
             card.addView(r);
         }
