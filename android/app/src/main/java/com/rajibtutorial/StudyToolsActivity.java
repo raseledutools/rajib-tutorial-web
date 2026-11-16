@@ -568,7 +568,7 @@ public class StudyToolsActivity extends AppCompatActivity {
 
     /** Copies a PDF (from a picker / file manager) into the cache and opens it in the reader. */
     void openPdfUri(final Uri uri, final String givenName, final boolean finishOnClose) {
-        background("Opening…", u -> {
+        backgroundQuiet(u -> {
             String nm = givenName != null ? givenName : queryName(uri);
             File tmp = tempOut(nm);
             try (InputStream in = getContentResolver().openInputStream(uri);
@@ -922,6 +922,21 @@ public class StudyToolsActivity extends AppCompatActivity {
                 runOnUiThread(() -> { idle(); if (done != null) done.run(); });
             } catch (final Throwable e) {
                 runOnUiThread(() -> { idle(); showError(e); });
+            }
+        });
+    }
+
+    /** Like background(), but shows nothing unless the work takes noticeably long (recent files open as if direct). */
+    void backgroundQuiet(final Task t) {
+        final android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
+        final Runnable late = () -> busy("Opening…");
+        h.postDelayed(late, 800);
+        io.execute(() -> {
+            try {
+                final Runnable done = t.run(m -> { });
+                runOnUiThread(() -> { h.removeCallbacks(late); idle(); if (done != null) done.run(); });
+            } catch (final Throwable e) {
+                runOnUiThread(() -> { h.removeCallbacks(late); idle(); showError(e); });
             }
         });
     }
