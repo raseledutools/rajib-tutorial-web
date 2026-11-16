@@ -109,6 +109,44 @@ final class PdfTools {
         return h;
     }
 
+    // ═════════════════════════ READER ═════════════════════════
+    static final class Reader extends ToolPage {
+        private StudyToolsActivity.Picked last;
+        private LinearLayout box;
+
+        Reader(StudyToolsActivity a) { super(a); }
+
+        @Override String title() { return "PDF Reader"; }
+
+        @Override View body() {
+            LinearLayout col = W.column(a);
+            col.addView(W.pickBox(a, "📖", "Open a PDF", "Read, zoom, select & copy text — no OCR needed",
+                v -> a.pick(false, PDF_MIME, picked -> open(picked.get(0)))));
+            box = W.column(a);
+            col.addView(box, W.lp(a, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 14, 0, 0));
+
+            LinearLayout tips = W.card(a);
+            tips.addView(W.text(a, "What you can do", 14, W.TEXT, true));
+            tips.addView(W.text(a, "• Long-press a word, then drag the blue handles\n• Copy, Select all, or Share the selected text\n• Tap “Text” at the top to see the whole PDF as text\n• Pinch or double-tap to zoom", 13, W.SUB, false),
+                W.lp(a, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 8, 0, 0));
+            tips.addView(W.text(a, "Scanned (photo) PDFs have no text to select.", 12, W.SUB, false),
+                W.lp(a, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 8, 0, 0));
+            col.addView(tips, W.lp(a, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 14, 0, 0));
+            return col;
+        }
+
+        private void open(StudyToolsActivity.Picked p) {
+            last = p;
+            box.removeAllViews();
+            LinearLayout c = W.card(a);
+            c.addView(fileRow(a, p, null, false));
+            c.addView(W.softBtn(a, "Open again", W.BLUE, v -> PdfReaderDialog.show(a, last.file, last.name, null)),
+                W.lp(a, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 12, 0, 0));
+            box.addView(c);
+            PdfReaderDialog.show(a, p.file, p.name, null);
+        }
+    }
+
     // ═════════════════════════ MERGE ═════════════════════════
     static final class Merge extends ToolPage {
         private FileListView list;
