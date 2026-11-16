@@ -100,6 +100,12 @@ public class StudyToolsActivity extends AppCompatActivity {
     private TextView busyTv;
     private Cb<List<Picked>> pickCb;
     private Runnable camGranted;
+    private boolean viewMode;                 // launched from a file manager to read a PDF
+    private TextView homeTitle;
+    private FrameLayout tabBody;
+    private View toolsScroll, readerScroll;
+    private LinearLayout pdfRecentBox;
+    private final TextView[] tabIc = new TextView[2], tabLb = new TextView[2];
 
     private final ActivityResultLauncher<String[]> pickOne =
         registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
@@ -127,6 +133,17 @@ public class StudyToolsActivity extends AppCompatActivity {
         }
 
         cleanCache();
+
+        Intent launch = getIntent();
+        if (launch != null && Intent.ACTION_VIEW.equals(launch.getAction()) && launch.getData() != null) {
+            // Opened as the phone's PDF reader (file manager → PDF): go straight to the reader.
+            viewMode = true;
+            host = new FrameLayout(this);
+            host.setBackgroundColor(0xFF15171B);
+            setContentView(host);
+            openPdfUri(launch.getData(), null, true);
+            return;
+        }
         registerTools();
 
         host = new FrameLayout(this);
@@ -162,6 +179,7 @@ public class StudyToolsActivity extends AppCompatActivity {
     private void registerTools() {
         String pdf = "PDF Tools", photo = "Photo Tools", more = "QR & More";
         tools.add(new ToolDef("📖", W.BLUE, "PDF Reader", pdf, PdfTools.Reader::new));
+        tools.add(new ToolDef("📖", W.BLUE, "PDF Reader", pdf, a -> { a.selectTab(1); return null; }));
         tools.add(new ToolDef("📚", W.RED, "Merge PDF", pdf, PdfTools.Merge::new));
         tools.add(new ToolDef("✂️", W.ORANGE, "Split PDF", pdf, PdfTools.Split::new));
         tools.add(new ToolDef("🗜️", W.PURPLE, "Compress PDF", pdf, PdfTools.Compress::new));
@@ -188,8 +206,8 @@ public class StudyToolsActivity extends AppCompatActivity {
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> finish());
         bar.addView(back, W.lp(W.dp(this, 56), W.dp(this, 56)));
-        TextView title = W.text(this, "Study Tools", 20, W.TEXT, true);
-        bar.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        homeTitle = W.text(this, "Study Tools", 20, W.TEXT, true);
+        bar.addView(homeTitle, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         root.addView(bar, W.lp(ViewGroup.LayoutParams.MATCH_PARENT, W.dp(this, 56)));
 
         ScrollView sv = new ScrollView(this);
@@ -199,7 +217,11 @@ public class StudyToolsActivity extends AppCompatActivity {
         int pad = W.dp(this, 16);
         col.setPadding(pad, W.dp(this, 4), pad, pad);
         sv.addView(col, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        toolsScroll = sv;
+        tabBody = new FrameLayout(this);
+        tabBody.addView(sv, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        root.addView(tabBody, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        root.addView(buildTabBar(), W.lp(ViewGroup.LayoutParams.MATCH_PARENT, W.dp(this, 58)));
 
         // search (white strip under the bar, like WPS)
         searchBox = W.input(this, "🔍  Search tools", android.text.InputType.TYPE_CLASS_TEXT);
@@ -239,6 +261,185 @@ public class StudyToolsActivity extends AppCompatActivity {
         rebuildSections("");
         refreshRecents();
         return root;
+    }
+
+    // ═════════════════════════ bottom tabs (Tools · PDF Reader) ═════════════════════════
+    private View buildTabBar() {
+        LinearLayout bar = W.row(this);
+        bar.setBackgroundColor(W.SURFACE);
+        bar.setElevation(W.dp(this, 8));
+        String[] ic = {"🧰", "📖"}, lb = {"Tools", "PDF Reader"};
+        for (int i = 0; i < 2; i++) {
+            final int idx = i;
+            LinearLayout t = W.column(this);
+            t.setGravity(Gravity.CENTER);
+            TextView icon = W.text(this, ic[i], 20, W.TEXT, false);
+            icon.setGravity(Gravity.CENTER);
+            TextView label = W.text(this, lb[i], 11, W.SUB, true);
+            label.setGravity(Gravity.CENTER);
+            t.addView(icon);
+            t.addView(label);
+            tabIc[i] = icon;
+            tabLb[i] = label;
+            W.ripple(t, 0x00000000, 0);
+            t.setOnClickListener(v -> selectTab(idx));
+            bar.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        }
+        styleTabs(0);
+        return bar;
+    }
+
+    private void styleTabs(int active) {
+        for (int i = 0; i < 2; i++) {
+            tabLb[i].setTextColor(i == active ? W.BLUE : W.SUB);
+            tabIc[i].setAlpha(i == active ? 1f : 0.55f);
+        }
+    }
+
+    void selectTab(int i) {
+        if (tabBody == null) return;
+        hideKeyboard();
+        tabBody.removeAllViews();
+        if (i == 0) {
+            homeTitle.setText("Study Tools");
+            tabBody.addView(toolsScroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            refreshRecents();
+        } else {
+            if (readerScroll == null) readerScroll = buildReaderTab();
+            homeTitle.setText("PDF Reader");
+            tabBody.addView(readerScroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            refreshPdfRecents();
+        }
+        styleTabs(i);
+    }
+
+    private View buildReaderTab() {
+        ScrollView sv = new ScrollView(this);
+        sv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        LinearLayout col = W.column(this);
+        int pad = W.dp(this, 16);
+        col.setPadding(pad, W.dp(this, 8), pad, pad);
+        sv.addView(col, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        col.addView(W.pickBox(this, "📖", "Open a PDF", "Read, zoom and select text — no OCR needed",
+            v -> pick(false, new String[]{"application/pdf"}, list -> {
+                Picked p = list.get(0);
+                addPdfRecent(p.name, p.uri.toString());
+                PdfReaderDialog.show(this, p.file, p.name, null);
+            })));
+
+        pdfRecentBox = W.column(this);
+        col.addView(pdfRecentBox, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 14, 0, 0));
+
+        LinearLayout tips = W.card(this);
+        tips.addView(W.text(this, "Make it your default PDF reader", 14, W.TEXT, true));
+        tips.addView(W.text(this, "Open any PDF from your file manager, choose this app and tap “Always”. After that, tapping a PDF in any folder opens it here directly.", 12.5f, W.SUB, false),
+            W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 6, 0, 0));
+        tips.addView(W.text(this, "In the reader", 14, W.TEXT, true),
+            W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 14, 0, 0));
+        tips.addView(W.text(this, "• Header and tabs hide by themselves after 3 seconds and while you scroll — tap the page to bring them back\n• 👓 Reading: clean full screen, no header/footer, no text selection, warm paper colour\n• Aa Text: the whole PDF as selectable text\n• Long-press a word to select, drag the blue handles", 12.5f, W.SUB, false),
+            W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 6, 0, 0));
+        col.addView(tips, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 14, 0, 0));
+        return sv;
+    }
+
+    // ───────── recent PDFs (re-openable via persisted picker permission) ─────────
+    private void addPdfRecent(String name, String uri) {
+        try {
+            JSONArray old = new JSONArray(prefs().getString("recent_pdf", "[]"));
+            JSONArray neu = new JSONArray();
+            JSONObject o = new JSONObject();
+            o.put("name", name);
+            o.put("uri", uri);
+            neu.put(o);
+            for (int i = 0; i < old.length() && neu.length() < 8; i++) {
+                JSONObject x = old.getJSONObject(i);
+                if (!uri.equals(x.optString("uri"))) neu.put(x);
+            }
+            prefs().edit().putString("recent_pdf", neu.toString()).apply();
+        } catch (Exception ignored) { }
+    }
+
+    private void refreshPdfRecents() {
+        if (pdfRecentBox == null) return;
+        pdfRecentBox.removeAllViews();
+        final List<String[]> list = new ArrayList<>();
+        try {
+            JSONArray arr = new JSONArray(prefs().getString("recent_pdf", "[]"));
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.getJSONObject(i);
+                list.add(new String[]{o.optString("name"), o.optString("uri")});
+            }
+        } catch (Exception ignored) { }
+        if (list.isEmpty()) return;
+
+        LinearLayout card = W.card(this);
+        LinearLayout head = W.row(this);
+        head.addView(W.sectionTitle(this, "Recent PDFs"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView clear = W.text(this, "Clear", 13, W.SUB, true);
+        clear.setPadding(W.dp(this, 8), W.dp(this, 4), 0, W.dp(this, 4));
+        clear.setOnClickListener(v -> { prefs().edit().remove("recent_pdf").apply(); refreshPdfRecents(); });
+        head.addView(clear);
+        card.addView(head);
+        for (final String[] it : list) {
+            LinearLayout r = W.row(this);
+            r.setPadding(0, W.dp(this, 10), 0, W.dp(this, 2));
+            r.addView(W.badge(this, "PDF", W.RED), W.lp(W.dp(this, 40), W.dp(this, 40)));
+            TextView n = W.text(this, it[0], 14, W.TEXT, true);
+            n.setSingleLine(true);
+            n.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+            r.addView(n, W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 12, 0, 0, 0));
+            ((LinearLayout.LayoutParams) n.getLayoutParams()).weight = 1f;
+            r.setClickable(true);
+            r.setOnClickListener(v -> openPdfUri(Uri.parse(it[1]), it[0], false));
+            card.addView(r);
+        }
+        pdfRecentBox.addView(card);
+    }
+
+    /** Copies a PDF (from a picker / file manager) into the cache and opens it in the reader. */
+    void openPdfUri(final Uri uri, final String givenName, final boolean finishOnClose) {
+        background("Opening…", u -> {
+            String nm = givenName != null ? givenName : queryName(uri);
+            File tmp = tempOut(nm);
+            try (InputStream in = getContentResolver().openInputStream(uri);
+                 OutputStream os = new FileOutputStream(tmp)) {
+                if (in == null) throw new Exception("Can't open this file");
+                copy(in, os);
+            } catch (Exception e) {
+                throw new Exception("Couldn't open this PDF. It may have been moved or deleted.");
+            }
+            final String shown = nm;
+            return () -> {
+                if (!finishOnClose) addPdfRecent(shown, uri.toString());
+                PdfReaderDialog.show(this, tmp, shown, null, finishOnClose ? this::finish : null);
+            };
+        });
+    }
+
+    void shareFile(File f, String mime) {
+        try {
+            Uri u = FileProvider.getUriForFile(this, getPackageName() + ".provider", f);
+            Intent i = new Intent(Intent.ACTION_SEND);
+            i.setType(mime);
+            i.putExtra(Intent.EXTRA_STREAM, u);
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(i, "Share"));
+        } catch (Exception e) {
+            toast("Can't share this file");
+        }
+    }
+
+    void openFile(File f, String mime) {
+        try {
+            Uri u = FileProvider.getUriForFile(this, getPackageName() + ".provider", f);
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setDataAndType(u, mime);
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(i, "Open with"));
+        } catch (Exception e) {
+            toast("No app found to open this file");
+        }
     }
 
     private void rebuildSections(String query) {
@@ -357,6 +558,7 @@ public class StudyToolsActivity extends AppCompatActivity {
 
     // ═════════════════════════ navigation ═════════════════════════
     void openPage(ToolPage p) {
+        if (p == null) return;
         hideKeyboard();
         stack.add(p);
         host.removeAllViews();
@@ -478,8 +680,10 @@ public class StudyToolsActivity extends AppCompatActivity {
         else if (e.getMessage() != null && !e.getMessage().isEmpty()) m = e.getMessage();
         else m = "Something went wrong.";
         if (isFinishing()) return;
-        new AlertDialog.Builder(this).setTitle("Couldn't finish").setMessage(m)
-            .setPositiveButton("OK", null).show();
+        AlertDialog dlg = new AlertDialog.Builder(this).setTitle("Couldn't finish").setMessage(m)
+            .setPositiveButton("OK", null).create();
+        dlg.setOnDismissListener(x -> { if (viewMode) finish(); });
+        dlg.show();
     }
 
     void toast(String m) { Toast.makeText(this, m, Toast.LENGTH_SHORT).show(); }
@@ -505,6 +709,8 @@ public class StudyToolsActivity extends AppCompatActivity {
             //noinspection ResultOfMethodCallIgnored
             dir.mkdirs();
             for (Uri uri : uris) {
+                try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
+                catch (Exception ignored) { }
                 Picked p = new Picked();
                 p.uri = uri;
                 p.name = queryName(uri);

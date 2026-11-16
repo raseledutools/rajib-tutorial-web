@@ -6,6 +6,8 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.pdf.PdfRenderer;
@@ -48,6 +50,10 @@ final class PdfReaderView extends View {
         void onCopy(String text);
         void onShare(String text);
         void onNote(String msg);
+        /** Single tap on the page (not on a selection). */
+        void onTap();
+        /** The user started scrolling / zooming. */
+        void onScrollStart();
     }
 
     // ───────── text model (positions are fractions of the page, 0..1, origin top-left) ─────────
@@ -144,6 +150,9 @@ final class PdfReaderView extends View {
     private final GestureDetector gd;
     private final OverScroller scroller;
     private float lastFx, lastFy;
+    private boolean readingMode = false;
+    private boolean tapClearedSel = false;
+    private boolean scrollNotified = false;
 
     // selection
     private int selPage = -1, selA = 0, selB = 0;
@@ -190,6 +199,7 @@ final class PdfReaderView extends View {
             @Override public boolean onScaleBegin(ScaleGestureDetector d) {
                 lastFx = d.getFocusX();
                 lastFy = d.getFocusY();
+                notifyScroll();
                 return true;
             }
             @Override public boolean onScale(ScaleGestureDetector d) {
@@ -204,11 +214,20 @@ final class PdfReaderView extends View {
         gd = new GestureDetector(c, new GestureDetector.SimpleOnGestureListener() {
             @Override public boolean onDown(MotionEvent e) { return true; }
             @Override public boolean onSingleTapUp(MotionEvent e) {
-                if (selPage >= 0) { clearSelection(); return true; }
+                tapClearedSel = false;
+                if (selPage >= 0) { tapClearedSel = true; clearSelection(); return true; }
                 return false;
             }
-            @Override public void onLongPress(MotionEvent e) { startSelection(e.getX(), e.getY()); }
+            @Override public boolean onSingleTapConfirmed(MotionEvent e) {
+                if (tapClearedSel) { tapClearedSel = false; return false; }
+                if (host != null) host.onTap();
+                return true;
+            }
+            @Override public void onLongPress(MotionEvent e) {
+                if (!readingMode) startSelection(e.getX(), e.getY());
+            }
             @Override public boolean onScroll(MotionEvent e1, MotionEvent e2, float dx, float dy) {
+                notifyScroll();
                 panX -= dx;
                 offY -= dy;
                 clamp();
@@ -252,6 +271,37 @@ final class PdfReaderView extends View {
                 invalidate();
             });
         });
+    }
+
+    private void notifyScroll() {
+        if (scrollNotified) return;
+        scrollNotified = true;
+        if (host != null) host.onScrollStart();
+    }
+
+    /** Reading mode: no text selection, warm paper colour. */
+    void setReadingMode(boolean on) {
+        readingMode = on;
+        if (on) clearSelection();
+        int paper = on ? 0xFFF6EAD2 : Color.WHITE;
+        paperPaint.setColor(paper);
+        bmPaint.setColorFilter(on ? new PorterDuffColorFilter(paper, PorterDuff.Mode.MULTIPLY) : null);
+        setBackgroundColor(on ? 0xFF2B2824 : 0xFFE9E5E1);
+        invalidate();
+    }
+
+    int pageCount() { return count; }
+
+    int currentPage() { return Math.max(1, lastPage); }
+
+    /** Scrolls so that the top of page n (1-based) is at the top of the screen. */
+    void goToPage(int n) {
+        if (count == 0) return;
+        int i = Math.max(0, Math.min(count - 1, n - 1));
+        offY = -top[i] * scale;
+        panX = Math.min(0f, Math.max(minX(), panX));
+        clamp();
+        invalidate();
     }
 
     // ═════════════════════════ geometry ═════════════════════════
@@ -455,6 +505,7 @@ final class PdfReaderView extends View {
     @Override public boolean onTouchEvent(MotionEvent e) {
         int act = e.getActionMasked();
         if (act == MotionEvent.ACTION_DOWN) {
+            scrollNotified = false;
             scroller.forceFinished(true);
             if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
             if (selPage >= 0) {
