@@ -33,6 +33,11 @@ final class ToolViewer {
             a.openSaved(files.get(0));
             return;
         }
+        final StudyToolsActivity.Saved f0 = files.get(Math.max(0, Math.min(start, files.size() - 1)));
+        if (f0.mime != null && f0.mime.contains("pdf")) {
+            openPdf(a, f0);
+            return;
+        }
         final int dark = 0xFF15171B;
         final Dialog d = new Dialog(a, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
 
@@ -161,6 +166,21 @@ final class ToolViewer {
         d.setOnDismissListener(x -> { dead[0] = true; freeCurrent.run(); });
         d.show();
         load[0].run();
+    }
+
+    /** PDFs open in the reader (zoom + text selection); the saved file is copied to cache first. */
+    private static void openPdf(final StudyToolsActivity a, final StudyToolsActivity.Saved s) {
+        a.background("Opening…", u -> {
+            java.io.File tmp = a.tempOut(s.name);
+            try (InputStream in = a.getContentResolver().openInputStream(Uri.parse(s.uri));
+                 java.io.OutputStream os = new java.io.FileOutputStream(tmp)) {
+                if (in == null) throw new Exception("Can't open " + s.name);
+                byte[] buf = new byte[64 * 1024];
+                int n;
+                while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
+            }
+            return () -> PdfReaderDialog.show(a, tmp, s.name, s);
+        });
     }
 
     private static TextView msg(StudyToolsActivity a, String t) {

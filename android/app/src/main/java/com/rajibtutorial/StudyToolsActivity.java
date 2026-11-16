@@ -161,6 +161,7 @@ public class StudyToolsActivity extends AppCompatActivity {
     // ═════════════════════════ tool registry ═════════════════════════
     private void registerTools() {
         String pdf = "PDF Tools", photo = "Photo Tools", more = "QR & More";
+        tools.add(new ToolDef("📖", W.BLUE, "PDF Reader", pdf, PdfTools.Reader::new));
         tools.add(new ToolDef("📚", W.RED, "Merge PDF", pdf, PdfTools.Merge::new));
         tools.add(new ToolDef("✂️", W.ORANGE, "Split PDF", pdf, PdfTools.Split::new));
         tools.add(new ToolDef("🗜️", W.PURPLE, "Compress PDF", pdf, PdfTools.Compress::new));
