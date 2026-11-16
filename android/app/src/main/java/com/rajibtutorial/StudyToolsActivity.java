@@ -103,9 +103,9 @@ public class StudyToolsActivity extends AppCompatActivity {
     private boolean viewMode;                 // launched from a file manager to read a PDF
     private TextView homeTitle;
     private FrameLayout tabBody;
-    private View toolsScroll, readerScroll;
-    private LinearLayout pdfRecentBox;
-    private final TextView[] tabIc = new TextView[2], tabLb = new TextView[2];
+    private View toolsScroll, readerScroll, docsScroll;
+    private LinearLayout pdfRecentBox, docRecentBox;
+    private final TextView[] tabIc = new TextView[3], tabLb = new TextView[3];
 
     private final ActivityResultLauncher<String[]> pickOne =
         registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
@@ -141,7 +141,14 @@ public class StudyToolsActivity extends AppCompatActivity {
             host = new FrameLayout(this);
             host.setBackgroundColor(0xFF15171B);
             setContentView(host);
-            openPdfUri(launch.getData(), null, true);
+            String nm0 = queryName(launch.getData());
+            String mime0 = launch.getType() != null ? launch.getType() : getContentResolver().getType(launch.getData());
+            if (OfficeReaderDialog.isOffice(OfficeReaderDialog.ext(nm0)) || OfficeReaderDialog.isOfficeMime(mime0)) {
+                if (!OfficeReaderDialog.isOffice(OfficeReaderDialog.ext(nm0))) nm0 = nm0 + officeExtFor(mime0);
+                openDocUri(launch.getData(), nm0, true);
+            } else {
+                openPdfUri(launch.getData(), null, true);
+            }
             return;
         }
         registerTools();
@@ -179,6 +186,7 @@ public class StudyToolsActivity extends AppCompatActivity {
     private void registerTools() {
         String pdf = "PDF Tools", photo = "Photo Tools", more = "QR & More";
         tools.add(new ToolDef("📖", W.BLUE, "PDF Reader", pdf, a -> { a.selectTab(1); return null; }));
+        tools.add(new ToolDef("📑", W.TEAL, "Documents", pdf, a -> { a.selectTab(2); return null; }));
         tools.add(new ToolDef("📚", W.RED, "Merge PDF", pdf, PdfTools.Merge::new));
         tools.add(new ToolDef("✂️", W.ORANGE, "Split PDF", pdf, PdfTools.Split::new));
         tools.add(new ToolDef("🗜️", W.PURPLE, "Compress PDF", pdf, PdfTools.Compress::new));
@@ -267,8 +275,8 @@ public class StudyToolsActivity extends AppCompatActivity {
         LinearLayout bar = W.row(this);
         bar.setBackgroundColor(W.SURFACE);
         bar.setElevation(W.dp(this, 8));
-        String[] ic = {"🧰", "📖"}, lb = {"Tools", "PDF Reader"};
-        for (int i = 0; i < 2; i++) {
+        String[] ic = {"🧰", "📖", "📄"}, lb = {"Tools", "PDF Reader", "Documents"};
+        for (int i = 0; i < 3; i++) {
             final int idx = i;
             LinearLayout t = W.column(this);
             t.setGravity(Gravity.CENTER);
@@ -289,7 +297,7 @@ public class StudyToolsActivity extends AppCompatActivity {
     }
 
     private void styleTabs(int active) {
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 3; i++) {
             tabLb[i].setTextColor(i == active ? W.BLUE : W.SUB);
             tabIc[i].setAlpha(i == active ? 1f : 0.55f);
         }
@@ -303,6 +311,11 @@ public class StudyToolsActivity extends AppCompatActivity {
             homeTitle.setText("Study Tools");
             tabBody.addView(toolsScroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             refreshRecents();
+        } else if (i == 2) {
+            if (docsScroll == null) docsScroll = buildDocsTab();
+            homeTitle.setText("Documents");
+            tabBody.addView(docsScroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            refreshDocRecents();
         } else {
             if (readerScroll == null) readerScroll = buildReaderTab();
             homeTitle.setText("PDF Reader");
@@ -340,6 +353,136 @@ public class StudyToolsActivity extends AppCompatActivity {
             W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 6, 0, 0));
         col.addView(tips, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 14, 0, 0));
         return sv;
+    }
+
+    // ═════════════════════════ Documents tab (Word · PowerPoint · Excel) ═════════════════════════
+    private static final String[] DOC_MIMES = {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/msword", "application/vnd.ms-powerpoint", "application/vnd.ms-excel"
+    };
+
+    private View buildDocsTab() {
+        ScrollView sv = new ScrollView(this);
+        sv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        LinearLayout col = W.column(this);
+        int pad = W.dp(this, 16);
+        col.setPadding(pad, W.dp(this, 8), pad, pad);
+        sv.addView(col, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        col.addView(W.pickBox(this, "📄", "Open a document", "Word · PowerPoint · Excel — opens instantly from any folder",
+            v -> pickDoc()));
+
+        docRecentBox = W.column(this);
+        col.addView(docRecentBox, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 14, 0, 0));
+
+        LinearLayout tips = W.card(this);
+        tips.addView(W.text(this, "Make it your default for documents", 14, W.TEXT, true));
+        tips.addView(W.text(this, "Open any .docx, .pptx or .xlsx from your file manager, choose this app and tap “Always”. After that, tapping a document in any folder opens it here directly.", 12.5f, W.SUB, false),
+            W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 6, 0, 0));
+        tips.addView(W.text(this, "Needs internet — the file is prepared once, then shown right away. Use “Open with” at the top to edit it in another app.", 12.5f, W.SUB, false),
+            W.lp(this, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 10, 0, 0));
+        col.addView(tips, W.lp(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 14, 0, 0));
+        return sv;
+    }
+
+    /** Picker straight into the phone's folders; the chosen file opens right away (no copy). */
+    private void pickDoc() {
+        pickCb = null;
+        try {
+            docPicker.launch(DOC_MIMES);
+        } catch (Exception e) {
+            toast("No file picker found");
+        }
+    }
+
+    private final ActivityResultLauncher<String[]> docPicker =
+        registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+            if (uri == null) return;
+            try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
+            catch (Exception ignored) { }
+            String nm = queryName(uri);
+            if (!OfficeReaderDialog.isOffice(OfficeReaderDialog.ext(nm))) {
+                toast("Choose a Word, PowerPoint or Excel file");
+                return;
+            }
+            openDocUri(uri, nm, false);
+        });
+
+    void openDocUri(final Uri uri, final String name, final boolean finishOnClose) {
+        if (!finishOnClose) addDocRecent(name, uri.toString());
+        OfficeReaderDialog.show(this, uri, name, finishOnClose ? this::finish : null);
+    }
+
+    private static String officeExtFor(String mime) {
+        if (mime == null) return "";
+        if (mime.contains("wordprocessingml")) return ".docx";
+        if (mime.contains("presentationml")) return ".pptx";
+        if (mime.contains("spreadsheetml")) return ".xlsx";
+        if (mime.equals("application/msword")) return ".doc";
+        if (mime.equals("application/vnd.ms-powerpoint")) return ".ppt";
+        if (mime.equals("application/vnd.ms-excel")) return ".xls";
+        return "";
+    }
+
+    private void addDocRecent(String name, String uri) {
+        try {
+            JSONArray old = new JSONArray(prefs().getString("recent_doc", "[]"));
+            JSONArray neu = new JSONArray();
+            JSONObject o = new JSONObject();
+            o.put("name", name);
+            o.put("uri", uri);
+            neu.put(o);
+            for (int i = 0; i < old.length() && neu.length() < 8; i++) {
+                JSONObject x = old.getJSONObject(i);
+                if (!uri.equals(x.optString("uri"))) neu.put(x);
+            }
+            prefs().edit().putString("recent_doc", neu.toString()).apply();
+        } catch (Exception ignored) { }
+    }
+
+    private void refreshDocRecents() {
+        if (docRecentBox == null) return;
+        docRecentBox.removeAllViews();
+        final List<String[]> list = new ArrayList<>();
+        try {
+            JSONArray arr = new JSONArray(prefs().getString("recent_doc", "[]"));
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.getJSONObject(i);
+                list.add(new String[]{o.optString("name"), o.optString("uri")});
+            }
+        } catch (Exception ignored) { }
+        if (list.isEmpty()) return;
+
+        LinearLayout card = W.card(this);
+        LinearLayout head = W.row(this);
+        head.addView(W.sectionTitle(this, "Recent documents"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView clear = W.text(this, "Clear", 13, W.SUB, true);
+        clear.setPadding(W.dp(this, 8), W.dp(this, 4), 0, W.dp(this, 4));
+        clear.setOnClickListener(v -> { prefs().edit().remove("recent_doc").apply(); refreshDocRecents(); });
+        head.addView(clear);
+        card.addView(head);
+        for (final String[] it : list) {
+            String e = OfficeReaderDialog.ext(it[0]);
+            LinearLayout r = W.row(this);
+            r.setPadding(0, W.dp(this, 10), 0, W.dp(this, 2));
+            int c = e.startsWith("x") ? W.GREEN : e.startsWith("p") ? W.ORANGE : W.BLUE;
+            String tag = e.startsWith("x") ? "XLS" : e.startsWith("p") ? "PPT" : "DOC";
+            r.addView(W.badge(this, tag, c), W.lp(W.dp(this, 40), W.dp(this, 40)));
+            TextView n = W.text(this, it[0], 14, W.TEXT, true);
+            n.setSingleLine(true);
+            n.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+            r.addView(n, W.lp(this, 0, ViewGroup.LayoutParams.WRAP_CONTENT, 12, 0, 0, 0));
+            ((LinearLayout.LayoutParams) n.getLayoutParams()).weight = 1f;
+            r.setClickable(true);
+            r.setOnClickListener(v -> {
+                try { openDocUri(Uri.parse(it[1]), it[0], false); }
+                catch (Exception ex) { toast("Couldn't open this file. It may have been moved or deleted."); }
+            });
+            card.addView(r);
+        }
+        docRecentBox.addView(card);
     }
 
     // ───────── recent PDFs (re-openable via persisted picker permission) ─────────
