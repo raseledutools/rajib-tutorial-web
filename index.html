@@ -1237,6 +1237,10 @@ body{font-family:Roboto,system-ui,-apple-system,'Segoe UI','Noto Sans Bengali',s
 .ib-open{display:inline-block;font-size:13px;margin-bottom:8px}
 .ib-when{font-size:11.5px;color:var(--sub)}
 .ib-note{text-align:center;font-size:13.5px;color:var(--sub);padding:34px 12px}
+.ib-push{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ib-push span{flex:1;min-width:180px;font-size:13px;color:var(--sub);line-height:1.5}
+.ib-push button{padding:10px 16px;border-radius:10px;border:0;background:var(--accent);color:#fff;font-weight:700;font-size:13px;cursor:pointer}
+.ib-push button:disabled{opacity:.6}
 body.chat-on .topbar{display:none}
 #viewDisc.active{display:flex;flex-direction:column;height:100vh;height:100dvh}
 #viewDisc .dz-center{margin:auto;max-width:420px;padding:30px 28px;text-align:center;display:flex;flex-direction:column;align-items:stretch;gap:10px}
@@ -1525,7 +1529,7 @@ body.chat-on .topbar{display:none}
   <div class="view" id="viewDisc"></div>
 
   <!-- NOTIFICATIONS INBOX -->
-  <div class="view" id="viewInbox"><div class="ib-wrap"><h2>🔔 Notifications</h2><div class="ib-sub">Messages from the admin, newest first</div><div id="inboxList"></div></div></div>
+  <div class="view" id="viewInbox"><div class="ib-wrap"><h2>🔔 Notifications</h2><div class="ib-sub">Messages from the admin, newest first</div><div class="ib-push" id="pushCard" style="display:none"><span id="pushTxt"></span><button id="pushBtn" onclick="pushEnableClick()">🔔 Notification চালু করুন</button></div><div id="inboxList"></div></div></div>
 
   <!-- NOTIFICATION CENTER (admin) -->
   <div class="view" id="viewNotify">
@@ -1534,16 +1538,13 @@ body.chat-on .topbar{display:none}
         <h2>🔔 Notification Center</h2>
       </div>
 
-      <div class="nt-card" id="ntKeyCard">
-        <h3>⚙ Server key</h3>
-        <div class="nt-note">Browser / exe থেকে notification পাঠাতে একবার Admin key দিন। এই device এ সেভ থাকবে।</div>
-        <div class="nt-stat" id="ntKeyState"></div>
-        <div class="fl"><label>Push server URL</label><input type="text" id="ntUrl" placeholder="https://your-push-server.onrender.com" autocomplete="off"/></div>
-        <div class="fl"><label>Admin key</label><input type="password" id="ntKey" placeholder="ADMIN_KEY" autocomplete="off"/></div>
-        <button class="btn-ok" onclick="ntSaveKey()">সেভ করুন</button>
+      <div class="nt-card" id="ntConsoleCard">
+        <h3>🔔 Firebase Console থেকে পাঠান</h3>
+        <div class="nt-note">কোনো server বা Admin key লাগবে না। নিচের বাটনে Firebase Console খুলে <b>New campaign → Firebase Notification messages</b> এ Title ও Message লিখুন, Target এ এই <b>Web app</b> বেছে <b>Publish</b> করুন।</div>
+        <a class="btn-ok nt-send" href="https://console.firebase.google.com/project/mywebtools-f8d53/messaging" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">Firebase Console খুলুন</a>
       </div>
 
-      <div class="nt-card">
+      <div class="nt-card" id="ntSendCard">
         <h3>নতুন বার্তা পাঠান</h3>
         <div class="nt-stat" id="ntStat">…</div>
         <div class="nt-seg">
@@ -3126,50 +3127,11 @@ window.openMembers=function(){renderMembers();goView("viewMembers")};
 // window এ রাখতে হবে যাতে Java-injected JS context থেকে accessible হয়
 if (typeof window._adminBridgeCb === 'undefined') window._adminBridgeCb = null;
 
-// Browser / Electron: send through the push server (/notify) with the admin key saved on this device.
-async function _fcmSendViaServer(title, body, target, mobile) {
-  let key = "";
-  try { key = localStorage.getItem("rt_push_key") || ""; } catch (e) {}
-  let base = "";
-  try { base = (localStorage.getItem("rt_push_url") || "").replace(/\/+$/, ""); } catch (e) {}
-  if (!base || !key) throw new Error("Push server URL ও Admin key দিন — Notification Center এর ⚙ Server key থেকে");
-  let r, d;
-  try {
-    r = await fetch(base + "/notify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-admin-key": key },
-      body: JSON.stringify({ title, body, target, mobile: target === "batch" ? "" : (mobile || ""), batch: target === "batch" ? (mobile || "") : "" })
-    });
-    d = await r.json().catch(() => ({}));
-  } catch (e) {
-    throw new Error("Server এ পৌঁছানো যায়নি। ৩০ সেকেন্ড পর আবার চেষ্টা করুন।");
-  }
-  if (r.status === 403) { try { localStorage.removeItem("rt_push_key"); } catch (e) {} ntKeyState(); throw new Error("Admin key ভুল — আবার দিন"); }
-  if (!r.ok) throw new Error(d.error || ("Send failed (HTTP " + r.status + (r.status === 404 ? " — /notify server এ নেই" : "") + ")"));
-  const n = target === "all" ? d.ok : d.sent;
-  return "✅ " + (Number.isFinite(n) ? n + " টি device এ " : "") + "পাঠানো হয়েছে";
-}
-window.ntSaveKey = function () {
-  const v = $("ntKey").value.trim(), u = $("ntUrl").value.trim();
-  if (u && !/^https:\/\/[^\s]+$/.test(u)) { showToast("Server URL https:// দিয়ে শুরু হতে হবে"); return; }
-  try {
-    if (u) localStorage.setItem("rt_push_url", u);
-    if (v) localStorage.setItem("rt_push_key", v);
-  } catch (e) { showToast("সেভ করা যায়নি"); return; }
-  if (!u && !v) { showToast("URL বা key লিখুন"); return; }
-  $("ntKey").value = ""; ntKeyState(); showToast("সেভ হয়েছে");
-};
-window.ntClearKey = function () { try { localStorage.removeItem("rt_push_key"); } catch (e) {} ntKeyState(); };
-function ntKeyState() {
-  let has = false;
-  try { has = !!localStorage.getItem("rt_push_key") && !!localStorage.getItem("rt_push_url"); const u = $("ntUrl"); if (u && !u.value) u.value = localStorage.getItem("rt_push_url") || ""; } catch (e) {}
-  const el = $("ntKeyState"); if (el) el.innerHTML = has ? '✅ Key সেভ আছে · <a onclick="ntClearKey()" style="cursor:pointer">মুছুন</a>' : '⚠ Key দেওয়া হয়নি';
-}
 async function _fcmSendViaBridge(title, body, target, mobile) {
   // AndroidAdmin available check — APK এ থাকলে এটা defined থাকবে
   const bridge = window.AndroidAdmin;
   if (!bridge || typeof bridge.sendNotification !== 'function') {
-    return _fcmSendViaServer(title, body, target, mobile);   // browser / Electron exe
+    throw new Error("Browser থেকে পাঠাতে Firebase Console ব্যবহার করুন");   // no server / admin key any more
   }
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -3205,7 +3167,8 @@ window.openNotify=function(){
   goView("viewNotify");ntLoadHistory();prLoad();
   // Bridge availability info
   const statEl=$("ntStat");
-  const kc=$("ntKeyCard");if(kc)kc.style.display=window.AndroidAdmin?"none":"";ntKeyState();
+  const inApp=!!window.AndroidAdmin;
+  $("ntSendCard").style.display=inApp?"":"none";$("ntConsoleCard").style.display=inApp?"none":"";
 };
 window.ntSetTarget=function(t){
   _ntTarget=t;
@@ -3586,7 +3549,7 @@ async function updateBell(check){
 }
 const linkify=t=>esc(t).replace(/(https?:\/\/[^\s<"]+)/g,u=>`<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
 const fmtDT=ts=>{const d=new Date(ts);return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})+", "+d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})};
-window.openInbox=function(){goView("viewInbox");closeSidebar()};
+window.openInbox=function(){goView("viewInbox");closeSidebar();pushUI()};
 async function inboxLoad(){
   const box=$("inboxList");box.innerHTML='<div class="ib-note">Loading…</div>';
   try{
@@ -3605,6 +3568,43 @@ async function inboxLoad(){
 setTimeout(()=>updateBell(true),2500);
 setInterval(()=>updateBell(true),60000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)updateBell(true)});
+
+// ── Web push (Firebase Cloud Messaging) — sent from Firebase Console, no server / admin key ──
+const PUSH_WEB_APP_ID = "";   // Firebase Console → Project settings → Your apps → Web app → App ID  (1:979594414301:web:…)
+const PUSH_VAPID_KEY  = "";   // optional: Project settings → Cloud Messaging → Web Push certificates → Key pair
+const PUSH_SW_URL = new URL("firebase-messaging-sw.js", location.href).href;
+try{localStorage.removeItem("rt_push_key");localStorage.removeItem("rt_push_url")}catch(e){}   // old admin-key setup, no longer used
+const pushOk=()=>!!PUSH_WEB_APP_ID&&(location.protocol==="https:"||location.hostname==="localhost")&&"serviceWorker" in navigator&&"Notification" in window&&"PushManager" in window&&!window.AndroidFlash&&!window.AndroidAdmin&&!window.AndroidPush&&!/; wv\)|Electron/i.test(navigator.userAgent);
+let _pushApp=null,_pushFg=false;
+function pushUI(){
+  const c=$("pushCard");if(!c)return;
+  if(!pushOk()){c.style.display="none";return}
+  c.style.display="";
+  const p=Notification.permission;
+  $("pushTxt").textContent=p==="denied"?"Browser এ Notification বন্ধ করা আছে — site settings থেকে Allow করুন।":p==="granted"?"✅ এই device এ Notification চালু আছে।":"নতুন class ও update এর Notification পেতে চালু করুন।";
+  $("pushBtn").style.display=p==="default"?"":"none";
+}
+async function pushEnable(manual){
+  if(!pushOk())return false;
+  try{
+    if(Notification.permission==="default"){if(!manual)return false;await Notification.requestPermission()}
+    if(Notification.permission!=="granted"){pushUI();if(manual)showToast("Notification Allow করা হয়নি");return false}
+    const {getMessaging,getToken,onMessage}=await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js");
+    if(!_pushApp)_pushApp=initializeApp({...firebaseConfig,messagingSenderId:"979594414301",appId:PUSH_WEB_APP_ID},"push");
+    const reg=await navigator.serviceWorker.register(PUSH_SW_URL);
+    await navigator.serviceWorker.ready;
+    const messaging=getMessaging(_pushApp);
+    const token=await getToken(messaging,{serviceWorkerRegistration:reg,...(PUSH_VAPID_KEY?{vapidKey:PUSH_VAPID_KEY}:{})});
+    if(!token)throw new Error("Token পাওয়া যায়নি");
+    if(!_pushFg){_pushFg=true;onMessage(messaging,p=>{const n=p.notification||{};showToast("🔔 "+(n.title||"Rajib Tutorial")+(n.body?" — "+n.body:""))})}
+    console.log("[FCM] token:",token);
+    pushUI();if(manual)showToast("✅ Notification চালু হয়েছে");
+    return true;
+  }catch(e){console.warn("[FCM]",e);pushUI();if(manual)showToast("❌ Notification চালু করা যায়নি: "+(e&&e.message||e));return false}
+}
+window.pushEnableClick=function(){const b=$("pushBtn");b.disabled=true;pushEnable(true).finally(()=>{b.disabled=false;pushUI()})};
+setTimeout(()=>{pushUI();if(pushOk()&&Notification.permission==="granted")pushEnable(false)},3000);
+
 
 // ── Discussion ──
 const DISC_PREFIX="_disc_",DISC_APP="rasel-mia-universal-sync";
