@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Menu, session, shell, clipboard, globalShortcut, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, session, shell, clipboard, globalShortcut, ipcMain, Notification } = require('electron');
 const path = require('path');
 
 const SITE = 'https://raseledutools.github.io/rajib-tutorial-web/';
@@ -150,6 +150,64 @@ function create() {
   win.loadURL(SITE);
 }
 
+
+/* ---------- Auto update (GitHub Releases) ----------
+   A new release is published by CI on every push to web-exe/**.
+   The app checks on start and every 30 min; when a newer version exists it
+   shows a Windows notification and a button at the top of the window.
+   Clicking the button downloads the update and restarts into the new version. */
+let autoUpdater = null;
+let updateState = { status: 'idle', version: null, percent: 0 };
+
+function sendUpdateState() {
+  if (win && !win.isDestroyed()) win.webContents.send('update:state', updateState);
+}
+function setUpdate(patch) { updateState = Object.assign({}, updateState, patch); sendUpdateState(); }
+
+function startDownload() {
+  if (!autoUpdater || updateState.status !== 'available') return;
+  setUpdate({ status: 'downloading', percent: 0 });
+  autoUpdater.downloadUpdate().catch(() => setUpdate({ status: 'available' }));
+}
+
+function initUpdater() {
+  if (!PACKAGED) return; // no updates in dev (npm start)
+  try { autoUpdater = require('electron-updater').autoUpdater; } catch (_) { return; }
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-available', (info) => {
+    const first = updateState.version !== info.version;
+    setUpdate({ status: 'available', version: info.version, percent: 0 });
+    if (first && Notification.isSupported()) {
+      const n = new Notification({
+        title: 'Rajib Tutorial — নতুন আপডেট',
+        body: 'Version ' + info.version + ' এসেছে। আপডেট করতে ক্লিক করুন।',
+        icon: path.join(__dirname, 'build', 'icon.png'),
+      });
+      n.on('click', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } startDownload(); });
+      n.show();
+    }
+  });
+  autoUpdater.on('update-not-available', () => { if (updateState.status !== 'downloading') setUpdate({ status: 'idle' }); });
+  autoUpdater.on('download-progress', (p) => setUpdate({ status: 'downloading', percent: Math.round(p.percent || 0) }));
+  autoUpdater.on('update-downloaded', () => {
+    setUpdate({ status: 'installing', percent: 100 });
+    // silent install, then relaunch the new version
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 800);
+  });
+  autoUpdater.on('error', () => {
+    if (updateState.status === 'downloading') setUpdate({ status: 'available' });
+  });
+
+  const check = () => { if (updateState.status === 'idle') autoUpdater.checkForUpdates().catch(() => {}); };
+  setTimeout(check, 5000);
+  setInterval(check, 30 * 60 * 1000).unref();
+}
+
+ipcMain.on('update:install', () => startDownload());
+ipcMain.on('update:get', () => sendUpdateState());
+
 // IPC: website calls window.ElectronShell.openUrl(url) → openChild()
 ipcMain.on('shell:openUrl', (_e, url) => {
   try {
@@ -179,6 +237,7 @@ app.whenReady().then(() => {
     { urls: ['https://www.youtube.com/embed/*', 'https://www.youtube-nocookie.com/embed/*'] },
     (d, cb) => { d.requestHeaders['Referer'] = SITE; cb({ requestHeaders: d.requestHeaders }); });
   create();
+  initUpdater();
   try { globalShortcut.register('PrintScreen', () => { try { clipboard.clear(); } catch (_) {} }); } catch (_) {}
 });
 app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch (_) {} });

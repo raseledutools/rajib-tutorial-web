@@ -1,4 +1,4 @@
-name: Build Website EXE (protected)
+name: Build Website EXE (installer + auto-update release)
 
 on:
   workflow_dispatch:
@@ -20,15 +20,19 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      - run: npm run dist
-      - uses: actions/upload-artifact@v4
-        with:
-          name: RajibTutorial-Website-EXE
-          path: web-exe/dist/RajibTutorial.exe
-      - name: Publish to release (direct download link)
+      # Every build gets a new, higher version (1.0.<run number>) so installed apps see it as an update.
+      - name: Set version
+        shell: bash
+        run: |
+          echo "APP_VERSION=1.0.${{ github.run_number }}" >> "$GITHUB_ENV"
+      # Builds the NSIS installer and publishes release v<version> with
+      # RajibTutorial-Setup.exe + latest.yml + blockmap (what the auto-updater reads).
+      - name: Build and publish release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view web-exe-latest >/dev/null 2>&1 || gh release create web-exe-latest --title "Website EXE (latest)" --notes "Screenshot/screen-record protected Windows exe of the Rajib Tutorial website."
-          gh release upload web-exe-latest dist/RajibTutorial.exe --clobber
+        run: npx electron-builder --win nsis --x64 --publish always -c.extraMetadata.version=$APP_VERSION
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RajibTutorial-Setup
+          path: web-exe/dist/RajibTutorial-Setup.exe
