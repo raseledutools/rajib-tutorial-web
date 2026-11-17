@@ -14,23 +14,31 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Messages sent from the admin panel are data-only: show them ourselves.
-// (Console campaigns carry a "notification" block and are shown by FCM itself.)
+// Admin panel messages carry a `notification` block (webpush config) so
+// FCM/browser shows them automatically on PC Chrome/Edge/Firefox.
+// We only handle the rare case where `notification` is missing (data-only fallback).
 messaging.onBackgroundMessage((p) => {
+  // If FCM already has a `notification` block it shows the notification itself —
+  // calling showNotification() again would duplicate it, so we return early.
   if (p.notification) return;
+  // Fallback: data-only message (kept for safety / older sends)
   const d = p.data || {};
   return self.registration.showNotification(d.title || "Rajib Tutorial", {
     body: d.body || "",
     tag: d.id || undefined,
-    data: { src: "rt" }
+    data: { url: "./" }
   });
 });
 
 self.addEventListener("notificationclick", (e) => {
-  if (!(e.notification.data && e.notification.data.src === "rt")) return;
   e.notification.close();
-  e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-    for (const c of list) if ("focus" in c) return c.focus();
-    return clients.openWindow("./");
-  }));
+  const url = (e.notification.data && e.notification.data.url) || "./";
+  e.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if (c.url && c.url.includes(self.location.origin) && "focus" in c) return c.focus();
+      }
+      return clients.openWindow(url);
+    })
+  );
 });
