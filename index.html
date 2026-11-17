@@ -1538,8 +1538,9 @@ body.chat-on .topbar{display:none}
         <h3>⚙ Server key</h3>
         <div class="nt-note">Browser / exe থেকে notification পাঠাতে একবার Admin key দিন। এই device এ সেভ থাকবে।</div>
         <div class="nt-stat" id="ntKeyState"></div>
-        <div class="fl"><input type="password" id="ntKey" placeholder="ADMIN_KEY" autocomplete="off"/></div>
-        <button class="btn-ok" onclick="ntSaveKey()">Key সেভ করুন</button>
+        <div class="fl"><label>Push server URL</label><input type="text" id="ntUrl" placeholder="https://your-push-server.onrender.com" autocomplete="off"/></div>
+        <div class="fl"><label>Admin key</label><input type="password" id="ntKey" placeholder="ADMIN_KEY" autocomplete="off"/></div>
+        <button class="btn-ok" onclick="ntSaveKey()">সেভ করুন</button>
       </div>
 
       <div class="nt-card">
@@ -3129,10 +3130,12 @@ if (typeof window._adminBridgeCb === 'undefined') window._adminBridgeCb = null;
 async function _fcmSendViaServer(title, body, target, mobile) {
   let key = "";
   try { key = localStorage.getItem("rt_push_key") || ""; } catch (e) {}
-  if (!key) throw new Error("Admin key দিন — Notification Center এর ⚙ Server key থেকে");
+  let base = "";
+  try { base = (localStorage.getItem("rt_push_url") || "").replace(/\/+$/, ""); } catch (e) {}
+  if (!base || !key) throw new Error("Push server URL ও Admin key দিন — Notification Center এর ⚙ Server key থেকে");
   let r, d;
   try {
-    r = await fetch(BACKEND + "/notify", {
+    r = await fetch(base + "/notify", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-admin-key": key },
       body: JSON.stringify({ title, body, target, mobile: target === "batch" ? "" : (mobile || ""), batch: target === "batch" ? (mobile || "") : "" })
@@ -3147,14 +3150,19 @@ async function _fcmSendViaServer(title, body, target, mobile) {
   return "✅ " + (Number.isFinite(n) ? n + " টি device এ " : "") + "পাঠানো হয়েছে";
 }
 window.ntSaveKey = function () {
-  const v = $("ntKey").value.trim();
-  if (!v) { showToast("Admin key লিখুন"); return; }
-  try { localStorage.setItem("rt_push_key", v); } catch (e) { showToast("Key সেভ করা যায়নি"); return; }
-  $("ntKey").value = ""; ntKeyState(); showToast("Key সেভ হয়েছে");
+  const v = $("ntKey").value.trim(), u = $("ntUrl").value.trim();
+  if (u && !/^https:\/\/[^\s]+$/.test(u)) { showToast("Server URL https:// দিয়ে শুরু হতে হবে"); return; }
+  try {
+    if (u) localStorage.setItem("rt_push_url", u);
+    if (v) localStorage.setItem("rt_push_key", v);
+  } catch (e) { showToast("সেভ করা যায়নি"); return; }
+  if (!u && !v) { showToast("URL বা key লিখুন"); return; }
+  $("ntKey").value = ""; ntKeyState(); showToast("সেভ হয়েছে");
 };
 window.ntClearKey = function () { try { localStorage.removeItem("rt_push_key"); } catch (e) {} ntKeyState(); };
 function ntKeyState() {
-  let has = false; try { has = !!localStorage.getItem("rt_push_key"); } catch (e) {}
+  let has = false;
+  try { has = !!localStorage.getItem("rt_push_key") && !!localStorage.getItem("rt_push_url"); const u = $("ntUrl"); if (u && !u.value) u.value = localStorage.getItem("rt_push_url") || ""; } catch (e) {}
   const el = $("ntKeyState"); if (el) el.innerHTML = has ? '✅ Key সেভ আছে · <a onclick="ntClearKey()" style="cursor:pointer">মুছুন</a>' : '⚠ Key দেওয়া হয়নি';
 }
 async function _fcmSendViaBridge(title, body, target, mobile) {
