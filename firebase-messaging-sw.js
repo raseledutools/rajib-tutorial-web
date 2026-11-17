@@ -12,4 +12,25 @@ firebase.initializeApp({
   appId: "1:979594414301:web:7048c995e56e331a85f334"   // same Web app ID as PUSH_WEB_APP_ID in index.html
 });
 
-firebase.messaging();
+const messaging = firebase.messaging();
+
+// Messages sent from the admin panel are data-only: show them ourselves.
+// (Console campaigns carry a "notification" block and are shown by FCM itself.)
+messaging.onBackgroundMessage((p) => {
+  if (p.notification) return;
+  const d = p.data || {};
+  return self.registration.showNotification(d.title || "Rajib Tutorial", {
+    body: d.body || "",
+    tag: d.id || undefined,
+    data: { src: "rt" }
+  });
+});
+
+self.addEventListener("notificationclick", (e) => {
+  if (!(e.notification.data && e.notification.data.src === "rt")) return;
+  e.notification.close();
+  e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    for (const c of list) if ("focus" in c) return c.focus();
+    return clients.openWindow("./");
+  }));
+});

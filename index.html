@@ -1544,12 +1544,6 @@ body.chat-on .topbar{display:none}
         <h2>🔔 Notification Center</h2>
       </div>
 
-      <div class="nt-card" id="ntConsoleCard">
-        <h3>🔔 Firebase Console থেকে পাঠান</h3>
-        <div class="nt-note">কোনো server বা Admin key লাগবে না। নিচের বাটনে Firebase Console খুলে <b>New campaign → Firebase Notification messages</b> এ Title ও Message লিখুন, Target এ এই <b>Web app</b> বেছে <b>Publish</b> করুন।</div>
-        <a class="btn-ok nt-send" href="https://console.firebase.google.com/project/mywebtools-f8d53/messaging" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">Firebase Console খুলুন</a>
-      </div>
-
       <div class="nt-card" id="ntSendCard">
         <h3>নতুন বার্তা পাঠান</h3>
         <div class="nt-stat" id="ntStat">…</div>
@@ -2874,6 +2868,7 @@ function stopSessionPoll(){
 // Android app: tell native side which member is logged in (so admin can send that user a push)
 function syncPushUser(){
   try{
+    if(window._pushTok)pushSaveToken();
     if(window.AndroidPush&&window.AndroidPush.setUser){
       window.AndroidPush.setUser((!adminIn&&session&&isPremium())?String(session.mobile||""):"");
     }
@@ -3133,11 +3128,89 @@ window.openMembers=function(){renderMembers();goView("viewMembers")};
 // window এ রাখতে হবে যাতে Java-injected JS context থেকে accessible হয়
 if (typeof window._adminBridgeCb === 'undefined') window._adminBridgeCb = null;
 
+/*FCMSEND-START*/
+// ── TEST ONLY: sends straight from the browser with the same Firebase service account as the Android app.
+//    Anyone who opens the page source can read this key — rotate it after testing. ──
+const FCM_PROJECT="mywebtools-f8d53";
+const FCM_EMAIL="firebase-adminsdk-fbsvc@mywebtools-f8d53.iam.gserviceaccount.com";
+const FCM_KEY_B64="MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDWqseNhhm6ZpLzuGEJMdv61j1wKE6+mv2Jt6b4mM6jszlTk2IsbliKo9ZoUYxC2VMhShJFcb6ZjWiful5VVw+0/u5s2pxxdKR0odb0ZxEqsofF5EnZMdqX8zYcqK/7Ns+iDN/GXKuSJOgo+cQV4BODKJ1NTJb8932JYUJEa+DuyHUZgggXl63D5EtXkpweVk5mYMF1B3vaPv1cS9KX7FoXAFY3qILBrODG+FuaebUDR0t+1Q/ZFfjKbxmVzlgGGCx0iA4JP2D41Rk8jv1bQJGHb8w78V/La4n1asHKB+D2xkFDlHALFgA4LX0xlp4627fR/kHpKs5NvfCMgtxH9oVLAgMBAAECggEAQb4lxUMHiB237apPFYjOjSClyj6d9yPyeAXlvgbWai4OZXkivObCeRs6I9KtuR9jpTNRKzFtpQs4uopSL6KtLcpRbMb62IhXgVy7Pzh9em0YxdNnhnwNLTIQJXDIDJC5wDBfLBnfda+V5k6v7d8lOqrqmezV5P1K1hMSP3AmgBoWerj4W8YfbgRkSIRswzYGFc/kVDHeJkH29oDTzDD1Cx6IAB/9QXi4G3Wx+TbV9976qRdASrVnvapa0wknyBnps1mRIvHip44jwuHU5G5lwGEukYWY6YSbClBjV3pmNwm9gsZdRmbG+gJ00i+/y63LjaTxuFqPQSkQl28V1dBaUQKBgQD1y2ndFn4GtJkRoLQdkATc26EUslJCksYjDnINayUBbuwLqo65LqtjIkaR2yr+KDETjaoTqDF9yVQFB6MeR8MfzJfpneAxE0oEsND4VGY4XRoEi7gnLMcLTaUzOwAPjJGpfNvmTGir1a/KQlPEWZrWXC7qYGtH9mfYVREKxzgFgwKBgQDflIHqlV4hTJhmgpQXrlXQio7FfaoCCXHFZKVh+zEEJI7ZjHnTWep/2P3Jtc7BsDTCYYM661HB19fRgvUsYtIs/6Ybj6VeYcol9/Ic3+9APthz600gMWRLCbw5jNpQJyeJrPvBOxlEnB/DOhk7kBZuFpBnzi5oE+ko4XGSlcy+mQKBgQCMX2NSNGo9Ah75BkJXL8zXJUdVPpHkG1a05qcUKsCzlNmRwBJKh/CxaP3MhtKC3AlLFXiwSToakEQ/qyDpRiqVmo6XiOZkoJOBIkn1yJ2oSuN0/SZqmRQDzJAwNd3PA4ScuwYK/FA68oq2hDK6zEG1cmgIyo/6RSsBTXOyKBxCaQKBgGuWukHZaPebNUc3FO6kXPVCh9uvUg0y4EW93fvddcPpl7hGaiVzgm3NTKsxSvJXybu0UwMaVDh0lo1ieHrIfx1aVGO05z4Yzr8gpqiQdkAzPdPiajXQrtORNrt29WNWxCbzUB63QryKaJp4rcXE25ZUU18wj5JT6oJaol2IqoMZAoGBAKHeuI6HsSzBgUxfbBijG8ouPie8AgCXpPeB3gFRvZk8A/i73xYxzOf9zvv1XZWrrwEJC7qwS8Ww5kyMbjVO8jsuJQ3ESy2BBlyzi+B5iE6+85KUQTus/SLT0Ge/jytHzVoosL3zgJdAveDuNsAyTs2QZJE9zynpvH7Xr8YBgOWu";
+let _fcmTok=null,_fcmTokExp=0;
+const _b64u=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const _strB64u=s=>_b64u(new TextEncoder().encode(s));
+async function fcmAccessToken(){
+  if(_fcmTok&&Date.now()<_fcmTokExp-60000)return _fcmTok;
+  const now=Math.floor(Date.now()/1000);
+  const unsigned=_strB64u(JSON.stringify({alg:"RS256",typ:"JWT"}))+"."+_strB64u(JSON.stringify({iss:FCM_EMAIL,scope:"https://www.googleapis.com/auth/firebase.messaging",aud:"https://oauth2.googleapis.com/token",iat:now,exp:now+3600}));
+  const der=Uint8Array.from(atob(FCM_KEY_B64),c=>c.charCodeAt(0));
+  const key=await crypto.subtle.importKey("pkcs8",der,{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"]);
+  const sig=await crypto.subtle.sign("RSASSA-PKCS1-v1_5",key,new TextEncoder().encode(unsigned));
+  const r=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type="+encodeURIComponent("urn:ietf:params:oauth:grant-type:jwt-bearer")+"&assertion="+unsigned+"."+_b64u(sig)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok||!d.access_token)throw new Error(d.error_description||d.error||"Access token পাওয়া যায়নি");
+  _fcmTok=d.access_token;_fcmTokExp=Date.now()+(d.expires_in||3600)*1000;return _fcmTok;
+}
+async function fcmSend(at,kind,value,title,body,id){
+  const msg={[kind]:value,data:{title,body,kind:"admin",id,time:String(Date.now())},android:{priority:"high",ttl:"86400s"}};
+  const r=await fetch("https://fcm.googleapis.com/v1/projects/"+FCM_PROJECT+"/messages:send",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+at},body:JSON.stringify({message:msg})});
+  if(!r.ok){const t=(await r.text().catch(()=>"")).slice(0,400);throw new Error("FCM HTTP "+r.status+(t?" "+t:""))}
+}
+const pushNorm=raw=>{let d=String(raw||"").replace(/\D/g,"");if(d.startsWith("880")&&d.length===13)d="0"+d.slice(3);else if(d.length===10&&d.startsWith("1"))d="0"+d;return d.slice(0,15)};
+function mobileVariants(raw){
+  const out=new Set(),d=String(raw||"").replace(/\D/g,""),n=pushNorm(raw);
+  if(d)out.add(d);
+  if(n){out.add(n);if(n.startsWith("0")){out.add(n.slice(1));out.add("880"+n.slice(1));out.add("+880"+n.slice(1))}}
+  return [...out];
+}
+/*FCMSEND-END*/
+async function fcmSendTokens(at,tokens,title,body,mid){
+  const list=[...tokens];let ok=0,fail=0,lastErr="";const dead=[];
+  for(let i=0;i<list.length;i+=8){
+    await Promise.all(list.slice(i,i+8).map(async t=>{
+      try{await fcmSend(at,"token",t,title,body,mid);ok++}
+      catch(e){fail++;lastErr=e.message||"";if(/UNREGISTERED|HTTP 404/.test(lastErr))dead.push(t)}
+    }));
+  }
+  dead.forEach(t=>{try{deleteDoc(doc(db,"push_tokens",t)).catch(()=>{})}catch(e){}});
+  return {ok,fail,total:list.length,lastErr};
+}
+// Website / exe: same targets as the Android admin (all · batch · one member), sent straight from the browser.
+async function _fcmSendViaWeb(title,body,target,arg){
+  const at=await fcmAccessToken(),mid="m"+Date.now();
+  const log=(t,mobile,batch)=>{try{setDoc(doc(db,"push_messages","msg_"+Date.now()),{title,body,target:t,mobile:mobile||"",...(batch?{batch}:{}),at:Date.now(),result:{sent:t==="all"?"all":"token"}}).catch(()=>{})}catch(e){}};
+  const collect=snap=>{const s=new Set();snap.forEach(d=>{const t=d.data().token;if(t)s.add(t)});return s};
+  if(target==="all"){
+    let topicOk=false,topicErr="";
+    try{await fcmSend(at,"topic","all",title,body,mid);topicOk=true}catch(e){topicErr=e.message}
+    const r=await fcmSendTokens(at,collect(await getDocs(query(collection(db,"push_tokens"),limit(2000)))),title,body,mid);
+    if(!topicOk&&!r.ok)throw new Error("কোনো device এ পাঠানো যায়নি"+(r.lastErr?" ("+r.lastErr+")":topicErr?" ("+topicErr+")":""));
+    log("all");
+    return "✅ সবার কাছে পাঠানো হয়েছে ("+r.ok+" টি device"+(r.fail?", "+r.fail+" টি ব্যর্থ":"")+")";
+  }
+  if(target==="user"){
+    const vars=mobileVariants(arg);if(!vars.length)throw new Error("সঠিক মোবাইল নম্বর দিন");
+    const toks=collect(await getDocs(query(collection(db,"push_tokens"),where("mobile","in",vars))));
+    if(!toks.size)throw new Error("এই member এর কোনো device registered নেই (app এ বা website এ login করে Notification চালু করতে হবে)");
+    const r=await fcmSendTokens(at,toks,title,body,mid);
+    if(!r.ok)throw new Error("কোনো device এ পাঠানো যায়নি"+(r.lastErr?" ("+r.lastErr+")":""));
+    log("user",arg);return "✅ "+r.ok+" টি device এ পৌঁছেছে";
+  }
+  if(target==="batch"){
+    const bk=bkey(arg),want=new Set(members.filter(m=>bkey(m.batch)===bk).map(m=>pushNorm(m.mobile||String(m.id||"").replace("_member_",""))).filter(Boolean));
+    if(!want.size)throw new Error("এই batch এ কোনো member নেই");
+    const toks=new Set();
+    (await getDocs(query(collection(db,"push_tokens"),limit(5000)))).forEach(d=>{const x=d.data();if(x.token&&x.mobile&&want.has(pushNorm(x.mobile)))toks.add(x.token)});
+    if(!toks.size)throw new Error("এই batch এর কারো device registered নেই (তাদের app এ বা website এ একবার login করে Notification চালু করতে হবে)");
+    const r=await fcmSendTokens(at,toks,title,body,mid);
+    if(!r.ok)throw new Error("কোনো device এ পাঠানো যায়নি"+(r.lastErr?" ("+r.lastErr+")":""));
+    log("batch","",arg);return "✅ "+arg+" এ পাঠানো হয়েছে ("+r.ok+" টি device"+(r.fail?", "+r.fail+" টি ব্যর্থ":"")+", "+want.size+" জন member)";
+  }
+  throw new Error("Invalid target: "+target);
+}
 async function _fcmSendViaBridge(title, body, target, mobile) {
   // AndroidAdmin available check — APK এ থাকলে এটা defined থাকবে
   const bridge = window.AndroidAdmin;
   if (!bridge || typeof bridge.sendNotification !== 'function') {
-    throw new Error("Browser থেকে পাঠাতে Firebase Console ব্যবহার করুন");   // no server / admin key any more
+    return _fcmSendViaWeb(title, body, target, mobile);   // website / exe: send straight from the browser
   }
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -3173,8 +3246,6 @@ window.openNotify=function(){
   goView("viewNotify");ntLoadHistory();prLoad();
   // Bridge availability info
   const statEl=$("ntStat");
-  const inApp=!!window.AndroidAdmin;
-  $("ntSendCard").style.display=inApp?"":"none";$("ntConsoleCard").style.display=inApp?"none":"";
 };
 window.ntSetTarget=function(t){
   _ntTarget=t;
@@ -3591,6 +3662,11 @@ function pushUI(){
   $("pushTxt").textContent=p==="denied"?"Browser এ Notification বন্ধ করা আছে — site settings থেকে Allow করুন।":p==="granted"?"✅ এই device এ Notification চালু আছে।":"নতুন class ও update এর Notification পেতে চালু করুন।";
   $("pushBtn").style.display=p==="default"?"":"none";
 }
+function pushSaveToken(){
+  const t=window._pushTok;if(!t)return;
+  let m="";try{m=(!adminIn&&session&&isPremium())?pushNorm(session.mobile):""}catch(e){}
+  setDoc(doc(db,"push_tokens",t),{token:t,mobile:m,device:"web",updatedAt:Date.now()},{merge:true}).catch(()=>{});
+}
 async function pushEnable(manual){
   if(!pushOk())return false;
   try{
@@ -3603,7 +3679,8 @@ async function pushEnable(manual){
     const messaging=getMessaging(_pushApp);
     const token=await getToken(messaging,{serviceWorkerRegistration:reg,...(PUSH_VAPID_KEY?{vapidKey:PUSH_VAPID_KEY}:{})});
     if(!token)throw new Error("Token পাওয়া যায়নি");
-    if(!_pushFg){_pushFg=true;onMessage(messaging,p=>{const n=p.notification||{};showToast("🔔 "+(n.title||"Rajib Tutorial")+(n.body?" — "+n.body:""))})}
+    if(!_pushFg){_pushFg=true;onMessage(messaging,p=>{const n=p.notification||p.data||{};showToast("🔔 "+(n.title||"Rajib Tutorial")+(n.body?" — "+n.body:""))})}
+    window._pushTok=token;pushSaveToken();
     console.log("[FCM] token:",token);
     pushUI();if(manual)showToast("✅ Notification চালু হয়েছে");
     return true;
