@@ -4,9 +4,10 @@ const crypto = require('crypto');
 const express = require('express');
 
 // ── Embedded secrets ───────────────────────────────────────────────────────────
-const ADMIN_KEY = '27a1a6aa90ada9b4d5136f7dd34e2079ccf2d150b91b775dd096308c227fcc7c';
+const ADMIN_KEY = process.env.ADMIN_KEY || '27a1a6aa90ada9b4d5136f7dd34e2079ccf2d150b91b775dd096308c227fcc7c';
 
-const FIREBASE_SA = {
+// Prefer env vars on the host (ADMIN_KEY, FIREBASE_SERVICE_ACCOUNT = whole JSON); the embedded values are only a fallback.
+const FIREBASE_SA = process.env.FIREBASE_SERVICE_ACCOUNT ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) : {
   type: 'service_account',
   project_id: 'mywebtools-f8d53',
   private_key_id: 'c420a8253fe6fb794a4d869d4d1949c9b27d5bff',
@@ -20,7 +21,7 @@ const FIREBASE_SA = {
   universe_domain: 'googleapis.com',
 };
 
-const ALLOWED_ORIGIN = 'https://raseledutools.github.io';
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://raseledutools.github.io';
 const PORT = process.env.PORT || 3000;
 // ──────────────────────────────────────────────────────────────────────────────
 
