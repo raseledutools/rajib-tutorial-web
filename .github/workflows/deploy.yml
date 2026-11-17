@@ -3,6 +3,13 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+    # Website redeploys only when the site files change (not for android/** or web-exe/**)
+    paths:
+      - 'index.html'
+      - 'call.html'
+      - 'firebase-messaging-sw.js'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
 
 jobs:
   deploy:

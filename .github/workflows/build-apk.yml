@@ -3,6 +3,11 @@ name: Build Android APK
 on:
   push:
     branches: [main]
+    # APK rebuilds only when the app itself or the bundled index.html changes (not for web-exe/** etc.)
+    paths:
+      - 'android/**'
+      - 'index.html'
+      - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
 jobs:
