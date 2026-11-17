@@ -2034,7 +2034,7 @@ body.chat-on .topbar{display:none}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc,
-         query, where, orderBy, limit, getCountFromServer, documentId }
+         query, where, orderBy, limit, getCountFromServer, documentId, onSnapshot }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -3242,27 +3242,29 @@ async function _fcmSendViaWeb(title,body,target,arg){
     let topicOk=false,topicErr="";
     try{await fcmSend(at,"topic","all",title,body,mid);topicOk=true}catch(e){topicErr=e.message}
     const r=await fcmSendTokens(at,collect(await getDocs(query(collection(db,"push_tokens"),limit(2000)))),title,body,mid);
-    if(!topicOk&&!r.ok)throw new Error("কোনো device এ পাঠানো যায়নি"+(r.lastErr?" ("+r.lastErr+")":topicErr?" ("+topicErr+")":""));
     log("all");
+    if(!topicOk&&!r.ok)throw new Error("কোনো device এ পাঠানো যায়নি"+(r.lastErr?" ("+r.lastErr+")":topicErr?" ("+topicErr+")":""));
     return "✅ সবার কাছে পাঠানো হয়েছে ("+r.ok+" টি device"+(r.fail?", "+r.fail+" টি ব্যর্থ":"")+")";
   }
   if(target==="user"){
     const vars=mobileVariants(arg);if(!vars.length)throw new Error("সঠিক মোবাইল নম্বর দিন");
     const toks=collect(await getDocs(query(collection(db,"push_tokens"),where("mobile","in",vars))));
-    if(!toks.size)throw new Error("এই member এর কোনো device registered নেই (app এ বা website এ login করে Notification চালু করতে হবে)");
+    log("user",arg);   // logged first: the PC exe reads this log
+    if(!toks.size)return "⚠ phone/browser device registered নেই — শুধু PC exe app এ পৌঁছাবে (যদি সে ব্যবহার করে)";
     const r=await fcmSendTokens(at,toks,title,body,mid);
     if(!r.ok)throw new Error("কোনো device এ পাঠানো যায়নি"+(r.lastErr?" ("+r.lastErr+")":""));
-    log("user",arg);return "✅ "+r.ok+" টি device এ পৌঁছেছে";
+    return "✅ "+r.ok+" টি device এ পৌঁছেছে";
   }
   if(target==="batch"){
     const bk=bkey(arg),want=new Set(members.filter(m=>bkey(m.batch)===bk).map(m=>pushNorm(m.mobile||String(m.id||"").replace("_member_",""))).filter(Boolean));
     if(!want.size)throw new Error("এই batch এ কোনো member নেই");
     const toks=new Set();
     (await getDocs(query(collection(db,"push_tokens"),limit(5000)))).forEach(d=>{const x=d.data();if(x.token&&x.mobile&&want.has(pushNorm(x.mobile)))toks.add(x.token)});
-    if(!toks.size)throw new Error("এই batch এর কারো device registered নেই (তাদের app এ বা website এ একবার login করে Notification চালু করতে হবে)");
+    log("batch","",arg);   // logged first: the PC exe reads this log
+    if(!toks.size)return "⚠ "+arg+" এর কারো phone/browser device registered নেই — শুধু PC exe app এ পৌঁছাবে";
     const r=await fcmSendTokens(at,toks,title,body,mid);
     if(!r.ok)throw new Error("কোনো device এ পাঠানো যায়নি"+(r.lastErr?" ("+r.lastErr+")":""));
-    log("batch","",arg);return "✅ "+arg+" এ পাঠানো হয়েছে ("+r.ok+" টি device"+(r.fail?", "+r.fail+" টি ব্যর্থ":"")+", "+want.size+" জন member)";
+    return "✅ "+arg+" এ পাঠানো হয়েছে ("+r.ok+" টি device"+(r.fail?", "+r.fail+" টি ব্যর্থ":"")+", "+want.size+" জন member)";
   }
   throw new Error("Invalid target: "+target);
 }
@@ -3820,6 +3822,39 @@ async function pushEnable(manual){
 }
 window.pushEnableClick=function(){const b=$("pushBtn");if(b)b.disabled=true;pushEnable(true).finally(()=>{if(b)b.disabled=false;pushUI()})};
 setTimeout(()=>{pushUI();if(pushOk()&&Notification.permission==="granted")pushEnable(false)},3000);
+
+/* Desktop exe (Electron) has no FCM web push, so it listens to the push_messages log
+   written by the admin panel and shows a native Windows notification. Exe only. */
+(function(){
+  if(!(window.ElectronShell&&window.ElectronShell.notify))return;
+  const KEY="rt_exe_push_seen";
+  let seen=Number(localStorage.getItem(KEY)||0);
+  if(!seen){seen=Date.now();try{localStorage.setItem(KEY,String(seen))}catch(e){}}
+  const mine=m=>{
+    if(m.target==="all")return true;
+    if(!session)return false;
+    if(m.target==="user")return mobileVariants(m.mobile).map(pushNorm).includes(pushNorm(session.mobile));
+    if(m.target==="batch"){const cm=curMember();return !!cm&&bkey(cm.batch)===bkey(m.batch)}
+    return false;
+  };
+  setTimeout(()=>{
+    try{
+      onSnapshot(query(collection(db,"push_messages"),orderBy("at","desc"),limit(10)),snap=>{
+        const fresh=[];
+        snap.docChanges().forEach(c=>{
+          if(c.type!=="added")return;
+          const m=c.doc.data();
+          if(m&&m.at>seen&&Date.now()-m.at<864e5)fresh.push(m);
+        });
+        if(!fresh.length)return;
+        fresh.sort((a,b)=>a.at-b.at);
+        fresh.slice(-3).forEach(m=>{if(mine(m))window.ElectronShell.notify(m.title||"Rajib Tutorial",m.body||"")});
+        seen=Math.max(seen,fresh[fresh.length-1].at);
+        try{localStorage.setItem(KEY,String(seen))}catch(e){}
+      },()=>{});
+    }catch(e){}
+  },3000);
+})();
 
 
 // ── Discussion ──

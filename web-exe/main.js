@@ -211,6 +211,18 @@ function initUpdater() {
   setInterval(check, 30 * 60 * 1000).unref();
 }
 
+// Native notification requested by the website (admin push messages), main window only.
+ipcMain.on('notify:show', (e, title, body) => {
+  if (!win || e.sender !== win.webContents || !Notification.isSupported()) return;
+  const n = new Notification({
+    title: String(title || 'Rajib Tutorial').slice(0, 120),
+    body: String(body || '').slice(0, 400),
+    icon: path.join(__dirname, 'build', 'icon.png'),
+  });
+  n.on('click', () => { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } });
+  n.show();
+});
+
 ipcMain.on('update:install', () => startDownload());
 ipcMain.on('update:get', () => sendUpdateState());
 
@@ -235,6 +247,7 @@ ipcMain.on('nav', (e, act) => {
 
 app.on('web-contents-created', (_e, wc) => guard(wc));
 
+app.setAppUserModelId('com.rajibtutorial.webexe'); // needed for Windows notifications
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) =>
