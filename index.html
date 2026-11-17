@@ -1091,6 +1091,126 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
 #viewNotify .nt-hi strong{display:block;font-size:13.5px}
 #viewNotify .nt-hi p{font-size:12.5px;color:var(--text);margin:3px 0;white-space:pre-wrap;word-break:break-word}
 #viewNotify .nt-hi span{font-size:11.5px;color:var(--sub)}
+
+/* ═══════════════════════════════════════════════════════════════
+   NATIVE PARITY (final layer) — mirrors android Ui.java / HomeScreen
+   tokens exactly: flat #E8365D accent, off-white hero, 12dp buttons,
+   plain stats, quick tiles, 16dp bordered course rows.
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#FFFFFF;--bg2:#FBF8F6;--card:#FFFFFF;--card2:#F3EEEA;
+  --accent:#E8365D;--accent2:#C81E4E;--accent-soft:rgba(232,54,93,.10);
+  --green:#17915A;--red:#D6483A;
+  --text:#1E1B18;--sub:#6C665F;--border:rgba(30,27,24,.10);--border2:rgba(0,0,0,.20);
+  --grad:#E8365D;--grad2:#E8365D;--grad3:#E8365D;--grad-orange:#E8365D;
+  --glow:none;--shadow:none;
+}
+html,body{background:#FFFFFF}
+body{font-family:Roboto,system-ui,-apple-system,'Segoe UI','Noto Sans Bengali',sans-serif}
+::-webkit-scrollbar-thumb{background:var(--card2)}
+.sidebar-overlay{background:rgba(0,0,0,.5)}
+
+/* top bar: 52dp white, 1px line (no shadow), 16.5 bold title */
+.topbar{background:#fff;box-shadow:none;border-bottom:1px solid var(--border);height:52px;padding:0 10px 0 4px}
+.topbar-title{font-size:16.5px;font-weight:700;color:var(--text)}
+.btn-hamburger{width:48px;height:52px;border-radius:0;color:var(--text)}
+.btn-hamburger svg{width:22px;height:22px}
+
+/* drawer */
+.sidebar{background:#FBF8F6}
+.nav-ico{width:18px;text-align:center;font-size:15px;line-height:1;flex-shrink:0}
+
+/* hero */
+.home-hero{background:#F8F4F1;padding:30px 22px 22px}
+.hero-logo{width:68px;height:68px;margin-bottom:16px;background:var(--accent-soft)}
+.home-hero h1{font-size:22px;font-weight:700;line-height:1.25;color:var(--text)}
+.hero-badge{font-size:13px;margin-top:6px;color:var(--sub)}
+.home-hero p{font-size:13px;line-height:1.45;margin-top:10px;color:var(--sub)}
+.hero-actions{margin-top:16px;gap:10px;max-width:480px}
+.btn-live{min-height:46px;height:auto;padding:10px 16px;font-size:14px;font-weight:700;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:none}
+.btn-live svg{display:none}
+.btn-live:active,.btn-phone-mode:active,.quick-tile:active,.course-card:active,.res-card:active{opacity:.7}
+.btn-live.primary,.btn-live.primary:hover{background:var(--accent);color:#fff;border:0;filter:none}
+.btn-live.outline,.btn-live.outline:hover{background:#fff;color:var(--text);border:1px solid var(--border2);filter:none}
+.btn-live.ghost,.btn-live.ghost:hover{background:var(--card2);color:var(--text);border:0;filter:none;font-size:14px}
+.btn-flashlight.on{background:#FFF8E1!important;color:#E65100!important;box-shadow:none!important}
+.live-pill,.btn-live.primary .live-pill{background:none;color:inherit;border-radius:0;padding:0;font-size:14px;font-weight:700;letter-spacing:0}
+.live-pill::before{content:"●  "}
+.live-info{font-size:12.5px;margin-top:8px;color:var(--sub);text-align:center}
+.hero-stats{max-width:480px;margin-top:20px;gap:0}
+.hero-stats>div{background:none;border:0;border-radius:0;box-shadow:none;padding:0}
+.stat-n{font-size:22px;font-weight:700;background:none;-webkit-text-fill-color:var(--text);color:var(--text)}
+.stat-l{font-size:11.5px;color:var(--sub);margin-top:0}
+.btn-phone-mode{background:var(--card2)!important;color:var(--text)!important;border:0;border-radius:12px;height:auto;min-height:46px;width:100%;max-width:480px;padding:10px 16px;font-size:14px;font-weight:700;box-shadow:none}
+.btn-phone-mode:hover{transform:none;filter:none}
+.btn-phone-mode svg{display:none}
+
+/* quick tiles (Circular · Question Bank · Recent Questions) */
+.quick-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:640px;margin:0 auto;padding:18px 16px 0}
+.quick-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;border:1px solid var(--border);border-radius:16px;padding:14px 6px 12px;cursor:pointer}
+.qt-ic{font-size:24px;line-height:1.2}
+.qt-tx{font-size:12px;font-weight:700;color:var(--text);text-align:center;margin-top:6px;line-height:1.3}
+
+/* catalogue */
+.courses-section{max-width:640px;margin:0 auto;padding:22px 16px 22px}
+.sec-hdr{display:block;margin-bottom:0}
+.sec-title{font-size:19px;font-weight:700;color:var(--text)}
+.sec-sub{font-size:12.5px;margin:2px 0 10px;color:var(--sub)}
+.filters{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.search-box{width:100%}
+.search-box svg{display:none}
+.search-box input,.filters select{width:100%;padding:11px 14px;font-size:14px;font-weight:400;border:1px solid var(--border2);border-radius:12px;background:#fff;box-shadow:none}
+.search-box input{padding-left:14px}
+.search-box input:focus,.filters select:focus{border-color:var(--accent);box-shadow:none}
+.course-grid{grid-template-columns:1fr;gap:10px}
+.course-card,.course-grid .course-card{grid-template-columns:44px minmax(0,1fr) auto;column-gap:12px;padding:14px 12px 14px 14px;background:#fff;border:1px solid rgba(0,0,0,.15);border-radius:16px;box-shadow:none}
+.course-card:hover,.course-grid .course-card:hover{transform:none;border-color:rgba(0,0,0,.15);box-shadow:none}
+.course-card::after{font-size:26px;color:var(--accent)}
+.course-grid .course-card:nth-child(n) .cc-thumb{width:44px;height:44px;border-radius:50%;background:rgba(232,54,93,.13);box-shadow:none}
+.course-grid .course-card:nth-child(4n+2) .cc-thumb{background:rgba(109,74,240,.13)}
+.course-grid .course-card:nth-child(4n+3) .cc-thumb{background:rgba(14,159,142,.13)}
+.course-grid .course-card:nth-child(4n+4) .cc-thumb{background:rgba(37,99,235,.13)}
+.course-grid .course-card:nth-child(n) .cc-thumb svg{color:var(--cc);stroke:var(--cc)}
+.course-grid .course-card:nth-child(n) .cc-tag{color:var(--cc);font-size:10.5px;font-weight:700;text-transform:uppercase}
+.cc-name{font-size:15px;font-weight:700;color:var(--text)}
+.cc-meta,.cc-desc{font-size:12px;color:var(--sub)}
+.cc-foot{padding-top:4px}
+.cc-vids{font-size:11.5px;font-weight:700;color:var(--accent2)}
+.cc-vids svg{display:none}
+.cc-vids::before{content:"▶  "}
+.footer{max-width:640px;justify-content:center;text-align:center;border-top:0;font-size:11.5px;color:var(--sub)}
+.footer span:nth-child(2){display:none}
+
+/* resources view (Circular / Question Bank / Recent) */
+#viewRes{background:var(--bg2);min-height:calc(100vh - 52px)}
+.res-wrap{max-width:640px;margin:0 auto;padding:16px 16px 28px}
+.res-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.res-head h2{flex:1;font-size:20px;font-weight:700;color:var(--text)}
+.res-add{font-size:12.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:10px;padding:8px 12px}
+.res-sub{font-size:12.5px;color:var(--sub);margin-bottom:12px}
+.res-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.res-chip{padding:8px 16px;border-radius:18px;border:1px solid var(--border2);background:#fff;font-size:13px;font-weight:700;color:var(--text)}
+.res-chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent2)}
+.res-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:12px 14px;margin-bottom:10px;cursor:pointer}
+.rc-title{font-size:14.5px;font-weight:700;color:var(--text)}
+.rc-note{font-size:12.5px;color:var(--sub);margin-top:3px}
+.rc-meta{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--sub)}
+.rc-pill{background:var(--accent-soft);color:var(--accent2);border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700}
+.rc-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.rc-btn{font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:10px;background:var(--card2);color:var(--text)}
+.rc-btn.pri{background:var(--accent-soft);color:var(--accent)}
+.rc-btn.del{color:var(--red)}
+.res-empty{text-align:center;color:var(--sub);font-size:13.5px;padding:28px 0 12px}
+
+/* leftover purple bits → native tokens */
+#kioskLockModal{background:rgba(0,0,0,.5)}
+.kiosk-lock-card{border:1px solid var(--border);box-shadow:0 12px 40px rgba(30,27,24,.18)}
+.kiosk-opt:hover,.kiosk-opt.selected{border-color:var(--accent);background:var(--accent-soft)}
+.kiosk-opt-icon.time-ico,.kiosk-opt-icon.pass-ico{background:var(--accent)}
+.kiosk-dur-pill:hover{border-color:var(--accent);color:var(--accent)}
+.kiosk-dur-pill.sel{background:var(--accent);box-shadow:none}
+.kiosk-pass-input{border-color:var(--border2);background:#fff}
+.kiosk-pass-input:focus{border-color:var(--accent);box-shadow:none}
 </style>
 </head>
 <body>
@@ -1118,6 +1238,9 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>
       <span>Live Exam</span><i class="live-dot hidden" id="dotExam"></i>
     </div>
+    <div class="nav-item" id="navResCircular" onclick="openRes('circular')"><span class="nav-ico">📢</span><span>Current Circular</span></div>
+    <div class="nav-item" id="navResQbank" onclick="openRes('qbank')"><span class="nav-ico">📚</span><span>Question Bank</span></div>
+    <div class="nav-item" id="navResRecent" onclick="openRes('recent')"><span class="nav-ico">🆕</span><span>Recent Question Bank</span></div>
     <div class="nav-label">Courses</div>
     <div id="sidebarCourses"><div style="padding:6px 12px;font-size:12px;color:var(--sub)">Loading…</div></div>
   </nav>
@@ -1210,6 +1333,12 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
       </button>
     </section>
 
+    <section class="quick-row">
+      <button class="quick-tile" onclick="openRes('circular')"><span class="qt-ic">📢</span><span class="qt-tx">Current<br>Circular</span></button>
+      <button class="quick-tile" onclick="openRes('qbank')"><span class="qt-ic">📚</span><span class="qt-tx">Question<br>Bank</span></button>
+      <button class="quick-tile" onclick="openRes('recent')"><span class="qt-ic">🆕</span><span class="qt-tx">Recent<br>Questions</span></button>
+    </section>
+
     <section class="courses-section" id="coursesAnchor">
       <div class="sec-hdr">
         <div>
@@ -1264,6 +1393,15 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
 
   <!-- LIVE CLASS / LIVE EXAM -->
   <div class="view" id="viewLive"></div>
+
+  <div class="view" id="viewRes">
+    <div class="res-wrap">
+      <div class="res-head"><h2 id="resHead"></h2><button class="res-add hidden" id="resAddBtn" onclick="openResModal()">+ Add</button></div>
+      <div class="res-sub" id="resSub"></div>
+      <div class="res-chips" id="resChips"></div>
+      <div id="resList"></div>
+    </div>
+  </div>
 
   <!-- MANAGE (admin) -->
   <div class="view" id="viewManage">
@@ -1623,6 +1761,22 @@ body{font-family:system-ui,-apple-system,Roboto,'Segoe UI','Noto Sans Bengali',s
   </div>
 </div>
 
+<div class="modal-bg hidden" id="mRes">
+  <div class="modal">
+    <div class="modal-title" id="mResTitle">Add</div>
+    <div class="modal-sub">Paste a link (Google Drive / web page / PDF).</div>
+    <input type="hidden" id="resEditId"/>
+    <div class="fl"><label>Title *</label><input type="text" id="resTitleIn" placeholder="e.g. BUET Diploma Admission Test 2025"/></div>
+    <div class="fl" id="resCatWrap"><label>Category</label><select id="resCatIn"></select></div>
+    <div class="fl"><label>File link *</label><input type="url" id="resUrlIn" placeholder="https://…"/></div>
+    <div class="fl"><label>Note (optional)</label><input type="text" id="resNoteIn" placeholder="e.g. Last date 30 Nov · 25 posts"/></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeM('mRes')">Cancel</button>
+      <button class="btn-ok" onclick="saveRes()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg hidden" id="mConfirm">
   <div class="modal">
     <div class="modal-title" id="confTitle">Delete?</div>
@@ -1730,6 +1884,13 @@ const LIVE_DOC="_live_settings";
 const SEMESTERS=["1st Semester","2nd Semester","3rd Semester","4th Semester","5th Semester","6th Semester","7th Semester","8th Semester"];
 let courses=[], curCourse=null, curVideo=null, adminIn=false, pendingDelFn=null;
 let members=[], session=null, pendingVid=null;
+let resources=[], resType="circular", resCat="";
+const QB_CATS=["BUET","PSC","Other"];
+const RES_META={
+  circular:{ico:"📢",name:"Current Circular",sub:"Latest job & admission circulars"},
+  qbank:{ico:"📚",name:"Question Bank",sub:"Previous years' questions: BUET, PSC and others"},
+  recent:{ico:"🆕",name:"Recent Question Bank",sub:"Most recent exam questions"}
+};
 let filterSem="", searchQ="";
 let liveType="class";
 let live={classTitle:"",classTime:"",classUrl:"",examTitle:"",examTime:"",examUrl:"",premiumUrl:"",premiumInfo:""};
@@ -1914,7 +2075,7 @@ window.goView=function(id, _fromPop){
   window.scrollTo(0,0);
   document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
   if(id==="viewHome") $("navHome").classList.add("active");
-  const titles={viewHome:"Rajib Tutorial",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewMembers:"Premium Members",viewNotify:"Notification Center",viewLive:liveType==="exam"?"Live Exam":"Live Class"};
+  const titles={viewHome:"Rajib Tutorial",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewMembers:"Premium Members",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class"};
   $("topbarTitle").textContent=titles[id]||"Rajib Tutorial";
 
   // ── pushState: Android back button এর জন্য WebView history তৈরি করা ──
@@ -2051,16 +2212,93 @@ window.saveLive=async function(){
   }catch(e){showToast("Error: "+e.message)}
 };
 
+// ─── Circulars & question banks (same _res_* docs the native app uses) ───
+window.openRes=function(type){
+  resType=type;resCat="";
+  goView("viewRes");renderRes();
+  const ids={circular:"navResCircular",qbank:"navResQbank",recent:"navResRecent"};
+  $(ids[type])?.classList.add("active");
+  closeSidebar();
+};
+window.setResCat=function(c){resCat=c;renderRes()};
+function renderRes(){
+  const m=RES_META[resType]||RES_META.circular, qb=resType==="qbank";
+  $("resHead").textContent=m.ico+" "+m.name;
+  $("resSub").textContent=m.sub;
+  $("topbarTitle").textContent=m.name;
+  $("resAddBtn").classList.toggle("hidden",!adminIn);
+  $("resChips").innerHTML=qb?["",...QB_CATS].map(n=>`<button class="res-chip ${n===resCat?"on":""}" onclick="setResCat('${n}')">${n||"All"}</button>`).join(""):"";
+  const list=resources.filter(r=>r.type===resType&&(!qb||!resCat||r.category.toLowerCase()===resCat.toLowerCase()));
+  if(!list.length){
+    $("resList").innerHTML=`<div class="res-empty">${adminIn?"Nothing here yet. Tap “+ Add” to add the first one.":"Nothing here yet. Please check back soon."}</div>`;
+    return;
+  }
+  $("resList").innerHTML=list.map(r=>`
+    <div class="res-card" onclick="openResLink('${r.id}')">
+      <div class="rc-title">${esc(r.title||"Untitled")}</div>
+      ${r.note?`<div class="rc-note">${esc(r.note)}</div>`:""}
+      <div class="rc-meta">
+        ${qb&&r.category?`<span class="rc-pill">${esc(r.category)}</span>`:""}
+        ${r.at?`<span>🕒 ${esc(new Date(r.at).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}))}</span>`:""}
+      </div>
+      <div class="rc-acts">
+        <button class="rc-btn pri" onclick="event.stopPropagation();openResLink('${r.id}')">🔗 Open</button>
+        ${adminIn?`<button class="rc-btn" onclick="event.stopPropagation();openResModal('${r.id}')">Edit</button><button class="rc-btn del" onclick="event.stopPropagation();confirmDelRes('${r.id}')">Delete</button>`:""}
+      </div>
+    </div>`).join("");
+}
+window.openResLink=function(id){
+  const r=resources.find(x=>x.id===id), u=safeUrl(r&&r.url);
+  if(!u){showToast("Could not open the link");return}
+  window.open(u,"_blank","noopener");
+};
+window.openResModal=function(editId){
+  const r=editId?resources.find(x=>x.id===editId):null;
+  $("mResTitle").textContent=(r?"Edit ":"Add ")+RES_META[resType].name;
+  $("resEditId").value=r?r.id:"";
+  $("resTitleIn").value=r?r.title:"";
+  $("resUrlIn").value=r?r.url:"";
+  $("resNoteIn").value=r?r.note:"";
+  const qb=resType==="qbank";
+  $("resCatWrap").style.display=qb?"":"none";
+  const sel=r&&r.category?r.category:(resCat||QB_CATS[0]);
+  const cats=QB_CATS.includes(sel)?QB_CATS:[...QB_CATS,sel];
+  $("resCatIn").innerHTML=cats.map(c=>`<option ${c===sel?"selected":""}>${esc(c)}</option>`).join("");
+  openM("mRes");
+};
+window.saveRes=async function(){
+  const t=$("resTitleIn").value.trim(), u=safeUrl($("resUrlIn").value), n=$("resNoteIn").value.trim(), eid=$("resEditId").value;
+  if(!t){showToast("Please enter a title");return}
+  if(!u){showToast("Link must start with http:// or https://");return}
+  const d={type:resType,title:t,url:u,note:n,category:resType==="qbank"?$("resCatIn").value:""};
+  try{
+    if(eid) await updateDoc(doc(db,"tutorial_courses",eid),d);
+    else await setDoc(doc(db,"tutorial_courses","_res_"+Date.now().toString(36)),{...d,at:Date.now()});
+    showToast(eid?"Updated":"Added");closeM("mRes");await loadCourses();renderRes();
+  }catch(e){showToast("Error: "+e.message)}
+};
+window.confirmDelRes=function(id){
+  const r=resources.find(x=>x.id===id);
+  $("confTitle").textContent="Delete this item?";
+  $("confMsg").textContent=`“${r?.title||id}” will be removed for everyone.`;
+  pendingDelFn=async()=>{
+    try{await deleteDoc(doc(db,"tutorial_courses",id));showToast("Deleted");closeM("mConfirm");await loadCourses();renderRes()}
+    catch(e){showToast("Error: "+e.message)}
+  };
+  openM("mConfirm");
+};
+
 // ─── Load courses ────────────────────────────────────────
 async function loadCourses(){
   try{
     const snap=await getDocs(collection(db,"tutorial_courses"));
-    courses=[];members=[];
+    courses=[];members=[];resources=[];
     snap.forEach(d=>{
       const data=d.data();
       if(d.id===LIVE_DOC){live={...live,...(data.live||{})};return}
       if(d.id.startsWith("_member_")){members.push({id:d.id,...data});return}
-      if(d.id.startsWith("_disc_")||d.id.startsWith("_call_")||d.id.startsWith("_res_")||d.id.startsWith("_payreq_"))return;
+      if(d.id.startsWith("_res_")){resources.push({id:d.id,type:data.type||"",category:data.category||"",title:data.title||"",url:data.url||"",note:data.note||"",at:Number(data.at)||0});return}
+      if(d.id.startsWith("_disc_")||d.id.startsWith("_call_")||d.id.startsWith("_payreq_"))return;
       courses.push({
         id:d.id,courseName:data.courseName||"",title:data.title||d.id,
         className:data.className||"",subject:data.subject||"",description:data.description||"",
@@ -2072,7 +2310,9 @@ async function loadCourses(){
     $("courseGridWrap").innerHTML=`<div class="empty">${I.warn}<p>We could not load the courses at the moment.<br/>Please check your internet connection and refresh the page.</p></div>`;
     return;
   }
+  resources.sort((x,y)=>y.at-x.at);
   buildSemFilter();renderLive();renderCourseGrid();renderSidebarCourses();updateStats();
+  if($("viewRes").classList.contains("active"))renderRes();
   validateSession();renderUser();if(curCourse)renderVlist();
   if(adminIn) renderManage();
 }
