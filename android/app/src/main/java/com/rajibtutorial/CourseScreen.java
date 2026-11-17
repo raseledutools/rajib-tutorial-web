@@ -1,6 +1,7 @@
 package com.rajibtutorial;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -8,15 +9,23 @@ import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.MediaController;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.VideoView;
-import android.net.Uri;
 
 /** Course page: lesson list + inline player (YouTube embed or direct video). */
 final class CourseScreen extends Screen {
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
-    private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
+    private static final int WRAP  = ViewGroup.LayoutParams.WRAP_CONTENT;
+
+    // ── offline indicator colours (OneDrive-style) ──────────────
+    // Green circle  = fully downloaded / available offline
+    // Grey circle   = not downloaded
+    // Blue spinner  = downloading now
+    private static final int COL_OFFLINE_OK  = 0xFF2EAD6C; // green
+    private static final int COL_OFFLINE_NO  = 0x40FFFFFF;  // faint white ring
+    private static final int COL_DL_ACTIVE   = 0xFF4A9EFF;  // blue
 
     private final NativeHomeActivity a;
     private LinearLayout root, listWrap;
@@ -24,7 +33,7 @@ final class CourseScreen extends Screen {
     private TextView cpTitle, cpSub, playerTitle, playerMeta, buyBtn;
     private WebView web;
     private VideoView video;
-    private boolean released = false;
+    private boolean released      = false;
     private boolean inlineSuspended = false;
 
     CourseScreen(NativeHomeActivity host) { a = host; }
@@ -46,7 +55,7 @@ final class CourseScreen extends Screen {
         back.setOnClickListener(v -> a.goHome());
         head.addView(back, new LinearLayout.LayoutParams(WRAP, WRAP));
         cpTitle = Ui.ellipsized(a, "", 17, Ui.TEXT, true, 2);
-        cpSub = Ui.tv(a, "", 12.5f, Ui.SUB, false);
+        cpSub   = Ui.tv(a, "", 12.5f, Ui.SUB, false);
         head.addView(cpTitle);
         head.addView(cpSub);
         buyBtn = Ui.btn(a, "", Ui.B_PRIMARY, v -> { if (a.curCourse != null) a.dialogs.payCourse(a.curCourse); });
@@ -68,7 +77,7 @@ final class CourseScreen extends Screen {
         LinearLayout tt = new LinearLayout(a);
         tt.setOrientation(LinearLayout.VERTICAL);
         playerTitle = Ui.ellipsized(a, "–", 14.5f, Ui.TEXT, true, 2);
-        playerMeta = Ui.tv(a, "", 12, Ui.SUB, false);
+        playerMeta  = Ui.tv(a, "", 12, Ui.SUB, false);
         tt.addView(playerTitle);
         tt.addView(playerMeta);
         info.addView(tt, new LinearLayout.LayoutParams(0, WRAP, 1f));
@@ -108,7 +117,6 @@ final class CourseScreen extends Screen {
         renderList();
     }
 
-    /** "Buy this course" bar: only for a priced course the viewer cannot watch yet. */
     private void updateBuy() {
         Store.Course c = a.curCourse;
         boolean show = c != null && c.price > 0 && !Store.courseAllowed(c);
@@ -116,7 +124,8 @@ final class CourseScreen extends Screen {
         if (show) buyBtn.setText("Buy this course · " + Store.priceLabel(c.price));
     }
 
-    // ── Player ──────────────────────────────────────────────
+    // ── Player ──────────────────────────────────────────────────────────────
+
     private void clearPlayer() {
         if (video != null) {
             try { video.stopPlayback(); } catch (Exception ignored) { }
@@ -133,7 +142,6 @@ final class CourseScreen extends Screen {
         playerFrame.addView(t, new FrameLayout.LayoutParams(MATCH, MATCH));
     }
 
-    /** Called when the session is revoked while a video is open. */
     void stopWithMessage(String msg) {
         if (a.curVideo != null) {
             a.curVideo = null;
@@ -173,10 +181,15 @@ final class CourseScreen extends Screen {
         clearPlayer();
         String embed = Store.ytEmbed(v.url, autoplay);
         if (embed != null) {
+            // YouTube — stream only, no local cache possible
             web = Media.newPlayerWebView(a);
             playerFrame.addView(web, new FrameLayout.LayoutParams(MATCH, MATCH));
             Media.load(web, embed);
         } else if (!v.url.isEmpty()) {
+            // Direct video — use cached file if available, else stream + auto-cache
+            String local = VideoCache.getLocalPath(a, v.id);
+            String playUri = (local != null) ? local : v.url;
+
             video = new VideoView(a);
             FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(MATCH, MATCH);
             lp.gravity = Gravity.CENTER;
@@ -184,12 +197,21 @@ final class CourseScreen extends Screen {
             MediaController mc = new MediaController(a);
             mc.setAnchorView(video);
             video.setMediaController(mc);
-            video.setVideoURI(Uri.parse(v.url));
+            video.setVideoURI(android.net.Uri.parse(
+                    local != null ? "file://" + playUri : playUri));
             video.setOnErrorListener((mp, what, extra) -> {
                 a.toast("Could not play this video");
                 return true;
             });
             if (autoplay) video.start();
+
+            // Auto-cache: if not downloaded yet, start downloading in background
+            if (local == null && !VideoCache.isDownloading(v.id)) {
+                VideoCache.startDownload(a, v.id, v.url,
+                        (videoId, percent) -> {
+                            if (!released) renderList(); // refresh icons
+                        });
+            }
         } else {
             showPlaceholder("No video link set for this lesson");
         }
@@ -201,7 +223,9 @@ final class CourseScreen extends Screen {
         Store.Video v = a.curVideo;
         if (v == null || v.url.isEmpty()) { a.toast("Select a lesson first"); return; }
         Intent i = new Intent(a, PlayerActivity.class);
-        i.putExtra("url", v.url);
+        // prefer local cached file for fullscreen too
+        String local = VideoCache.getLocalPath(a, v.id);
+        i.putExtra("url", local != null ? "file://" + local : v.url);
         i.putExtra("title", v.title);
         inlineSuspended = true;
         showPlaceholder("Playing in fullscreen…");
@@ -218,7 +242,7 @@ final class CourseScreen extends Screen {
 
     @Override
     void onPause() {
-        if (web != null) web.onPause();
+        if (web   != null) web.onPause();
         if (video != null && video.isPlaying()) video.pause();
     }
 
@@ -228,7 +252,8 @@ final class CourseScreen extends Screen {
         if (root != null) clearPlayer();
     }
 
-    // ── Lessons list ────────────────────────────────────────
+    // ── Lessons list ─────────────────────────────────────────────────────────
+
     private void renderList() {
         listWrap.removeAllViews();
         Store.Course c = a.curCourse;
@@ -242,6 +267,8 @@ final class CourseScreen extends Screen {
         for (int i = 0; i < c.videos.size(); i++) {
             final Store.Video v = c.videos.get(i);
             boolean playing = a.curVideo != null && a.curVideo.id.equals(v.id);
+            boolean isYT    = VideoCache.isYouTube(v.url);
+
             LinearLayout row = new LinearLayout(a);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
@@ -250,17 +277,90 @@ final class CourseScreen extends Screen {
             Ui.pressFx(row);
             row.setOnClickListener(x -> play(v.id));
 
-            TextView num = Ui.tv(a, playing ? "▶" : String.valueOf(i + 1), 12.5f, playing ? Ui.WHITE : Ui.SUB, true);
+            // ── number / play indicator ──────────────────────────────────────
+            TextView num = Ui.tv(a, playing ? "▶" : String.valueOf(i + 1), 12.5f,
+                    playing ? Ui.WHITE : Ui.SUB, true);
             num.setGravity(Gravity.CENTER);
             num.setBackground(Ui.circle(playing ? Ui.ACCENT : Ui.CARD2));
             row.addView(num, Ui.lpm(a, Ui.dp(a, 30), Ui.dp(a, 30), 0, 0, 12, 0));
 
+            // ── title + duration ─────────────────────────────────────────────
             LinearLayout txt = new LinearLayout(a);
             txt.setOrientation(LinearLayout.VERTICAL);
             txt.addView(Ui.ellipsized(a, v.title, 14, Ui.TEXT, playing, 2));
-            if (v.durationMinutes > 0) txt.addView(Ui.tv(a, v.durationMinutes + " min", 11.5f, Ui.SUB, false));
+            if (v.durationMinutes > 0)
+                txt.addView(Ui.tv(a, v.durationMinutes + " min", 11.5f, Ui.SUB, false));
             row.addView(txt, new LinearLayout.LayoutParams(0, WRAP, 1f));
-            if (!can) row.addView(Ui.tv(a, "🔒", 15, Ui.SUB, false));
+
+            // ── lock icon (non-member) ───────────────────────────────────────
+            if (!can) {
+                row.addView(Ui.tv(a, "🔒", 15, Ui.SUB, false));
+            }
+
+            // ── offline / download indicator (only for direct video, not YouTube) ──
+            if (!isYT && !v.url.isEmpty() && can) {
+                boolean downloaded  = VideoCache.isDownloaded(a, v.id);
+                boolean downloading = VideoCache.isDownloading(v.id);
+                int     progress    = VideoCache.getProgress(v.id);
+
+                if (downloading) {
+                    // Blue arc progress bar
+                    ProgressBar pb = new ProgressBar(a, null,
+                            android.R.attr.progressBarStyleHorizontal);
+                    pb.setMax(100);
+                    pb.setProgress(Math.max(progress, 0));
+                    pb.setIndeterminate(progress <= 0);
+                    // tint blue
+                    if (android.os.Build.VERSION.SDK_INT >= 21) {
+                        pb.getProgressDrawable()
+                          .setColorFilter(COL_DL_ACTIVE,
+                                  android.graphics.PorterDuff.Mode.SRC_IN);
+                        pb.getIndeterminateDrawable()
+                          .setColorFilter(COL_DL_ACTIVE,
+                                  android.graphics.PorterDuff.Mode.SRC_IN);
+                    }
+                    int pbSize = Ui.dp(a, 20);
+                    LinearLayout.LayoutParams pbLp =
+                            new LinearLayout.LayoutParams(Ui.dp(a, 28), pbSize);
+                    pbLp.setMargins(Ui.dp(a, 8), 0, 0, 0);
+                    row.addView(pb, pbLp);
+
+                    // percent label e.g. "73%"
+                    if (progress > 0) {
+                        TextView pct = Ui.tv(a, progress + "%", 10, COL_DL_ACTIVE, false);
+                        pct.setPadding(Ui.dp(a, 2), 0, 0, 0);
+                        row.addView(pct);
+                    }
+                } else {
+                    // Dot: green = offline ready, faint = not downloaded
+                    View dot = new View(a);
+                    int dotSize = Ui.dp(a, 10);
+                    dot.setBackground(Ui.circle(downloaded ? COL_OFFLINE_OK : COL_OFFLINE_NO));
+                    LinearLayout.LayoutParams dotLp =
+                            new LinearLayout.LayoutParams(dotSize, dotSize);
+                    dotLp.setMargins(Ui.dp(a, 10), 0, Ui.dp(a, 2), 0);
+                    dotLp.gravity = Gravity.CENTER_VERTICAL;
+                    row.addView(dot, dotLp);
+
+                    // Long-press to delete, tap to download
+                    final String vid = v.id;
+                    final String url = v.url;
+                    dot.setOnClickListener(x -> {
+                        if (VideoCache.isDownloaded(a, vid)) {
+                            // already downloaded — offer delete
+                            VideoCache.delete(a, vid);
+                            a.toast("Offline copy removed");
+                            renderList();
+                        } else {
+                            a.toast("Downloading for offline…");
+                            VideoCache.startDownload(a, vid, url,
+                                    (id, pct) -> { if (!released) renderList(); });
+                            renderList();
+                        }
+                    });
+                }
+            }
+
             listWrap.addView(row, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 8));
         }
     }
