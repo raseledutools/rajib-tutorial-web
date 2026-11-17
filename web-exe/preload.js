@@ -3,6 +3,7 @@ const { ipcRenderer, contextBridge } = require('electron');
 
 // Nav bar (back / forward / reload)
 function buildNavBar() {
+  if (location.protocol === 'file:' && location.pathname.endsWith('splash.html')) return;
   if (document.getElementById('__rt_nav')) return;
   const bar = document.createElement('div');
   bar.id = '__rt_nav';

@@ -24,6 +24,7 @@
       "main.js",
       "preload.js",
       "offline.html",
+      "splash.html",
       "package.json"
     ],
     "win": {
