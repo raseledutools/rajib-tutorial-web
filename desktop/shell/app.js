@@ -29,6 +29,7 @@ function go(name) {
   document.querySelectorAll('.nav button').forEach((b) => b.classList.toggle('on', b.dataset.v === name));
   for (const [k, p] of Object.entries(panes)) p.classList.toggle('show', k === name);
   if (name === 'home') renderHome();
+  if (name === 'native') renderNative();
   if (name === 'web') renderWeb();
   if (name === 'study') renderStudy();
   if (name === 'focus') renderFocus();
@@ -41,6 +42,7 @@ function renderHome() {
     el('h1', { text: 'Rajib Tutorial' }),
     el('p', { class: 'sub', text: 'EEE courses, study tools and focus mode. This window is protected from screenshots and screen recording.' }),
     el('div', { class: 'big' },
+      bigCard('📱', 'Native Section', 'Courses, live class, discussion, notifications', 'native'),
       bigCard('🌐', 'Web Section', 'Courses, live class, discussion, resources', 'web'),
       bigCard('🧰', 'Study Tools', 'PDF, photo, QR and age tools', 'study'),
       bigCard('🎯', 'Focus Mode', 'Timer, app blocking, full lock', 'focus')));

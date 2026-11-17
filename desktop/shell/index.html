@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; frame-src https: blob:; object-src blob:; connect-src 'self' blob:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src https: blob:; frame-src https: blob:; object-src blob:; connect-src 'self' blob:;">
 <title>Rajib Tutorial</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -11,6 +11,7 @@
   <div class="brand">🎓 Rajib Tutorial</div>
   <nav class="nav">
     <button data-v="home">🏠 Home</button>
+    <button data-v="native">📱 Native Section</button>
     <button data-v="web">🌐 Web Section</button>
     <button data-v="study">🧰 Study Tools</button>
     <button data-v="focus">🎯 Focus Mode</button>
@@ -19,6 +20,7 @@
 </aside>
 <main class="main">
   <section id="pane-home" class="pane"></section>
+  <section id="pane-native" class="pane"></section>
   <section id="pane-web" class="pane nopad"></section>
   <section id="pane-study" class="pane"></section>
   <section id="pane-focus" class="pane"></section>
@@ -36,5 +38,6 @@
 <script src="../node_modules/pdf-lib/dist/pdf-lib.min.js"></script>
 <script src="../node_modules/qrcode-generator/qrcode.js"></script>
 <script src="app.js"></script>
+<script src="native.js"></script>
 </body>
 </html>
