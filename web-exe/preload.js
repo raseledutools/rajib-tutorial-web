@@ -48,5 +48,6 @@ window.addEventListener('load', renderUpdateBtn);
 // (used by openInAppBrowser for YouTube, Google, YouTube Studio etc.)
 contextBridge.exposeInMainWorld('ElectronShell', {
   openUrl: (url) => ipcRenderer.send('shell:openUrl', url),
+  notify: (title, body) => ipcRenderer.send('notify:show', String(title || ''), String(body || '')),
   isElectron: true,
 });
