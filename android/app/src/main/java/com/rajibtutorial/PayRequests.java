@@ -158,11 +158,15 @@ final class PayRequests {
             ids.add(r.courseId);
             d.put("courseIds", ids);
             d.put("created", System.currentTimeMillis());
+            d.put("paidVia", "manual");
+            d.put("lastTrx", r.trx);
             Fs.set(mid, d);
             return;
         }
         Map<String, Object> u = new LinkedHashMap<>();
         u.put("isMember", true);
+        u.put("paidVia", "manual");
+        u.put("lastTrx", r.trx);
         Object ac = m.data.get("allCourses");
         Object ci = m.data.get("courseIds");
         boolean all = Boolean.TRUE.equals(ac) || (ac == null && !(ci instanceof List));
