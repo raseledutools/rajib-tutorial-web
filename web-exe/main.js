@@ -27,6 +27,7 @@ function guard(wc) {
     const ctrl = input.control || input.meta;
     if (k === 'printscreen') { e.preventDefault(); try { clipboard.clear(); } catch (_) {} return; }
     if (input.type !== 'keyDown') return;
+    if (k === 'f5' || (ctrl && k === 'r')) { e.preventDefault(); if (wc.getURL().startsWith('file:') && win) win.loadURL(SITE); else wc.reloadIgnoringCache(); return; }
     if (ctrl && ['p', 's', 'u'].includes(k)) e.preventDefault();
     if (PACKAGED && (k === 'f12' || (ctrl && input.shift && ['i', 'j', 'c'].includes(k)))) e.preventDefault();
   });
