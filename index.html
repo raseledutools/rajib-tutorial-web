@@ -519,6 +519,11 @@ body{color:var(--text)}
 .ytp-bar button{color:#fff;font-size:12.5px;font-weight:700;min-width:32px;height:32px;display:flex;align-items:center;justify-content:center}
 .ytp-bar button svg{width:18px;height:18px}
 .ytp-bar input[type=range]{flex:1;min-width:0;accent-color:var(--accent,#e8365d)}
+.ytp-qm{position:absolute;right:10px;bottom:52px;z-index:6;display:none;min-width:84px;max-height:70%;overflow:auto;background:rgba(20,20,30,.95);border-radius:10px;padding:4px;box-shadow:0 6px 20px rgba(0,0,0,.5);font-size:13px;font-weight:600;color:#fff}
+.ytp-qm div{padding:8px 14px;border-radius:7px;cursor:pointer;text-align:center}
+.ytp-qm div:hover{background:rgba(255,255,255,.14)}
+.ytp-qm div.on{background:var(--accent,#e8365d)}
+.ytp-bar button.ytp-q{min-width:44px}
 
 /* ── Screen capture prevention ──────────────────────────── */
 @media screen {
@@ -2195,9 +2200,9 @@ function mountYT(box,id,o={}){
     `<div class="ytp-cover" style="background-image:url(https://i.ytimg.com/vi/${id}/hqdefault.jpg)"><div class="ytp-big">${PLAY}</div></div>`+
     `<div class="ytp-bar hide"><button class="ytp-pp">${PLAY}</button><span class="ytp-t">0:00</span>`+
     `<input class="ytp-sk" type="range" min="0" max="1000" value="0"><span class="ytp-d">0:00</span>`+
-    `<button class="ytp-sp">1x</button>`+
+    `<button class="ytp-sp">1x</button><button class="ytp-q">Auto</button>`+
     (o.fs===false?"":`<button class="ytp-fs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>`)+
-    `</div>`;
+    `</div><div class="ytp-qm"></div>`;
   box.appendChild(wrap);
   const q=s=>wrap.querySelector(s);
   const cover=q(".ytp-cover"),bar=q(".ytp-bar"),pp=q(".ytp-pp"),sk=q(".ytp-sk"),
@@ -2205,12 +2210,37 @@ function mountYT(box,id,o={}){
   let pl=null,playing=false,drag=false,hideT=null;
   const showBar=()=>{bar.classList.remove("hide");clearTimeout(hideT);if(playing)hideT=setTimeout(()=>bar.classList.add("hide"),2800)};
   const toggle=()=>{if(!pl||!pl.getPlayerState)return;playing?pl.pauseVideo():pl.playVideo()};
-  q(".ytp-shield").addEventListener("click",()=>{ if(bar.classList.contains("hide")) showBar(); else toggle(); });
+  q(".ytp-shield").addEventListener("click",()=>{ const m=q(".ytp-qm");if(m&&m.style.display==="block"){m.style.display="none";return} if(bar.classList.contains("hide")) showBar(); else toggle(); });
   cover.addEventListener("click",()=>{toggle();});
   pp.addEventListener("click",e=>{e.stopPropagation();toggle();showBar()});
   const speeds=[1,1.25,1.5,2,0.75];let si=0;
   sp.addEventListener("click",e=>{e.stopPropagation();si=(si+1)%speeds.length;if(pl)pl.setPlaybackRate(speeds[si]);sp.textContent=speeds[si]+"x";showBar()});
   if(o.live) sp.style.display="none";
+  // ── Video quality (Auto / 1080p / 720p / 480p / 360p / 240p / 144p) ──
+  const QL={hd2160:"2160p",hd1440:"1440p",hd1080:"1080p",hd720:"720p",large:"480p",medium:"360p",small:"240p",tiny:"144p"};
+  const qb=q(".ytp-q"),qm=q(".ytp-qm");let curQ="auto",qRestore=null;
+  const closeQ=()=>{qm.style.display="none"};
+  if(o.live) qb.style.display="none";
+  qb.addEventListener("click",e=>{
+    e.stopPropagation();
+    if(qm.style.display==="block"){closeQ();return}
+    let lv=[];try{lv=(pl&&pl.getAvailableQualityLevels&&pl.getAvailableQualityLevels())||[]}catch(_){}
+    lv=lv.filter(x=>QL[x]);if(!lv.length)lv=["hd1080","hd720","large","medium","small","tiny"];
+    qm.innerHTML=["auto",...lv].map(x=>`<div data-q="${x}" class="${x===curQ?"on":""}">${x==="auto"?"Auto":QL[x]}</div>`).join("");
+    qm.style.display="block";showBar();
+  });
+  qm.addEventListener("click",e=>{
+    e.stopPropagation();
+    const x=e.target&&e.target.dataset&&e.target.dataset.q;if(!x)return;
+    closeQ();curQ=x;qb.textContent=x==="auto"?"Auto":QL[x];
+    if(!pl||!pl.getCurrentTime)return;
+    const qq=x==="auto"?"default":x;
+    qRestore={t:pl.getCurrentTime()||0,rate:pl.getPlaybackRate?pl.getPlaybackRate():1,play:playing};
+    try{pl.setPlaybackQualityRange&&pl.setPlaybackQualityRange(qq,qq)}catch(_){}
+    try{pl.setPlaybackQuality&&pl.setPlaybackQuality(qq)}catch(_){}
+    // reload at the same second with the chosen quality (most reliable way with the iframe API)
+    try{pl.loadVideoById({videoId:id,startSeconds:qRestore.t,suggestedQuality:qq})}catch(_){qRestore=null}
+  });
   const fsb=q(".ytp-fs");if(fsb)fsb.addEventListener("click",e=>{e.stopPropagation();(o.onFs||window.toggleFullscreen)()});
   sk.addEventListener("input",()=>{drag=true;showBar()});
   sk.addEventListener("change",()=>{if(pl&&pl.getDuration)pl.seekTo(pl.getDuration()*sk.value/1000,true);drag=false});
@@ -2224,6 +2254,7 @@ function mountYT(box,id,o={}){
       onReady:()=>{box._yt=pl;if(o.onReady)o.onReady(pl)},
       onStateChange:e=>{
         playing=(e.data===1||e.data===3);
+        if(e.data===1&&qRestore){const r=qRestore;qRestore=null;try{pl.setPlaybackRate(r.rate);if(!r.play)pl.pauseVideo()}catch(_){}}
         cover.classList.toggle("off",playing);
         pp.innerHTML=playing?PAUSE:PLAY;
         if(e.data===1)showBar();else{bar.classList.remove("hide");clearTimeout(hideT)}

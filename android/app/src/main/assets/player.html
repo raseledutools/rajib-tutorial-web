@@ -17,6 +17,9 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;-webkit-user-sele
 .bar button{background:none;border:0;color:#fff;font-size:12.5px;font-weight:700;min-width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0}
 .bar button svg{width:18px;height:18px}
 .bar input{flex:1;min-width:0;accent-color:#e8365d}
+.qm{position:absolute;right:10px;bottom:52px;z-index:6;display:none;min-width:84px;max-height:70%;overflow:auto;background:rgba(20,20,30,.95);border-radius:10px;padding:4px;color:#fff;font-size:13px;font-weight:600}
+.qm div{padding:9px 14px;border-radius:7px;text-align:center}
+.qm div.on{background:#e8365d}
 </style></head>
 <body>
 <div class="ytp">
@@ -26,8 +29,9 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;-webkit-user-sele
   <div class="bar hide" id="bar">
     <button id="pp"></button><span id="t">0:00</span>
     <input id="sk" type="range" min="0" max="1000" value="0">
-    <span id="d">0:00</span><button id="sp">1x</button>
+    <span id="d">0:00</span><button id="sp">1x</button><button id="qb" style="min-width:44px">Auto</button>
   </div>
+  <div class="qm" id="qm"></div>
 </div>
 <script>
 var VID="__VID__",AUTO=__AUTOPLAY__,ORIGIN="__ORIGIN__";
@@ -40,12 +44,33 @@ var pl=null,playing=false,drag=false,hideT=null;
 function fmt(t){t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+":"+("0"+(t%60)).slice(-2)}
 function showBar(){bar.classList.remove("hide");clearTimeout(hideT);if(playing)hideT=setTimeout(function(){bar.classList.add("hide")},2800)}
 function toggle(){if(!pl||!pl.getPlayerState)return;playing?pl.pauseVideo():pl.playVideo()}
-$("shield").onclick=function(){bar.classList.contains("hide")?showBar():toggle()};
+$("shield").onclick=function(){if(qm.style.display==="block"){qm.style.display="none";return}bar.classList.contains("hide")?showBar():toggle()};
 cover.onclick=toggle;
 pp.onclick=function(e){e.stopPropagation();toggle();showBar()};
 bar.onclick=function(e){e.stopPropagation()};
 var speeds=[1,1.25,1.5,2,0.75],si=0;
 sp.onclick=function(e){e.stopPropagation();si=(si+1)%speeds.length;if(pl)pl.setPlaybackRate(speeds[si]);sp.textContent=speeds[si]+"x";showBar()};
+var QL={hd2160:"2160p",hd1440:"1440p",hd1080:"1080p",hd720:"720p",large:"480p",medium:"360p",small:"240p",tiny:"144p"};
+var qb=$("qb"),qm=$("qm"),curQ="auto",qRestore=null;
+qb.onclick=function(e){
+  e.stopPropagation();
+  if(qm.style.display==="block"){qm.style.display="none";return}
+  var lv=[];try{lv=(pl&&pl.getAvailableQualityLevels&&pl.getAvailableQualityLevels())||[]}catch(_){}
+  lv=lv.filter(function(x){return QL[x]});if(!lv.length)lv=["hd1080","hd720","large","medium","small","tiny"];
+  qm.innerHTML=["auto"].concat(lv).map(function(x){return '<div data-q="'+x+'" class="'+(x===curQ?"on":"")+'">'+(x==="auto"?"Auto":QL[x])+'</div>'}).join("");
+  qm.style.display="block";showBar();
+};
+qm.onclick=function(e){
+  e.stopPropagation();
+  var x=e.target&&e.target.getAttribute&&e.target.getAttribute("data-q");if(!x)return;
+  qm.style.display="none";curQ=x;qb.textContent=x==="auto"?"Auto":QL[x];
+  if(!pl||!pl.getCurrentTime)return;
+  var qq=x==="auto"?"default":x;
+  qRestore={t:pl.getCurrentTime()||0,rate:pl.getPlaybackRate?pl.getPlaybackRate():1,play:playing};
+  try{pl.setPlaybackQualityRange&&pl.setPlaybackQualityRange(qq,qq)}catch(_){}
+  try{pl.setPlaybackQuality&&pl.setPlaybackQuality(qq)}catch(_){}
+  try{pl.loadVideoById({videoId:VID,startSeconds:qRestore.t,suggestedQuality:qq})}catch(_){qRestore=null}
+};
 sk.oninput=function(){drag=true;showBar()};
 sk.onchange=function(){if(pl&&pl.getDuration)pl.seekTo(pl.getDuration()*sk.value/1000,true);drag=false};
 function onYouTubeIframeAPIReady(){
@@ -53,6 +78,7 @@ function onYouTubeIframeAPIReady(){
     playerVars:{autoplay:AUTO,controls:0,rel:0,modestbranding:1,iv_load_policy:3,playsinline:1,fs:0,disablekb:1,cc_load_policy:0,origin:ORIGIN},
     events:{onStateChange:function(e){
       playing=(e.data===1||e.data===3);
+      if(e.data===1&&qRestore){var r=qRestore;qRestore=null;try{pl.setPlaybackRate(r.rate);if(!r.play)pl.pauseVideo()}catch(_){}}
       cover.classList.toggle("off",playing);
       pp.innerHTML=playing?PAUSE:PLAY;
       if(e.data===1)showBar();else{bar.classList.remove("hide");clearTimeout(hideT)}
@@ -61,7 +87,7 @@ function onYouTubeIframeAPIReady(){
     if(!pl||!pl.getDuration)return;
     var d=pl.getDuration()||0,c=pl.getCurrentTime()||0;
     sk.style.visibility=d>0?"visible":"hidden";
-    sp.style.display=d>0?"flex":"none";
+    sp.style.display=d>0?"flex":"none";qb.style.display=d>0?"flex":"none";
     tt.textContent=fmt(c);dd.textContent=d>0?fmt(d):"LIVE";
     if(!drag&&d>0)sk.value=Math.round(c/d*1000);
   },400);
