@@ -549,6 +549,39 @@ final class Store {
         return createPayment(name, mobile, plan, null);
     }
 
+    /** SSLCommerz (card / mobile banking) for one course. Returns the hosted payment page URL. */
+    static String createCardPayment(String name, String mobile, String courseId) throws Exception {
+        HttpURLConnection c = (HttpURLConnection) new URL(BACKEND + "/api/tutorial/sslcommerz/create").openConnection();
+        try {
+            c.setConnectTimeout(45000);
+            c.setReadTimeout(45000);
+            c.setRequestMethod("POST");
+            c.setDoOutput(true);
+            c.setRequestProperty("Content-Type", "application/json");
+            JSONObject b = new JSONObject();
+            b.put("name", name);
+            b.put("mobile", mobile);
+            b.put("courseId", courseId);
+            OutputStream os = c.getOutputStream();
+            os.write(b.toString().getBytes("UTF-8"));
+            os.close();
+            int code = c.getResponseCode();
+            InputStream is = code >= 400 ? c.getErrorStream() : c.getInputStream();
+            StringBuilder sb = new StringBuilder();
+            if (is != null) {
+                BufferedReader br = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+            }
+            JSONObject d = new JSONObject(sb.toString());
+            if (d.optBoolean("success") && d.optString("url", "").length() > 0) return d.getString("url");
+            throw new Exception(d.optString("message", "Could not start the payment. Please try again."));
+        } finally {
+            c.disconnect();
+        }
+    }
+
     /** plan "course" + courseId = buy a single course (the server must read the price from the course itself). */
     static String createPayment(String name, String mobile, String plan, String courseId) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL(BACKEND + "/api/tutorial/bkash/create").openConnection();
