@@ -32,7 +32,8 @@ final class NotifyScreen extends Screen {
 
     private ScrollView sv;
     private TextView stat, cnt, sendBtn, segAll, segBatch, segUser, resultTv, batchInfo;
-    private LinearLayout userBox, batchBox, history;
+    private LinearLayout userBox, batchBox, history, payBox;
+    private TextView payStat;
     private Ui.Field fMobile, fBatch, fTitle, fBody;
     private static final int T_ALL = 0, T_BATCH = 1, T_USER = 2;
     private int target = T_ALL;
@@ -54,6 +55,21 @@ final class NotifyScreen extends Screen {
         sv.addView(root, new ScrollView.LayoutParams(MATCH, WRAP));
 
         root.addView(Ui.tv(a, "🔔 Notification Center", 20, Ui.TEXT, true), Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 14));
+
+        // ── Payment requests (TrxID) ──
+        LinearLayout pc = Ui.card(a);
+        LinearLayout ph = new LinearLayout(a);
+        ph.setOrientation(LinearLayout.HORIZONTAL);
+        ph.setGravity(Gravity.CENTER_VERTICAL);
+        ph.addView(Ui.tv(a, "💳 Payment requests", 15, Ui.TEXT, true), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        ph.addView(Ui.smallBtn(a, "↻ Refresh", Ui.ACCENT, v -> loadRequests()));
+        pc.addView(ph, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 4));
+        payStat = Ui.tv(a, "Compare the TrxID with the bKash SMS on your phone, then tap Accept.", 12, Ui.SUB, false);
+        pc.addView(payStat, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 8));
+        payBox = new LinearLayout(a);
+        payBox.setOrientation(LinearLayout.VERTICAL);
+        pc.addView(payBox);
+        root.addView(pc, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 14));
 
         // ── Send card ──
         LinearLayout card = Ui.card(a);
@@ -133,6 +149,7 @@ final class NotifyScreen extends Screen {
         setTarget(T_ALL);
         updateCount();
         loadHistory();
+        loadRequests();
         return sv;
     }
 
@@ -229,6 +246,88 @@ final class NotifyScreen extends Screen {
                 loadHistory();
             }
         }));
+    }
+
+    // ── Payment requests ────────────────────────────────────
+    private void loadRequests() {
+        if (payBox == null) return;
+        payStat.setText("Loading…");
+        Store.async(() -> PayRequests.latest(40), (java.util.List<PayRequests.Req> list, Exception e) -> {
+            if (released) return;
+            payBox.removeAllViews();
+            if (e != null || list == null) {
+                payStat.setText("❌ Could not load requests: " + (e == null ? "" : e.getMessage()));
+                return;
+            }
+            int pending = 0;
+            for (PayRequests.Req r : list) if (PayRequests.PENDING.equals(r.status)) pending++;
+            payStat.setText(pending == 0 ? "No pending requests. Compare the TrxID with the bKash SMS, then tap Accept."
+                : "⏳ " + pending + " waiting for you. Compare each TrxID with the bKash SMS, then tap Accept.");
+            payStat.setTextColor(pending == 0 ? Ui.SUB : Ui.ACCENT2);
+            if (list.isEmpty()) return;
+            boolean first = true;
+            for (PayRequests.Req r : list) {
+                if (!first) {
+                    View line = new View(a);
+                    line.setBackgroundColor(Ui.BORDER);
+                    payBox.addView(line, new LinearLayout.LayoutParams(MATCH, 1));
+                }
+                first = false;
+                payBox.addView(requestRow(r));
+            }
+        });
+    }
+
+    private View requestRow(final PayRequests.Req r) {
+        final boolean pend = PayRequests.PENDING.equals(r.status);
+        LinearLayout row = new LinearLayout(a);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(0, Ui.dp(a, 10), 0, Ui.dp(a, 10));
+        String who = (r.name.isEmpty() ? "Buyer" : r.name) + " · " + r.mobile;
+        row.addView(Ui.tv(a, who, 13.5f, Ui.TEXT, true));
+        row.addView(Ui.tv(a, r.courseTitle + "  ·  " + Store.priceLabel(r.amount), 12.5f, Ui.SUB, false),
+            Ui.lpm(a, MATCH, WRAP, 0, 2, 0, 4));
+        TextView trx = Ui.tv(a, "TrxID  " + r.trx, 17, Ui.ACCENT2, true);
+        trx.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
+        trx.setTextIsSelectable(true);
+        row.addView(trx);
+        String when = r.at == 0 ? "" : DateFormat.getDateTimeInstance().format(new Date(r.at));
+        row.addView(Ui.tv(a, when + (pend ? "" : "  ·  " + r.status.toUpperCase()), 11.5f,
+            PayRequests.ACCEPTED.equals(r.status) ? 0xFF16A34A : PayRequests.REJECTED.equals(r.status) ? Ui.RED : Ui.SUB, false),
+            Ui.lpm(a, MATCH, WRAP, 0, 3, 0, 0));
+        if (pend) {
+            LinearLayout btns = new LinearLayout(a);
+            btns.setOrientation(LinearLayout.HORIZONTAL);
+            TextView ok = Ui.btn(a, "✅ Accept", Ui.B_GREEN, v -> confirmDecision(r, true));
+            TextView no = Ui.btn(a, "Reject", Ui.B_OUTLINE, v -> confirmDecision(r, false));
+            btns.addView(ok, Ui.lpm(a, 0, WRAP, 0, 0, 4, 0));
+            btns.addView(no, Ui.lpm(a, 0, WRAP, 4, 0, 0, 0));
+            ((LinearLayout.LayoutParams) ok.getLayoutParams()).weight = 1;
+            ((LinearLayout.LayoutParams) no.getLayoutParams()).weight = 1;
+            row.addView(btns, Ui.lpm(a, MATCH, WRAP, 0, 10, 0, 0));
+        }
+        return row;
+    }
+
+    private void confirmDecision(final PayRequests.Req r, final boolean accept) {
+        final Ui.Modal m = new Ui.Modal(a, accept ? "Accept this payment?" : "Reject this request?",
+            accept ? "Does TrxID " + r.trx + " (" + Store.priceLabel(r.amount) + ") match a bKash SMS you received?\n\n"
+                    + "\"" + r.courseTitle + "\" will be unlocked for " + r.mobile + " and they get a push notification."
+                   : "TrxID " + r.trx + " will be rejected and " + r.mobile + " will be notified.");
+        m.actions("Cancel", accept ? "Accept" : "Reject", accept ? Ui.B_GREEN : Ui.B_RED, () -> {
+            m.dismiss();
+            payStat.setText("⏳ Working…");
+            Store.async(() -> accept ? PayRequests.accept(a, r) : PayRequests.reject(a, r), (String msg, Exception e) -> {
+                if (released) return;
+                a.toast(e != null ? "❌ " + e.getMessage() : msg);
+                if (e == null) {
+                    // course list / members changed: refresh the in-memory copy too
+                    Store.loadAll((Boolean ok2, Exception e2) -> { });
+                }
+                loadRequests();
+            });
+        });
+        m.show();
     }
 
     private void loadHistory() {

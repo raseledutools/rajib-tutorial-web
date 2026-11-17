@@ -28,6 +28,7 @@ final class PushManager {
     static final long[] VIBE = {0, 350, 200, 350};
     static final String TOPIC_ALL   = "all";
     static final String TOPIC_DISCUSSION = "discussion";
+    static final String TOPIC_ADMINS = "admins";
     static final String CHAT_CHANNEL = "rt_chat_v1";
     private static final String K_DISC_ME = "disc_me";
 
@@ -116,6 +117,15 @@ final class PushManager {
         try { FirebaseMessaging.getInstance().subscribeToTopic(TOPIC_ALL); }
         catch (Throwable ignored) {}
         saveTokenToFirestore(c, token, p(c).getString(K_MOBILE, ""));
+    }
+
+    /** Admin devices join the "admins" topic so new payment (TrxID) requests ring on the admin phone. */
+    static void setAdmin(Context c, boolean on) {
+        try {
+            if (FirebaseApp.getApps(c).isEmpty()) return;
+            if (on) FirebaseMessaging.getInstance().subscribeToTopic(TOPIC_ADMINS);
+            else FirebaseMessaging.getInstance().unsubscribeFromTopic(TOPIC_ADMINS);
+        } catch (Throwable ignored) { }
     }
 
     /** Join / leave the Discussion push topic (premium members + admin). */

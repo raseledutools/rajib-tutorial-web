@@ -218,6 +218,17 @@ public class AdminBridge {
         }).start();
     }
 
+    /** Push to every signed-in admin device (topic "admins"). Fire-and-forget, safe to call from any thread. */
+    public void notifyAdmins(final String title, final String body) {
+        new Thread(() -> {
+            try {
+                String at = getAccessToken();
+                if (at == null) return;
+                sendFcm(at, buildPayload(title, body, "p" + System.currentTimeMillis(), "topic", PushManager.TOPIC_ADMINS));
+            } catch (Throwable ignored) { }
+        }).start();
+    }
+
     // ── Build payloads (data-only: the app builds the notification itself, so the
     //    sound / vibration / tap-to-open-overlay behaviour is identical in every app state) ──
     private JSONObject buildPayload(String title, String body, String id, String key, String value) throws Exception {

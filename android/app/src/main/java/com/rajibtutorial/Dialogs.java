@@ -72,6 +72,7 @@ final class Dialogs {
         m.actions("Cancel", "Login", Ui.B_PRIMARY, () -> {
             if (pw.et.getText().toString().equals(Store.ADMIN_PW)) {
                 Store.adminIn = true;
+                PushManager.setAdmin(a, true);
                 m.dismiss();
                 a.onAdminChanged();
                 a.openManage();
@@ -169,6 +170,46 @@ final class Dialogs {
             });
         });
         m.addSpaced(payBtn, 6);
+
+        // ── Manual payment: pay by bKash yourself, then send the TrxID for the admin to approve ──
+        View sep = new View(a);
+        sep.setBackgroundColor(Ui.BORDER);
+        m.addSpaced(sep, 14);
+        m.addSpaced(Ui.tv(a, "Already paid with bKash? Enter the TrxID", 13.5f, Ui.TEXT, true), 10);
+        String how = Store.live.premiumInfo == null ? "" : Store.live.premiumInfo.trim();
+        if (how.isEmpty()) how = "Send " + Store.priceLabel(c.price) + " by bKash to the number the admin gave you "
+            + "(ask on WhatsApp " + Store.WHATSAPP_NUM + "), then type the TrxID from the bKash SMS below.";
+        m.addSpaced(Ui.tv(a, how, 12, Ui.SUB, false), 4);
+        final Ui.Field trx = Ui.field(a, "bKash TrxID *", "e.g. 8N7A6D5EE1", Ui.IN_TEXT);
+        m.addSpaced(trx.root, 10);
+        final TextView trxBtn = Ui.btn(a, "Submit TrxID for approval", Ui.B_OUTLINE, null);
+        trxBtn.setOnClickListener(v -> {
+            String n = name.text();
+            String mob = Store.normMobile(mobile.text());
+            String t = PayRequests.cleanTrx(trx.text());
+            Ui.setErr(err, "");
+            if (n.length() < 2) { Ui.setErr(err, "Please enter your name."); return; }
+            if (!mob.matches("^01\\d{9}$")) { Ui.setErr(err, "Enter a valid 11-digit mobile number (01XXXXXXXXX)."); return; }
+            if (!PayRequests.validTrx(t)) { Ui.setErr(err, "Enter the TrxID exactly as shown in the bKash SMS."); return; }
+            trxBtn.setEnabled(false);
+            trxBtn.setAlpha(0.65f);
+            trxBtn.setText("Submitting…");
+            final String fn = n, fm = mob, ft = t;
+            Store.async(() -> { PayRequests.submit(a, fn, fm, c, ft); return Boolean.TRUE; }, (Boolean ok, Exception e) -> {
+                trxBtn.setEnabled(true);
+                trxBtn.setAlpha(1f);
+                trxBtn.setText("Submit TrxID for approval");
+                if (e == null) {
+                    m.dismiss();
+                    a.toast("✅ TrxID sent. You will get a notification as soon as the admin approves it.");
+                } else if (e instanceof java.io.IOException) {
+                    Ui.setErr(err, "Network problem. Please check your connection and try again.");
+                } else {
+                    Ui.setErr(err, e.getMessage() != null ? e.getMessage() : "Could not submit the TrxID. Please try again.");
+                }
+            });
+        });
+        m.addSpaced(trxBtn, 8);
         m.col("Cancel", Ui.B_GHOST, v -> m.dismiss());
         m.show();
     }
