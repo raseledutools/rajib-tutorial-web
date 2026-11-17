@@ -3192,7 +3192,25 @@ async function fcmAccessToken(){
   _fcmTok=d.access_token;_fcmTokExp=Date.now()+(d.expires_in||3600)*1000;return _fcmTok;
 }
 async function fcmSend(at,kind,value,title,body,id){
-  const msg={[kind]:value,data:{title,body,kind:"admin",id,time:String(Date.now())},android:{priority:"high",ttl:"86400s"}};
+  const msg={
+    [kind]:value,
+    data:{title,body,kind:"admin",id,time:String(Date.now())},
+    android:{priority:"high",ttl:"86400s"},
+    webpush:{
+      headers:{Urgency:"high"},
+      notification:{
+        title:title||"Rajib Tutorial",
+        body:body||"",
+        tag:id||undefined,
+        requireInteraction:false
+      },
+      fcm_options:{link:"./"}
+    },
+    apns:{
+      payload:{aps:{alert:{title:title||"Rajib Tutorial",body:body||""},sound:"default",badge:1}},
+      headers:{"apns-priority":"10"}
+    }
+  };
   const r=await fetch("https://fcm.googleapis.com/v1/projects/"+FCM_PROJECT+"/messages:send",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+at},body:JSON.stringify({message:msg})});
   if(!r.ok){const t=(await r.text().catch(()=>"")).slice(0,400);throw new Error("FCM HTTP "+r.status+(t?" "+t:""))}
 }
