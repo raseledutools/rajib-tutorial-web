@@ -116,7 +116,7 @@ function openChild(url, title) {
 function create() {
   win = new BrowserWindow({
     width: 1280, height: 820, minWidth: 900, minHeight: 600, show: false,
-    backgroundColor: '#ffffff', title: 'Rajib Tutorial', autoHideMenuBar: true,
+    backgroundColor: '#0f172a', title: 'Rajib Tutorial', autoHideMenuBar: true,
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       contextIsolation: true,
@@ -127,11 +127,17 @@ function create() {
     },
   });
   protect(win);
-  win.once('ready-to-show', () => { win.show(); win.maximize(); });
+  // Local splash paints almost instantly, so the window appears right after the click.
+  win.once('ready-to-show', () => { win.maximize(); win.show(); });
   win.on('closed', () => { win = null; });
   win.setMenuBarVisibility(false);
 
   const wc = win.webContents;
+  // Start loading the real site as soon as the splash is up.
+  let siteStarted = false;
+  wc.on('did-finish-load', () => {
+    if (!siteStarted) { siteStarted = true; win.loadURL(SITE); }
+  });
   wc.on('did-fail-load', (_e, code, _d, url, isMain) => {
     if (isMain && code !== -3 && url.startsWith('http')) win.loadFile(path.join(__dirname, 'offline.html'));
   });
@@ -147,7 +153,7 @@ function create() {
     } catch (_) {}
     return { action: 'deny' };
   });
-  win.loadURL(SITE);
+  win.loadFile(path.join(__dirname, 'splash.html'));
 }
 
 
@@ -236,8 +242,9 @@ app.whenReady().then(() => {
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ['https://www.youtube.com/embed/*', 'https://www.youtube-nocookie.com/embed/*'] },
     (d, cb) => { d.requestHeaders['Referer'] = SITE; cb({ requestHeaders: d.requestHeaders }); });
+  try { session.defaultSession.preconnect({ url: SITE_ORIGIN, numSockets: 2 }); } catch (_) {}
   create();
-  initUpdater();
+  setTimeout(initUpdater, 3000);
   try { globalShortcut.register('PrintScreen', () => { try { clipboard.clear(); } catch (_) {} }); } catch (_) {}
 });
 app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch (_) {} });
