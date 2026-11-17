@@ -85,13 +85,16 @@ app.post('/notify', needAdmin, async (req, res) => {
   try {
     const title  = String(req.body.title  || '').trim().slice(0, 100);
     const body   = String(req.body.body   || '').trim().slice(0, 500);
-    const target = req.body.target === 'user' ? 'user' : 'all';
+    const target = req.body.target === 'user' ? 'user' : req.body.target === 'batch' ? 'batch' : 'all';
+    const batch  = String(req.body.batch || '').trim().slice(0, 60);
     const mobile = digits(req.body.mobile);
 
     if (!title || !body)
       return res.status(400).json({ error: 'Title ও Message দিন' });
     if (target === 'user' && mobile.length < 6)
       return res.status(400).json({ error: 'সঠিক মোবাইল নম্বর দিন' });
+    if (target === 'batch' && !batch)
+      return res.status(400).json({ error: 'Batch এর নাম দিন' });
 
     // Data-only: the app builds the notification itself (sound/vibration + tap -> overlay page)
     const mid = 'm' + Date.now();
@@ -114,6 +117,31 @@ app.post('/notify', needAdmin, async (req, res) => {
       }
       if (!topicOk && !ok) return res.status(502).json({ error: 'কোনো device এ পাঠানো যায়নি' });
       result = { sent: 'all', ok, failed };
+    } else if (target === 'batch') {
+      const bk = batch.toLowerCase();
+      const ms = await fsdb.collection('tutorial_courses').where('isMember', '==', true).get();
+      const mobs = new Set();
+      ms.forEach((d) => {
+        const x = d.data();
+        if (String(x.batch || '').trim().toLowerCase() !== bk) return;
+        const m = digits(x.mobile);
+        if (m) { mobs.add(m); if (m.startsWith('0')) mobs.add('88' + m); }
+      });
+      if (!mobs.size) return res.status(404).json({ error: 'এই batch এ কোনো member নেই' });
+      const list = [...mobs], tokens = new Set();
+      for (let i = 0; i < list.length; i += 30) {
+        const s2 = await fsdb.collection('push_tokens').where('mobile', 'in', list.slice(i, i + 30)).get();
+        s2.forEach((d) => { const t = d.data().token; if (t) tokens.add(t); });
+      }
+      if (!tokens.size) return res.status(404).json({ error: 'এই batch এর কারো device registered নেই' });
+      const arr = [...tokens];
+      let ok = 0, failed = 0;
+      for (let i = 0; i < arr.length; i += 500) {
+        const r = await fcm.sendEachForMulticast({ ...message, tokens: arr.slice(i, i + 500) });
+        ok += r.successCount; failed += r.failureCount;
+      }
+      if (!ok) return res.status(502).json({ error: 'কোনো device এ পাঠানো যায়নি' });
+      result = { sent: ok, failed };
     } else {
       const snap = await fsdb.collection('push_tokens').where('mobile', '==', mobile).get();
       if (snap.empty)
@@ -143,6 +171,7 @@ app.post('/notify', needAdmin, async (req, res) => {
     await fsdb.collection('push_messages').add({
       title, body, target,
       mobile: target === 'user' ? mobile : '',
+      batch: target === 'batch' ? batch : '',
       at: Date.now(),
       result,
     });

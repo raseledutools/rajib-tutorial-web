@@ -1547,7 +1547,14 @@ body.chat-on .topbar{display:none}
         <div class="nt-stat" id="ntStat">…</div>
         <div class="nt-seg">
           <button id="ntSegAll" class="on" onclick="ntSetTarget('all')">👥 সব user</button>
+          <button id="ntSegBatch" onclick="ntSetTarget('batch')">🎓 Batch</button>
           <button id="ntSegUser" onclick="ntSetTarget('user')">👤 নির্দিষ্ট user</button>
+        </div>
+        <div class="fl" id="ntBatchBox" style="display:none">
+          <label>Batch</label>
+          <input type="text" id="ntBatch" list="ntBatchList" placeholder="e.g. Batch 1" autocomplete="off" oninput="ntBatchInfo()"/>
+          <datalist id="ntBatchList"></datalist>
+          <div class="nt-note" id="ntBatchInfo" style="margin-top:4px"></div>
         </div>
         <div class="fl" id="ntUserBox" style="display:none">
           <label>Member (মোবাইল নম্বর)</label>
@@ -1876,6 +1883,7 @@ body.chat-on .topbar{display:none}
     <input type="hidden" id="editMid"/>
     <div class="fl"><label>Name *</label><input type="text" id="mmName" placeholder="Student name"/></div>
     <div class="fl"><label>Mobile Number *</label><input type="tel" id="mmMobile" placeholder="01XXXXXXXXX"/></div>
+    <div class="fl"><label>Batch (optional)</label><input type="text" id="mmBatch" list="mmBatchList" placeholder="e.g. Batch 1" autocomplete="off"/><datalist id="mmBatchList"></datalist></div>
     <div class="fl"><label>Valid Until (optional)</label><input type="date" id="mmExpiry"/></div>
     <div class="fl"><label>Course Access</label><div class="ca-box" id="mmCourses"></div></div>
     <div class="modal-acts">
@@ -3127,7 +3135,7 @@ async function _fcmSendViaServer(title, body, target, mobile) {
     r = await fetch(BACKEND + "/notify", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-admin-key": key },
-      body: JSON.stringify({ title, body, target, mobile: mobile || "" })
+      body: JSON.stringify({ title, body, target, mobile: target === "batch" ? "" : (mobile || ""), batch: target === "batch" ? (mobile || "") : "" })
     });
     d = await r.json().catch(() => ({}));
   } catch (e) {
@@ -3184,6 +3192,7 @@ window.openNotify=function(){
     const mob=m.mobile||String(m.id||"").replace("_member_","");
     return`<option value="${esc(mob)}">${esc(m.name||"")}</option>`;
   }).join("");
+  fillBatchList();ntBatchInfo();
   ntSetTarget(_ntTarget);ntCount();
   goView("viewNotify");ntLoadHistory();prLoad();
   // Bridge availability info
@@ -3194,7 +3203,9 @@ window.ntSetTarget=function(t){
   _ntTarget=t;
   $("ntSegAll").classList.toggle("on",t==="all");
   $("ntSegUser").classList.toggle("on",t==="user");
+  $("ntSegBatch").classList.toggle("on",t==="batch");
   $("ntUserBox").style.display=t==="user"?"block":"none";
+  $("ntBatchBox").style.display=t==="batch"?"block":"none";
   ntDisarm();
 };
 window.ntCount=function(){$("ntCnt").textContent=$("ntBody").value.length+" / 500"};
@@ -3202,15 +3213,16 @@ function ntDisarm(){
   clearTimeout(_ntArmT);
   const b=$("ntSendBtn");if(!b)return;
   delete b.dataset.armed;
-  b.textContent=_ntTarget==="all"?"🔔 সব user কে পাঠান":"🔔 এই user কে পাঠান";
+  b.textContent=_ntTarget==="all"?"🔔 সব user কে পাঠান":_ntTarget==="batch"?"🔔 এই batch কে পাঠান":"🔔 এই user কে পাঠান";
 }
 
 window.ntSend=async function(){
   const title=$("ntTitle").value.trim(),body=$("ntBody").value.trim();
-  const all=_ntTarget==="all",mobile=$("ntMobile").value.replace(/\D/g,"");
+  const all=_ntTarget==="all",isB=_ntTarget==="batch",mobile=$("ntMobile").value.replace(/\D/g,""),batch=$("ntBatch").value.trim();
   if(!title){showToast("Title লিখুন");return}
   if(!body){showToast("Message লিখুন");return}
-  if(!all&&mobile.length<6){showToast("মোবাইল নম্বর দিন বা তালিকা থেকে বাছুন");return}
+  if(isB){if(!batch){showToast("Batch লিখুন বা বাছুন");return}if(!batchCount(batch)){showToast("এই batch এ কোনো member নেই");return}}
+  else if(!all&&mobile.length<6){showToast("মোবাইল নম্বর দিন বা তালিকা থেকে বাছুন");return}
   const btn=$("ntSendBtn");
   if(all&&!btn.dataset.armed){
     btn.dataset.armed="1";btn.textContent="⚠ সবার কাছে যাবে — আবার চাপুন";
@@ -3218,7 +3230,7 @@ window.ntSend=async function(){
   }
   ntDisarm();btn.disabled=true;btn.textContent="পাঠানো হচ্ছে…";
   try{
-    const msg=await _fcmSendViaBridge(title,body,all?"all":"user",all?"":mobile);
+    const msg=await _fcmSendViaBridge(title,body,all?"all":isB?"batch":"user",all?"":isB?batch:mobile);
     showToast(msg);
     $("ntTitle").value="";$("ntBody").value="";ntCount();ntLoadHistory();
   }catch(e){showToast("❌ "+e.message)}
@@ -3236,7 +3248,7 @@ async function ntLoadHistory(){
     st.textContent="📱 Registered device: "+cnt.data().count;
     box.innerHTML=msgs.empty?`<span style="font-size:12.5px;color:var(--sub)">এখনো কোনো বার্তা পাঠানো হয়নি</span>`:
       msgs.docs.map(d=>{
-        const m=d.data(),to=m.target==="all"?"সব user":"👤 "+esc(m.mobile),
+        const m=d.data(),to=m.target==="all"?"সব user":m.target==="batch"?"🎓 "+esc(m.batch):"👤 "+esc(m.mobile),
               when=new Date(m.at).toLocaleString();
         return`<div class="nt-hi"><strong>${esc(m.title)}</strong><p>${esc(m.body)}</p><span>${to} · ${esc(when)}</span></div>`;
       }).join("");
@@ -3249,7 +3261,7 @@ function renderMembers(){
     const exp=m.expiry&&todayStr()>m.expiry;
     return `<div class="manage-card single">
       <div class="mc-icon">${I.star}</div>
-      <div class="mc-info"><strong>${esc(m.name)}</strong><span>${esc(m.mobile)}</span>
+      <div class="mc-info"><strong>${esc(m.name)}</strong><span>${esc(m.mobile)}${m.batch?"  ·  👥 "+esc(m.batch):""}</span>
         <span>${exp?'<span class="badge exp">Expired</span>':'<span class="badge ok">Active</span>'} ${m.expiry?"until "+esc(m.expiry):"No expiry"} · ${esc(accessLabel(m))}</span></div>
       <div class="mc-acts">
         <button class="btn-ic e" onclick="openEditMember('${m.id}')" aria-label="Edit">${I.edit}</button>
@@ -3261,31 +3273,35 @@ function renderCourseChecks(m){
   $("mmCourses").innerHTML=`<label class="ca-item ca-all"><input type="checkbox" id="caAll" ${all?"checked":""} onchange="toggleCaAll()"/><span>All courses (including new ones)</span></label>`+
     (courses.length?courses.map(c=>`<label class="ca-item"><input type="checkbox" class="caC" value="${esc(c.id)}" ${!all&&ids.has(c.id)?"checked":""} ${all?"disabled":""}/><span>${esc(c.title)}<small>${esc([c.courseName,c.className,c.subject].filter(Boolean).join(" · "))}</small></span></label>`).join(""):`<div class="ca-empty">No courses created yet</div>`);
 }
+function batchNames(){const map=new Map();members.forEach(m=>{const k=bkey(m.batch);if(k&&!map.has(k))map.set(k,String(m.batch).trim())});return [...map.values()].sort((a,b)=>a.localeCompare(b))}
+function batchCount(b){const k=bkey(b);return k?members.filter(m=>bkey(m.batch)===k).length:0}
+function fillBatchList(){const h=batchNames().map(n=>`<option value="${esc(n)}">${batchCount(n)} members</option>`).join("");["mmBatchList","ntBatchList"].forEach(id=>{const e=$(id);if(e)e.innerHTML=h})}
+window.ntBatchInfo=function(){const b=$("ntBatch").value.trim(),el=$("ntBatchInfo");if(!b){el.textContent=batchNames().length?"":"কোনো batch নেই। Premium Members এ গিয়ে প্রতিটি member এ batch দিন।";return}const n=batchCount(b);el.textContent=n?"👥 এই batch এ "+n+" জন member":"⚠ এই batch এ কোনো member নেই"};
 window.toggleCaAll=()=>{const a=$("caAll").checked;document.querySelectorAll(".caC").forEach(i=>{i.disabled=a;if(a)i.checked=false})};
 window.openAddMember=function(){
   $("editMid").value="";$("mMemberTitle").textContent="Add Premium Member";
-  $("mmName").value="";$("mmMobile").value="";$("mmMobile").disabled=false;$("mmExpiry").value="";
+  $("mmName").value="";$("mmMobile").value="";$("mmMobile").disabled=false;$("mmExpiry").value="";$("mmBatch").value="";fillBatchList();
   renderCourseChecks(null);openM("mMember");
 };
 window.openEditMember=function(id){
   const m=members.find(x=>x.id===id);if(!m)return;
   $("editMid").value=id;$("mMemberTitle").textContent="Edit Premium Member";
   $("mmName").value=m.name||"";$("mmMobile").value=m.mobile||"";$("mmMobile").disabled=true;
-  $("mmExpiry").value=m.expiry||"";renderCourseChecks(m);openM("mMember");
+  $("mmExpiry").value=m.expiry||"";$("mmBatch").value=m.batch||"";fillBatchList();renderCourseChecks(m);openM("mMember");
 };
 window.saveMember=async function(){
-  const name=$("mmName").value.trim(),mobile=normMobile($("mmMobile").value),expiry=$("mmExpiry").value,eid=$("editMid").value;
+  const name=$("mmName").value.trim(),mobile=normMobile($("mmMobile").value),expiry=$("mmExpiry").value,batch=$("mmBatch").value.trim(),eid=$("editMid").value;
   const allC=$("caAll").checked,ids=[...document.querySelectorAll(".caC:checked")].map(i=>i.value);
   if(!name){showToast("Please enter the member name");return}
   if(!/^01\d{9}$/.test(mobile)){showToast("Enter a valid 11-digit mobile number");return}
   if(!allC&&!ids.length){showToast("Select at least one course, or choose All courses");return}
   try{
     if(eid){
-      await updateDoc(doc(db,"tutorial_courses",eid),{name,expiry,allCourses:allC,courseIds:ids});showToast("Member updated");
+      await updateDoc(doc(db,"tutorial_courses",eid),{name,batch,expiry,allCourses:allC,courseIds:ids});showToast("Member updated");
     }else{
       const id="_member_"+mobile;
       if(members.some(m=>m.id===id)){showToast("This mobile number is already a member");return}
-      await setDoc(doc(db,"tutorial_courses",id),{isMember:true,name,mobile,expiry,allCourses:allC,courseIds:ids,created:Date.now()});
+      await setDoc(doc(db,"tutorial_courses",id),{isMember:true,name,mobile,batch,expiry,allCourses:allC,courseIds:ids,created:Date.now()});
       showToast("Member added");
     }
     closeM("mMember");await loadCourses();renderMembers();
