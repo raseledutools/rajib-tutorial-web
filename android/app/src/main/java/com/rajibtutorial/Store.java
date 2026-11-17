@@ -74,6 +74,7 @@ final class Store {
         String classTitle = "", classTime = "", classUrl = "";
         String examTitle = "", examTime = "", examUrl = "";
         String premiumUrl = "", premiumInfo = "";
+        String payBkash = "", payNagad = "", payRocket = "";   // manual-payment numbers shown in the buy dialog
     }
 
     // ── State ───────────────────────────────────────────────
@@ -207,6 +208,7 @@ final class Store {
         n.classTitle = l.classTitle; n.classTime = l.classTime; n.classUrl = l.classUrl;
         n.examTitle = l.examTitle; n.examTime = l.examTime; n.examUrl = l.examUrl;
         n.premiumUrl = l.premiumUrl; n.premiumInfo = l.premiumInfo;
+        n.payBkash = l.payBkash; n.payNagad = l.payNagad; n.payRocket = l.payRocket;
         return n;
     }
 
@@ -215,6 +217,7 @@ final class Store {
         m.put("classTitle", l.classTitle); m.put("classTime", l.classTime); m.put("classUrl", l.classUrl);
         m.put("examTitle", l.examTitle); m.put("examTime", l.examTime); m.put("examUrl", l.examUrl);
         m.put("premiumUrl", l.premiumUrl); m.put("premiumInfo", l.premiumInfo);
+        m.put("payBkash", l.payBkash); m.put("payNagad", l.payNagad); m.put("payRocket", l.payRocket);
         return m;
     }
 
@@ -299,6 +302,7 @@ final class Store {
                         r.live.classUrl = str(lm, "classUrl"); r.live.examTitle = str(lm, "examTitle");
                         r.live.examTime = str(lm, "examTime"); r.live.examUrl = str(lm, "examUrl");
                         r.live.premiumUrl = str(lm, "premiumUrl"); r.live.premiumInfo = str(lm, "premiumInfo");
+                        r.live.payBkash = str(lm, "payBkash"); r.live.payNagad = str(lm, "payNagad"); r.live.payRocket = str(lm, "payRocket");
                     }
                     continue;
                 }
