@@ -27,21 +27,18 @@ function cacheFile(url) {
 }
 async function cachedFetch(request) {
   const u = new URL(request.url);
+  // Everything that is not a plain page/script GET of our own hosts is passed through untouched,
+  // using the ORIGINAL request (keeps credentials, Range, streaming — needed for video playback).
+  const pass = () => net.fetch(request, { bypassCustomProtocolHandlers: true });
+  if (request.method !== 'GET' || !cacheable(u) || request.headers.has('range')) return pass();
   const hdrs = Object.fromEntries(request.headers);
-  // YouTube embeds need the site as Referer
-  if (/^(www\.youtube(-nocookie)?\.com)$/.test(u.hostname) && u.pathname.startsWith('/embed/')) hdrs['Referer'] = SITE;
-  const pass = () => net.fetch(request.url, {
-    method: request.method, headers: hdrs, body: request.body, duplex: 'half',
-    bypassCustomProtocolHandlers: true,
-  });
-  if (request.method !== 'GET' || !cacheable(u) || hdrs['range'] || hdrs['Range']) return pass();
 
   const file = cacheFile(request.url);
   const readCache = () => {
     try {
       const meta = JSON.parse(fs.readFileSync(file + '.json', 'utf8'));
       const body = fs.readFileSync(file + '.bin');
-      return new Response(body, { status: 200, headers: { 'content-type': meta.type || 'application/octet-stream' } });
+      return new Response(body, { status: 200, headers: meta.headers || { 'content-type': meta.type || 'application/octet-stream' } });
     } catch (_) { return null; }
   };
   const hasCache = fs.existsSync(file + '.bin');
@@ -52,12 +49,15 @@ async function cachedFetch(request) {
     if (t) clearTimeout(t);
     if (res.ok) {
       const buf = Buffer.from(await res.arrayBuffer());
+      // keep response headers (CORS etc.) but drop the ones that no longer match the decoded body
+      const headers = {};
+      res.headers.forEach((v, k) => { if (!['content-encoding', 'content-length', 'transfer-encoding'].includes(k)) headers[k] = v; });
       try {
         fs.mkdirSync(CACHE_DIR(), { recursive: true });
         fs.writeFileSync(file + '.bin', buf);
-        fs.writeFileSync(file + '.json', JSON.stringify({ type: res.headers.get('content-type') || '' }));
+        fs.writeFileSync(file + '.json', JSON.stringify({ headers }));
       } catch (_) {}
-      return new Response(buf, { status: 200, headers: { 'content-type': res.headers.get('content-type') || 'application/octet-stream' } });
+      return new Response(buf, { status: 200, headers });
     }
     return readCache() || res;
   } catch (err) {

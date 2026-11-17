@@ -189,6 +189,10 @@ svg{display:block;flex-shrink:0}
 .vlist-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:11px;cursor:pointer;transition:background .15s;border:1px solid transparent}
 .vlist-item:hover{background:var(--card)}
 .vlist-item.playing{background:var(--accent-soft);border-color:rgba(232,54,93,.3)}
+.vspin{width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+.vlist-item:not(.playing) .vspin{border-color:rgba(0,0,0,.2);border-top-color:var(--accent)}
+.vbuf{position:absolute;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(0,0,0,.55);color:#fff;font:600 13px system-ui,sans-serif;pointer-events:none}
+.vbuf i{width:44px;height:44px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
 .vnum{width:30px;height:30px;border-radius:8px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--sub);flex-shrink:0}
 .vlist-item.playing .vnum{background:var(--accent);color:#fff}
 .vinfo{flex:1;min-width:0}
@@ -2603,19 +2607,68 @@ window.openCourse=function(cid){
   $("playerTitle").textContent="–";$("playerMeta").textContent="";
   goView("viewCourse");renderSidebarCourses();closeSidebar();
 };
+let _loadingVid=null,vState="idle",_vWatchT=null;
+function bufShow(area,txt){if(!area||area.querySelector(":scope>.vbuf"))return;const d=document.createElement("div");d.className="vbuf";d.innerHTML='<i></i><span>'+(txt||"Loading…")+'</span>';area.appendChild(d)}
+function bufHide(area){area&&area.querySelectorAll(":scope>.vbuf").forEach(n=>n.remove())}
+function vSet(st,area){
+  vState=st;
+  if(st==="loading"||st==="buffering")bufShow(area,st==="buffering"?"Buffering…":"Loading…");else bufHide(area);
+  if(st==="playing"||st==="paused")_loadingVid=null;
+  renderVlist();
+}
+function vWatch(area,v){
+  clearInterval(_vWatchT);_vWatchT=null;
+  const alive=()=>curVideo&&curVideo.id===v.id;
+  const vid=area.querySelector("video");
+  if(vid){
+    let saved=false;
+    vid.addEventListener("loadstart",()=>alive()&&vSet("loading",area));
+    vid.addEventListener("waiting",()=>alive()&&vSet("buffering",area));
+    vid.addEventListener("seeking",()=>alive()&&!vid.paused&&vSet("buffering",area));
+    vid.addEventListener("canplay",()=>{if(alive()&&vState!=="paused")bufHide(area)});
+    vid.addEventListener("playing",()=>{
+      if(!alive())return;vSet("playing",area);
+      // exe: save a copy only after playback has started, so the download never delays the video
+      if(!saved&&IS_EXE&&offDirect(v)&&navigator.onLine!==false){saved=true;setTimeout(()=>alive()&&offAuto(v),4000)}
+    });
+    vid.addEventListener("pause",()=>{if(alive()&&!vid.ended)vSet("paused",area)});
+    vid.addEventListener("error",()=>{if(!alive())return;_loadingVid=null;vState="idle";area.innerHTML=placeholder(I.warn,"Video load kora jayni — internet check kore abar click korun");renderVlist()});
+    return;
+  }
+  // YouTube custom player: poll its state
+  let n=0;
+  _vWatchT=setInterval(()=>{
+    if(!alive()||!area.isConnected){clearInterval(_vWatchT);return}
+    const pl=area._yt;n++;
+    if(!pl||!pl.getPlayerState){if(n>80){clearInterval(_vWatchT);vSet("idle",area)}return}
+    const st=pl.getPlayerState();
+    if(st===1){if(vState!=="playing")vSet("playing",area)}
+    else if(st===2){if(vState!=="paused")vSet("paused",area)}
+    else if(st===3){if(vState!=="buffering")vSet("buffering",area)}
+    else if(st===5||n>80){if(vState==="loading"||vState==="buffering")vSet("idle",area)}
+  },300);
+}
 function renderVlist(){
   const wrap=$("vlistScroll"),vids=curCourse?.videos||[];
   if(!vids.length){wrap.innerHTML=`<div class="empty" style="padding:30px 10px">${I.video}<p>No lessons yet</p></div>`;return}
   wrap.innerHTML=vids.map((v,i)=>`
-    <div class="vlist-item ${curVideo?.id===v.id?"playing":""}" onclick="playVideo('${v.id}')">
-      <div class="vnum">${curVideo?.id===v.id?"▶":i+1}</div>
+    <div class="vlist-item ${curVideo?.id===v.id||_loadingVid===v.id?"playing":""}" onclick="playVideo('${v.id}')">
+      <div class="vnum">${_loadingVid===v.id?'<span class="vspin"></span>':curVideo?.id===v.id?(vState==="paused"?"⏸":"▶"):i+1}</div>
       <div class="vinfo"><div class="vtitle">${esc(v.title)}</div>${v.durationMinutes?`<div class="vdur">${v.durationMinutes} min</div>`:""}</div>
       ${canWatch()?"":I.lock}
     </div>`).join("");
 }
 window.playVideo=async function(vid){
+  try{await _playVideo(vid)}
+  finally{
+    if(curVideo?.id!==vid&&_loadingVid===vid){_loadingVid=null;vState="idle";bufHide($("playerArea"));renderVlist()}
+  }
+};
+async function _playVideo(vid){
   const want=curCourse?.videos?.find(v=>v.id===vid);if(!want)return;
   if(!canWatch()){pendingVid=vid;openPremiumGate(isPremium()?"noaccess":"login");return}
+  // show "loading" right at the click (list icon spinner + buffering overlay), before any network check
+  _loadingVid=vid;vState="loading";clearInterval(_vWatchT);renderVlist();bufShow($("playerArea"),"Loading…");
   // ── Verify session before every play ──
   if(session?.mobile&&!adminIn){
     try{
@@ -2653,16 +2706,18 @@ window.playVideo=async function(vid){
     let src=curVideo.url;
     try{const b=await OFF.blob(curVideo.id);if(b){if(window._offUrl)URL.revokeObjectURL(window._offUrl);src=window._offUrl=URL.createObjectURL(b)}}catch(e){}
     if(curVideo.id!==want.id)return;
-    area.innerHTML=`<video controls autoplay playsinline controlsList="nodownload" src="${esc(src)}" style="width:100%;height:100%;background:#000"></video>`;
+    area.innerHTML=`<video controls autoplay playsinline preload="auto" controlsList="nodownload" src="${esc(src)}" style="width:100%;height:100%;background:#000"></video>`;
   }else{
     area.innerHTML=placeholder(I.warn,"No video link set for this lesson");
   }
   $("playerTitle").textContent=curVideo.title;
   offBarRender(curVideo);
-  if(IS_EXE&&offDirect(curVideo)&&navigator.onLine!==false)offAuto(curVideo);
   $("playerMeta").textContent=curVideo.durationMinutes?`${curVideo.durationMinutes} min`:"";
   area.scrollIntoView({behavior:"smooth",block:"nearest"});
-};
+  if(embed&&!(IS_EXE&&navigator.onLine===false)){bufShow(area,"Loading…");vWatch(area,curVideo)}
+  else if(curVideo.url&&!embed)vWatch(area,curVideo);
+  else{_loadingVid=null;vState="idle";renderVlist()}
+}
 
 // ─── Admin ───────────────────────────────────────────────
 const ADMIN_PW="1111";
