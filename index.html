@@ -1302,6 +1302,16 @@ body.chat-on .topbar{display:none}
 .dz-al{background:#1F2C34;border-radius:16px;overflow:hidden;min-width:230px;display:flex;flex-direction:column}
 .dz-al button{border:none;background:transparent;color:#E9EDEF;text-align:left;font-size:15.5px;padding:14px 20px;cursor:pointer}.dz-al button.del{color:#FF6B6B}.dz-al button:hover{background:rgba(255,255,255,.06)}
 @media(max-width:600px){.dz-col{max-width:80%}.dz-more{opacity:.7}}
+
+.pr-row{display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);border-radius:14px;cursor:pointer}
+.pr-row>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.pr-row strong{font-size:14px}.pr-row span{font-size:11.5px;color:var(--sub)}.pr-row b{color:var(--accent);font-size:16px}
+.pay-course{display:flex;align-items:center;gap:10px;padding:12px 14px;margin:6px 0 12px;border:1px solid var(--border);border-radius:14px}
+.pay-course>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.pay-course span{font-size:11.5px;color:var(--sub)}.pay-course b{color:var(--accent);font-size:18px}
+.pay-sep{border:0;border-top:1px solid var(--border);margin:14px 0}
+.pay-h{font-size:13.5px;font-weight:700;margin-bottom:4px}
+.pay-how{font-size:12px;color:var(--sub);white-space:pre-line;margin-bottom:10px}
+.pr-acts{display:flex;gap:8px;margin-top:8px}.pr-acts button{flex:1}
 </style>
 </head>
 <body>
@@ -1543,6 +1553,11 @@ body.chat-on .topbar{display:none}
       </div>
 
       <div class="nt-card">
+        <h3>💳 Payment requests</h3>
+        <div id="ntPayReqs"></div>
+      </div>
+
+      <div class="nt-card">
         <h3>পাঠানো বার্তা</h3>
         <div id="ntHistory"><span style="font-size:12.5px;color:var(--sub)">…</span></div>
       </div>
@@ -1714,6 +1729,7 @@ body.chat-on .topbar{display:none}
       </select>
     </div>
     <div class="fl"><label>Description</label><textarea id="cDesc" placeholder="Short description of the course…"></textarea></div>
+    <div class="fl"><label>Price (৳) — leave empty if not for sale</label><input type="number" id="cPrice" min="0" inputmode="numeric" placeholder="e.g. 500"/></div>
     <div class="modal-acts">
       <button class="btn-cancel" onclick="closeM('mCourse')">Cancel</button>
       <button class="btn-ok" onclick="saveCourse()">Save</button>
@@ -1773,6 +1789,9 @@ body.chat-on .topbar{display:none}
     <h4>Premium</h4>
     <div class="fl"><label>Support / Help Link (optional)</label><input type="url" id="pmUrl" placeholder="WhatsApp or Facebook link shown as “Need help?”"/></div>
     <div class="fl"><label>Premium Info (shown in the Premium popup, optional)</label><textarea id="pmInfo" placeholder="e.g. Unlock every lesson, live class and exam with Premium."></textarea></div>
+    <div class="fl"><label>Manual payment · bKash number</label><input type="text" id="pmBkash" placeholder="01XXXXXXXXX (Send Money / Personal)"/></div>
+    <div class="fl"><label>Manual payment · Nagad number</label><input type="text" id="pmNagad" placeholder="01XXXXXXXXX"/></div>
+    <div class="fl"><label>Manual payment · Rocket number</label><input type="text" id="pmRocket" placeholder="01XXXXXXXXX-X"/></div>
     <div class="modal-acts">
       <button class="btn-cancel" onclick="closeM('mLive')">Cancel</button>
       <button class="btn-ok" onclick="saveLive()">Save</button>
@@ -1787,31 +1806,45 @@ body.chat-on .topbar{display:none}
     <div class="modal-sub" id="gateSub">Video lessons are available to Premium members only. Contact admin on WhatsApp: 01566054963</div>
     <div class="gate-info hidden" id="gateInfo"></div>
     <div class="col-acts">
-      <button class="btn-ok" onclick="getPremium()">Become Premium</button>
+      <button class="btn-ok hidden" id="gateBuy" onclick="buyCurCourse()">Buy this course</button>
+      <button class="btn-ok" onclick="getPremium()">Courses &amp; prices</button>
       <button class="btn-secondary" id="gateLogin" onclick="closeM('mGate');openMemberLogin()">I'm already Premium: Login</button>
       <button class="btn-cancel" onclick="closeM('mGate')">Maybe later</button>
     </div>
   </div>
 </div>
 
+<div class="modal-bg hidden" id="mPrices">
+  <div class="modal">
+    <div class="modal-title">Courses &amp; prices</div>
+    <div class="modal-sub">Choose a course and pay securely with bKash. The course is unlocked automatically right after payment.</div>
+    <div id="prList"></div>
+    <div class="col-acts" style="margin-top:10px">
+      <button class="btn-cancel" onclick="closeM('mPrices')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg hidden" id="mPay">
   <div class="modal">
-    <div class="modal-title">Become Premium</div>
-    <div class="modal-sub">Choose a plan and pay securely with bKash. Your Premium access is activated automatically right after payment.</div>
-    <div class="plans" id="plans">
-      <label class="plan sel"><input type="radio" name="plan" value="1month" checked/><div><div class="pn">1 Month</div><div class="ps">Full access to all video lessons</div></div><div class="pp">৳50</div></label>
-      <label class="plan"><input type="radio" name="plan" value="6month"/><div><div class="pn">6 Months<span class="save">SAVE 40%</span></div><div class="ps">Best for a full semester</div></div><div class="pp">৳300</div></label>
-      <label class="plan"><input type="radio" name="plan" value="1year"/><div><div class="pn">1 Year<span class="save">BEST VALUE</span></div><div class="ps">Complete diploma preparation</div></div><div class="pp">৳500</div></label>
-    </div>
+    <div class="modal-title">Buy this course</div>
+    <div class="pay-course"><div><strong id="payCTitle"></strong><span id="payCSub"></span></div><b id="payCPrice"></b></div>
     <div class="fl"><label>Your Name *</label><input type="text" id="payName" placeholder="Full name" autocomplete="name"/></div>
     <div class="fl"><label>Mobile Number *</label><input type="tel" id="payMobile" placeholder="01XXXXXXXXX" autocomplete="tel"/></div>
     <div class="err-msg h" id="payErr"></div>
     <div class="col-acts" style="margin-top:6px">
       <button class="btn-bkash" id="payBtn" onclick="startPayment()">Pay with bKash</button>
+      <button class="btn-secondary" id="cardBtn" onclick="startCardPayment()">Pay by Card / Mobile banking</button>
+    </div>
+    <hr class="pay-sep"/>
+    <div class="pay-h">Paid by bKash / Nagad / Rocket? Enter the TrxID</div>
+    <div class="pay-how" id="payHow"></div>
+    <div class="fl"><label>TrxID (bKash / Nagad / Rocket) *</label><input type="text" id="payTrx" placeholder="e.g. 8N7A6D5EE1" autocomplete="off"/></div>
+    <div class="col-acts">
+      <button class="btn-secondary" id="trxBtn" onclick="submitTrx()">Submit TrxID for approval</button>
       <button class="btn-cancel" onclick="closeM('mPay')">Cancel</button>
     </div>
-    <div class="pay-note">Payment is processed securely by bKash. Already Premium? <a onclick="closeM('mPay');openMemberLogin()">Login</a><span id="payHelp"></span></div>
-    <div class="pay-note" style="margin-top:8px">যোগাযোগ: <a href="https://wa.me/8801566054963" target="_blank" rel="noopener">WhatsApp 01566054963</a></div>
+    <div class="pay-note">Already Premium? <a onclick="closeM('mPay');openMemberLogin()">Login</a><span id="payHelp"></span></div>
   </div>
 </div>
 
@@ -1984,7 +2017,7 @@ const RES_META={
 };
 let filterSem="", searchQ="";
 let liveType="class";
-let live={classTitle:"",classTime:"",classUrl:"",examTitle:"",examTime:"",examUrl:"",premiumUrl:"",premiumInfo:""};
+let live={classTitle:"",classTime:"",classUrl:"",examTitle:"",examTime:"",examUrl:"",premiumUrl:"",premiumInfo:"",payBkash:"",payNagad:"",payRocket:""};
 
 const $=id=>document.getElementById(id);
 
@@ -2290,14 +2323,14 @@ function renderLivePage(){
 window.openLiveSettings=function(){
   $("lcTitle").value=live.classTitle||"";$("lcTime").value=live.classTime||"";$("lcUrl").value=live.classUrl||"";
   $("leTitle").value=live.examTitle||"";$("leTime").value=live.examTime||"";$("leUrl").value=live.examUrl||"";
-  $("pmUrl").value=live.premiumUrl||"";$("pmInfo").value=live.premiumInfo||"";
+  $("pmUrl").value=live.premiumUrl||"";$("pmInfo").value=live.premiumInfo||"";$("pmBkash").value=live.payBkash||"";$("pmNagad").value=live.payNagad||"";$("pmRocket").value=live.payRocket||"";
   openM("mLive");
 };
 window.saveLive=async function(){
   const cu=$("lcUrl").value.trim(), eu=$("leUrl").value.trim(), pu=$("pmUrl").value.trim();
   if((cu&&!safeUrl(cu))||(eu&&!safeUrl(eu))||(pu&&!safeUrl(pu))){showToast("Links must start with http:// or https://");return}
   const next={...live,classTitle:$("lcTitle").value.trim(),classTime:$("lcTime").value.trim(),classUrl:cu,
-              examTitle:$("leTitle").value.trim(),examTime:$("leTime").value.trim(),examUrl:eu,premiumUrl:pu,premiumInfo:$("pmInfo").value.trim()};
+              examTitle:$("leTitle").value.trim(),examTime:$("leTime").value.trim(),examUrl:eu,premiumUrl:pu,premiumInfo:$("pmInfo").value.trim(),payBkash:$("pmBkash").value.trim(),payNagad:$("pmNagad").value.trim(),payRocket:$("pmRocket").value.trim()};
   try{
     await setDoc(doc(db,"tutorial_courses",LIVE_DOC),{live:next,isSettings:true});
     live=next;renderLive();closeM("mLive");showToast("Live settings saved");
@@ -2393,7 +2426,7 @@ async function loadCourses(){
       if(d.id.startsWith("_disc_")||d.id.startsWith("_call_")||d.id.startsWith("_payreq_"))return;
       courses.push({
         id:d.id,courseName:data.courseName||"",title:data.title||d.id,
-        className:data.className||"",subject:data.subject||"",description:data.description||"",
+        className:data.className||"",subject:data.subject||"",description:data.description||"",price:parsePrice(data.price),
         videos:(data.videos||[]).map(v=>({id:v.id||"",title:v.title||"",url:v.cloudinaryUrl||v.url||"",durationMinutes:v.durationMinutes||0}))
       });
     });
@@ -2550,7 +2583,7 @@ function renderManage(){
       <div class="mc-info">
         <strong>${esc(c.title)}</strong>
         <span>${esc([c.courseName,c.className,c.subject].filter(Boolean).join(" · "))}</span>
-        <span style="color:var(--accent2)">${lessonsLabel(c.videos.length)}</span>
+        <span style="color:var(--accent2)">${lessonsLabel(c.videos.length)}${c.price>0?" · "+priceLabel(c.price):" · No price set"}</span>
       </div>
       <div class="mc-acts">
         <button class="btn-ic e" onclick="openEditCourse('${c.id}')" aria-label="Edit">${I.edit}</button>
@@ -2577,13 +2610,13 @@ function fillSemSelect(val){
 }
 window.openAddCourse=function(){
   $("editCId").value="";$("mCourseTitle").textContent="New Course";
-  ["cName","cTitle","cDesc"].forEach(id=>$(id).value="");
+  ["cName","cTitle","cDesc","cPrice"].forEach(id=>$(id).value="");
   fillSemSelect("");$("cSubject").value="";openM("mCourse");
 };
 window.openEditCourse=function(cid){
   const c=courses.find(x=>x.id===cid);if(!c)return;
   $("editCId").value=c.id;$("mCourseTitle").textContent="Edit Course";
-  $("cName").value=c.courseName;$("cTitle").value=c.title;$("cDesc").value=c.description;
+  $("cName").value=c.courseName;$("cTitle").value=c.title;$("cDesc").value=c.description;$("cPrice").value=c.price||"";
   fillSemSelect(c.className);
   if(c.subject&&![...$("cSubject").options].some(o=>o.value===c.subject||o.text===c.subject)){
     const o=document.createElement("option");o.textContent=c.subject;$("cSubject").appendChild(o);
@@ -2593,7 +2626,7 @@ window.openEditCourse=function(cid){
 window.saveCourse=async function(){
   const name=$("cName").value.trim(),title=$("cTitle").value.trim();
   if(!name||!title){showToast("Please enter Course Name and Title");return}
-  const data={courseName:name,title,className:$("cClass").value,subject:$("cSubject").value,description:$("cDesc").value.trim()};
+  const data={courseName:name,title,className:$("cClass").value,subject:$("cSubject").value,description:$("cDesc").value.trim(),price:parsePrice($("cPrice").value)};
   const eid=$("editCId").value;
   if(!eid){
     const dup=courses.find(c=>c.title.trim().toLowerCase()===title.toLowerCase()&&c.courseName.trim().toLowerCase()===name.toLowerCase());
@@ -2842,34 +2875,131 @@ window.openPremiumGate=function(reason){
   $("gateSub").textContent=na?"Your Premium access does not include this course. Upgrade to unlock all courses, or contact the admin.":"Video lessons are available to Premium members only. Become Premium, or log in if your number already has access.";
   $("gateLogin").classList.toggle("hidden",na);
   box.textContent=info;box.classList.toggle("hidden",!info);
+  const bc=curCourse&&curCourse.price>0&&!courseAllowed(curCourse);
+  $("gateBuy").classList.toggle("hidden",!bc);if(bc)$("gateBuy").textContent="Buy this course · "+priceLabel(curCourse.price);
   openM("mGate");
 };
-window.getPremium=function(){
-  closeM("mGate");
+function parsePrice(v){const n=parseInt(String(v==null?"":v).replace(/[^\d]/g,""),10);return isNaN(n)?0:n}
+function priceLabel(p){return "৳"+p}
+const BACKEND="https://rasfocus-backend.onrender.com";
+let payCur=null;
+window.getPremium=function(){closeM("mGate");openPriceList()};
+window.openPriceList=function(){
+  const list=courses.filter(c=>c.price>0&&!courseAllowed(c));
+  $("prList").innerHTML=list.length?list.map(c=>`<div class="pr-row" onclick="payCourse('${c.id}')"><div><strong>${esc(c.title)}</strong><span>${esc([c.className,lessonsLabel(c.videos.length)].filter(Boolean).join("  ·  "))}</span></div><b>${priceLabel(c.price)}</b></div>`).join("")
+    :`<div class="pay-note" style="text-align:center;padding:12px 0">${isPremium()?"You already have access to every priced course.":"Course prices have not been set yet. Please contact the admin."}</div>`;
+  openM("mPrices");
+};
+window.buyCurCourse=function(){if(curCourse)payCourse(curCourse.id)};
+window.payCourse=function(cid){
+  const c=courses.find(x=>x.id===cid);if(!c)return;
+  payCur=c;closeM("mPrices");closeM("mGate");
+  $("payCTitle").textContent=c.title;$("payCSub").textContent=c.courseName||"";$("payCPrice").textContent=priceLabel(c.price);
+  $("payBtn").textContent="Pay "+priceLabel(c.price)+" with bKash";$("payBtn").disabled=false;
+  $("cardBtn").textContent="Pay "+priceLabel(c.price)+" by Card / Mobile banking";$("cardBtn").disabled=false;
+  const nums=[["bKash",live.payBkash],["Nagad",live.payNagad],["Rocket",live.payRocket]].filter(x=>(x[1]||"").trim()).map(x=>x[0]+": "+x[1].trim());
+  let how=(live.premiumInfo||"").trim();
+  if(nums.length)how="Send "+priceLabel(c.price)+" (Send Money) to one of these numbers:\n"+nums.join("\n")+"\n\nThen type the TrxID from the confirmation SMS below."+(how?"\n\n"+how:"");
+  else if(!how)how="Send "+priceLabel(c.price)+" to the number the admin gave you (ask on WhatsApp 01566054963), then type the TrxID from the SMS below.";
+  $("payHow").textContent=how;
+  const m=curMember();
+  $("payName").value=(m&&m.name)||"";$("payMobile").value=session?session.mobile:"";$("payTrx").value="";
   $("payErr").classList.add("h");
   const u=safeUrl(live.premiumUrl);
   $("payHelp").innerHTML=u?` · <a href="${esc(u)}" target="_blank" rel="noopener">Need help?</a>`:"";
   openM("mPay");setTimeout(()=>$("payName").focus(),120);
 };
-const BACKEND="https://rasfocus-backend.onrender.com";
-document.addEventListener("change",e=>{
-  if(e.target.name==="plan")document.querySelectorAll("#plans .plan").forEach(l=>l.classList.toggle("sel",l.querySelector("input").checked));
-});
-window.startPayment=async function(){
-  const name=$("payName").value.trim(),mobile=normMobile($("payMobile").value);
-  const plan=document.querySelector('input[name="plan"]:checked')?.value||"1month";
-  const err=$("payErr"),btn=$("payBtn"),fail=m=>{err.textContent=m;err.classList.remove("h")};
+function payInputs(){
+  const name=$("payName").value.trim(),mobile=normMobile($("payMobile").value),err=$("payErr");
   err.classList.add("h");
-  if(name.length<2){fail("Please enter your name.");return}
-  if(!/^01\d{9}$/.test(mobile)){fail("Enter a valid 11-digit mobile number (01XXXXXXXXX).");return}
-  btn.disabled=true;btn.textContent="Connecting to bKash… (may take up to 30 seconds)";
+  const fail=m=>{err.textContent=m;err.classList.remove("h");return null};
+  const o={name,mobile,fail};
+  if(name.length<2){fail("Please enter your name.");return null}
+  if(!/^01\d{9}$/.test(mobile)){fail("Enter a valid 11-digit mobile number (01XXXXXXXXX).");return null}
+  return o;
+}
+async function payOnline(kind){
+  const i=payInputs();if(!i||!payCur)return;
+  const card=kind==="card",btn=$(card?"cardBtn":"payBtn"),orig=btn.textContent;
+  btn.disabled=true;btn.textContent=card?"Connecting… (may take up to 30 seconds)":"Connecting to bKash… (may take up to 30 seconds)";
   try{
-    const r=await fetch(BACKEND+"/api/tutorial/bkash/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,mobile,plan})});
-    const d=await r.json();
-    if(d.success&&d.bkashURL){window.location.href=d.bkashURL;return}
-    fail(d.message||"Could not start the payment. Please try again.");
-  }catch(e){fail("Server is waking up or unreachable. Please wait 30 seconds and try again.")}
-  btn.disabled=false;btn.textContent="Pay with bKash";
+    const body=card?{name:i.name,mobile:i.mobile,courseId:payCur.id}:{name:i.name,mobile:i.mobile,plan:"course",courseId:payCur.id};
+    const r=await fetch(BACKEND+(card?"/api/tutorial/sslcommerz/create":"/api/tutorial/bkash/create"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const d=await r.json(),to=card?d.url:d.bkashURL;
+    if(d.success&&to){window.location.href=to;return}
+    i.fail(d.message||"Could not start the payment. Please try again.");
+  }catch(e){i.fail("Server is waking up or unreachable. Please wait 30 seconds and try again.")}
+  btn.disabled=false;btn.textContent=orig;
+}
+window.startPayment=()=>payOnline("bkash");
+window.startCardPayment=()=>payOnline("card");
+window.submitTrx=async function(){
+  const i=payInputs();if(!i||!payCur)return;
+  const t=$("payTrx").value.replace(/[^A-Za-z0-9]/g,"").toUpperCase();
+  if(t.length<8||t.length>14){i.fail("Enter the TrxID exactly as shown in the bKash SMS.");return}
+  const btn=$("trxBtn");btn.disabled=true;btn.textContent="Submitting…";
+  try{
+    const ref=doc(db,"tutorial_courses","_payreq_"+t),ex=await getDoc(ref);
+    if(ex.exists()){
+      const e=ex.data();
+      i.fail(e.status==="pending"&&e.mobile===i.mobile?"This TrxID is already submitted and waiting for the admin's approval.":"This TrxID has already been used. Please check it and try again.");
+    }else{
+      await setDoc(ref,{trxId:t,name:i.name,mobile:i.mobile,courseId:payCur.id,courseTitle:payCur.title,amount:payCur.price,method:"bkash",status:"pending",at:Date.now()});
+      try{if(window.AndroidAdmin&&typeof AndroidAdmin.notifyAdmins==="function")AndroidAdmin.notifyAdmins("💳 New payment request",i.name+" · "+i.mobile+"\n"+payCur.title+" · "+priceLabel(payCur.price)+"\nTrxID: "+t)}catch(_){}
+      closeM("mPay");showToast("✅ TrxID sent. You will get a notification as soon as the admin approves it.");
+    }
+  }catch(e){i.fail("Network problem. Please check your connection and try again.")}
+  btn.disabled=false;btn.textContent="Submit TrxID for approval";
+};
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target&&(e.target.id==="payName"||e.target.id==="payMobile"))startPayment()});
+
+// ── Admin: manual payment requests (Notification Center) ──
+async function prLoad(){
+  const box=$("ntPayReqs");if(!box)return;
+  box.innerHTML='<span style="font-size:12.5px;color:var(--sub)">লোড হচ্ছে…</span>';
+  try{
+    const snap=await getDocs(collection(db,"tutorial_courses")),list=[];
+    snap.forEach(d=>{if(d.id.startsWith("_payreq_"))list.push({id:d.id,...d.data()})});
+    list.sort((x,y)=>(y.at||0)-(x.at||0));
+    const rows=list.slice(0,60);
+    box.innerHTML=rows.length?rows.map(r=>{
+      const st=r.status||"pending",pend=st==="pending";
+      return `<div class="nt-hi pr-req"><strong>${esc(r.name||"")} · ${esc(r.mobile||"")}</strong><p>${esc(r.courseTitle||"")} · ${priceLabel(parsePrice(r.amount))}<br/>TrxID: <b>${esc(r.trxId||"")}</b></p>
+        <span>${pend?"⏳ Pending":st==="accepted"?"✅ Accepted":"❌ Rejected"} · ${esc(new Date(r.at||0).toLocaleString())}</span>
+        ${pend?`<div class="pr-acts"><button class="btn-ok" onclick="prDecide('${esc(r.id)}',true)">Accept</button><button class="btn-cancel" onclick="prDecide('${esc(r.id)}',false)">Reject</button></div>`:""}</div>`;
+    }).join(""):'<span style="font-size:12.5px;color:var(--sub)">কোনো payment request নেই</span>';
+  }catch(e){box.innerHTML='<span style="font-size:12.5px;color:var(--sub)">❌ '+esc(e.message)+'</span>'}
+}
+async function prPushUser(mobile,title,body){
+  try{await _fcmSendViaBridge(title,body,"user",mobile);return "User notified."}catch(e){return "(User push: "+e.message+")"}
+}
+window.prDecide=async function(id,accept){
+  try{
+    const ref=doc(db,"tutorial_courses",id),cur=await getDoc(ref);
+    if(!cur.exists()){showToast("This request no longer exists.");prLoad();return}
+    const r=cur.data(),st=r.status||"pending";
+    if(st!=="pending"){showToast("Already "+st+".");prLoad();return}
+    if(!confirm(accept?`Does TrxID ${r.trxId} (${priceLabel(parsePrice(r.amount))}) match a bKash SMS you received?\n\nAccept = course unlocked for ${r.mobile}.`:`Reject TrxID ${r.trxId}?`))return;
+    let msg;
+    if(accept){
+      const mref=doc(db,"tutorial_courses","_member_"+r.mobile),m=await getDoc(mref);
+      if(!m.exists()){
+        await setDoc(mref,{isMember:true,name:r.name||"",mobile:r.mobile,expiry:"",allCourses:false,courseIds:[r.courseId],created:Date.now(),paidVia:"manual",lastTrx:r.trxId});
+      }else{
+        const md=m.data(),u={isMember:true,paidVia:"manual",lastTrx:r.trxId};
+        const all=md.allCourses===true||(md.allCourses===undefined&&!Array.isArray(md.courseIds));
+        if(!all){const ids=Array.isArray(md.courseIds)?[...md.courseIds]:[];if(!ids.includes(r.courseId))ids.push(r.courseId);u.courseIds=ids;u.allCourses=false}
+        if(md.expiry&&todayStr()>md.expiry)u.expiry="";
+        await updateDoc(mref,u);
+      }
+      await updateDoc(ref,{status:"accepted",decidedAt:Date.now()});
+      msg="✅ Accepted — course unlocked. "+await prPushUser(r.mobile,"✅ Payment confirmed",`Your payment (TrxID ${r.trxId}) is confirmed. "${r.courseTitle}" is now unlocked — open the app and start learning.`);
+    }else{
+      await updateDoc(ref,{status:"rejected",decidedAt:Date.now()});
+      msg="Rejected. "+await prPushUser(r.mobile,"❌ Payment could not be verified",`We could not match TrxID ${r.trxId} with a payment. Please check it, or contact the admin on WhatsApp 01566054963.`);
+    }
+    showToast(msg);prLoad();loadCourses();
+  }catch(e){showToast("Error: "+e.message)}
 };
 window.openMemberLogin=function(){
   $("lmMobile").value="";$("lmErr").classList.add("h");
@@ -3015,7 +3145,7 @@ window.openNotify=function(){
     return`<option value="${esc(mob)}">${esc(m.name||"")}</option>`;
   }).join("");
   ntSetTarget(_ntTarget);ntCount();
-  goView("viewNotify");ntLoadHistory();
+  goView("viewNotify");ntLoadHistory();prLoad();
   // Bridge availability info
   const statEl=$("ntStat");
   if(!window.AndroidAdmin){
