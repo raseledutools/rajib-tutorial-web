@@ -1212,8 +1212,7 @@ body{font-family:Roboto,system-ui,-apple-system,'Segoe UI','Noto Sans Bengali',s
 .kiosk-pass-input{border-color:var(--border2);background:#fff}
 .kiosk-pass-input:focus{border-color:var(--accent);box-shadow:none}
 
-/* ── Native parity: admin hidden outside the APK, refresh buttons ── */
-html:not(.is-apk) #adminSidebar,html:not(.is-apk) .sidebar-bottom,html:not(.is-apk) #viewManage,html:not(.is-apk) #viewMembers,html:not(.is-apk) #viewNotify{display:none!important}
+/* ── Native parity: refresh buttons ── */
 .btn-refresh{width:40px;height:40px;border-radius:50%;border:none;background:transparent;color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
 .btn-refresh:hover{background:var(--accent-soft);color:var(--accent)}
 .btn-refresh svg{width:20px;height:20px}
@@ -1221,8 +1220,89 @@ html:not(.is-apk) #adminSidebar,html:not(.is-apk) .sidebar-bottom,html:not(.is-a
 @keyframes rfSpin{to{transform:rotate(360deg)}}
 .tb-right{display:flex;align-items:center;gap:4px;flex-shrink:0}
 .filters .btn-refresh{border:1.5px solid var(--border);background:#fff;width:42px;height:42px}
+
+/* ── Bell, Notifications inbox, Discussion (native parity) ── */
+.btn-bell{position:relative;width:40px;height:40px;border-radius:50%;border:none;background:transparent;color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:19px;flex-shrink:0}
+.btn-bell:hover{background:var(--accent-soft)}
+.bell-dot{position:absolute;top:8px;right:8px;width:10px;height:10px;border-radius:50%;background:#E5484D;border:2px solid #fff}
+.bell-dot.hidden{display:none}
+#viewInbox{background:var(--bg2);min-height:calc(100vh - 52px)}
+.ib-wrap{max-width:760px;margin:0 auto;padding:18px 16px 40px}
+.ib-wrap h2{font-size:20px;font-weight:800;margin-bottom:4px}
+.ib-sub{font-size:12.5px;color:var(--sub);margin-bottom:14px}
+.ib-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.ib-card b{display:block;font-size:14.5px}
+.ib-card p{font-size:13.5px;margin:4px 0 6px;line-height:1.4;white-space:pre-wrap;word-break:break-word}
+.ib-card p a,.ib-open{color:var(--accent2);font-weight:600}
+.ib-open{display:inline-block;font-size:13px;margin-bottom:8px}
+.ib-when{font-size:11.5px;color:var(--sub)}
+.ib-note{text-align:center;font-size:13.5px;color:var(--sub);padding:34px 12px}
+body.chat-on .topbar{display:none}
+#viewDisc.active{display:flex;flex-direction:column;height:100vh;height:100dvh}
+#viewDisc .dz-center{margin:auto;max-width:420px;padding:30px 28px;text-align:center;display:flex;flex-direction:column;align-items:stretch;gap:10px}
+#viewDisc .dz-center h3{font-size:19px;font-weight:800}
+#viewDisc .dz-center p{font-size:13.5px;color:var(--sub);line-height:1.5;margin-bottom:8px}
+.dz-lock{width:72px;height:72px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 6px}
+#viewDisc.dz-dark{background:#0B141A;color:#E9EDEF}
+.dz{display:flex;flex-direction:column;height:100%;min-height:0;max-width:980px;width:100%;margin:0 auto;background:#0B141A;color:#E9EDEF}
+.dz-head{display:flex;align-items:center;gap:6px;background:#1F2C34;padding:8px 8px 8px 4px;flex-shrink:0}
+.dz-ib{width:42px;height:42px;border-radius:50%;border:none;background:transparent;color:#E9EDEF;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dz-ib:hover{background:rgba(255,255,255,.08)}.dz-ib.sub{color:#8696A0}
+.dz-gav{width:40px;height:40px;border-radius:50%;background:#6A7175;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;margin-right:4px}
+.dz-meta{flex:1;min-width:0;display:flex;flex-direction:column}
+.dz-meta b{font-size:16.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dz-meta span{font-size:12px;color:#8696A0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dz-scroll{flex:1;min-height:0;overflow-y:auto;padding:10px}
+.dz-list{display:flex;flex-direction:column;gap:8px}
+.dz-note{text-align:center;color:#8696A0;font-size:13.5px;padding:40px 0;line-height:1.6}
+.dz-day{text-align:center;margin:6px 0 2px}.dz-day span{display:inline-block;background:#182229;color:#8696A0;font-size:11.5px;font-weight:700;border-radius:10px;padding:3px 10px}
+.dz-row{display:flex;align-items:flex-end;gap:8px}.dz-row.mine{justify-content:flex-end}
+.dz-av{width:34px;height:34px;border-radius:50%;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dz-col{display:flex;flex-direction:column;max-width:min(68%,520px);min-width:0}.dz-row.mine .dz-col{align-items:flex-end}
+.dz-bub{position:relative;background:#202C33;border-radius:16px 16px 16px 4px;padding:8px 12px 6px;word-break:break-word;min-width:64px}
+.dz-row.mine .dz-bub{background:#005C4B;border-radius:16px 16px 4px 16px}
+.dz-more{position:absolute;top:0;right:4px;border:none;background:transparent;color:#8696A0;font-size:16px;cursor:pointer;opacity:0;padding:0 4px}
+.dz-bub:hover .dz-more{opacity:1}
+.dz-name{font-size:12.5px;font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:6px;padding-right:14px}
+.dz-name em{font-style:normal;background:#00A884;color:#fff;font-size:9.5px;font-weight:800;border-radius:8px;padding:1px 6px}
+.dz-txt{font-size:15px;line-height:1.38;white-space:pre-wrap}.dz-txt a,.dz-bub a{color:#53BDEB}
+.dz-time{font-size:10.5px;color:#8696A0;text-align:right;margin-top:3px}.dz-row.mine .dz-time{color:rgba(233,237,239,.7)}
+.dz-sm{font-size:12px;color:#8696A0;margin-top:2px}
+.dz-img{display:block;width:240px;max-width:100%;max-height:300px;object-fit:cover;border-radius:10px;margin:2px 0 6px;cursor:zoom-in;background:rgba(0,0,0,.2)}
+.dz-vid{display:block;width:260px;max-width:100%;border-radius:10px;margin:2px 0 6px;background:#000}
+.dz-bub audio{width:230px;max-width:100%;height:36px}.dz-voice{display:flex;align-items:center;gap:6px}
+.dz-fn{font-size:14px;font-weight:700;padding:3px 0 6px}
+.dz-file{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.22);border-radius:10px;padding:10px 12px;width:240px;max-width:100%;color:#E9EDEF!important;text-decoration:none}
+.dz-fi{font-size:26px}.dz-fnm{flex:1;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dz-fo{font-size:12px;color:#53BDEB;font-weight:700}
+.dz-join{width:170px;margin-top:8px;background:#00A884!important}
+.dz-pl{font-size:10.5px;font-weight:800;color:#00A884}.dz-pq{font-size:15.5px;font-weight:700;margin:2px 0 8px;width:240px;max-width:100%}
+.dz-opt{background:rgba(0,0,0,.2);border:1.5px solid transparent;border-radius:10px;padding:8px 10px;margin-bottom:6px;cursor:pointer;width:240px;max-width:100%}
+.dz-opt.sel{border-color:#00A884}.dz-ot{display:flex;justify-content:space-between;gap:8px;font-size:14px}.dz-ot small{font-size:12px;color:#8696A0}
+.dz-ob{height:5px;border-radius:3px;background:rgba(255,255,255,.2);margin-top:6px;overflow:hidden}.dz-ob i{display:block;height:100%;background:#53BDEB}.dz-opt.sel .dz-ob i{background:#00A884}
+.dz-react{align-self:flex-start;margin:-9px 8px 0;background:#1F2C34;border:2px solid #0B141A;border-radius:12px;padding:1px 7px;font-size:12.5px;cursor:pointer}.dz-row.mine .dz-react{align-self:flex-end}
+.dz-up{background:#1F2C34;padding:8px 14px;font-size:12px;color:#8696A0;flex-shrink:0}.dz-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.15);margin-top:4px;overflow:hidden}.dz-bar i{display:block;height:100%;width:0;background:#00A884}
+.dz-input{display:flex;align-items:flex-end;gap:8px;padding:8px 10px;background:#0B141A;flex-shrink:0}.dz-input.hidden{display:none}
+.dz-input textarea{flex:1;resize:none;border:none;outline:none;background:#1F2C34;color:#E9EDEF;border-radius:24px;padding:11px 16px;font:inherit;font-size:15px;line-height:1.3;max-height:110px}
+.dz-input textarea::placeholder{color:#8696A0}
+.dz-send{width:44px;height:44px;border-radius:50%;border:none;background:#00A884;color:#fff;font-size:18px;font-weight:700;cursor:pointer;flex-shrink:0}
+#dzRecT{flex:1;color:#FF6B6B;font-weight:700;font-size:16px;align-self:center;padding-left:6px}
+.dz-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;display:flex;align-items:flex-end;justify-content:center}
+.dz-ov.mid{align-items:center}.dz-ov.dark{background:rgba(0,0,0,.92);align-items:center;flex-direction:column;gap:12px}
+.dz-big{max-width:96vw;max-height:84vh;object-fit:contain}.dz-dl{color:#fff;font-size:13px;text-decoration:underline}
+.dz-sheet{background:#fff;color:#14121A;width:100%;max-width:460px;border-radius:18px 18px 0 0;padding:16px 16px 18px;display:flex;flex-direction:column;gap:8px}
+@media(min-width:600px){.dz-ov{align-items:center}.dz-sheet{border-radius:18px}}
+.dz-st{font-size:17px;font-weight:800}.dz-ss{font-size:12.5px;color:#4D4858;margin-bottom:4px}
+.dz-sr{border:1.5px solid rgba(20,18,26,.12);background:#fff;border-radius:12px;padding:12px;font-size:14.5px;font-weight:600;cursor:pointer;text-align:left}
+.dz-sr.c{text-align:center;color:#4D4858}.dz-sr.ok{background:#E8365D;color:#fff;border-color:#E8365D;text-align:center}
+.dz-fi2{border:1.5px solid rgba(20,18,26,.14);border-radius:12px;padding:11px 12px;font:inherit;font-size:14px;width:100%;margin-bottom:6px;outline:none}
+.dz-err{color:#C81E4E;font-size:12.5px}.dz-err.hidden{display:none}
+.dz-act{display:flex;flex-direction:column;gap:10px;align-items:center}
+.dz-er{display:flex;background:#1F2C34;border-radius:32px;padding:6px;gap:2px}
+.dz-er button{width:46px;height:46px;border-radius:50%;border:none;background:transparent;font-size:26px;cursor:pointer}.dz-er button.on,.dz-er button:hover{background:rgba(255,255,255,.18)}
+.dz-al{background:#1F2C34;border-radius:16px;overflow:hidden;min-width:230px;display:flex;flex-direction:column}
+.dz-al button{border:none;background:transparent;color:#E9EDEF;text-align:left;font-size:15.5px;padding:14px 20px;cursor:pointer}.dz-al button.del{color:#FF6B6B}.dz-al button:hover{background:rgba(255,255,255,.06)}
+@media(max-width:600px){.dz-col{max-width:80%}.dz-more{opacity:.7}}
 </style>
-<script>if(window.AndroidAdmin)document.documentElement.classList.add("is-apk")</script>
 </head>
 <body>
 
@@ -1249,6 +1329,8 @@ html:not(.is-apk) #adminSidebar,html:not(.is-apk) .sidebar-bottom,html:not(.is-a
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>
       <span>Live Exam</span><i class="live-dot hidden" id="dotExam"></i>
     </div>
+    <div class="nav-item" id="navDisc" onclick="openDiscussion()"><span class="nav-ico">💬</span><span>Discussion</span></div>
+    <div class="nav-item" id="navInbox" onclick="openInbox()"><span class="nav-ico">🔔</span><span>Notifications</span></div>
     <div class="nav-item" id="navResCircular" onclick="openRes('circular')"><span class="nav-ico">📢</span><span>Current Circular</span></div>
     <div class="nav-item" id="navResQbank" onclick="openRes('qbank')"><span class="nav-ico">📚</span><span>Question Bank</span></div>
     <div class="nav-item" id="navResRecent" onclick="openRes('recent')"><span class="nav-ico">🆕</span><span>Recent Question Bank</span></div>
@@ -1267,6 +1349,9 @@ html:not(.is-apk) #adminSidebar,html:not(.is-apk) .sidebar-bottom,html:not(.is-a
     <button class="btn-admin-action" onclick="openNotify();closeSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg> Notification Center
     </button>
+    <a class="btn-admin-action" href="https://m.youtube.com/" target="_blank" rel="noopener" style="text-decoration:none">▶️ YouTube</a>
+    <a class="btn-admin-action" href="https://www.google.com/" target="_blank" rel="noopener" style="text-decoration:none">🔍 Google</a>
+    <a class="btn-admin-action" href="https://studio.youtube.com/" target="_blank" rel="noopener" style="text-decoration:none">🎬 YouTube Studio</a>
     <button class="btn-admin-action" onclick="openLiveSettings();closeSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg> Live &amp; Premium Settings
     </button>
@@ -1295,7 +1380,7 @@ html:not(.is-apk) #adminSidebar,html:not(.is-apk) .sidebar-bottom,html:not(.is-a
       </button>
       <span class="topbar-title" id="topbarTitle">Rajib Tutorial</span>
     </div>
-    <div class="tb-right"><button class="btn-refresh" id="btnRefresh" onclick="refreshSite()" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button><div id="userArea"></div></div>
+    <div class="tb-right"><button class="btn-bell" onclick="openInbox()" aria-label="Notifications" title="Notifications">🔔<span class="bell-dot hidden" id="bellDot"></span></button><button class="btn-refresh" id="btnRefresh" onclick="refreshSite()" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button><div id="userArea"></div></div>
   </header>
 
   <!-- HOME -->
@@ -1320,6 +1405,7 @@ html:not(.is-apk) #adminSidebar,html:not(.is-apk) .sidebar-bottom,html:not(.is-a
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>
           Take Live Exam <span class="live-pill">LIVE</span>
         </button>
+        <button class="btn-live ghost" onclick="openDiscussion()">💬  Discussion Group  ⭐ Premium</button>
         <button class="btn-live ghost" onclick="document.getElementById('coursesAnchor').scrollIntoView()">Browse Courses</button>
       </div>
       <div class="live-info" id="liveInfo"></div>
@@ -1425,6 +1511,12 @@ html:not(.is-apk) #adminSidebar,html:not(.is-apk) .sidebar-bottom,html:not(.is-a
       <div id="memberList"></div>
     </div>
   </div>
+  <!-- DISCUSSION -->
+  <div class="view" id="viewDisc"></div>
+
+  <!-- NOTIFICATIONS INBOX -->
+  <div class="view" id="viewInbox"><div class="ib-wrap"><h2>🔔 Notifications</h2><div class="ib-sub">Messages from the admin, newest first</div><div id="inboxList"></div></div></div>
+
   <!-- NOTIFICATION CENTER (admin) -->
   <div class="view" id="viewNotify">
     <div class="manage-wrap">
@@ -1849,7 +1941,7 @@ html:not(.is-apk) #adminSidebar,html:not(.is-apk) .sidebar-bottom,html:not(.is-a
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc,
-         query, where, orderBy, limit, getCountFromServer }
+         query, where, orderBy, limit, getCountFromServer, documentId }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -2069,14 +2161,14 @@ let _navStack = [];   // e.g. ["viewHome","viewCourse","viewLesson"]
 let _navPopping = false; // popstate এর সময় আবার push না হয়
 
 window.goView=function(id, _fromPop){
-  if(["viewManage","viewMembers","viewNotify"].includes(id)&&!adminIn)id="viewHome";
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   $(id).classList.add("active");
   window.scrollTo(0,0);
   document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
   if(id==="viewHome") $("navHome").classList.add("active");
-  const titles={viewHome:"Rajib Tutorial",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewMembers:"Premium Members",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class"};
+  const titles={viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewMembers:"Premium Members",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class"};
   $("topbarTitle").textContent=titles[id]||"Rajib Tutorial";
+  try{if(id!=="viewDisc")dLeave();if(id==="viewInbox")inboxLoad()}catch(e){}
 
   // ── pushState: Android back button এর জন্য WebView history তৈরি করা ──
   if(!_fromPop){
@@ -2306,7 +2398,7 @@ async function loadCourses(){
       });
     });
   }catch(e){
-    courses=[];
+    courses=[];window._rtLoaded=true;
     $("courseGridWrap").innerHTML=`<div class="empty">${I.warn}<p>We could not load the courses at the moment.<br/>Please check your internet connection and refresh the page.</p></div>`;
     return;
   }
@@ -2315,6 +2407,7 @@ async function loadCourses(){
   if($("viewRes").classList.contains("active"))renderRes();
   validateSession();renderUser();if(curCourse)renderVlist();
   if(adminIn) renderManage();
+  window._rtLoaded=true;try{dRender()}catch(e){}
 }
 function semOptions(extra){
   const set=[...SEMESTERS];
@@ -2431,7 +2524,6 @@ window.playVideo=async function(vid){
 // ─── Admin ───────────────────────────────────────────────
 const ADMIN_PW="1111";
 window.openAdminLogin=function(){
-  if(!window.AndroidAdmin)return;
   if(adminIn){goView("viewManage");closeSidebar();return}
   $("pwIn").value="";clearPwErr();openM("mLogin");setTimeout(()=>$("pwIn").focus(),120);
 };
@@ -2732,6 +2824,7 @@ function syncPushUser(){
 }
 function renderUser(){
   syncPushUser();
+  setTimeout(()=>{try{dRender()}catch(e){}},0);
   const wrap=$("userArea");
   const chip=(name,sub)=>`<div class="userchip" onclick="toggleUserMenu(event)"><span class="av">${esc((name||"U").trim().charAt(0).toUpperCase())}</span><span class="un">${esc(name)}</span><span class="pro">PRO</span></div>
     <div class="umenu hidden" id="uMenu"><div class="um-name">${esc(name)}</div><div class="um-sub">${esc(sub)}</div>${adminIn?"":`<button class="um-btn" onclick="memberLogout()">Logout</button>`}</div>`;
@@ -3274,6 +3367,294 @@ renderUser();
   renderUser();if(curCourse)renderVlist();
   showToast("Premium activated. Welcome, "+r.name);
 })();
+// ─── Notification inbox (bell) + Discussion group — same data as the native app ───────────
+const bkey=s=>String(s||"").trim().toLowerCase();
+function notifForMe(target,mobile,batch){
+  if(target==="all")return true;
+  if(!session||!session.mobile)return false;
+  if(target==="batch"){const me=curMember();return !!me&&bkey(batch)!==""&&bkey(batch)===bkey(me.batch)}
+  if(!mobile)return false;
+  return normMobile(mobile)===normMobile(session.mobile);
+}
+const SEEN_KEY="rt_inbox_seen";
+const seenGet=()=>{try{return Number(localStorage.getItem(SEEN_KEY))||0}catch(e){return 0}};
+const seenSet=v=>{try{localStorage.setItem(SEEN_KEY,String(v))}catch(e){}};
+let _lastUnread=0;
+async function updateBell(check){
+  const dot=$("bellDot");if(!dot)return;
+  if(!check){dot.classList.add("hidden");return}
+  const now=Date.now();if(now-_lastUnread<15000)return;_lastUnread=now;
+  try{
+    const snap=await getDocs(query(collection(db,"push_messages"),orderBy("at","desc"),limit(30)));
+    const seen=seenGet();if(!seen){seenSet(now);return}
+    let fresh=false;
+    snap.forEach(d=>{const x=d.data(),at=Number(x.at)||0;if(at>seen&&notifForMe(x.target,x.mobile,x.batch))fresh=true});
+    dot.classList.toggle("hidden",!(fresh&&!$("viewInbox").classList.contains("active")));
+  }catch(e){}
+}
+const linkify=t=>esc(t).replace(/(https?:\/\/[^\s<"]+)/g,u=>`<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+const fmtDT=ts=>{const d=new Date(ts);return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})+", "+d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})};
+window.openInbox=function(){goView("viewInbox");closeSidebar()};
+async function inboxLoad(){
+  const box=$("inboxList");box.innerHTML='<div class="ib-note">Loading…</div>';
+  try{
+    const snap=await getDocs(query(collection(db,"push_messages"),orderBy("at","desc"),limit(100)));
+    const items=[];
+    snap.forEach(d=>{const x=d.data();if(!notifForMe(x.target,x.mobile,x.batch))return;
+      items.push({title:x.title||"",body:x.body||"",at:Number(x.at)||0,tag:x.target==="batch"?"Your batch: "+(x.batch||""):(x.target==="all"?"":"For you")})});
+    if(!items.length){box.innerHTML='<div class="ib-note">No notifications yet.</div>';return}
+    box.innerHTML=items.map(it=>{
+      const m=(it.body+" "+it.title).match(/https?:\/\/[^\s<"]+/);
+      const when=(it.at?"🕒  "+fmtDT(it.at):"")+(it.tag?(it.at?"   •   ":"")+esc(it.tag):"");
+      return `<div class="ib-card"><b>${esc(it.title||"Rajib Tutorial")}</b><p>${linkify(it.body)}</p>${m?`<a class="ib-open" href="${esc(m[0])}" target="_blank" rel="noopener">🔗  Open link</a>`:""}${when?`<div class="ib-when">${when}</div>`:""}</div>`}).join("");
+    seenSet(Math.max(...items.map(i=>i.at),1));updateBell(false);
+  }catch(e){box.innerHTML='<div class="ib-note">Could not load notifications.<br>Check your internet connection and open this page again.</div>'}
+}
+setTimeout(()=>updateBell(true),2500);
+setInterval(()=>updateBell(true),60000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)updateBell(true)});
+
+// ── Discussion ──
+const DISC_PREFIX="_disc_",DISC_APP="rasel-mia-universal-sync";
+const CLD_URL="https://api.cloudinary.com/v1_1/de2w78yxh/auto/upload",CLD_PRESET="ml_default",CLD_MAX=100*1024*1024;
+const D_EMOJIS=["👍","❤️","😂","😮","😢","🙏"];
+const D_PAL=["#53BDEB","#FFA726","#E57373","#4DB6AC","#BA68C8","#81C784","#F06292","#FFD54F"];
+let dMsgs=[],dTimer=null,dFetching=false,dPending=false,dSig="",dFirst=true,dUp=false,dMode=-1,dRec=null,dRecTick=null;
+const dHas=()=>adminIn||isPremium();
+const dMyId=()=>adminIn?"admin":((session&&session.mobile)||"");
+const dMyName=()=>{if(adminIn)return"Admin";const m=curMember();return(m&&m.name)||"Member"};
+const dRid=()=>dMyId().replace(/[^A-Za-z0-9]/g,"");
+const dColor=k=>{let h=0;k=String(k||"");for(let i=0;i<k.length;i++)h=(h*31+k.charCodeAt(i))|0;return D_PAL[Math.abs(h)%D_PAL.length]};
+const dCdn=(u,tr,jpg)=>{if(!u||!u.includes("res.cloudinary.com")||!u.includes("/upload/"))return u;let r=u.replace("/upload/","/upload/"+tr+"/");if(jpg)r=r.replace(/\.[A-Za-z0-9]{2,5}$/,".jpg");return r};
+const dDur=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+const dTime=ts=>ts?new Date(ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
+const dDay=ts=>new Date(ts).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+function dMemberCount(){const t=todayStr();return members.filter(m=>!m.expiry||t<=m.expiry).length}
+function dSubText(){const n=dMemberCount();return(n>0?n+" members · ":"")+"messages, media & group calls"}
+
+function dRender(){
+  const v=$("viewDisc");if(!v||!v.classList.contains("active"))return;
+  const want=!window._rtLoaded?0:(dHas()?2:1);
+  if(want===dMode)return;
+  dMode=want;
+  document.body.classList.toggle("chat-on",want===2);
+  v.classList.toggle("dz-dark",want===2);
+  if(want===0){dStopPoll();v.innerHTML='<div class="dz-center"><div class="loader"><div class="spin"></div></div></div>';return}
+  if(want===1){dStopPoll();
+    v.innerHTML='<div class="dz-center"><div class="dz-lock">🔒</div><h3>Premium members only</h3><p>The Discussion group is open to Premium members. Log in with your Premium mobile number and you will join the chat automatically.</p><button class="btn-ok" onclick="openMemberLogin()">Login</button><button class="btn-secondary" onclick="openPremiumGate()">⭐ Become Premium</button></div>';return}
+  dBuildChat();dStartPoll();
+}
+window.openDiscussion=function(){goView("viewDisc");dRender();closeSidebar()};
+function dLeave(){dStopPoll();dVoiceCancel();dMode=-1;dFirst=true;dSig="";document.body.classList.remove("chat-on");const v=$("viewDisc");if(v)v.classList.remove("dz-dark")}
+
+function dBuildChat(){
+  $("viewDisc").innerHTML=`<div class="dz">
+  <div class="dz-head"><button class="dz-ib" onclick="goHome()" aria-label="Back">←</button><div class="dz-gav">👥</div>
+    <div class="dz-meta"><b>Discussion Group</b><span id="dzSub">${esc(dSubText())}</span></div>
+    <button class="dz-ib" onclick="dCall(true)" title="Video call">📹</button><button class="dz-ib" onclick="dCall(false)" title="Voice call">📞</button></div>
+  <div class="dz-scroll" id="dzScroll"><div class="dz-list" id="dzList"></div></div>
+  <div class="dz-up hidden" id="dzUp"><div id="dzUpInfo"></div><div class="dz-bar"><i id="dzUpBar"></i></div></div>
+  <div class="dz-input" id="dzInputBar"><button class="dz-ib sub" onclick="dAttach()" aria-label="Attach">📎</button>
+    <textarea id="dzIn" rows="1" placeholder="Message"></textarea><button class="dz-send" id="dzSend" onclick="dSendOrVoice()">🎤</button></div>
+  <div class="dz-input hidden" id="dzRec"><button class="dz-ib" onclick="dVoiceCancel()" aria-label="Cancel">🗑</button><span id="dzRecT">● 0:00</span><button class="dz-send" onclick="dVoiceSend()">➤</button></div>
+  </div><input type="file" id="dzFile" class="hidden"/>`;
+  const ta=$("dzIn");
+  ta.addEventListener("input",()=>{ta.style.height="auto";ta.style.height=Math.min(ta.scrollHeight,110)+"px";$("dzSend").textContent=ta.value.trim()?"➤":"🎤"});
+  ta.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();dSendText()}});
+  $("dzFile").addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";if(f)dUploadFile(f)});
+  dMsgs=[];dFirst=true;dSig="";
+}
+function dStartPoll(){dStopPoll();dFetch(true);dTimer=setInterval(()=>dFetch(false),4000)}
+function dStopPoll(){if(dTimer){clearInterval(dTimer);dTimer=null}}
+async function dFetch(force){
+  if(dFetching){if(force)dPending=true;return}
+  dFetching=true;
+  try{
+    let docs=[];
+    try{
+      const q=query(collection(db,"tutorial_courses"),where(documentId(),">=",DISC_PREFIX),where(documentId(),"<","_disc`"),orderBy(documentId(),"desc"),limit(80));
+      const snap=await getDocs(q);snap.forEach(d=>docs.push({id:d.id,...d.data()}));docs.reverse();
+    }catch(e){
+      const snap=await getDocs(collection(db,"tutorial_courses"));
+      snap.forEach(d=>{if(d.id.startsWith(DISC_PREFIX))docs.push({id:d.id,...d.data()})});
+      docs.sort((a,b)=>a.id<b.id?-1:1);docs=docs.slice(-80);
+    }
+    if(dMode!==2)return;
+    const sig=docs.length+":"+docs.map(m=>m.id+JSON.stringify(Object.keys(m).filter(k=>k.startsWith("r_")||k.startsWith("v_")).map(k=>k+m[k]))).join("|");
+    if(force||sig!==dSig||dFirst){dSig=sig;dMsgs=docs;const s=$("dzSub");if(s)s.textContent=dSubText();dRenderMsgs()}
+  }catch(e){
+    if(!dMsgs.length&&$("dzList"))$("dzList").innerHTML='<div class="dz-note">Could not load messages. Retrying…</div>';
+  }finally{dFetching=false;if(dPending){dPending=false;dFetch(true)}}
+}
+function dRenderMsgs(){
+  const list=$("dzList"),sc=$("dzScroll");if(!list||!sc)return;
+  const stick=dFirst||sc.scrollHeight-(sc.clientHeight+sc.scrollTop)<140,keep=sc.scrollTop;
+  if(!dMsgs.length){list.innerHTML='<div class="dz-note">No messages yet.<br>Say hello 👋</div>';dFirst=false;return}
+  let prev="",html="";
+  dMsgs.forEach(m=>{const day=m.ts?dDay(m.ts):"";if(day&&day!==prev){prev=day;html+=`<div class="dz-day"><span>${day}</span></div>`}html+=dBubble(m)});
+  list.innerHTML=html;dFirst=false;
+  sc.scrollTop=stick?sc.scrollHeight:keep;
+}
+function dBubble(m){
+  const me=dMyId(),mine=!!me&&me===m.mobile,who=m.name||"Member",uc=dColor(m.mobile||m.name),type=m.type||"text",id=esc(m.id);
+  let body="";
+  const url=safeUrl(m.url),fname=m.fileName||"";
+  if(type==="image"&&url)body=`<img class="dz-img" src="${esc(dCdn(url,"w_600,q_auto,f_jpg"))}" onclick="dImg('${id}')" loading="lazy" alt="">`;
+  else if(type==="video"&&url)body=`<video class="dz-vid" controls preload="metadata" poster="${esc(dCdn(url,"so_0,w_600,f_jpg",true))}" src="${esc(url)}"></video>`;
+  else if(type==="audio"&&url){
+    body=fname.startsWith("Voice message")?`<div class="dz-voice">🎤 <audio controls preload="none" src="${esc(url)}"></audio></div><div class="dz-sm">${esc(fname.replace(/^Voice message\s*/,"").replace(/\.\w+$/,""))}</div>`
+      :`<div class="dz-fn">🎵  ${esc(fname||"Audio")}</div><audio controls preload="none" src="${esc(url)}"></audio>`;
+  }else if(type==="file"&&url)body=`<a class="dz-file" href="${esc(url)}" target="_blank" rel="noopener"><span class="dz-fi">📄</span><span class="dz-fnm">${esc(fname||"File")}</span><span class="dz-fo">Open</span></a>`;
+  else if(type==="poll")body=dPoll(m);
+  else if(type==="call")body=`<div class="dz-fn">📞  Group call</div><div class="dz-sm">${esc(mine?"You":who)} started a call</div><button class="btn-ok dz-join" onclick="dJoin()">Join call</button>`;
+  const text=(m.text&&type!=="poll")?`<div class="dz-txt">${linkify(m.text)}</div>`:"";
+  const reacts=Object.keys(m).filter(k=>k.startsWith("r_")&&typeof m[k]==="string"&&m[k]);
+  let pill="";
+  if(reacts.length){const cnt={};reacts.forEach(k=>cnt[m[k]]=(cnt[m[k]]||0)+1);pill=`<div class="dz-react" onclick="dOpenActions('${id}')">${Object.keys(cnt).join("")}${reacts.length>1?" "+reacts.length:""}</div>`}
+  return `<div class="dz-row ${mine?"mine":"other"}">${mine?"":`<div class="dz-av" style="background:${uc}">${esc((who.trim()||"?").charAt(0).toUpperCase())}</div>`}
+  <div class="dz-col"><div class="dz-bub" oncontextmenu="dOpenActions('${id}');return false">
+    ${mine?"":`<div class="dz-name" style="color:${uc}">${esc(who)}${m.role==="admin"?'<em>ADMIN</em>':""}</div>`}
+    <button class="dz-more" onclick="dOpenActions('${id}')" aria-label="Actions">⌄</button>${body}${text}<div class="dz-time">${dTime(m.ts)}</div></div>${pill}</div></div>`;
+}
+function dPoll(m){
+  const opts=Array.isArray(m.opts)?m.opts:[];
+  const votes={};Object.keys(m).forEach(k=>{if(k.startsWith("v_")&&typeof m[k]==="number"&&m[k]>=0)votes[k.slice(2)]=m[k]});
+  const cnt=opts.map(()=>0);Object.values(votes).forEach(i=>{if(i<cnt.length)cnt[i]++});
+  const total=cnt.reduce((a,b)=>a+b,0),mineV=votes[dRid()];
+  return `<div class="dz-pl">📊  POLL</div><div class="dz-pq">${esc(m.text)}</div>`+opts.map((o,i)=>{
+    const sel=mineV===i,pct=total?Math.round(cnt[i]*100/total):0;
+    return `<div class="dz-opt${sel?" sel":""}" onclick="dVote('${esc(m.id)}',${i})"><div class="dz-ot"><span>${sel?"✓  ":""}${esc(o)}</span><small>${cnt[i]}${total?"  •  "+pct+"%":""}</small></div><div class="dz-ob"><i style="width:${pct}%"></i></div></div>`}).join("")
+    +`<div class="dz-sm">${total} ${total===1?"vote":"votes"}  •  tap an option to vote</div>`;
+}
+async function dPost(type,text,url,fileName,extra){
+  const ts=Date.now(),id=DISC_PREFIX+String(ts).padStart(13,"0")+"_"+Math.random().toString(36).slice(2,6);
+  const d={appId:DISC_APP,name:dMyName(),mobile:dMyId(),role:adminIn?"admin":"member",type,text,url:url||"",fileName:fileName||"",ts,...(extra||{})};
+  try{await setDoc(doc(db,"tutorial_courses",id),d);dFetch(true);return true}
+  catch(e){showToast("Could not send: check your internet");return false}
+}
+function dSendText(){
+  if(dUp){showToast("Please wait for the current upload");return}
+  const ta=$("dzIn"),t=ta.value.trim();if(!t)return;
+  ta.value="";ta.style.height="auto";$("dzSend").textContent="🎤";
+  dPost("text",t,"","").then(ok=>{if(!ok&&!ta.value){ta.value=t;$("dzSend").textContent="➤"}});
+}
+window.dSendOrVoice=()=>{if($("dzIn").value.trim())dSendText();else dVoiceStart()};
+function dShowUp(on,info,pct){const w=$("dzUp");if(!w)return;w.classList.toggle("hidden",!on);if(on){$("dzUpInfo").textContent="Uploading "+info+(pct>0?"  "+pct+"%":"…");$("dzUpBar").style.width=(pct||0)+"%"}}
+function dUpload(blob,name){return new Promise((res,rej)=>{
+  const fd=new FormData();fd.append("file",blob,name);fd.append("upload_preset",CLD_PRESET);
+  const x=new XMLHttpRequest();x.open("POST",CLD_URL);
+  x.upload.onprogress=e=>{if(e.lengthComputable)dShowUp(true,name,Math.round(e.loaded*100/e.total))};
+  x.onload=()=>{try{const j=JSON.parse(x.responseText);if(x.status>=200&&x.status<300&&j.secure_url)res(j);else rej(new Error((j.error&&j.error.message)||"Upload failed"))}catch(e){rej(new Error("Upload failed"))}};
+  x.onerror=()=>rej(new Error("Network error"));x.send(fd)})}
+const dTypeOf=mime=>!mime?"file":mime.startsWith("image/")?"image":mime.startsWith("video/")?"video":mime.startsWith("audio/")?"audio":"file";
+async function dUploadFile(f){
+  if(dUp){showToast("Please wait for the current upload");return}
+  if(f.size>CLD_MAX){showToast("File is too large (max 100 MB)");return}
+  const ta=$("dzIn"),caption=ta.value.trim();dUp=true;dShowUp(true,f.name,0);
+  try{const r=await dUpload(f,f.name);if(caption){ta.value="";ta.style.height="auto";$("dzSend").textContent="🎤"}
+    await dPost(dTypeOf(f.type),caption,r.secure_url,f.name)}
+  catch(e){showToast("Upload failed: "+(e.message||"Upload failed"))}
+  dUp=false;dShowUp(false,"",0);
+}
+window.dAttach=function(){
+  if(dUp){showToast("Please wait for the current upload");return}
+  dSheet("Share in Discussion","Photos, videos, audio or any file (up to 100 MB).",[
+    ["🖼  Photo",()=>dPick("image/*")],["🎬  Video",()=>dPick("video/*")],["🎵  Audio",()=>dPick("audio/*")],
+    ["📄  File / Document",()=>dPick("*/*")],["📊  Poll",()=>dPollDialog()]]);
+};
+function dPick(mime){const f=$("dzFile");f.accept=mime;f.click()}
+// generic bottom-sheet / modal built on the fly
+function dSheet(title,sub,rows){
+  dClose();const o=document.createElement("div");o.className="dz-ov";o.id="dzOv";
+  o.innerHTML=`<div class="dz-sheet"><div class="dz-st">${esc(title)}</div>${sub?`<div class="dz-ss">${esc(sub)}</div>`:""}${rows.map((r,i)=>`<button class="dz-sr" data-i="${i}">${r[0]}</button>`).join("")}<button class="dz-sr c">Cancel</button></div>`;
+  o.addEventListener("click",e=>{if(e.target===o){dClose();return}const b=e.target.closest(".dz-sr");if(!b)return;dClose();if(b.dataset.i!==undefined)rows[+b.dataset.i][1]()});
+  document.body.appendChild(o);
+}
+function dClose(){const o=$("dzOv");if(o)o.remove()}
+window.dImg=function(id){const m=dMsgs.find(x=>x.id===id);if(!m)return;dClose();const o=document.createElement("div");o.className="dz-ov dark";o.id="dzOv";
+  o.innerHTML=`<img src="${esc(dCdn(safeUrl(m.url),"w_1600,q_auto,f_jpg"))}" class="dz-big" alt=""><a class="dz-dl" href="${esc(safeUrl(m.url))}" target="_blank" rel="noopener">Open original</a>`;o.addEventListener("click",e=>{if(!e.target.closest(".dz-dl"))dClose()});document.body.appendChild(o)};
+function dPollDialog(){
+  dClose();const o=document.createElement("div");o.className="dz-ov";o.id="dzOv";
+  o.innerHTML=`<div class="dz-sheet"><div class="dz-st">Create poll</div><div class="dz-ss">Ask a question and add 2 to 6 options. Members vote with one tap.</div>
+  <input class="dz-fi2" id="dpQ" placeholder="Question  (e.g. Which topic should we cover next?)"/><div id="dpOpts"><input class="dz-fi2 dpo" placeholder="Option 1"/><input class="dz-fi2 dpo" placeholder="Option 2"/></div>
+  <button class="dz-sr" id="dpAdd">+  Add option</button><div class="dz-err hidden" id="dpErr"></div><button class="dz-sr ok" id="dpGo">Send poll</button><button class="dz-sr c">Cancel</button></div>`;
+  o.addEventListener("click",e=>{if(e.target===o||e.target.classList.contains("c"))dClose()});document.body.appendChild(o);
+  $("dpAdd").onclick=()=>{const b=$("dpOpts"),n=b.querySelectorAll(".dpo").length;if(n<6){const i=document.createElement("input");i.className="dz-fi2 dpo";i.placeholder="Option "+(n+1);b.appendChild(i)}if(b.querySelectorAll(".dpo").length>=6)$("dpAdd").classList.add("hidden")};
+  $("dpGo").onclick=()=>{const q=$("dpQ").value.trim(),opts=[...document.querySelectorAll(".dpo")].map(x=>x.value.replace(/\n/g," ").trim()).filter(Boolean),er=$("dpErr");
+    if(!q){er.textContent="Write the question first";er.classList.remove("hidden");return}
+    if(opts.length<2){er.textContent="Add at least two options";er.classList.remove("hidden");return}
+    dClose();dPost("poll",q,"","",{opts})};
+}
+window.dVote=async function(id,idx){
+  const rid=dRid();if(!rid){showToast("Login required");return}
+  const m=dMsgs.find(x=>x.id===id);if(!m)return;
+  const cur=m["v_"+rid],nv=(typeof cur==="number"&&cur===idx)?-1:idx;
+  m["v_"+rid]=nv;dRenderMsgs();
+  try{await updateDoc(doc(db,"tutorial_courses",id),{["v_"+rid]:nv})}catch(e){showToast("Could not vote. Try again.")}
+  dFetch(true);
+};
+async function dReact(id,emoji){
+  const rid=dRid();if(!rid){showToast("Login required");return}
+  const m=dMsgs.find(x=>x.id===id);if(m){m["r_"+rid]=emoji;dRenderMsgs()}
+  try{await updateDoc(doc(db,"tutorial_courses",id),{["r_"+rid]:emoji})}catch(e){showToast("Could not react. Try again.")}
+  dFetch(true);
+}
+window.dOpenActions=function(id){
+  const m=dMsgs.find(x=>x.id===id);if(!m)return;dClose();
+  const rid=dRid(),mineE=m["r_"+rid]||"",canDel=adminIn||(!!dMyId()&&dMyId()===m.mobile);
+  const o=document.createElement("div");o.className="dz-ov mid";o.id="dzOv";
+  o.innerHTML=`<div class="dz-act"><div class="dz-er">${D_EMOJIS.map(e=>`<button class="${e===mineE?"on":""}" data-e="${e}">${e}</button>`).join("")}</div>
+  <div class="dz-al">${m.text?'<button data-a="copy">📋   Copy</button>':""}${canDel?'<button class="del" data-a="del">🗑   Delete</button>':""}</div></div>`;
+  o.addEventListener("click",e=>{
+    const b=e.target.closest("button");
+    if(!b){if(e.target===o)dClose();return}
+    dClose();
+    if(b.dataset.e)dReact(id,b.dataset.e===mineE?"":b.dataset.e);
+    else if(b.dataset.a==="copy"){try{navigator.clipboard.writeText(m.text);showToast("Copied")}catch(x){}}
+    else if(b.dataset.a==="del"&&confirm("Delete message?\nThis message will be removed for everyone in the group.")){
+      deleteDoc(doc(db,"tutorial_courses",id)).then(()=>dFetch(true)).catch(()=>showToast("Could not delete. Try again."))}
+  });
+  document.body.appendChild(o);
+};
+// voice messages
+async function dVoiceStart(){
+  if(dUp){showToast("Please wait for the current upload");return}
+  if(!navigator.mediaDevices||!window.MediaRecorder){showToast("Voice recording is not supported here");return}
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({audio:true});
+    const mt=["audio/mp4","audio/webm;codecs=opus","audio/webm"].find(t=>MediaRecorder.isTypeSupported(t))||"";
+    const r={st,chunks:[],t0:Date.now(),mt,send:false};
+    const mr=new MediaRecorder(st,mt?{mimeType:mt}:undefined);r.mr=mr;
+    mr.ondataavailable=e=>{if(e.data&&e.data.size)r.chunks.push(e.data)};
+    mr.onstop=()=>{st.getTracks().forEach(t=>t.stop());if(r.send)dSendVoice(new Blob(r.chunks,{type:r.mt||"audio/webm"}),Math.max(1,Math.round((Date.now()-r.t0)/1000)))};
+    mr.start();dRec=r;
+    $("dzInputBar").classList.add("hidden");$("dzRec").classList.remove("hidden");
+    dRecTick=setInterval(()=>{const s=Math.floor((Date.now()-r.t0)/1000);$("dzRecT").textContent="● "+dDur(s);if(s>=300)dVoiceSend()},500);
+  }catch(e){showToast("Microphone permission is needed for voice messages")}
+}
+function dVoiceEnd(){clearInterval(dRecTick);dRecTick=null;const a=$("dzInputBar"),b=$("dzRec");if(a)a.classList.remove("hidden");if(b)b.classList.add("hidden")}
+function dVoiceCancel(){if(!dRec)return;const r=dRec;dRec=null;r.send=false;try{r.mr.state!=="inactive"&&r.mr.stop()}catch(e){}dVoiceEnd()}
+window.dVoiceCancel=dVoiceCancel;
+window.dVoiceSend=function(){if(!dRec)return;const r=dRec;dRec=null;r.send=true;try{r.mr.stop()}catch(e){}dVoiceEnd()};
+async function dSendVoice(blob,secs){
+  if(dUp)return;dUp=true;dShowUp(true,"voice message",0);
+  const name="Voice message ("+dDur(secs)+").m4a";
+  try{const r=await dUpload(blob,"voice."+(blob.type.includes("mp4")?"m4a":"webm"));
+    await dPost("audio","",String(r.secure_url).replace(/\.\w+$/,".m4a"),name)}
+  catch(e){showToast("Upload failed: "+(e.message||"Upload failed"))}
+  dUp=false;dShowUp(false,"",0);
+}
+function dLaunchCall(video){
+  const u="call.html?uid="+encodeURIComponent(dMyId())+"&name="+encodeURIComponent(dMyName())+"&video="+(video?1:0);
+  const w=window.open(u,"_blank");if(!w)location.href=u;
+}
+window.dCall=async function(video){
+  const now=Date.now();
+  if(!dMsgs.some(m=>m.type==="call"&&now-(m.ts||0)<15*60*1000))await dPost("call","","","");   // announces the call to the group
+  dLaunchCall(video);
+};
+window.dJoin=function(){dSheet("Join group call","Everyone in the Discussion group can join.",[["🎤  Join with voice",()=>dLaunchCall(false)],["📹  Join with video",()=>dLaunchCall(true)]])};
+
 window.refreshSite=async function(){
   document.querySelectorAll(".btn-refresh").forEach(b=>b.classList.add("rf-spin"));
   try{await loadCourses();showToast("Refreshed")}catch(e){showToast("Refresh failed")}
