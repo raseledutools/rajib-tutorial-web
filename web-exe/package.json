@@ -8,8 +8,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win nsis --x64 --publish never",
-    "release": "electron-builder --win nsis --x64 --publish always"
+    "dist": "electron-builder --win nsis --x64 --publish never"
   },
   "devDependencies": {
     "electron": "33.2.1",
@@ -50,10 +49,8 @@
     },
     "publish": [
       {
-        "provider": "github",
-        "owner": "raseledutools",
-        "repo": "rajib-tutorial-web",
-        "releaseType": "release"
+        "provider": "generic",
+        "url": "https://github.com/raseledutools/rajib-tutorial-web/releases/download/web-exe-latest/"
       }
     ]
   },

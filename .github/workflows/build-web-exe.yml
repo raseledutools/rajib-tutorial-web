@@ -25,14 +25,21 @@ jobs:
         shell: bash
         run: |
           echo "APP_VERSION=1.0.${{ github.run_number }}" >> "$GITHUB_ENV"
-      # Builds the NSIS installer and publishes release v<version> with
-      # RajibTutorial-Setup.exe + latest.yml + blockmap (what the auto-updater reads).
-      - name: Build and publish release
+      # Build the NSIS installer (+ latest.yml / blockmap that the auto-updater reads).
+      - name: Build installer
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: npx electron-builder --win nsis --x64 --publish always -c.extraMetadata.version=$APP_VERSION
+        run: npx electron-builder --win nsis --x64 --publish never -c.extraMetadata.version=$APP_VERSION
       - uses: actions/upload-artifact@v4
         with:
           name: RajibTutorial-Setup
           path: web-exe/dist/RajibTutorial-Setup.exe
+      # Fixed release "web-exe-latest": direct download link AND the update feed
+      # (the APK workflow creates its own v<N> releases, so we keep the exe separate).
+      - name: Publish to web-exe-latest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view web-exe-latest >/dev/null 2>&1 || gh release create web-exe-latest --title "Website EXE (latest)" --notes "Windows installer of Rajib Tutorial. Installed apps update themselves from this release." --latest=false
+          gh release upload web-exe-latest dist/RajibTutorial-Setup.exe dist/RajibTutorial-Setup.exe.blockmap dist/latest.yml --clobber
+          gh release edit web-exe-latest --notes "Latest version: $APP_VERSION. Installed apps update themselves from this release."
