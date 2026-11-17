@@ -9,7 +9,7 @@ firebase.initializeApp({
   authDomain: "mywebtools-f8d53.firebaseapp.com",
   projectId: "mywebtools-f8d53",
   messagingSenderId: "979594414301",
-  appId: ""   // same Web app ID as PUSH_WEB_APP_ID in index.html
+  appId: "1:979594414301:web:7048c995e56e331a85f334"   // same Web app ID as PUSH_WEB_APP_ID in index.html
 });
 
 firebase.messaging();

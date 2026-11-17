@@ -1345,6 +1345,7 @@ body.chat-on .topbar{display:none}
     </div>
     <div class="nav-item" id="navDisc" onclick="openDiscussion()"><span class="nav-ico">💬</span><span>Discussion</span></div>
     <div class="nav-item" id="navInbox" onclick="openInbox()"><span class="nav-ico">🔔</span><span>Notifications</span></div>
+    <div class="nav-item" id="navPush" style="display:none" onclick="pushEnableClick();closeSidebar()"><span class="nav-ico">✅</span><span>Notification চালু করুন</span></div>
     <div class="nav-item" id="navResCircular" onclick="openRes('circular')"><span class="nav-ico">📢</span><span>Current Circular</span></div>
     <div class="nav-item" id="navResQbank" onclick="openRes('qbank')"><span class="nav-ico">📚</span><span>Question Bank</span></div>
     <div class="nav-item" id="navResRecent" onclick="openRes('recent')"><span class="nav-ico">🆕</span><span>Recent Question Bank</span></div>
@@ -3570,14 +3571,15 @@ setInterval(()=>updateBell(true),60000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)updateBell(true)});
 
 // ── Web push (Firebase Cloud Messaging) — sent from Firebase Console, no server / admin key ──
-const PUSH_WEB_APP_ID = "";   // Firebase Console → Project settings → Your apps → Web app → App ID  (1:979594414301:web:…)
+const PUSH_WEB_APP_ID = "1:979594414301:web:7048c995e56e331a85f334";   // Firebase Console → Project settings → Your apps → Web app → App ID  (1:979594414301:web:…)
 const PUSH_VAPID_KEY  = "";   // optional: Project settings → Cloud Messaging → Web Push certificates → Key pair
 const PUSH_SW_URL = new URL("firebase-messaging-sw.js", location.href).href;
 try{localStorage.removeItem("rt_push_key");localStorage.removeItem("rt_push_url")}catch(e){}   // old admin-key setup, no longer used
 const pushOk=()=>!!PUSH_WEB_APP_ID&&(location.protocol==="https:"||location.hostname==="localhost")&&"serviceWorker" in navigator&&"Notification" in window&&"PushManager" in window&&!window.AndroidFlash&&!window.AndroidAdmin&&!window.AndroidPush&&!/; wv\)|Electron/i.test(navigator.userAgent);
 let _pushApp=null,_pushFg=false;
 function pushUI(){
-  const c=$("pushCard");if(!c)return;
+  const c=$("pushCard"),nv=$("navPush");if(!c)return;
+  if(nv)nv.style.display=pushOk()&&Notification.permission==="default"?"":"none";
   if(!pushOk()){c.style.display="none";return}
   c.style.display="";
   const p=Notification.permission;
@@ -3602,7 +3604,7 @@ async function pushEnable(manual){
     return true;
   }catch(e){console.warn("[FCM]",e);pushUI();if(manual)showToast("❌ Notification চালু করা যায়নি: "+(e&&e.message||e));return false}
 }
-window.pushEnableClick=function(){const b=$("pushBtn");b.disabled=true;pushEnable(true).finally(()=>{b.disabled=false;pushUI()})};
+window.pushEnableClick=function(){const b=$("pushBtn");if(b)b.disabled=true;pushEnable(true).finally(()=>{if(b)b.disabled=false;pushUI()})};
 setTimeout(()=>{pushUI();if(pushOk()&&Notification.permission==="granted")pushEnable(false)},3000);
 
 
