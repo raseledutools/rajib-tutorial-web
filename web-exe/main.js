@@ -1,6 +1,8 @@
 'use strict';
-const { app, BrowserWindow, Menu, session, shell, clipboard, globalShortcut, ipcMain, Notification } = require('electron');
+const { app, BrowserWindow, Menu, session, shell, clipboard, globalShortcut, ipcMain, Notification, protocol, net } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 
 const SITE = 'https://raseledutools.github.io/rajib-tutorial-web/';
 const SITE_ORIGIN = new URL(SITE).origin;
@@ -9,6 +11,61 @@ let win = null;
 
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+
+
+/* ---------- Offline cache for the website shell ----------
+   Network-first: the page (and the Firebase SDK it imports) is always fetched fresh when online,
+   and a copy is saved in userData/site-cache. Offline, the saved copy is served, so the app still opens.
+   Lesson data itself is kept offline by Firestore's own persistent cache (see index.html). */
+const CACHE_DIR = () => path.join(app.getPath('userData'), 'site-cache');
+const NET_TIMEOUT_MS = 6000;
+function cacheable(u) {
+  return u.origin === SITE_ORIGIN || (u.hostname === 'www.gstatic.com' && u.pathname.startsWith('/firebasejs/'));
+}
+function cacheFile(url) {
+  return path.join(CACHE_DIR(), crypto.createHash('sha1').update(url).digest('hex'));
+}
+async function cachedFetch(request) {
+  const u = new URL(request.url);
+  const hdrs = Object.fromEntries(request.headers);
+  // YouTube embeds need the site as Referer
+  if (/^(www\.youtube(-nocookie)?\.com)$/.test(u.hostname) && u.pathname.startsWith('/embed/')) hdrs['Referer'] = SITE;
+  const pass = () => net.fetch(request.url, {
+    method: request.method, headers: hdrs, body: request.body, duplex: 'half',
+    bypassCustomProtocolHandlers: true,
+  });
+  if (request.method !== 'GET' || !cacheable(u) || hdrs['range'] || hdrs['Range']) return pass();
+
+  const file = cacheFile(request.url);
+  const readCache = () => {
+    try {
+      const meta = JSON.parse(fs.readFileSync(file + '.json', 'utf8'));
+      const body = fs.readFileSync(file + '.bin');
+      return new Response(body, { status: 200, headers: { 'content-type': meta.type || 'application/octet-stream' } });
+    } catch (_) { return null; }
+  };
+  const hasCache = fs.existsSync(file + '.bin');
+  try {
+    const ctl = new AbortController();
+    const t = hasCache ? setTimeout(() => ctl.abort(), NET_TIMEOUT_MS) : null;
+    const res = await net.fetch(request.url, { headers: hdrs, bypassCustomProtocolHandlers: true, signal: ctl.signal });
+    if (t) clearTimeout(t);
+    if (res.ok) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      try {
+        fs.mkdirSync(CACHE_DIR(), { recursive: true });
+        fs.writeFileSync(file + '.bin', buf);
+        fs.writeFileSync(file + '.json', JSON.stringify({ type: res.headers.get('content-type') || '' }));
+      } catch (_) {}
+      return new Response(buf, { status: 200, headers: { 'content-type': res.headers.get('content-type') || 'application/octet-stream' } });
+    }
+    return readCache() || res;
+  } catch (err) {
+    const c = readCache();
+    if (c) return c;
+    throw err;
+  }
+}
 
 /* Screenshot / screen-record protection. */
 function protect(w) {
@@ -280,6 +337,7 @@ app.on('web-contents-created', (_e, wc) => guard(wc));
 app.setAppUserModelId('com.rajibtutorial.webexe'); // needed for Windows notifications
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  try { session.defaultSession.protocol.handle('https', cachedFetch); } catch (_) {}
   session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) =>
     cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));
   session.defaultSession.webRequest.onBeforeSendHeaders(

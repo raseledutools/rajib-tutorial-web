@@ -2040,7 +2040,9 @@ body.chat-on .topbar{display:none}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc,
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentSingleTabManager,
+         collection, getDocs as _getDocs, getDoc as _getDoc, getDocsFromCache, getDocFromCache,
+         doc, setDoc, updateDoc, deleteDoc,
          query, where, orderBy, limit, getCountFromServer, documentId, onSnapshot }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -2050,7 +2052,15 @@ const firebaseConfig = {
   projectId:  "mywebtools-f8d53"
 };
 const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+// Windows exe only: keep Firestore data on disk so lessons/pages open offline; it re-syncs when the net is back.
+const IS_EXE=!!(window.ElectronShell&&window.ElectronShell.isElectron);
+let db;
+try{
+  db=IS_EXE?initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentSingleTabManager()})}):getFirestore(app);
+}catch(e){db=getFirestore(app)}
+const _offNow=()=>IS_EXE&&navigator.onLine===false;
+const getDocs=q=>_offNow()?getDocsFromCache(q):_getDocs(q);
+const getDoc=r=>_offNow()?getDocFromCache(r):_getDoc(r);
 
 // ─── Icons ───────────────────────────────────────────────
 const I = {
@@ -2634,7 +2644,9 @@ window.playVideo=async function(vid){
   renderVlist();
   const area=$("playerArea"),embed=ytEmbed(curVideo.url||"");
   unmountYT(area);
-  if(embed){
+  if(embed&&IS_EXE&&navigator.onLine===false){
+    area.innerHTML=placeholder(I.warn,"YouTube video চালাতে internet লাগবে");
+  }else if(embed){
     area.innerHTML="";
     mountYT(area,ytId(curVideo.url),{autoplay:1});
   }else if(curVideo.url){
@@ -2647,6 +2659,7 @@ window.playVideo=async function(vid){
   }
   $("playerTitle").textContent=curVideo.title;
   offBarRender(curVideo);
+  if(IS_EXE&&offDirect(curVideo)&&navigator.onLine!==false)offAuto(curVideo);
   $("playerMeta").textContent=curVideo.durationMinutes?`${curVideo.durationMinutes} min`:"";
   area.scrollIntoView({behavior:"smooth",block:"nearest"});
 };
@@ -3956,6 +3969,14 @@ window.offDownloadCur=async function(){
   }catch(e){console.warn("[offline]",e);showToast("❌ Save hoyni: "+(e&&e.message||e))}
   delete offBusy[v.id];offBarRender(v);
 };
+// exe: first time a direct video is played, save it in the app automatically (once per video)
+const offAutoTried={};
+async function offAuto(v){
+  if(offAutoTried[v.id]||offBusy[v.id])return;
+  offAutoTried[v.id]=1;
+  try{if(await OFF.meta(v.id))return}catch(e){return}
+  if(curVideo&&curVideo.id===v.id)offDownloadCur();
+}
 window.offRemoveCur=async function(){
   const v=curVideo;if(!v)return;
   try{await OFF.remove(v.id);showToast("Offline copy remove hoyeche")}catch(e){}
