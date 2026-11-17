@@ -2043,7 +2043,7 @@ window.openLiveSettings=function(){
 window.saveLive=async function(){
   const cu=$("lcUrl").value.trim(), eu=$("leUrl").value.trim(), pu=$("pmUrl").value.trim();
   if((cu&&!safeUrl(cu))||(eu&&!safeUrl(eu))||(pu&&!safeUrl(pu))){showToast("Links must start with http:// or https://");return}
-  const next={classTitle:$("lcTitle").value.trim(),classTime:$("lcTime").value.trim(),classUrl:cu,
+  const next={...live,classTitle:$("lcTitle").value.trim(),classTime:$("lcTime").value.trim(),classUrl:cu,
               examTitle:$("leTitle").value.trim(),examTime:$("leTime").value.trim(),examUrl:eu,premiumUrl:pu,premiumInfo:$("pmInfo").value.trim()};
   try{
     await setDoc(doc(db,"tutorial_courses",LIVE_DOC),{live:next,isSettings:true});

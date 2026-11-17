@@ -217,12 +217,21 @@ final class Dialogs {
         View sep = new View(a);
         sep.setBackgroundColor(Ui.BORDER);
         m.addSpaced(sep, 14);
-        m.addSpaced(Ui.tv(a, "Already paid with bKash? Enter the TrxID", 13.5f, Ui.TEXT, true), 10);
+        m.addSpaced(Ui.tv(a, "Paid by bKash / Nagad / Rocket? Enter the TrxID", 13.5f, Ui.TEXT, true), 10);
         String how = Store.live.premiumInfo == null ? "" : Store.live.premiumInfo.trim();
-        if (how.isEmpty()) how = "Send " + Store.priceLabel(c.price) + " by bKash to the number the admin gave you "
-            + "(ask on WhatsApp " + Store.WHATSAPP_NUM + "), then type the TrxID from the bKash SMS below.";
+        StringBuilder nums = new StringBuilder();
+        if (!Store.live.payBkash.trim().isEmpty()) nums.append("bKash: ").append(Store.live.payBkash.trim()).append("\n");
+        if (!Store.live.payNagad.trim().isEmpty()) nums.append("Nagad: ").append(Store.live.payNagad.trim()).append("\n");
+        if (!Store.live.payRocket.trim().isEmpty()) nums.append("Rocket: ").append(Store.live.payRocket.trim()).append("\n");
+        if (nums.length() > 0) {
+            how = "Send " + Store.priceLabel(c.price) + " (Send Money) to one of these numbers:\n" + nums.toString().trim()
+                + "\n\nThen type the TrxID from the confirmation SMS below." + (how.isEmpty() ? "" : "\n\n" + how);
+        } else if (how.isEmpty()) {
+            how = "Send " + Store.priceLabel(c.price) + " to the number the admin gave you "
+                + "(ask on WhatsApp " + Store.WHATSAPP_NUM + "), then type the TrxID from the SMS below.";
+        }
         m.addSpaced(Ui.tv(a, how, 12, Ui.SUB, false), 4);
-        final Ui.Field trx = Ui.field(a, "bKash TrxID *", "e.g. 8N7A6D5EE1", Ui.IN_TEXT);
+        final Ui.Field trx = Ui.field(a, "TrxID (bKash / Nagad / Rocket) *", "e.g. 8N7A6D5EE1", Ui.IN_TEXT);
         m.addSpaced(trx.root, 10);
         final TextView trxBtn = Ui.btn(a, "Submit TrxID for approval", Ui.B_OUTLINE, null);
         trxBtn.setOnClickListener(v -> {
@@ -606,10 +615,16 @@ final class Dialogs {
         final Ui.Field leU = Ui.field(a, "Live Exam · Link", "https://…", Ui.IN_URL);
         final Ui.Field pmU = Ui.field(a, "Support / Help Link (optional)", "WhatsApp or Facebook link shown as “Need help?”", Ui.IN_URL);
         final Ui.Field pmI = Ui.field(a, "Premium Info (shown in the Premium popup, optional)", "e.g. Unlock every lesson, live class and exam with Premium.", Ui.IN_MULTI);
+        final Ui.Field pbk = Ui.field(a, "Manual payment · bKash number", "01XXXXXXXXX (Send Money / Personal)", Ui.IN_TEXT);
+        final Ui.Field pnd = Ui.field(a, "Manual payment · Nagad number", "01XXXXXXXXX", Ui.IN_TEXT);
+        final Ui.Field prk = Ui.field(a, "Manual payment · Rocket number", "01XXXXXXXXX-X", Ui.IN_TEXT);
+        pbk.et.setText(l.payBkash); pnd.et.setText(l.payNagad); prk.et.setText(l.payRocket);
         lcT.et.setText(l.classTitle); lcS.et.setText(l.classTime); lcU.et.setText(l.classUrl);
         leT.et.setText(l.examTitle); leS.et.setText(l.examTime); leU.et.setText(l.examUrl);
         pmU.et.setText(l.premiumUrl); pmI.et.setText(l.premiumInfo);
-        m.add(lcT.root).add(lcS.root).add(lcU.root).add(leT.root).add(leS.root).add(leU.root).add(pmU.root).add(pmI.root);
+        m.add(lcT.root).add(lcS.root).add(lcU.root).add(leT.root).add(leS.root).add(leU.root).add(pmU.root).add(pmI.root)
+            .add(Ui.tv(a, "Numbers customers send money to when paying manually by TrxID (leave empty to hide):", 12, Ui.SUB, false))
+            .add(pbk.root).add(pnd.root).add(prk.root);
         m.actions("Cancel", "Save", Ui.B_PRIMARY, () -> {
             String cu = lcU.text(), eu = leU.text(), pu = pmU.text();
             if ((!cu.isEmpty() && Store.safeUrl(cu).isEmpty()) || (!eu.isEmpty() && Store.safeUrl(eu).isEmpty())
@@ -621,6 +636,7 @@ final class Dialogs {
             next.classTitle = lcT.text(); next.classTime = lcS.text(); next.classUrl = cu;
             next.examTitle = leT.text(); next.examTime = leS.text(); next.examUrl = eu;
             next.premiumUrl = pu; next.premiumInfo = pmI.text();
+            next.payBkash = pbk.text(); next.payNagad = pnd.text(); next.payRocket = prk.text();
             run(() -> {
                 Map<String, Object> d = new LinkedHashMap<>();
                 d.put("live", Store.liveMap(next));
