@@ -8,7 +8,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win portable --x64 --publish never"
+    "dist": "electron-builder --win nsis --x64 --publish never",
+    "release": "electron-builder --win nsis --x64 --publish always"
   },
   "devDependencies": {
     "electron": "33.2.1",
@@ -17,13 +18,46 @@
   "build": {
     "appId": "com.rajibtutorial.webexe",
     "productName": "Rajib Tutorial",
-    "directories": { "output": "dist" },
-    "files": ["main.js", "preload.js", "offline.html", "package.json"],
-    "win": {
-      "target": "portable",
-      "icon": "build/icon.png",
-      "signAndEditExecutable": false
+    "directories": {
+      "output": "dist"
     },
-    "portable": { "artifactName": "RajibTutorial.exe" }
+    "files": [
+      "main.js",
+      "preload.js",
+      "offline.html",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Rajib Tutorial",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "RajibTutorial-Setup.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "raseledutools",
+        "repo": "rajib-tutorial-web",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   }
 }
