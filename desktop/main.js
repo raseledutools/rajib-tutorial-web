@@ -5,7 +5,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 
-const SITE_HOST = 'raseledutools.github.io';
+const SITE = 'https://raseledutools.github.io/rajib-tutorial-web/';
+const https = require('https');
 const MAX_FILE = 200 * 1024 * 1024;
 const PACKAGED = app.isPackaged;
 
@@ -83,6 +84,9 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) =>
     cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ['https://www.youtube.com/embed/*', 'https://www.youtube-nocookie.com/embed/*'] },
+    (d, cb) => { d.requestHeaders['Referer'] = SITE; cb({ requestHeaders: d.requestHeaders }); });
   createMain();
   loadFocus();
   setInterval(focusTick, 3000);
@@ -213,4 +217,140 @@ ipcMain.handle('focus:stop', (_e, { pin }) => {
   if (!checkPin(pin)) return { error: 'Wrong PIN' };
   endFocus();
   return statusOf();
+});
+
+/* ───────── Firestore (same project / collection / key as the web and Android apps) ───────── */
+const FS_KEY = 'AIzaSyDGd3KAo45UuqmeGFALziz_oKm3htEASHY';
+const FS_ROOT = 'https://firestore.googleapis.com/v1/projects/mywebtools-f8d53/databases/(default)/documents';
+const BACKEND = 'https://rasfocus-backend.onrender.com';
+const LIVE_ID_RE = /^[\w.\-]{1,200}$/;
+
+function httpJson(method, url, body) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const data = body ? Buffer.from(JSON.stringify(body)) : null;
+    const headers = { Referer: SITE, Accept: 'application/json' };
+    if (data) { headers['Content-Type'] = 'application/json; charset=utf-8'; headers['Content-Length'] = data.length; }
+    const req = https.request({ method, hostname: u.hostname, path: u.pathname + u.search, headers, timeout: 25000 }, (res) => {
+      let b = ''; res.setEncoding('utf8');
+      res.on('data', (c) => (b += c));
+      res.on('end', () => {
+        if (res.statusCode === 404) return reject(Object.assign(new Error('not found'), { code: 404 }));
+        let j = {}; try { j = b ? JSON.parse(b) : {}; } catch (_) {}
+        if (res.statusCode >= 400) return reject(Object.assign(new Error(j.message || ('HTTP ' + res.statusCode + ' ' + b.slice(0, 160))), { status: res.statusCode, body: j }));
+        resolve(j);
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', reject);
+    if (data) req.write(data);
+    req.end();
+  });
+}
+
+function fsDec(v) {
+  if (!v || typeof v !== 'object') return null;
+  if ('stringValue' in v) return v.stringValue;
+  if ('integerValue' in v) return Number(v.integerValue);
+  if ('doubleValue' in v) return Number(v.doubleValue);
+  if ('booleanValue' in v) return v.booleanValue;
+  if ('timestampValue' in v) return v.timestampValue;
+  if ('mapValue' in v) return fsDecMap(v.mapValue.fields || {});
+  if ('arrayValue' in v) return (v.arrayValue.values || []).map(fsDec);
+  return null;
+}
+const fsDecMap = (f) => Object.fromEntries(Object.entries(f).map(([k, v]) => [k, fsDec(v)]));
+function fsEnc(v) {
+  if (v === null || v === undefined) return { nullValue: null };
+  if (typeof v === 'string') return { stringValue: v };
+  if (typeof v === 'boolean') return { booleanValue: v };
+  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(fsEnc) } };
+  return { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fsEnc(x)])) } };
+}
+const parseDoc = (d) => ({ id: d.name.split('/').pop(), data: fsDecMap(d.fields || {}) });
+const docUrl = (id) => `${FS_ROOT}/tutorial_courses/${encodeURIComponent(id)}`;
+
+ipcMain.handle('fs:list', async () => {
+  const out = []; let token = '';
+  do {
+    const j = await httpJson('GET', `${FS_ROOT}/tutorial_courses?pageSize=300&key=${FS_KEY}${token ? '&pageToken=' + encodeURIComponent(token) : ''}`);
+    (j.documents || []).forEach((d) => out.push(parseDoc(d)));
+    token = j.nextPageToken || '';
+  } while (token);
+  return out;
+});
+
+ipcMain.handle('fs:get', async (_e, id) => {
+  if (!LIVE_ID_RE.test(String(id))) throw new Error('bad id');
+  try { return parseDoc(await httpJson('GET', `${docUrl(id)}?key=${FS_KEY}`)); }
+  catch (e) { if (e.code === 404) return null; throw e; }
+});
+
+// A member may only touch the session fields of their own record.
+ipcMain.handle('fs:memberSession', async (_e, { mobile, patch }) => {
+  if (!/^\d{6,15}$/.test(String(mobile))) throw new Error('bad mobile');
+  const allowed = ['activeDevice', 'sessionToken', 'sessionDevice'];
+  const keys = Object.keys(patch || {}).filter((k) => allowed.includes(k));
+  if (!keys.length) throw new Error('nothing to update');
+  const mask = keys.map((k) => 'updateMask.fieldPaths=' + k).join('&');
+  const fields = Object.fromEntries(keys.map((k) => [k, fsEnc(patch[k])]));
+  await httpJson('PATCH', `${docUrl('_member_' + mobile)}?key=${FS_KEY}&${mask}`, { fields });
+  return true;
+});
+
+// Discussion: newest-first messages, ids sort chronologically (range query on __name__, list() fallback).
+ipcMain.handle('fs:chat', async (_e, limit) => {
+  const n = Math.min(Math.max(parseInt(limit, 10) || 80, 1), 200);
+  const root = 'projects/mywebtools-f8d53/databases/(default)/documents/tutorial_courses/';
+  const f = (op, ref) => ({ fieldFilter: { field: { fieldPath: '__name__' }, op, value: { referenceValue: ref } } });
+  try {
+    const j = await httpJson('POST', `https://firestore.googleapis.com/v1/projects/mywebtools-f8d53/databases/(default)/documents:runQuery?key=${FS_KEY}`, {
+      structuredQuery: {
+        from: [{ collectionId: 'tutorial_courses' }],
+        where: { compositeFilter: { op: 'AND', filters: [f('GREATER_THAN_OR_EQUAL', root + '_disc_'), f('LESS_THAN', root + '_disc`')] } },
+        orderBy: [{ field: { fieldPath: '__name__' }, direction: 'DESCENDING' }], limit: n,
+      },
+    });
+    return j.filter((o) => o.document).map((o) => parseDoc(o.document));
+  } catch (e) {
+    if (!(e.status >= 400 && e.status < 500)) throw e;
+    const all = []; let token = '';
+    do {
+      const j = await httpJson('GET', `${FS_ROOT}/tutorial_courses?pageSize=300&key=${FS_KEY}${token ? '&pageToken=' + encodeURIComponent(token) : ''}`);
+      (j.documents || []).forEach((d) => { const x = parseDoc(d); if (x.id.startsWith('_disc_')) all.push(x); });
+      token = j.nextPageToken || '';
+    } while (token);
+    return all.sort((a, b) => (a.id < b.id ? 1 : -1)).slice(0, n);
+  }
+});
+
+ipcMain.handle('fs:post', async (_e, { name, mobile, text }) => {
+  const t = String(text || '').trim();
+  if (!t || t.length > 2000) throw new Error('Message must be 1-2000 characters');
+  if (!/^\d{6,15}$/.test(String(mobile))) throw new Error('Login required');
+  const ts = Date.now();
+  const id = '_disc_' + String(ts).padStart(13, '0') + '_' + crypto.randomBytes(3).toString('hex');
+  const fields = { appId: 'rasel-mia-universal-sync', name: String(name || 'Member').slice(0, 60), mobile: String(mobile), role: 'member', type: 'text', text: t, url: '', fileName: '', ts };
+  await httpJson('PATCH', `${docUrl(id)}?key=${FS_KEY}`, { fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, fsEnc(v)])) });
+  return id;
+});
+
+// Notifications the admin sent (same collection the Android inbox reads)
+ipcMain.handle('fs:push', async () => {
+  const j = await httpJson('GET', `${FS_ROOT}/push_messages?pageSize=100&orderBy=${encodeURIComponent('at desc')}&key=${FS_KEY}`);
+  return (j.documents || []).map(parseDoc);
+});
+
+// Course purchase: the backend returns a hosted payment page, which we open in a protected window.
+ipcMain.handle('pay:create', async (_e, { kind, name, mobile, courseId }) => {
+  if (!/^\d{6,15}$/.test(String(mobile)) || !LIVE_ID_RE.test(String(courseId))) throw new Error('Invalid details');
+  const card = kind === 'card';
+  const j = await httpJson('POST', BACKEND + (card ? '/api/tutorial/sslcommerz/create' : '/api/tutorial/bkash/create'),
+    card ? { name, mobile, courseId } : { name, mobile, plan: 'course', courseId });
+  const url = card ? j.url : j.bkashURL;
+  if (!j.success || !url) throw new Error(j.message || 'Could not start the payment. Please try again.');
+  if (new URL(url).protocol !== 'https:') throw new Error('Unexpected payment URL');
+  openChild(url);
+  return true;
 });

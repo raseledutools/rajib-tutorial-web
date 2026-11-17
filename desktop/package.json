@@ -1,7 +1,7 @@
 {
   "name": "rajib-tutorial-desktop",
   "productName": "Rajib Tutorial",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Rajib Tutorial - Windows desktop app (screenshot-protected)",
   "main": "main.js",
   "author": "raseledutools",
