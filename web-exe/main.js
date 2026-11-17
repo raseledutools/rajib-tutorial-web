@@ -242,6 +242,20 @@ ipcMain.on('update:install', () => startDownload());
 ipcMain.on('update:check', () => checkNow(true));
 ipcMain.on('update:get', () => sendUpdateState());
 
+// IPC: website → native Windows notification (admin panel push)
+ipcMain.on('notify:show', (_e, title, body) => {
+  if (!Notification.isSupported()) return;
+  const n = new Notification({
+    title: String(title || 'Rajib Tutorial'),
+    body: String(body || ''),
+    icon: path.join(__dirname, 'build', 'icon.png'),
+  });
+  n.on('click', () => {
+    if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
+  });
+  n.show();
+});
+
 // IPC: website calls window.ElectronShell.openUrl(url) → openChild()
 ipcMain.on('shell:openUrl', (_e, url) => {
   try {
