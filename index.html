@@ -1344,6 +1344,17 @@ body.chat-on .topbar{display:none}
 .pay-h{font-size:13.5px;font-weight:700;margin-bottom:4px}
 .pay-how{font-size:12px;color:var(--sub);white-space:pre-line;margin-bottom:10px}
 .pr-acts{display:flex;gap:8px;margin-top:8px}.pr-acts button{flex:1}
+
+/* ── exe: per-lesson offline indicator (OneDrive style) ── */
+.voff{flex-shrink:0;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;color:var(--sub);background:transparent;border:0;padding:0;transition:background .15s}
+.voff:hover{background:rgba(0,0,0,.07)}
+.voff svg{width:22px;height:22px;display:block}
+.voff.done svg{filter:drop-shadow(0 0 0 transparent)}
+.voff .pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:var(--accent);pointer-events:none}
+.voff .ring{transition:stroke-dashoffset .25s linear}
+.voff.spin svg{animation:sp .9s linear infinite}
+.vlist-item.off-dim{opacity:.5}
+.vlist-item.off-dim .voff{opacity:.7}
 </style>
 </head>
 <body>
@@ -2602,7 +2613,7 @@ window.openCourse=function(cid){
   curVideo=null;
   $("cpTitle").textContent=curCourse.title;
   $("cpSub").textContent=lessonsLabel(curCourse.videos.length);
-  renderVlist();
+  renderVlist();offRefresh();
   $("playerArea").innerHTML=placeholder(I.play,"Select a lesson to start watching");
   $("playerTitle").textContent="–";$("playerMeta").textContent="";
   goView("viewCourse");renderSidebarCourses();closeSidebar();
@@ -2651,10 +2662,12 @@ function vWatch(area,v){
 function renderVlist(){
   const wrap=$("vlistScroll"),vids=curCourse?.videos||[];
   if(!vids.length){wrap.innerHTML=`<div class="empty" style="padding:30px 10px">${I.video}<p>No lessons yet</p></div>`;return}
+  const _offline=IS_EXE&&navigator.onLine===false;
   wrap.innerHTML=vids.map((v,i)=>`
-    <div class="vlist-item ${curVideo?.id===v.id||_loadingVid===v.id?"playing":""}" onclick="playVideo('${v.id}')">
+    <div class="vlist-item ${curVideo?.id===v.id||_loadingVid===v.id?"playing":""} ${_offline&&!(offDirect(v)&&offSet.has(v.id))?"off-dim":""}" onclick="playVideo('${v.id}')">
       <div class="vnum">${_loadingVid===v.id?'<span class="vspin"></span>':curVideo?.id===v.id?(vState==="paused"?"⏸":"▶"):i+1}</div>
       <div class="vinfo"><div class="vtitle">${esc(v.title)}</div>${v.durationMinutes?`<div class="vdur">${v.durationMinutes} min</div>`:""}</div>
+      ${canWatch()?offIcon(v):""}
       ${canWatch()?"":I.lock}
     </div>`).join("");
 }
@@ -2703,9 +2716,14 @@ async function _playVideo(vid){
     area.innerHTML="";
     mountYT(area,ytId(curVideo.url),{autoplay:1});
   }else if(curVideo.url){
-    let src=curVideo.url;
-    try{const b=await OFF.blob(curVideo.id);if(b){if(window._offUrl)URL.revokeObjectURL(window._offUrl);src=window._offUrl=URL.createObjectURL(b)}}catch(e){}
+    let src=curVideo.url,_ob=null;
+    try{_ob=await OFF.blob(curVideo.id);if(_ob){if(window._offUrl)URL.revokeObjectURL(window._offUrl);src=window._offUrl=URL.createObjectURL(_ob)}}catch(e){}
     if(curVideo.id!==want.id)return;
+    if(!_ob&&IS_EXE&&navigator.onLine===false){
+      area.innerHTML=placeholder(I.warn,"এই lesson offline save করা নেই — internet লাগবে");
+      $("playerTitle").textContent=curVideo.title;$("playerMeta").textContent=curVideo.durationMinutes?`${curVideo.durationMinutes} min`:"";
+      _loadingVid=null;vState="idle";bufHide(area);renderVlist();offBarRender(curVideo);return;
+    }
     area.innerHTML=`<video controls autoplay playsinline preload="auto" controlsList="nodownload" src="${esc(src)}" style="width:100%;height:100%;background:#000"></video>`;
   }else{
     area.innerHTML=placeholder(I.warn,"No video link set for this lesson");
@@ -4007,23 +4025,71 @@ async function offBarRender(v,pct,got){
     ?`<span style="font-size:13px;margin-right:10px">✅ Offline saved (${offMB(m.size||0)})</span><button style="${bs};background:#64748b" onclick="offRemoveCur()">Remove</button>`
     :`<button style="${bs}" onclick="offDownloadCur()">📥 Offline e save koren</button>`;
 }
-window.offDownloadCur=async function(){
-  const v=curVideo;if(!v||!offDirect(v)||offBusy[v.id])return;
-  offBusy[v.id]=1;offBarRender(v,0,0);
+// ── per-lesson state shown in the lesson list ──
+let offSet=new Set();           // ids saved offline
+const offProg={};               // id -> 0..100 (or -1 unknown) while downloading
+const offCtl={};                // id -> AbortController
+const offVid=id=>(curCourse&&curCourse.videos||[]).find(x=>x.id===id)||null;
+async function offRefresh(){
+  if(!IS_EXE)return;
+  try{offSet=new Set((await OFF.list()).map(m=>m.id))}catch(e){}
+  renderVlist();
+}
+function offIcon(v){
+  if(!IS_EXE||!offDirect(v))return"";
+  const id=esc(v.id),a=`class="voff %C" data-off="${id}" onclick="event.stopPropagation();offToggle('${id}')"`;
+  if(offBusy[v.id]){
+    const p=offProg[v.id],unk=!(p>=0),C=69.1,off=unk?C*0.75:C*(1-Math.min(100,p)/100);
+    return `<button ${a.replace("%C",unk?"spin":"")} title="Downloading… tap to cancel"><svg viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" fill="none" stroke="#d1d5db" stroke-width="3"/><circle class="ring" cx="14" cy="14" r="11" fill="none" stroke="var(--accent,#e8365d)" stroke-width="3" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}" transform="rotate(-90 14 14)"/></svg>${unk?"":`<span class="pct">${p}</span>`}</button>`;
+  }
+  if(offSet.has(v.id))
+    return `<button ${a.replace("%C","done")} title="Offline e available — tap to remove"><svg viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="#16a34a"/><path d="M8.5 14.5l3.8 3.8 7.2-7.6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+  return `<button ${a.replace("%C","")} title="Offline e save korun"><svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 21.5a5 5 0 01-.6-9.96A6.5 6.5 0 0120.4 10.6 4.5 4.5 0 0120 21.5"/><path d="M14 13v8M10.8 18l3.2 3.2 3.2-3.2"/></svg></button>`;
+}
+// update only the indicator of one lesson (cheap, used for live progress)
+function offTick(id){
+  const v=offVid(id);if(!v)return;
+  document.querySelectorAll('[data-off="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]').forEach(el=>{el.outerHTML=offIcon(v)});
+}
+window.offToggle=function(id){
+  const v=offVid(id);if(!v)return;
+  if(offBusy[id]){try{offCtl[id]&&offCtl[id].abort()}catch(e){}return}
+  if(offSet.has(id)){
+    if(!confirm("Ei offline video ti remove korben?"))return;
+    OFF.remove(id).then(()=>{offSet.delete(id);offTick(id);offBarRender(v);showToast("Offline copy remove hoyeche")}).catch(()=>{});
+    return;
+  }
+  offDownload(v);
+};
+async function offDownload(v){
+  if(!v||!offDirect(v)||offBusy[v.id])return;
+  if(navigator.onLine===false){showToast("Internet nei — download kora jabe na");return}
+  const id=v.id,ctl=new AbortController();
+  offBusy[id]=1;offProg[id]=0;offCtl[id]=ctl;offTick(id);offBarRender(v,0,0);
   try{
     try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
-    const r=await fetch(v.url);if(!r.ok)throw new Error("HTTP "+r.status);
-    const total=Number(r.headers.get("content-length"))||0,parts=[];let got=0;
+    const r=await fetch(v.url,{signal:ctl.signal});if(!r.ok)throw new Error("HTTP "+r.status);
+    const total=Number(r.headers.get("content-length"))||0,parts=[];let got=0,last=-2;
     if(r.body&&r.body.getReader){
       const rd=r.body.getReader();
-      for(;;){const x=await rd.read();if(x.done)break;parts.push(x.value);got+=x.value.length;offBarRender(v,total?Math.round(got/total*100):-1,got)}
+      for(;;){
+        const x=await rd.read();if(x.done)break;parts.push(x.value);got+=x.value.length;
+        const pct=total?Math.min(99,Math.round(got/total*100)):-1;
+        if(pct!==last){last=pct;offProg[id]=pct;offTick(id);offBarRender(v,pct,got)}
+      }
     }else{const b=await r.blob();parts.push(b);got=b.size}
     const blob=new Blob(parts,{type:r.headers.get("content-type")||"video/mp4"});
-    await OFF.save({id:v.id,title:v.title||"",course:(curCourse&&curCourse.title)||"",size:blob.size,at:Date.now()},blob);
+    await OFF.save({id,title:v.title||"",course:(curCourse&&curCourse.title)||"",size:blob.size,at:Date.now()},blob);
+    offSet.add(id);
     showToast("✅ Offline e save hoyeche");
-  }catch(e){console.warn("[offline]",e);showToast("❌ Save hoyni: "+(e&&e.message||e))}
-  delete offBusy[v.id];offBarRender(v);
-};
+  }catch(e){
+    if(e&&e.name==="AbortError")showToast("Download cancel kora hoyeche");
+    else{console.warn("[offline]",e);showToast("❌ Save hoyni: "+(e&&e.message||e))}
+  }
+  delete offBusy[id];delete offProg[id];delete offCtl[id];
+  offTick(id);offBarRender(v);
+}
+window.offDownloadCur=function(){return offDownload(curVideo)};
 // exe: first time a direct video is played, save it in the app automatically (once per video)
 const offAutoTried={};
 async function offAuto(v){
@@ -4034,9 +4100,10 @@ async function offAuto(v){
 }
 window.offRemoveCur=async function(){
   const v=curVideo;if(!v)return;
-  try{await OFF.remove(v.id);showToast("Offline copy remove hoyeche")}catch(e){}
-  offBarRender(v);
+  try{await OFF.remove(v.id);offSet.delete(v.id);showToast("Offline copy remove hoyeche")}catch(e){}
+  offBarRender(v);offTick(v.id);
 };
+if(IS_EXE){window.addEventListener("online",()=>{renderVlist()});window.addEventListener("offline",()=>{renderVlist()});OFF.list().then(l=>{offSet=new Set(l.map(m=>m.id))}).catch(()=>{})}
 window.openOffline=function(){goView("viewOffline");closeSidebar()};
 window.offRender=async function(){
   const box=$("offList"),pl=$("offPlayer");if(!box)return;
@@ -4063,8 +4130,8 @@ window.offPlay=async function(id){
 };
 window.offDel=async function(id){
   if(!confirm("Ei offline video ti remove korben?"))return;
-  try{await OFF.remove(id)}catch(e){}
-  offRender();
+  try{await OFF.remove(id);offSet.delete(id)}catch(e){}
+  offRender();renderVlist();
 };
 
 // ── Discussion ──
