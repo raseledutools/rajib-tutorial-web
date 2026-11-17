@@ -1,0 +1,34 @@
+name: Build Website EXE (protected)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['web-exe/**', '.github/workflows/build-web-exe.yml']
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: web-exe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RajibTutorial-Website-EXE
+          path: web-exe/dist/RajibTutorial.exe
+      - name: Publish to release (direct download link)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view web-exe-latest >/dev/null 2>&1 || gh release create web-exe-latest --title "Website EXE (latest)" --notes "Screenshot/screen-record protected Windows exe of the Rajib Tutorial website."
+          gh release upload web-exe-latest dist/RajibTutorial.exe --clobber
