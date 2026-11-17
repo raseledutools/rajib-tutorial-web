@@ -158,22 +158,48 @@ function create() {
 
 
 /* ---------- Auto update (GitHub Releases) ----------
-   A new release is published by CI on every push to web-exe/**.
-   The app checks on start and every 30 min; when a newer version exists it
-   shows a Windows notification and a button at the top of the window.
-   Clicking the button downloads the update and restarts into the new version. */
+   CI publishes a new version on every push to web-exe/**.
+   The app silently checks every 5 seconds; when a newer version exists it shows a
+   Windows notification and a banner at the top. A fixed button (bottom-right) lets the
+   user check manually. Clicking the update button downloads and restarts into the new version. */
+const CHECK_EVERY_MS = 5000;
 let autoUpdater = null;
-let updateState = { status: 'idle', version: null, percent: 0 };
+let checking = false;
+let flashTimer = null;
+let updateState = { status: 'idle', version: null, percent: 0, current: app.getVersion() };
 
 function sendUpdateState() {
   if (win && !win.isDestroyed()) win.webContents.send('update:state', updateState);
 }
 function setUpdate(patch) { updateState = Object.assign({}, updateState, patch); sendUpdateState(); }
+// short-lived message on the manual button (up to date / error), then back to idle
+function flash(status) {
+  setUpdate({ status });
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { if (updateState.status === status) setUpdate({ status: 'idle' }); }, 3500);
+}
 
 function startDownload() {
   if (!autoUpdater || updateState.status !== 'available') return;
   setUpdate({ status: 'downloading', percent: 0 });
   autoUpdater.downloadUpdate().catch(() => setUpdate({ status: 'available' }));
+}
+
+// manual = true when the user pressed the check button (shows progress/result)
+function checkNow(manual) {
+  if (!autoUpdater) { if (manual) flash('uptodate'); return; }
+  const st = updateState.status;
+  if (checking || st === 'downloading' || st === 'installing') return;
+  if (manual) { clearTimeout(flashTimer); setUpdate({ status: 'checking' }); }
+  checking = true;
+  autoUpdater.checkForUpdates()
+    .then((r) => {
+      // update-available / update-not-available events do the state change; this covers the manual "no update" case
+      if (manual && updateState.status === 'checking') flash('uptodate');
+      return r;
+    })
+    .catch(() => { if (manual) flash('error'); else if (updateState.status === 'checking') setUpdate({ status: 'idle' }); })
+    .finally(() => { checking = false; });
 }
 
 function initUpdater() {
@@ -191,11 +217,13 @@ function initUpdater() {
         body: 'Version ' + info.version + ' এসেছে। আপডেট করতে ক্লিক করুন।',
         icon: path.join(__dirname, 'build', 'icon.png'),
       });
-      n.on('click', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } startDownload(); });
+      n.on('click', () => { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } startDownload(); });
       n.show();
     }
   });
-  autoUpdater.on('update-not-available', () => { if (updateState.status !== 'downloading') setUpdate({ status: 'idle' }); });
+  autoUpdater.on('update-not-available', () => {
+    if (updateState.status === 'available') setUpdate({ status: 'idle', version: null });
+  });
   autoUpdater.on('download-progress', (p) => setUpdate({ status: 'downloading', percent: Math.round(p.percent || 0) }));
   autoUpdater.on('update-downloaded', () => {
     setUpdate({ status: 'installing', percent: 100 });
@@ -206,24 +234,12 @@ function initUpdater() {
     if (updateState.status === 'downloading') setUpdate({ status: 'available' });
   });
 
-  const check = () => { if (updateState.status === 'idle') autoUpdater.checkForUpdates().catch(() => {}); };
-  setTimeout(check, 5000);
-  setInterval(check, 30 * 60 * 1000).unref();
+  checkNow(false);
+  setInterval(() => checkNow(false), CHECK_EVERY_MS).unref();
 }
 
-// Native notification requested by the website (admin push messages), main window only.
-ipcMain.on('notify:show', (e, title, body) => {
-  if (!win || e.sender !== win.webContents || !Notification.isSupported()) return;
-  const n = new Notification({
-    title: String(title || 'Rajib Tutorial').slice(0, 120),
-    body: String(body || '').slice(0, 400),
-    icon: path.join(__dirname, 'build', 'icon.png'),
-  });
-  n.on('click', () => { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } });
-  n.show();
-});
-
 ipcMain.on('update:install', () => startDownload());
+ipcMain.on('update:check', () => checkNow(true));
 ipcMain.on('update:get', () => sendUpdateState());
 
 // IPC: website calls window.ElectronShell.openUrl(url) → openChild()
@@ -257,7 +273,7 @@ app.whenReady().then(() => {
     (d, cb) => { d.requestHeaders['Referer'] = SITE; cb({ requestHeaders: d.requestHeaders }); });
   try { session.defaultSession.preconnect({ url: SITE_ORIGIN, numSockets: 2 }); } catch (_) {}
   create();
-  setTimeout(initUpdater, 3000);
+  setTimeout(initUpdater, 1500);
   try { globalShortcut.register('PrintScreen', () => { try { clipboard.clear(); } catch (_) {} }); } catch (_) {}
 });
 app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch (_) {} });
