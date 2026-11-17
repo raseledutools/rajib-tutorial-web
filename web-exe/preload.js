@@ -1,7 +1,8 @@
 'use strict';
-const { ipcRenderer } = require('electron');
+const { ipcRenderer, contextBridge } = require('electron');
 
-function build() {
+// Nav bar (back / forward / reload)
+function buildNavBar() {
   if (document.getElementById('__rt_nav')) return;
   const bar = document.createElement('div');
   bar.id = '__rt_nav';
@@ -18,5 +19,12 @@ function build() {
   bar.append(mk('←', 'Back', 'back'), mk('→', 'Forward', 'forward'), mk('⟳', 'Refresh', 'reload'));
   (document.body || document.documentElement).appendChild(bar);
 }
-window.addEventListener('DOMContentLoaded', build);
-window.addEventListener('load', build);
+window.addEventListener('DOMContentLoaded', buildNavBar);
+window.addEventListener('load', buildNavBar);
+
+// Expose a safe bridge so the website can open URLs inside the Electron app
+// (used by openInAppBrowser for YouTube, Google, YouTube Studio etc.)
+contextBridge.exposeInMainWorld('ElectronShell', {
+  openUrl: (url) => ipcRenderer.send('shell:openUrl', url),
+  isElectron: true,
+});

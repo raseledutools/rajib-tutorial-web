@@ -3637,6 +3637,11 @@ window.openAppsLock = function() {
 // ─── In-App Browser ──────────────────────────────────────
 var _mBrowserUrl = '';
 window.openInAppBrowser = function(url, title) {
+  // Electron desktop app: open in a native child window (no iframe restrictions)
+  if (window.ElectronShell && window.ElectronShell.isElectron) {
+    window.ElectronShell.openUrl(url);
+    return;
+  }
   // Android native handlers
   if (window.AndroidFlash) {
     if (title === 'YouTube') {
