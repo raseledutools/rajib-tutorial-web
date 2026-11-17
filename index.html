@@ -1310,10 +1310,6 @@ body{font-family:Roboto,system-ui,-apple-system,'Segoe UI','Noto Sans Bengali',s
           Take Live Exam <span class="live-pill">LIVE</span>
         </button>
         <button class="btn-live ghost" onclick="document.getElementById('coursesAnchor').scrollIntoView()">Browse Courses</button>
-        <button class="btn-live ghost btn-flashlight" id="btnFlashlight" onclick="toggleFlashlight()">
-          <svg id="flashlightIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6c0-2.21-2.69-4-6-4S6 3.79 6 6l2 7h8l2-7z"/><path d="M6 13l-1.5 5.5A1 1 0 0 0 5.5 20h13a1 1 0 0 0 1-1.5L18 13"/><line x1="12" y1="20" x2="12" y2="22"/></svg>
-          <span id="flashlightLabel">🔦 Flashlight</span>
-        </button>
       </div>
       <div class="live-info" id="liveInfo"></div>
 
@@ -1322,15 +1318,6 @@ body{font-family:Roboto,system-ui,-apple-system,'Segoe UI','Noto Sans Bengali',s
         <div><div class="stat-n" id="statV">–</div><div class="stat-l">Video Lessons</div></div>
         <div><div class="stat-n">8</div><div class="stat-l">Semesters Covered</div></div>
       </div>
-
-      <button class="btn-phone-mode" id="btnPhoneMode" onclick="openKioskModal()" style="margin-top:16px">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="3"/></svg>
-        📵 Phone Mode
-      </button>
-      <button class="btn-phone-mode" id="btnAppsLock" onclick="openAppsLock()" style="margin-top:10px;background:linear-gradient(135deg,#7B2FF7,#F107A3)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-        🔐 Apps Lock
-      </button>
     </section>
 
     <section class="quick-row">
