@@ -288,6 +288,7 @@ public class NativeHomeActivity extends AppCompatActivity {
 
     void adminLogout() {
         Store.adminIn = false;
+        PushManager.setAdmin(this, false);
         renderUser();
         syncPushUser();
         goHome();
