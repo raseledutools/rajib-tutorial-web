@@ -23,25 +23,58 @@ function buildNavBar() {
 window.addEventListener('DOMContentLoaded', buildNavBar);
 window.addEventListener('load', buildNavBar);
 
-// Update button (top center) — visible only when a newer release exists
+// Update UI: a banner at the top when an update exists + a fixed check button (bottom-right)
 let lastUpdate = { status: 'idle' };
 function renderUpdateBtn() {
+  if (location.protocol === 'file:') return; // splash / offline page
+  const st = lastUpdate.status, v = lastUpdate.version ? ' v' + lastUpdate.version : '';
+
+  // top banner — only when an update exists / is being installed
   let b = document.getElementById('__rt_update');
-  if (lastUpdate.status === 'idle') { if (b) b.remove(); return; }
-  if (!b) {
-    b = document.createElement('button');
-    b.id = '__rt_update';
-    b.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:2147483647;border:0;border-radius:999px;padding:8px 18px;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)';
-    b.onclick = () => { if (lastUpdate.status === 'available') ipcRenderer.send('update:install'); };
-    (document.body || document.documentElement).appendChild(b);
+  if (!['available', 'downloading', 'installing'].includes(st)) { if (b) b.remove(); }
+  else {
+    if (!b) {
+      b = document.createElement('button');
+      b.id = '__rt_update';
+      b.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:2147483647;border:0;border-radius:999px;padding:8px 18px;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)';
+      b.onclick = () => { if (lastUpdate.status === 'available') ipcRenderer.send('update:install'); };
+      (document.body || document.documentElement).appendChild(b);
+    }
+    if (st === 'available') { b.textContent = '🔄 নতুন আপডেট' + v + ' — ক্লিক করে আপডেট করুন'; b.style.cursor = 'pointer'; }
+    else if (st === 'downloading') { b.textContent = '⬇ ডাউনলোড হচ্ছে… ' + (lastUpdate.percent || 0) + '%'; b.style.cursor = 'default'; }
+    else { b.textContent = '✅ ইনস্টল হচ্ছে, অ্যাপ রিস্টার্ট হবে…'; b.style.cursor = 'default'; }
   }
-  const v = lastUpdate.version ? ' v' + lastUpdate.version : '';
-  if (lastUpdate.status === 'available') { b.textContent = '🔄 নতুন আপডেট' + v + ' — ক্লিক করে আপডেট করুন'; b.style.cursor = 'pointer'; }
-  else if (lastUpdate.status === 'downloading') { b.textContent = '⬇ ডাউনলোড হচ্ছে… ' + (lastUpdate.percent || 0) + '%'; b.style.cursor = 'default'; }
-  else if (lastUpdate.status === 'installing') { b.textContent = '✅ ইনস্টল হচ্ছে, অ্যাপ রিস্টার্ট হবে…'; b.style.cursor = 'default'; }
+
+  // fixed check button — always visible
+  let c = document.getElementById('__rt_updcheck');
+  if (!c) {
+    c = document.createElement('button');
+    c.id = '__rt_updcheck';
+    c.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483646;border:0;border-radius:999px;padding:8px 14px;background:rgba(30,30,40,.88);color:#fff;font:600 12.5px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);backdrop-filter:blur(6px)';
+    c.onmouseenter = () => (c.style.background = 'rgba(60,60,80,.95)');
+    c.onmouseleave = () => (c.style.background = 'rgba(30,30,40,.88)');
+    c.onclick = () => {
+      const s = lastUpdate.status;
+      if (s === 'available') ipcRenderer.send('update:install');
+      else if (s === 'idle' || s === 'uptodate' || s === 'error') ipcRenderer.send('update:check');
+    };
+    (document.body || document.documentElement).appendChild(c);
+  }
+  const cur = lastUpdate.current ? ' v' + lastUpdate.current : '';
+  const label = {
+    idle: '⟳ আপডেট চেক' + cur,
+    checking: '⟳ চেক হচ্ছে…',
+    uptodate: '✅ আপনি latest version-এ আছেন' + cur,
+    error: '❌ চেক করা যায়নি — আবার চাপুন',
+    available: '🔄 আপডেট' + v,
+    downloading: '⬇ ' + (lastUpdate.percent || 0) + '%',
+    installing: '✅ ইনস্টল হচ্ছে…',
+  }[st] || '⟳ আপডেট চেক';
+  c.textContent = label;
+  c.style.cursor = ['checking', 'downloading', 'installing'].includes(st) ? 'default' : 'pointer';
 }
 ipcRenderer.on('update:state', (_e, st) => { lastUpdate = st || { status: 'idle' }; renderUpdateBtn(); });
-window.addEventListener('DOMContentLoaded', () => { ipcRenderer.send('update:get'); });
+window.addEventListener('DOMContentLoaded', () => { ipcRenderer.send('update:get'); renderUpdateBtn(); });
 window.addEventListener('load', renderUpdateBtn);
 
 // Expose a safe bridge so the website can open URLs inside the Electron app
