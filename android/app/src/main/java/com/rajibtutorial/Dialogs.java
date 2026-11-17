@@ -62,6 +62,20 @@ final class Dialogs {
         m.show();
     }
 
+    /** Right after admin login: pushes sent while no admin was signed in are not delivered, so show what is waiting. */
+    void checkPendingPayments() {
+        Store.async(() -> PayRequests.latest(60), (java.util.List<PayRequests.Req> list, Exception e) -> {
+            if (e != null || list == null) return;
+            int n = 0;
+            for (PayRequests.Req r : list) if (PayRequests.PENDING.equals(r.status)) n++;
+            if (n == 0) return;
+            final Ui.Modal pm = new Ui.Modal(a, "💳 " + n + " payment request" + (n > 1 ? "s" : "") + " waiting",
+                "Customers have submitted TrxIDs while you were away. Match them with your bKash SMS and Accept.");
+            pm.actions("Later", "Open", Ui.B_PRIMARY, () -> { pm.dismiss(); a.openNotify(); });
+            pm.show();
+        });
+    }
+
     // ── Admin login ─────────────────────────────────────────
     void adminLogin() {
         if (Store.adminIn) { a.openManage(); return; }
@@ -77,6 +91,7 @@ final class Dialogs {
                 a.onAdminChanged();
                 a.openManage();
                 a.toast("Welcome to the admin panel");
+                checkPendingPayments();
             } else {
                 Ui.setErr(err, "Incorrect password. Please try again.");
                 pw.et.setText("");
@@ -171,7 +186,7 @@ final class Dialogs {
         });
         m.addSpaced(payBtn, 6);
 
-        final TextView cardBtn = Ui.btn(a, "Pay " + Store.priceLabel(c.price) + " by Card / Nagad / Rocket", Ui.B_OUTLINE, null);
+        final TextView cardBtn = Ui.btn(a, "Pay " + Store.priceLabel(c.price) + " by Card / Mobile banking", Ui.B_OUTLINE, null);
         cardBtn.setOnClickListener(v -> {
             String n = name.text();
             String mob = Store.normMobile(mobile.text());
@@ -185,7 +200,7 @@ final class Dialogs {
             Store.async(() -> Store.createCardPayment(fn, fm, c.id), (String url, Exception e) -> {
                 cardBtn.setEnabled(true);
                 cardBtn.setAlpha(1f);
-                cardBtn.setText("Pay " + Store.priceLabel(c.price) + " by Card / Nagad / Rocket");
+                cardBtn.setText("Pay " + Store.priceLabel(c.price) + " by Card / Mobile banking");
                 if (e == null && url != null) {
                     m.dismiss();
                     PaymentActivity.start(a, url);
