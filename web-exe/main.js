@@ -14,56 +14,74 @@ app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(
 
 
 /* ---------- Offline cache for the website shell ----------
-   Network-first: the page (and the Firebase SDK it imports) is always fetched fresh when online,
-   and a copy is saved in userData/site-cache. Offline, the saved copy is served, so the app still opens.
-   Lesson data itself is kept offline by Firestore's own persistent cache (see index.html). */
+   ONLINE: no https interception at all (video / YouTube behave exactly like in a normal browser).
+   The shell (page + Firebase SDK) is only copied to userData/site-cache in the background (warmCache).
+   OFFLINE: the https handler is switched on and serves that copy; it is switched off again as soon as
+   the site is reachable. Lesson data stays offline through Firestore's own persistent cache (index.html). */
 const CACHE_DIR = () => path.join(app.getPath('userData'), 'site-cache');
-const NET_TIMEOUT_MS = 6000;
+const FB = 'https://www.gstatic.com/firebasejs/10.12.2/';
+const WARM_URLS = [SITE, FB + 'firebase-app.js', FB + 'firebase-firestore.js', FB + 'firebase-messaging.js'];
 function cacheable(u) {
   return u.origin === SITE_ORIGIN || (u.hostname === 'www.gstatic.com' && u.pathname.startsWith('/firebasejs/'));
 }
 function cacheFile(url) {
   return path.join(CACHE_DIR(), crypto.createHash('sha1').update(url).digest('hex'));
 }
-async function cachedFetch(request) {
-  const u = new URL(request.url);
-  // Everything that is not a plain page/script GET of our own hosts is passed through untouched,
-  // using the ORIGINAL request (keeps credentials, Range, streaming — needed for video playback).
-  const pass = () => net.fetch(request, { bypassCustomProtocolHandlers: true });
-  if (request.method !== 'GET' || !cacheable(u) || request.headers.has('range')) return pass();
-  const hdrs = Object.fromEntries(request.headers);
-
-  const file = cacheFile(request.url);
-  const readCache = () => {
-    try {
-      const meta = JSON.parse(fs.readFileSync(file + '.json', 'utf8'));
-      const body = fs.readFileSync(file + '.bin');
-      return new Response(body, { status: 200, headers: meta.headers || { 'content-type': meta.type || 'application/octet-stream' } });
-    } catch (_) { return null; }
-  };
-  const hasCache = fs.existsSync(file + '.bin');
+function hasCache(url) { return fs.existsSync(cacheFile(url) + '.bin'); }
+function readCache(url) {
+  const file = cacheFile(url);
   try {
-    const ctl = new AbortController();
-    const t = hasCache ? setTimeout(() => ctl.abort(), NET_TIMEOUT_MS) : null;
-    const res = await net.fetch(request.url, { headers: hdrs, bypassCustomProtocolHandlers: true, signal: ctl.signal });
-    if (t) clearTimeout(t);
-    if (res.ok) {
-      const buf = Buffer.from(await res.arrayBuffer());
-      // keep response headers (CORS etc.) but drop the ones that no longer match the decoded body
-      const headers = {};
-      res.headers.forEach((v, k) => { if (!['content-encoding', 'content-length', 'transfer-encoding'].includes(k)) headers[k] = v; });
+    const meta = JSON.parse(fs.readFileSync(file + '.json', 'utf8'));
+    return new Response(fs.readFileSync(file + '.bin'), { status: 200, headers: meta.headers || {} });
+  } catch (_) { return null; }
+}
+let warming = false, warmedOnce = false;
+async function warmCache() {
+  if (warming) return;
+  warming = true; warmedOnce = true;
+  try {
+    for (const url of WARM_URLS) {
       try {
+        const res = await net.fetch(url, { bypassCustomProtocolHandlers: true });
+        if (!res.ok) continue;
+        const buf = Buffer.from(await res.arrayBuffer());
+        const headers = {};
+        res.headers.forEach((v, k) => { if (!['content-encoding', 'content-length', 'transfer-encoding'].includes(k)) headers[k] = v; });
         fs.mkdirSync(CACHE_DIR(), { recursive: true });
-        fs.writeFileSync(file + '.bin', buf);
-        fs.writeFileSync(file + '.json', JSON.stringify({ headers }));
+        fs.writeFileSync(cacheFile(url) + '.bin', buf);
+        fs.writeFileSync(cacheFile(url) + '.json', JSON.stringify({ headers }));
       } catch (_) {}
-      return new Response(buf, { status: 200, headers });
     }
-    return readCache() || res;
-  } catch (err) {
-    const c = readCache();
+  } finally { warming = false; }
+}
+
+let offlineHandling = false, probeTimer = null;
+async function offlineFetch(request) {
+  const u = new URL(request.url);
+  if (request.method === 'GET' && cacheable(u)) {
+    const c = readCache(request.url) ||
+      (u.origin === SITE_ORIGIN && /\/index\.html$/.test(u.pathname) ? readCache(SITE) : null);
     if (c) return c;
-    throw err;
+  }
+  return net.fetch(request, { bypassCustomProtocolHandlers: true });
+}
+function setOfflineHandling(on) {
+  if (on === offlineHandling) return;
+  try {
+    if (on) session.defaultSession.protocol.handle('https', offlineFetch);
+    else session.defaultSession.protocol.unhandle('https');
+    offlineHandling = on;
+  } catch (_) { return; }
+  clearInterval(probeTimer);
+  if (on) {
+    // while offline, probe the site; once reachable, drop the handler (back to plain browser behaviour)
+    probeTimer = setInterval(async () => {
+      try {
+        const r = await net.fetch(SITE, { method: 'HEAD', bypassCustomProtocolHandlers: true, signal: AbortSignal.timeout(4000) });
+        if (r.ok) { setOfflineHandling(false); warmCache(); }
+      } catch (_) {}
+    }, 5000);
+    probeTimer.unref();
   }
 }
 
@@ -193,13 +211,17 @@ function create() {
   // Start loading the real site as soon as the splash is up.
   let siteStarted = false;
   wc.on('did-finish-load', () => {
-    if (!siteStarted) { siteStarted = true; win.loadURL(SITE); }
+    if (!siteStarted) { siteStarted = true; win.loadURL(SITE); return; }
+    if (!offlineHandling && !warmedOnce && wc.getURL().startsWith(SITE_ORIGIN)) setTimeout(warmCache, 3000);
   });
   wc.on('did-fail-load', (_e, code, _d, url, isMain) => {
-    if (isMain && code !== -3 && url.startsWith('http')) win.loadFile(path.join(__dirname, 'offline.html'));
+    if (!isMain || code === -3 || !url.startsWith('http')) return;
+    // network failed: if a saved copy of the site exists, serve it; otherwise show the offline page
+    if (!offlineHandling && hasCache(SITE)) { setOfflineHandling(true); win.loadURL(SITE); return; }
+    win.loadFile(path.join(__dirname, 'offline.html'));
   });
   wc.on('will-navigate', (e, url) => {
-    if (url === 'app://retry') { e.preventDefault(); win.loadURL(SITE); }
+    if (url === 'app://retry') { e.preventDefault(); setOfflineHandling(false); win.loadURL(SITE); }
   });
   // Links that open new windows from the main site → child window inside app
   wc.setWindowOpenHandler(({ url }) => {
@@ -337,7 +359,6 @@ app.on('web-contents-created', (_e, wc) => guard(wc));
 app.setAppUserModelId('com.rajibtutorial.webexe'); // needed for Windows notifications
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
-  try { session.defaultSession.protocol.handle('https', cachedFetch); } catch (_) {}
   session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) =>
     cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));
   session.defaultSession.webRequest.onBeforeSendHeaders(
