@@ -18,7 +18,7 @@
     "appId": "com.rajibtutorial.webexe",
     "productName": "Rajib Tutorial",
     "directories": { "output": "dist" },
-    "files": ["main.js", "offline.html", "package.json"],
+    "files": ["main.js", "preload.js", "offline.html", "package.json"],
     "win": {
       "target": "portable",
       "icon": "build/icon.png",

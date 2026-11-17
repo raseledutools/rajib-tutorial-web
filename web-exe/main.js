@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Menu, session, shell, clipboard, globalShortcut } = require('electron');
+const { app, BrowserWindow, Menu, session, shell, clipboard, globalShortcut, ipcMain } = require('electron');
 const path = require('path');
 
 const SITE = 'https://raseledutools.github.io/rajib-tutorial-web/';
@@ -27,6 +27,7 @@ function guard(wc) {
     const ctrl = input.control || input.meta;
     if (k === 'printscreen') { e.preventDefault(); try { clipboard.clear(); } catch (_) {} return; }
     if (input.type !== 'keyDown') return;
+    if (input.alt && (k === 'arrowleft' || k === 'arrowright')) { e.preventDefault(); const h = wc.navigationHistory; if (k === 'arrowleft' && h.canGoBack()) h.goBack(); if (k === 'arrowright' && h.canGoForward()) h.goForward(); return; }
     if (k === 'f5' || (ctrl && k === 'r')) { e.preventDefault(); if (wc.getURL().startsWith('file:') && win) win.loadURL(SITE); else wc.reloadIgnoringCache(); return; }
     if (ctrl && ['p', 's', 'u'].includes(k)) e.preventDefault();
     if (PACKAGED && (k === 'f12' || (ctrl && input.shift && ['i', 'j', 'c'].includes(k)))) e.preventDefault();
@@ -39,7 +40,7 @@ function create() {
     width: 1280, height: 820, minWidth: 900, minHeight: 600, show: false,
     backgroundColor: '#ffffff', title: 'Rajib Tutorial', autoHideMenuBar: true,
     icon: path.join(__dirname, 'build', 'icon.png'),
-    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, devTools: !PACKAGED },
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, devTools: !PACKAGED, preload: path.join(__dirname, 'preload.js') },
   });
   protect(win);
   win.once('ready-to-show', () => { win.show(); win.maximize(); });
@@ -56,7 +57,7 @@ function create() {
   wc.setWindowOpenHandler(({ url }) => {
     try {
       const u = new URL(url);
-      if (u.protocol === 'https:') openChild(url);
+      if (u.protocol === 'https:') wc.loadURL(url); // same window; use ← to go back
       else if (u.protocol === 'mailto:' || u.protocol === 'tel:') shell.openExternal(url);
     } catch (_) {}
     return { action: 'deny' };
@@ -73,6 +74,13 @@ function openChild(url) {
   protect(c);
   c.loadURL(url);
 }
+
+ipcMain.on('nav', (e, act) => {
+  const wc = e.sender, h = wc.navigationHistory;
+  if (act === 'back' && h.canGoBack()) h.goBack();
+  else if (act === 'forward' && h.canGoForward()) h.goForward();
+  else if (act === 'reload') { if (wc.getURL().startsWith('file:') && win) win.loadURL(SITE); else wc.reloadIgnoringCache(); }
+});
 
 app.on('web-contents-created', (_e, wc) => guard(wc));
 
