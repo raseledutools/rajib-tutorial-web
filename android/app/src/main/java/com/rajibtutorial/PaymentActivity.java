@@ -52,6 +52,7 @@ public class PaymentActivity extends AppCompatActivity {
             String back = URI.create(Store.BACKEND).getHost();
             return h.equals("bka.sh") || h.endsWith(".bka.sh")
                 || h.equals("bkash.com") || h.endsWith(".bkash.com")
+                || h.equals("sslcommerz.com") || h.endsWith(".sslcommerz.com")
                 || h.equals(back);
         } catch (Exception e) {
             return false;

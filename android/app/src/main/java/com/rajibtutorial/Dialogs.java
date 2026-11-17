@@ -171,6 +171,33 @@ final class Dialogs {
         });
         m.addSpaced(payBtn, 6);
 
+        final TextView cardBtn = Ui.btn(a, "Pay " + Store.priceLabel(c.price) + " by Card / Nagad / Rocket", Ui.B_OUTLINE, null);
+        cardBtn.setOnClickListener(v -> {
+            String n = name.text();
+            String mob = Store.normMobile(mobile.text());
+            Ui.setErr(err, "");
+            if (n.length() < 2) { Ui.setErr(err, "Please enter your name."); return; }
+            if (!mob.matches("^01\\d{9}$")) { Ui.setErr(err, "Enter a valid 11-digit mobile number (01XXXXXXXXX)."); return; }
+            cardBtn.setEnabled(false);
+            cardBtn.setAlpha(0.65f);
+            cardBtn.setText("Connecting… (may take up to 30 seconds)");
+            final String fn = n, fm = mob;
+            Store.async(() -> Store.createCardPayment(fn, fm, c.id), (String url, Exception e) -> {
+                cardBtn.setEnabled(true);
+                cardBtn.setAlpha(1f);
+                cardBtn.setText("Pay " + Store.priceLabel(c.price) + " by Card / Nagad / Rocket");
+                if (e == null && url != null) {
+                    m.dismiss();
+                    PaymentActivity.start(a, url);
+                } else if (e instanceof java.io.IOException) {
+                    Ui.setErr(err, "Server is waking up or unreachable. Please wait 30 seconds and try again.");
+                } else {
+                    Ui.setErr(err, e != null && e.getMessage() != null ? e.getMessage() : "Could not start the payment. Please try again.");
+                }
+            });
+        });
+        m.addSpaced(cardBtn, 8);
+
         // ── Manual payment: pay by bKash yourself, then send the TrxID for the admin to approve ──
         View sep = new View(a);
         sep.setBackgroundColor(Ui.BORDER);
