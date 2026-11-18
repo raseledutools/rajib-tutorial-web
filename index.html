@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>if(/Electron\//.test(navigator.userAgent))document.documentElement.classList.add("is-exe")</script>
 <meta charset="UTF-8"/>
 <link rel="preconnect" href="https://www.youtube.com" crossorigin/>
 <link rel="preconnect" href="https://www.youtube-nocookie.com" crossorigin/>
@@ -16,7 +17,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Rajib Tutorial | Diploma in Electrical Engineering (EEE) Courses</title>
 <meta name="description" content="Rajib Tutorial offers structured video courses, live classes and live exams for Diploma in Electrical &amp; Electronic Engineering (EEE) students."/>
-<meta name="theme-color" content="#FFFFFF"/>
+<meta name="theme-color" content="#00959C"/>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23141413'/%3E%3Cg stroke='%23D97757' stroke-width='7' stroke-linecap='round'%3E%3Cpath d='M50 18v64M18 50h64M27 27l46 46M73 27L27 73'/%3E%3C/g%3E%3C/svg%3E"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1654,6 +1655,84 @@ body.chat-on .topbar{display:none}
   .cx-thumb{height:92px}
 }
 </style>
+<style id="rasDesk">
+/* ── RasFocus+ desktop style: title bar (exe) · teal header · fixed teal sidebar · framed content cards ── */
+html.is-exe{--tb:36px}
+:root{--tb:0px;--rd-teal:#00959c;--rd-teal2:#00808c;--rd-teal3:#0ea5b0;--rd-green:#5aa717;--rd-cream:#FFF8DC;--rd-bg:#F7F8FA;--rd-line:#E3E6EA;--rd-sidebar-w:250px}
+body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Noto Sans Bengali',sans-serif;background:var(--rd-bg)}
+
+/* header (teal) */
+.topbar{top:var(--tb);height:64px;background:var(--rd-teal);border-bottom:none;box-shadow:none;padding:0 20px 0 8px;backdrop-filter:none;-webkit-backdrop-filter:none}
+.topbar-title{font-size:21px;font-weight:700;color:#fff;-webkit-text-fill-color:#fff;letter-spacing:-.01em}
+.btn-hamburger{background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:10px;width:42px;height:42px}
+.btn-hamburger:hover{background:rgba(255,255,255,.28);color:#fff;border:none}
+.btn-nav,.btn-bell,.tb-right .btn-refresh{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:10px;width:40px;height:40px}
+.btn-nav:hover,.btn-bell:hover,.tb-right .btn-refresh:hover{background:rgba(255,255,255,.28);color:#fff}
+.tb-right{gap:8px}
+.tb-right #userArea>*{color:#fff}
+.tb-right #userArea button,.tb-right #userArea a{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:10px}
+
+/* sidebar (solid dark teal, active item = white bar) */
+.sidebar{background:var(--rd-teal2);color:#fff;border-right:none;box-shadow:none;width:var(--rd-sidebar-w);top:var(--tb);height:calc(100vh - var(--tb))}
+.sidebar.open{box-shadow:10px 0 30px rgba(0,60,66,.35)}
+.sidebar-top{padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.14)}
+.sidebar-logo{background:#fff;border-radius:50%;box-shadow:none}
+.sidebar-logo svg{stroke:var(--rd-teal2)}
+#sidebarCourses>div{color:rgba(255,255,255,.75)!important}
+.sidebar-brand{color:#fff;font-weight:700;font-size:17px}
+.sidebar-brand small{color:rgba(255,255,255,.75)}
+.sidebar-nav{padding:10px 0}
+.nav-label{color:rgba(255,255,255,.6);padding:14px 20px 6px}
+.nav-item,.course-nav-item{color:#fff;border-radius:0;padding:13px 20px;font-size:15px;font-weight:600;gap:14px}
+.nav-item svg{width:21px;height:21px;color:#fff}
+.nav-item:hover,.course-nav-item:hover{background:rgba(255,255,255,.14);color:#fff}
+.nav-item.active,.course-nav-item.active{background:#fff;color:var(--rd-teal2);box-shadow:none;font-weight:700}
+.nav-item.active svg{color:var(--rd-teal2)}
+.sidebar-bottom,.admin-sidebar{border-color:rgba(255,255,255,.14)}
+.btn-admin-login{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3)}
+
+/* desktop: sidebar is always fixed, no hamburger */
+@media(min-width:901px){
+  body{display:block}
+  .sidebar{transform:none}
+  .main{margin-left:var(--rd-sidebar-w);padding-top:var(--tb)}
+  .btn-hamburger,.sidebar-overlay{display:none!important}
+  .topbar{padding-left:20px}
+}
+
+/* home content: cream/teal palette + framed cards like the app panels */
+#viewHome{--hb:var(--rd-teal3);--hb2:var(--rd-teal2);--hnavy:#04484f;--hnavy2:#06626b;--hcream:var(--rd-bg);--hyellow:var(--rd-cream);
+  font-family:'Segoe UI','Hind Siliguri','Noto Sans Bengali',system-ui,sans-serif}
+#viewHome .hm{padding-top:22px}
+#viewHome .hm-hero{background:#fff;border:2px solid var(--rd-line);border-radius:18px;padding:30px 28px;margin-top:4px}
+#viewHome .hm-badge{background:#E0F5F6;border-color:#B6E3E6;color:var(--rd-teal2)}
+#viewHome .hm-btn{border-radius:8px}
+#viewHome .hm-btn.pri{background:var(--rd-teal3)}
+#viewHome .hm-btn.dark{background:var(--rd-green)}
+#viewHome .hm-btn:hover{box-shadow:0 8px 20px rgba(0,128,140,.25)}
+#viewHome .hm-herobox{background:var(--rd-teal);border-radius:14px;box-shadow:none}
+#viewHome .hm-lcard,#viewHome .hm-faq details{border:2px solid var(--rd-line);border-radius:14px}
+#viewHome .hm-lcard.cls .hm-lhead{background:var(--rd-teal3)}
+#viewHome .hm-lcard.exam .hm-lhead{background:var(--rd-cream);color:#5A4A00}
+#viewHome .hm-lfoot{color:var(--rd-teal2)}
+#viewHome .hm-courses{background:#fff;border:2px solid var(--rd-line);border-radius:18px;padding:20px}
+#viewHome .hm-courses .search-box input,#viewHome .hm-courses .filters select{border:1.5px solid var(--rd-line);border-radius:8px}
+#viewHome .hm-band{background:var(--rd-teal2);border-top:none}
+#viewHome .hm-band .hm-badge{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.35);color:#fff}
+#viewHome .hm-band .hm-head p,#viewHome .hm-tile small{color:rgba(255,255,255,.8)}
+#viewHome .hm-tile{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.22);border-radius:12px}
+#viewHome .hm-tile:hover{border-color:#fff}
+#viewHome .hm-tile i,#viewHome .hm-tile:nth-child(n) i{background:rgba(255,255,255,.2)}
+#viewHome .hm-ctab{background:var(--rd-teal);box-shadow:none;border-radius:18px}
+#viewHome .hm-ctab .hm-btn.light{color:var(--rd-teal2)}
+@media(max-width:900px){
+  .topbar{height:56px}
+  .topbar-title{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #viewHome .hm-hero{padding:22px 16px}
+  #viewHome .hm-courses{padding:14px}
+}
+</style>
+
 
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">

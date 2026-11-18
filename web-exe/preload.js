@@ -1,6 +1,21 @@
 'use strict';
 const { ipcRenderer, contextBridge } = require('electron');
 
+// Custom title bar (white, drag area, app icon + title). Native min/max/close buttons come from titleBarOverlay in main.js.
+function buildTitleBar() {
+  if (!document.body || document.getElementById('__rt_titlebar')) return;
+  const isFile = location.protocol === 'file:';
+  const bar = document.createElement('div');
+  bar.id = '__rt_titlebar';
+  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:36px;z-index:2147483646;display:flex;align-items:center;gap:8px;padding:0 150px 0 12px;background:#fff;border-bottom:1px solid #E3E6EA;font:600 13px "Segoe UI",system-ui,sans-serif;color:#1f2937;-webkit-app-region:drag;user-select:none';
+  bar.innerHTML = '<svg width="18" height="18" viewBox="0 0 100 100" fill="none" stroke="#00959c" stroke-width="9" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg><span>Rajib Tutorial</span>';
+  document.body.appendChild(bar);
+  // Local pages (focus / offline) have no layout that knows about the bar: push their content down.
+  if (isFile && !location.pathname.endsWith('splash.html')) document.documentElement.style.paddingTop = '36px';
+}
+window.addEventListener('DOMContentLoaded', buildTitleBar);
+window.addEventListener('load', buildTitleBar);
+
 // Nav bar (back / forward / reload)
 function buildNavBar() {
   if (location.protocol === 'file:' && location.pathname.endsWith('splash.html')) return;

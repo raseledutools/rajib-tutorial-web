@@ -229,6 +229,9 @@ function create() {
   win = new BrowserWindow({
     width: 1280, height: 820, minWidth: 900, minHeight: 600, show: false,
     backgroundColor: '#0f172a', title: 'Rajib Tutorial', autoHideMenuBar: true,
+    // custom title bar (drawn by preload.js); Windows draws only the min / max / close buttons
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#ffffff', symbolColor: '#1f2937', height: 36 },
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       contextIsolation: true,
