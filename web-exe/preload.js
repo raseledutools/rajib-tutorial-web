@@ -115,3 +115,16 @@ contextBridge.exposeInMainWorld('ElectronShell', {
     onEvent: (fn) => { ipcRenderer.on('vid:event', (_e, ev) => { try { fn(ev); } catch (_) {} }); },
   },
 });
+
+// Focus Mode API — only on the local focus.html page (never exposed to the website)
+if (location.protocol === 'file:' && location.pathname.endsWith('focus.html')) {
+  contextBridge.exposeInMainWorld('FocusAPI', {
+    get: () => ipcRenderer.invoke('focus:get'),
+    update: (patch) => ipcRenderer.invoke('focus:update', patch),
+    start: (o) => ipcRenderer.invoke('focus:start', o || {}),
+    stop: (o) => ipcRenderer.invoke('focus:stop', o || {}),
+    pickExe: () => ipcRenderer.invoke('focus:pickExe'),
+    running: () => ipcRenderer.invoke('focus:running'),
+    onState: (fn) => { ipcRenderer.on('focus:state', (_e, st) => { try { fn(st); } catch (_) {} }); },
+  });
+}

@@ -54,7 +54,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🎯 Focus Mode</h1>
+  <div class="row" style="margin-bottom:6px"><button class="ghost" id="backBtn">← Back</button><h1 style="margin:0">🎯 Focus Mode</h1></div>
   <p class="sub">Block distracting websites &amp; apps for a fixed time. Task Manager and uninstall windows are restricted while Focus is active.</p>
   <div id="unsupported" class="unsupported">Focus Mode শুধু Windows এ কাজ করে। এই কম্পিউটারে এটা চালু করা যাবে না।</div>
 
@@ -325,6 +325,7 @@
     ['ovTime', 'ovPass', 'ovLong', 'ovRun', 'ovTitle'].forEach((id) => show(id, false));
   });
 
+  $('backBtn').onclick = () => { if (history.length > 1) history.back(); else location.href = 'app://retry'; };
   FocusAPI.onState(setState);
   FocusAPI.get().then((s) => { if (s) setState(s); });
 })();

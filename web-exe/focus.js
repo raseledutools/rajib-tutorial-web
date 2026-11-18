@@ -18,7 +18,7 @@ const HELPER_DIR = () => path.join(app.getPath('userData'), 'focus-helper');
 
 let st = { settings: Object.assign({}, core.DEFAULTS), active: false, endAt: 0, pw: null };
 let helper = null, restartTimer = null, expiryTimer = null;
-let focusWin = null, getMainWin = () => null, hooks = {};
+let getMainWin = () => null, hooks = {};
 let lastAlert = 0, lastAct = 0, procBuf = [], lastProcs = [];
 
 /* ---------- persistence ---------- */
@@ -63,9 +63,8 @@ function publicState() {
 }
 function broadcast() {
   const ps = publicState();
-  if (focusWin && !focusWin.isDestroyed()) focusWin.webContents.send('focus:state', ps);
   const mw = getMainWin();
-  if (mw && !mw.isDestroyed()) mw.webContents.send('focus:badge', st.active);
+  if (mw && !mw.isDestroyed()) { mw.webContents.send('focus:state', ps); mw.webContents.send('focus:badge', st.active); }
   if (hooks.onActiveChange) hooks.onActiveChange(st.active);
 }
 
@@ -287,24 +286,25 @@ function armExpiry() {
   expiryTimer.unref();
 }
 
-/* ---------- window ---------- */
+/* ---------- page (opens inside the main app window; Back returns to the site) ---------- */
 function openWindow() {
-  if (focusWin && !focusWin.isDestroyed()) { if (focusWin.isMinimized()) focusWin.restore(); focusWin.show(); focusWin.focus(); return; }
-  focusWin = new BrowserWindow({
-    width: 1020, height: 780, minWidth: 820, minHeight: 600, autoHideMenuBar: true, title: 'Focus Mode',
-    backgroundColor: '#f8fafc',
-    webPreferences: {
-      sandbox: true, contextIsolation: true, nodeIntegration: false, devTools: !app.isPackaged,
-      preload: path.join(__dirname, 'focus-preload.js'),
-    },
-  });
-  focusWin.setMenuBarVisibility(false);
-  focusWin.on('closed', () => { focusWin = null; });
-  focusWin.loadFile(path.join(__dirname, 'focus.html'));
+  const mw = getMainWin();
+  if (!mw || mw.isDestroyed()) return;
+  if (mw.isMinimized()) mw.restore();
+  mw.show(); mw.focus();
+  mw.loadFile(path.join(__dirname, 'focus.html'));
 }
 
 /* ---------- IPC ---------- */
-const fromFocusWin = (e) => !!focusWin && !focusWin.isDestroyed() && e.sender === focusWin.webContents;
+// only the local focus.html page (never the website) may use the Focus API
+function fromFocusWin(e) {
+  const mw = getMainWin();
+  if (!mw || mw.isDestroyed() || e.sender !== mw.webContents) return false;
+  try {
+    const u = new URL(e.senderFrame && e.senderFrame.url ? e.senderFrame.url : mw.webContents.getURL());
+    return u.protocol === 'file:' && /\/focus\.html$/.test(u.pathname);
+  } catch (_) { return false; }
+}
 
 function init(opts) {
   getMainWin = (opts && opts.getMainWin) || getMainWin;
@@ -326,7 +326,7 @@ function init(opts) {
   ipcMain.handle('focus:stop', (e, o) => (fromFocusWin(e) ? stopSession(o) : { ok: false }));
   ipcMain.handle('focus:pickExe', async (e) => {
     if (!fromFocusWin(e) || st.active) return null;
-    const r = await dialog.showOpenDialog(focusWin, { properties: ['openFile'], filters: [{ name: 'Executable Files', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }] });
+    const r = await dialog.showOpenDialog(getMainWin(), { properties: ['openFile'], filters: [{ name: 'Executable Files', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }] });
     return r.canceled || !r.filePaths[0] ? null : path.basename(r.filePaths[0]);
   });
   ipcMain.handle('focus:running', async (e) => {
