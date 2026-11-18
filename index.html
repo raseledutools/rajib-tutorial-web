@@ -1363,6 +1363,59 @@ body.chat-on .topbar{display:none}
 .vlist-item.off-dim{opacity:.5}
 .vlist-item.off-dim .voff{opacity:.7}
 </style>
+<style>
+/* ── MCQ Question Bank ── */
+.quick-row{grid-template-columns:repeat(4,1fr)}
+#viewQB{background:var(--bg2);min-height:calc(100vh - 52px)}
+.qb-wrap{max-width:720px}
+.qb-tabs{display:flex;background:#0F7B4F;border-radius:14px;padding:4px;gap:4px;margin:6px 0 12px}
+.qb-tabs button{flex:1;padding:10px 4px;border-radius:10px;border:0;background:transparent;color:#fff;font-weight:700;font-size:14px;cursor:pointer;opacity:.85}
+.qb-tabs button.on{background:#fff;color:#0F7B4F;opacity:1}
+.qb-filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.qb-filters select,.qb-filters input{flex:1 1 140px;min-width:0;padding:10px 12px;font-size:13.5px;border:1px solid var(--border2,var(--border));border-radius:12px;background:#fff}
+.qb-saved{padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:#fff;font-weight:700;font-size:13px;color:var(--text);cursor:pointer}
+.qb-saved.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent2)}
+.qb-stat{display:flex;align-items:center;gap:14px;font-size:13.5px;font-weight:700;margin-bottom:10px;color:var(--text)}
+.qb-stat .g,.qb-stat span:first-child{color:#12a150}.qb-stat .r{color:#d93025}
+.qb-stat span:nth-child(2){color:#d93025}
+.qb-cnt{margin-left:auto;color:var(--sub)!important}
+.qb-lnk{background:none;border:0;color:var(--accent);font-weight:700;font-size:13px;cursor:pointer}
+.qb-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:12px}
+.qb-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.qb-src{font-size:11.5px;font-weight:700;color:var(--accent2);background:var(--accent-soft);border-radius:999px;padding:3px 10px}
+.qb-heart{background:none;border:0;font-size:22px;line-height:1;color:var(--sub);cursor:pointer}.qb-heart.on{color:#e8365d}
+.qb-q{font-size:1.02em;font-weight:700;line-height:1.55;color:var(--text);white-space:pre-wrap;margin-bottom:10px}
+.qb-opt{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1.5px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;background:#fff}
+.qb-let{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;flex-shrink:0}
+.qb-ot{flex:1;font-size:.97em;line-height:1.4;white-space:pre-wrap}
+.qb-mk{font-weight:800;font-size:16px}
+.qb-opt.sel{border-color:var(--accent);background:var(--accent-soft)}.qb-opt.sel .qb-let{background:var(--accent);border-color:var(--accent);color:#fff}
+.qb-opt.ok{border-color:#12a150;background:#e7f6ee}.qb-opt.ok .qb-let{background:#12a150;border-color:#12a150;color:#fff}.qb-opt.ok .qb-mk{color:#12a150}
+.qb-opt.bad{border-color:#d93025;background:#fdeceb}.qb-opt.bad .qb-let{background:#d93025;border-color:#d93025;color:#fff}.qb-opt.bad .qb-mk{color:#d93025}
+.qb-exp,.qb-trick{margin-top:10px;padding:12px;border-radius:12px;font-size:.95em;line-height:1.6;white-space:pre-wrap}
+.qb-exp{background:#f4f6f8;border-left:4px solid #0F7B4F}
+.qb-trick{background:#fff7e0;border-left:4px solid #f5a623}
+.qb-show{width:100%;margin-top:6px;padding:11px;border-radius:12px;border:1.5px dashed var(--accent);background:var(--accent-soft);color:var(--accent2);font-weight:700;cursor:pointer}
+.qb-nav{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.qb-nb{padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:#fff;font-weight:700;font-size:13px;cursor:pointer}
+.qb-nb.pri{background:var(--accent);border-color:var(--accent);color:#fff}.qb-nb:disabled{opacity:.4}
+.qb-pgs{flex:1;display:flex;justify-content:center;gap:6px;flex-wrap:wrap}
+.qb-pg{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);background:#fff;font-size:12.5px;font-weight:700;cursor:pointer}
+.qb-pg.cur{border-color:var(--accent);color:var(--accent2)}.qb-pg.g{background:#12a150;border-color:#12a150;color:#fff}.qb-pg.r{background:#d93025;border-color:#d93025;color:#fff}
+.qb-pal{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.qb-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.qb-tb{padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:#fff;font-weight:700;font-size:12.5px;cursor:pointer;margin-right:4px}.qb-tb.on{background:var(--accent-soft);border-color:var(--accent)}
+.qb-read.qb-night{background:#14141a;border-radius:16px;padding:10px;margin:0 -4px 12px}
+.qb-night .qb-card{background:#1d1d26;border-color:#2c2c38}.qb-night .qb-q,.qb-night .qb-ot{color:#ececf2}
+.qb-night .qb-opt{background:#23232e;border-color:#34344a}.qb-night .qb-opt.ok{background:#12301f;border-color:#12a150}
+.qb-night .qb-exp{background:#23232e;color:#ddd}.qb-night .qb-trick{background:#33290f;color:#f1e2b5}
+#qbTimer.low{color:#d93025}
+.qb-big{font-size:42px;font-weight:800;color:var(--accent2)}.qb-big small{font-size:18px;color:var(--sub)}
+.qb-res{text-align:center}.qb-res .qb-stat{justify-content:center}.qb-res .rc-acts{justify-content:center}
+.qb-chk{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:6px}
+.qb-hist{display:flex;justify-content:space-between;padding:8px 12px;background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;font-size:13px}
+.qb-fmt{background:var(--card2);border-radius:10px;padding:10px;font-size:11.5px;line-height:1.55;white-space:pre-wrap;margin-bottom:12px;overflow-x:auto}
+</style>
 </head>
 <body>
 
@@ -1396,6 +1449,7 @@ body.chat-on .topbar{display:none}
     <div class="nav-item" id="navResCircular" onclick="openRes('circular')"><span class="nav-ico">📢</span><span>Current Circular</span></div>
     <div class="nav-item" id="navResQbank" onclick="openRes('qbank')"><span class="nav-ico">📚</span><span>Question Bank</span></div>
     <div class="nav-item" id="navResRecent" onclick="openRes('recent')"><span class="nav-ico">🆕</span><span>Recent Question Bank</span></div>
+    <div class="nav-item" id="navQB" onclick="openQB()"><span class="nav-ico">📝</span><span>MCQ Practice</span></div>
     <div class="nav-label">Courses</div>
     <div id="sidebarCourses"><div style="padding:6px 12px;font-size:12px;color:var(--sub)">Loading…</div></div>
   </nav>
@@ -1485,6 +1539,7 @@ body.chat-on .topbar{display:none}
       <button class="quick-tile" onclick="openRes('circular')"><span class="qt-ic">📢</span><span class="qt-tx">Current<br>Circular</span></button>
       <button class="quick-tile" onclick="openRes('qbank')"><span class="qt-ic">📚</span><span class="qt-tx">Question<br>Bank</span></button>
       <button class="quick-tile" onclick="openRes('recent')"><span class="qt-ic">🆕</span><span class="qt-tx">Recent<br>Questions</span></button>
+      <button class="quick-tile" onclick="openQB()"><span class="qt-ic">📝</span><span class="qt-tx">MCQ<br>Practice</span></button>
     </section>
 
     <section class="courses-section" id="coursesAnchor">
@@ -1549,6 +1604,20 @@ body.chat-on .topbar{display:none}
       <div class="res-sub" id="resSub"></div>
       <div class="res-chips" id="resChips"></div>
       <div id="resList"></div>
+    </div>
+  </div>
+
+  <!-- MCQ QUESTION BANK (practice · read · exam) -->
+  <div class="view" id="viewQB">
+    <div class="res-wrap qb-wrap">
+      <div class="res-head"><h2>📝 MCQ Practice</h2><button class="res-add hidden" id="qbAdd" onclick="qbOpenForm()">+ Add</button><button class="res-add hidden" id="qbBulk" onclick="qbOpenBulk()">⤒ Bulk</button></div>
+      <div class="qb-tabs" id="qbTabs">
+        <button data-m="practice" onclick="qbSetMode('practice')">প্র্যাকটিস</button>
+        <button data-m="read" onclick="qbSetMode('read')">পড়ুন</button>
+        <button data-m="exam" onclick="qbSetMode('exam')">পরীক্ষা</button>
+      </div>
+      <div class="qb-filters" id="qbFilters"></div>
+      <div id="qbBody"></div>
     </div>
   </div>
 
@@ -1974,6 +2043,53 @@ body.chat-on .topbar{display:none}
   </div>
 </div>
 
+<div class="modal-bg hidden" id="mQB">
+  <div class="modal">
+    <div class="modal-title" id="mQBTitle">Add MCQ</div>
+    <input type="hidden" id="qbfId"/>
+    <div class="fl"><label>Subject (বিষয়)</label><input type="text" id="qbfSub" list="qbSubList" placeholder="e.g. গণিত, English, বাংলা"/><datalist id="qbSubList"></datalist></div>
+    <div class="fl"><label>Source / Exam</label><input type="text" id="qbfSrc" list="qbSrcList" placeholder="e.g. 31st BCS Written · 2011"/><datalist id="qbSrcList"></datalist></div>
+    <div class="fl"><label>Question *</label><textarea id="qbfQ" placeholder="প্রশ্ন লিখুন…"></textarea></div>
+    <div class="fl"><label>ক *</label><input type="text" id="qbfO0"/></div>
+    <div class="fl"><label>খ *</label><input type="text" id="qbfO1"/></div>
+    <div class="fl"><label>গ</label><input type="text" id="qbfO2"/></div>
+    <div class="fl"><label>ঘ</label><input type="text" id="qbfO3"/></div>
+    <div class="fl"><label>Correct answer *</label><select id="qbfA"><option value="0">ক</option><option value="1">খ</option><option value="2">গ</option><option value="3">ঘ</option></select></div>
+    <div class="fl"><label>Explanation (ব্যাখ্যা)</label><textarea id="qbfE" style="min-height:110px"></textarea></div>
+    <div class="fl"><label>Shortcut / trick (শর্টকাট সমাধান)</label><textarea id="qbfT"></textarea></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeM('mQB')">Cancel</button>
+      <button class="btn-ok" onclick="qbSaveForm()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="mQBBulk">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">Bulk upload MCQ (text)</div>
+    <div class="modal-sub">Paste many questions at once. Separate questions with a line of <b>---</b>.</div>
+    <div class="fl"><label>Default subject (optional)</label><input type="text" id="qbbSub" placeholder="e.g. গণিত"/></div>
+    <div class="fl"><label>Default source (optional)</label><input type="text" id="qbbSrc" placeholder="e.g. 31st BCS Written · 2011"/></div>
+    <pre class="qb-fmt">প্রশ্ন: কোন সংখ্যার ৪০% এর সাথে ৪২ যোগ করলে ফলাফল সেই সংখ্যাই হবে?
+ক) ৭০
+খ) ৮০
+গ) ৯০
+ঘ) ৭৫
+উত্তর: ক
+ব্যাখ্যা: ধরি সংখ্যাটি x ...
+শর্টকাট: ৪২ ÷ ৬০% = ৭০
+সোর্স: 31st BCS · 2011   (optional)
+বিষয়: গণিত   (optional)
+---</pre>
+    <div class="fl"><label>Questions text *</label><textarea id="qbbTxt" style="min-height:220px;font-family:inherit" oninput="qbBulkPreview()"></textarea></div>
+    <div class="res-sub" id="qbbInfo"></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeM('mQBBulk')">Cancel</button>
+      <button class="btn-ok" id="qbbBtn" onclick="qbBulkSave()">Import</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg hidden" id="mConfirm">
   <div class="modal">
     <div class="modal-title" id="confTitle">Delete?</div>
@@ -2075,7 +2191,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentSingleTabManager,
          collection, getDocs as _getDocs, getDoc as _getDoc, getDocsFromCache, getDocFromCache,
          doc, setDoc, updateDoc, deleteDoc,
-         query, where, orderBy, limit, getCountFromServer, documentId, onSnapshot }
+         query, where, orderBy, limit, writeBatch, getCountFromServer, documentId, onSnapshot }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -2348,7 +2464,7 @@ window.goView=function(id, _fromPop){
   window.scrollTo(0,0);
   document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
   if(id==="viewHome") $("navHome").classList.add("active");
-  const titles={viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewOffline:"Offline Lessons",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewMembers:"Premium Members",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class"};
+  const titles={viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewOffline:"Offline Lessons",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewQB:"MCQ Practice",viewMembers:"Premium Members",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class"};
   $("topbarTitle").textContent=titles[id]||"Rajib Tutorial";
   try{if(id!=="viewDisc")dLeave();if(id==="viewInbox")inboxLoad();if(id==="viewOffline")offRender()}catch(e){}
 
@@ -2587,6 +2703,259 @@ window.confirmDelRes=function(id){
     catch(e){showToast("Error: "+e.message)}
   };
   openM("mConfirm");
+};
+
+// ─── MCQ Question Bank: Practice · Read · Exam (admin uploads text; students practise) ───
+const QB_COL="qb_questions",QB_LET="কখগঘ";
+let qbAll=[],qbLoaded=false,qbMode="practice",qbSub="",qbSrc="",qbQ="",qbSaved=false,qbIdx=0,qbAns={},qbNight=false,qbFont=16,qbReadN=20,qbExam=null,qbTick=null,qbAuto=0,qbAutoT=null;
+const qbBm={get(){try{return new Set(JSON.parse(localStorage.getItem("rt_qb_bm")||"[]"))}catch(e){return new Set()}},
+  set(s){try{localStorage.setItem("rt_qb_bm",JSON.stringify([...s]))}catch(e){}}};
+const qbHist={get(){try{return JSON.parse(localStorage.getItem("rt_qb_hist")||"[]")}catch(e){return[]}},
+  add(r){try{const h=qbHist.get();h.unshift(r);localStorage.setItem("rt_qb_hist",JSON.stringify(h.slice(0,10)))}catch(e){}}};
+
+window.openQB=async function(){
+  goView("viewQB");$("navQB")?.classList.add("active");closeSidebar();
+  $("qbAdd").classList.toggle("hidden",!adminIn);$("qbBulk").classList.toggle("hidden",!adminIn);
+  if(await qbLoad()){qbBuildFilters();qbRender()}
+};
+async function qbLoad(force){
+  if(qbLoaded&&!force)return true;
+  $("qbBody").innerHTML=`<div class="loader"><div class="spin"></div>Loading…</div>`;
+  try{
+    const snap=await getDocs(query(collection(db,QB_COL),orderBy("at","asc"),limit(3000)));
+    qbAll=[];
+    snap.forEach(d=>{const x=d.data();if(!Array.isArray(x.o)||x.o.length<2)return;
+      qbAll.push({id:d.id,q:x.q||"",o:x.o.map(String),a:Number(x.a)||0,e:x.e||"",t:x.t||"",src:x.src||"",sub:x.sub||"",at:Number(x.at)||0})});
+    qbLoaded=true;return true;
+  }catch(e){
+    qbAll=[];$("qbBody").innerHTML=`<div class="res-empty">Could not load questions.<br>${esc(e.message||"")}</div>`;return false;
+  }
+}
+function qbBuildFilters(){
+  const subs=[...new Set(qbAll.map(x=>x.sub).filter(Boolean))],srcs=[...new Set(qbAll.map(x=>x.src).filter(Boolean))];
+  if(qbSub&&!subs.includes(qbSub))qbSub="";if(qbSrc&&!srcs.includes(qbSrc))qbSrc="";
+  const opt=(arr,cur,all)=>`<option value="">${all}</option>`+arr.map(s=>`<option value="${esc(s)}" ${s===cur?"selected":""}>${esc(s)}</option>`).join("");
+  $("qbFilters").innerHTML=`<select onchange="qbFilt('sub',this.value)">${opt(subs,qbSub,"All subjects")}</select>
+    <select onchange="qbFilt('src',this.value)">${opt(srcs,qbSrc,"All exams / sources")}</select>
+    <input type="search" placeholder="Search questions…" value="${esc(qbQ)}" oninput="qbSearchIn(this.value)"/>
+    <button class="qb-saved ${qbSaved?"on":""}" onclick="qbToggleSaved()">♥ Saved</button>`;
+  $("qbSubList").innerHTML=subs.map(s=>`<option value="${esc(s)}">`).join("");
+  $("qbSrcList").innerHTML=srcs.map(s=>`<option value="${esc(s)}">`).join("");
+}
+function qbList(){
+  const bm=qbSaved?qbBm.get():null,k=qbQ.trim().toLowerCase();
+  return qbAll.filter(x=>(!qbSub||x.sub===qbSub)&&(!qbSrc||x.src===qbSrc)&&(!bm||bm.has(x.id))&&(!k||(x.q+" "+x.o.join(" ")).toLowerCase().includes(k)));
+}
+window.qbFilt=(k,v)=>{if(k==="sub")qbSub=v;else qbSrc=v;qbIdx=0;qbReadN=20;qbRender()};
+window.qbSearchIn=v=>{qbQ=v;qbIdx=0;qbReadN=20;qbRender()};
+window.qbToggleSaved=()=>{qbSaved=!qbSaved;qbIdx=0;qbReadN=20;qbBuildFilters();qbRender()};
+window.qbSetMode=m=>{qbMode=m;qbRender()};
+function qbRender(){
+  document.querySelectorAll("#qbTabs button").forEach(b=>b.classList.toggle("on",b.dataset.m===qbMode));
+  if(qbMode!=="read")qbStopAuto();
+  $("qbFilters").style.display=(qbMode==="exam"&&qbExam&&!qbExam.done)?"none":"";
+  if(qbMode==="practice")qbPractice();else if(qbMode==="read")qbRead();else qbExamView();
+}
+const qbEmpty=()=>`<div class="res-empty">${qbAll.length?"No questions match the filter.":(adminIn?"No questions yet. Tap “+ Add” or “⤒ Bulk” to upload.":"Questions will be added soon. Please check back.")}</div>`;
+function qbOpts(x,chosen,reveal,fn){
+  return x.o.map((t,i)=>{
+    let c="qb-opt";
+    if(reveal){if(i===x.a)c+=" ok";else if(i===chosen)c+=" bad"}else if(i===chosen)c+=" sel";
+    const mk=reveal?(i===x.a?"✓":i===chosen?"✗":""):"";
+    return `<div class="${c}" ${fn?`onclick="${fn}(${i})"`:""}><span class="qb-let">${QB_LET[i]||i+1}</span><span class="qb-ot">${esc(t)}</span><span class="qb-mk">${mk}</span></div>`}).join("");
+}
+const qbExp=x=>(x.e?`<div class="qb-exp"><b>ব্যাখ্যা:</b>\n${esc(x.e)}</div>`:"")+(x.t?`<div class="qb-trick"><b>⚡ শর্টকাট সমাধান</b>\n${esc(x.t)}</div>`:"");
+const qbAdm=x=>adminIn?`<div class="rc-acts"><button class="rc-btn" onclick="qbOpenForm('${x.id}')">Edit</button><button class="rc-btn del" onclick="qbDel('${x.id}')">Delete</button></div>`:"";
+const qbHead=x=>{const b=qbBm.get().has(x.id);return `<div class="qb-meta"><span class="qb-src">${esc([x.src,x.sub].filter(Boolean).join(" · ")||"MCQ")}</span><button class="qb-heart ${b?"on":""}" onclick="qbHeart('${x.id}')">${b?"♥":"♡"}</button></div>`};
+window.qbHeart=id=>{const s=qbBm.get();s.has(id)?s.delete(id):s.add(id);qbBm.set(s);qbRender()};
+
+// ── Practice ──
+function qbPractice(){
+  const L=qbList(),B=$("qbBody");
+  if(!L.length){B.innerHTML=qbEmpty();return}
+  if(qbIdx>=L.length)qbIdx=L.length-1;
+  const x=L[qbIdx],ch=qbAns[x.id],done=ch!==undefined;
+  let ok=0,bad=0;L.forEach(q=>{const a=qbAns[q.id];if(a!==undefined&&a>=0){a===q.a?ok++:bad++}});
+  const lo=Math.max(0,Math.min(qbIdx-3,L.length-7)),hi=Math.min(L.length,lo+7);
+  let pg="";for(let i=lo;i<hi;i++){const a=qbAns[L[i].id];pg+=`<button class="qb-pg ${i===qbIdx?"cur":""} ${a===undefined||a<0?"":a===L[i].a?"g":"r"}" onclick="qbGo(${i})">${i+1}</button>`}
+  B.innerHTML=`<div class="qb-stat"><span>✓ ${ok}</span><span>✗ ${bad}</span><span class="qb-cnt">${qbIdx+1} / ${L.length}</span><button class="qb-lnk" onclick="qbResetAns()">Reset</button></div>
+    <div class="qb-card">${qbHead(x)}<div class="qb-q">${qbIdx+1}. ${esc(x.q)}</div>${qbOpts(x,ch,done,"qbPick")}${done?qbExp(x):`<button class="qb-show" onclick="qbPick(-1)">Show answer</button>`}${qbAdm(x)}</div>
+    <div class="qb-nav"><button class="qb-nb" onclick="qbGo(${qbIdx-1})" ${qbIdx?"":"disabled"}>‹ Prev</button><div class="qb-pgs">${pg}</div><button class="qb-nb pri" onclick="qbGo(${qbIdx+1})" ${qbIdx<L.length-1?"":"disabled"}>Next ›</button></div>`;
+}
+window.qbPick=i=>{const x=qbList()[qbIdx];if(!x||qbAns[x.id]!==undefined)return;qbAns[x.id]=i;qbRender()};
+window.qbGo=i=>{const n=qbList().length;if(i<0||i>=n)return;qbIdx=i;qbRender();window.scrollTo(0,0)};
+window.qbResetAns=()=>{qbAns={};qbIdx=0;qbRender()};
+
+// ── Read (all questions with answers + explanations) ──
+function qbRead(){
+  const L=qbList(),B=$("qbBody");
+  if(!L.length){B.innerHTML=qbEmpty();return}
+  const shown=L.slice(0,qbReadN);
+  B.innerHTML=`<div class="qb-tools"><button class="qb-tb" onclick="qbToggleNight()">${qbNight?"☀️ Day":"🌙 Night"}</button><span><button class="qb-tb" onclick="qbFontStep(-1)">A−</button><button class="qb-tb" onclick="qbFontStep(1)">A+</button></span><button class="qb-tb ${qbAuto?"on":""}" onclick="qbCycleAuto()">${qbAuto?"⏸ "+qbAuto+"x":"⏬ Scroll"}</button></div>
+    <div class="qb-read ${qbNight?"qb-night":""}" style="font-size:${qbFont}px">${shown.map((x,n)=>`<div class="qb-card">${qbHead(x)}<div class="qb-q">${n+1}. ${esc(x.q)}</div>${qbOpts(x,-1,true,null)}${qbExp(x)}${qbAdm(x)}</div>`).join("")}</div>
+    ${L.length>shown.length?`<button class="qb-show" onclick="qbMore()">Load more (${L.length-shown.length} left)</button>`:""}`;
+}
+window.qbMore=()=>{qbReadN+=20;qbRender()};
+window.qbToggleNight=()=>{qbNight=!qbNight;qbRender()};
+window.qbFontStep=d=>{qbFont=Math.max(12,Math.min(26,qbFont+d*2));qbRender()};
+window.qbCycleAuto=()=>{qbAuto=qbAuto>=3?0:qbAuto+1;clearInterval(qbAutoT);qbAutoT=null;
+  if(qbAuto)qbAutoT=setInterval(()=>{if(!$("viewQB").classList.contains("active")||qbMode!=="read"){qbStopAuto();return}window.scrollBy(0,qbAuto)},30);
+  qbRender()};
+function qbStopAuto(){clearInterval(qbAutoT);qbAutoT=null;qbAuto=0}
+
+// ── Exam ──
+function qbExamView(){
+  const B=$("qbBody");
+  if(!qbExam){
+    const pool=qbList().length,h=qbHist.get();
+    B.innerHTML=`<div class="qb-card"><div class="qb-q">📝 Start an exam</div>
+      <div class="res-sub">Questions are picked at random from the current filter (${pool} available).</div>
+      <div class="fl"><label>Number of questions</label><select id="qbxN" onchange="$('qbxT').value=this.value">${[10,20,30,50,100].map(n=>`<option ${n===20?"selected":""}>${n}</option>`).join("")}</select></div>
+      <div class="fl"><label>Time (minutes)</label><input id="qbxT" type="number" min="1" value="20"/></div>
+      <label class="qb-chk"><input type="checkbox" id="qbxNeg" checked/> Negative marking (−0.25 per wrong answer)</label>
+      <button class="btn-ok" style="width:100%;margin-top:12px" onclick="qbStartExam()">Start exam</button></div>
+      ${h.length?`<div class="res-sub" style="margin-top:14px">Recent results</div>`+h.slice(0,5).map(r=>`<div class="qb-hist"><span>${esc(new Date(r.at).toLocaleDateString())}</span><b>${r.score} / ${r.total}</b><span>${r.pct}%</span></div>`).join(""):""}`;
+    return;
+  }
+  if(qbExam.done)qbExamResult();else qbExamQ();
+}
+function qbBegin(qs,min,neg){
+  qbExam={qs,ans:{},i:0,min,end:Date.now()+min*60000,neg,done:false};
+  clearInterval(qbTick);qbTick=setInterval(qbTimer,1000);qbRender();window.scrollTo(0,0);
+}
+window.qbStartExam=()=>{
+  const pool=qbList();if(!pool.length){showToast("No questions in this filter");return}
+  const n=Math.min(+$("qbxN").value||20,pool.length),min=Math.max(1,+$("qbxT").value||n);
+  const qs=pool.map(x=>[Math.random(),x]).sort((a,b)=>a[0]-b[0]).slice(0,n).map(p=>p[1]);
+  qbBegin(qs,min,$("qbxNeg").checked);
+};
+function qbTimer(){
+  if(!qbExam||qbExam.done){clearInterval(qbTick);return}
+  const left=Math.max(0,Math.round((qbExam.end-Date.now())/1000)),el=$("qbTimer");
+  if(el){el.textContent=String(Math.floor(left/60)).padStart(2,"0")+":"+String(left%60).padStart(2,"0");el.classList.toggle("low",left<60)}
+  if(left<=0){showToast("Time is up!");qbFinish()}
+}
+function qbExamQ(){
+  const E=qbExam,x=E.qs[E.i],ch=E.ans[x.id],left=E.qs.filter(q=>E.ans[q.id]===undefined).length;
+  const pal=E.qs.map((q,i)=>`<button class="qb-pg ${i===E.i?"cur":""} ${E.ans[q.id]!==undefined?"g":""}" onclick="qbXGo(${i})">${i+1}</button>`).join("");
+  $("qbBody").innerHTML=`<div class="qb-stat"><span>⏱ <b id="qbTimer">--:--</b></span><span class="qb-cnt">${E.i+1} / ${E.qs.length}</span><button class="qb-lnk" onclick="qbFinish()">Submit${left?` (${left} left)`:""}</button></div>
+    <div class="qb-card"><div class="qb-meta"><span class="qb-src">${esc([x.src,x.sub].filter(Boolean).join(" · ")||"MCQ")}</span></div><div class="qb-q">${E.i+1}. ${esc(x.q)}</div>${qbOpts(x,ch,false,"qbXPick")}</div>
+    <div class="qb-nav"><button class="qb-nb" onclick="qbXGo(${E.i-1})" ${E.i?"":"disabled"}>‹ Prev</button><div class="qb-pgs"></div><button class="qb-nb pri" onclick="qbXGo(${E.i+1})" ${E.i<E.qs.length-1?"":"disabled"}>Next ›</button></div>
+    <div class="qb-pal">${pal}</div>`;
+  qbTimer();
+}
+window.qbXPick=i=>{const E=qbExam,x=E&&E.qs[E.i];if(!x||E.done)return;if(E.ans[x.id]===i)delete E.ans[x.id];else E.ans[x.id]=i;qbRender()};
+window.qbXGo=i=>{if(!qbExam||i<0||i>=qbExam.qs.length)return;qbExam.i=i;qbRender();window.scrollTo(0,0)};
+window.qbFinish=()=>{
+  const E=qbExam;if(!E||E.done)return;E.done=true;clearInterval(qbTick);
+  let c=0,w=0,s=0;E.qs.forEach(x=>{const a=E.ans[x.id];if(a===undefined)s++;else if(a===x.a)c++;else w++});
+  E.c=c;E.w=w;E.s=s;E.score=Math.round((c-(E.neg?w*0.25:0))*100)/100;
+  E.pct=Math.max(0,Math.round(E.score*100/E.qs.length));
+  E.used=Math.min(E.min*60,Math.round((Date.now()-(E.end-E.min*60000))/1000));
+  qbHist.add({at:Date.now(),score:E.score,total:E.qs.length,pct:E.pct});
+  qbRender();window.scrollTo(0,0);
+};
+function qbExamResult(){
+  const E=qbExam;
+  $("qbBody").innerHTML=`<div class="qb-card qb-res"><div class="qb-big">${E.score} <small>/ ${E.qs.length}</small></div>
+    <div class="res-sub">${E.pct}% · ${Math.floor(E.used/60)} min ${E.used%60} s${E.neg?" · negative marking on":""}</div>
+    <div class="qb-stat"><span class="g">✓ ${E.c} correct</span><span class="r">✗ ${E.w} wrong</span><span>– ${E.s} skipped</span></div>
+    <div class="rc-acts"><button class="rc-btn pri" onclick="qbNewExam()">New exam</button>${E.w+E.s?`<button class="rc-btn" onclick="qbRetryWrong()">Retry wrong / skipped</button>`:""}</div></div>
+    <div class="res-sub">Review</div>
+    ${E.qs.map((x,n)=>`<div class="qb-card"><div class="qb-meta"><span class="qb-src">${esc([x.src,x.sub].filter(Boolean).join(" · ")||"MCQ")}</span></div><div class="qb-q">${n+1}. ${esc(x.q)}</div>${qbOpts(x,E.ans[x.id],true,null)}${qbExp(x)}</div>`).join("")}`;
+}
+window.qbNewExam=()=>{qbExam=null;qbRender();window.scrollTo(0,0)};
+window.qbRetryWrong=()=>{const E=qbExam,qs=E.qs.filter(x=>E.ans[x.id]!==x.a);qbBegin(qs,Math.max(1,Math.ceil(qs.length*E.min/E.qs.length)),E.neg)};
+
+// ── Admin: add / edit / delete ──
+window.qbOpenForm=function(id){
+  const x=id?qbAll.find(q=>q.id===id):null;
+  $("qbfId").value=x?x.id:"";$("mQBTitle").textContent=x?"Edit MCQ":"Add MCQ";
+  $("qbfSub").value=x?x.sub:qbSub;$("qbfSrc").value=x?x.src:qbSrc;$("qbfQ").value=x?x.q:"";
+  for(let i=0;i<4;i++)$("qbfO"+i).value=x&&x.o[i]!==undefined?x.o[i]:"";
+  $("qbfA").value=x?x.a:0;$("qbfE").value=x?x.e:"";$("qbfT").value=x?x.t:"";
+  openM("mQB");
+};
+window.qbSaveForm=async function(){
+  const q=$("qbfQ").value.trim(),o=[0,1,2,3].map(i=>$("qbfO"+i).value.trim()),a=+$("qbfA").value;
+  while(o.length&&!o[o.length-1])o.pop();
+  if(!q){showToast("Please enter the question");return}
+  if(o.filter(Boolean).length<2){showToast("Add at least 2 options");return}
+  if(!o[a]){showToast("The correct answer option is empty");return}
+  const d={q,o,a,e:$("qbfE").value.trim(),t:$("qbfT").value.trim(),src:$("qbfSrc").value.trim(),sub:$("qbfSub").value.trim()},eid=$("qbfId").value;
+  try{
+    if(eid)await updateDoc(doc(db,QB_COL,eid),d);
+    else await setDoc(doc(db,QB_COL,"q"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),{...d,at:Date.now()});
+    showToast(eid?"Updated":"Added");closeM("mQB");await qbLoad(true);qbBuildFilters();qbRender();
+  }catch(e){showToast("Error: "+e.message)}
+};
+window.qbDel=function(id){
+  const x=qbAll.find(q=>q.id===id);
+  $("confTitle").textContent="Delete this question?";
+  $("confMsg").textContent=`“${(x?x.q:id).slice(0,80)}” will be removed for everyone.`;
+  pendingDelFn=async()=>{
+    try{await deleteDoc(doc(db,QB_COL,id));showToast("Deleted");closeM("mConfirm");await qbLoad(true);qbBuildFilters();qbRender()}
+    catch(e){showToast("Error: "+e.message)}
+  };
+  openM("mConfirm");
+};
+
+// ── Admin: bulk text import ──
+function qbParse(txt,defSub,defSrc){
+  const KEYS=[["q",/^(?:প্রশ্ন|Q(?:uestion)?)\s*[\d০-৯]*\s*[:：ঃ.\-)]\s*(.*)$/i],
+    ["a",/^(?:সঠিক\s*উত্তর|উত্তর|Ans(?:wer)?)\s*[:：ঃ.\-]\s*(.*)$/i],
+    ["e",/^(?:ব্যাখ্যা|Exp(?:lanation)?)\s*[:：ঃ.\-]\s*(.*)$/i],
+    ["t",/^(?:শর্টকাট(?:\s*সমাধান)?|ট্রিক|Trick|Short(?:cut)?)\s*[:：ঃ.\-]\s*(.*)$/i],
+    ["src",/^(?:সোর্স|সূত্র|Source)\s*[:：ঃ.\-]\s*(.*)$/i],
+    ["sub",/^(?:বিষয়|Subject)\s*[:：ঃ.\-]\s*(.*)$/i]];
+  const OPT=/^\(?([কখগঘABCDabcd])[\)\.।:]\s*(.*)$/,LET="কখগঘ";
+  const idxOf=v=>{const ch=String(v).replace(/[()\s]/g,"").charAt(0);if(!ch)return -1;
+    let i=LET.indexOf(ch);if(i>=0)return i;i="ABCD".indexOf(ch.toUpperCase());if(i>=0)return i;
+    i="1234".indexOf(ch);if(i>=0)return i;return "১২৩৪".indexOf(ch)};
+  const all=[];let cur=null,field=null;
+  const push=()=>{if(cur)all.push(cur);cur=null;field=null};
+  const fresh=q=>({q,o:[],a:-1,e:"",t:"",src:defSrc,sub:defSub});
+  const add=(k,s)=>{if(!cur)return;if(cur[k]&&k!=="o")cur[k]+=(k==="src"||k==="sub"?" ":"\n")+s;else cur[k]=s};
+  String(txt).replace(/\r/g,"").split("\n").forEach(raw=>{
+    const line=raw.trim();
+    if(/^[-=]{3,}$/.test(line)){push();return}
+    if(!line){if(cur&&(field==="e"||field==="t")&&cur[field]&&!cur[field].endsWith("\n"))cur[field]+="\n";return}
+    let hit=null;for(const [k,re] of KEYS){const m=line.match(re);if(m){hit=[k,m[1].trim()];break}}
+    if(hit&&hit[0]==="q"){push();cur=fresh(hit[1]);field="q";return}
+    if(!cur){cur=fresh(line.replace(/^[\d০-৯]+\s*[.)।]\s*/,""));field="q";return}
+    if(hit){field=hit[0];if(field==="a")cur.a=idxOf(hit[1]);else if(field==="src"||field==="sub")cur[field]=hit[1];else cur[field]=hit[1];return}
+    const om=(field==="q"||field==="o")&&line.match(OPT);
+    if(om){cur.o.push(om[2].trim());field="o";return}
+    if(field==="o"&&cur.o.length)cur.o[cur.o.length-1]+=" "+line;
+    else if(field==="q"||field==="e"||field==="t")cur[field]+=(cur[field]&&!cur[field].endsWith("\n")?"\n":"")+line;
+    else if(field==="src"||field==="sub")cur[field]+=" "+line;
+  });
+  push();
+  const ok=[],bad=[];
+  all.forEach((x,i)=>{
+    x.q=x.q.trim();x.e=x.e.trim();x.t=x.t.trim();x.src=(x.src||"").trim();x.sub=(x.sub||"").trim();
+    if(x.q&&x.o.length>=2&&x.a>=0&&x.a<x.o.length&&x.o[x.a])ok.push({q:x.q,o:x.o,a:x.a,e:x.e,t:x.t,src:x.src,sub:x.sub});else bad.push(i+1);
+  });
+  return {ok,bad};
+}
+window.qbOpenBulk=function(){$("qbbSub").value=qbSub;$("qbbSrc").value=qbSrc;$("qbbTxt").value="";$("qbbInfo").textContent="";openM("mQBBulk")};
+window.qbBulkPreview=function(){
+  const r=qbParse($("qbbTxt").value,$("qbbSub").value.trim(),$("qbbSrc").value.trim());
+  $("qbbInfo").innerHTML=$("qbbTxt").value.trim()?`✓ ${r.ok.length} question(s) ready`+(r.bad.length?` · <span style="color:var(--red)">${r.bad.length} skipped (no options / answer): #${r.bad.slice(0,8).join(", #")}</span>`:""):"";
+  return r;
+};
+window.qbBulkSave=async function(){
+  const r=window.qbBulkPreview();if(!r.ok.length){showToast("No valid questions found");return}
+  const btn=$("qbbBtn"),base=Date.now();btn.disabled=true;let n=0;
+  try{
+    for(let i=0;i<r.ok.length;i+=400){
+      const b=writeBatch(db),part=r.ok.slice(i,i+400);
+      part.forEach((x,j)=>b.set(doc(db,QB_COL,"q"+(base+i+j).toString(36)+Math.random().toString(36).slice(2,5)),{...x,at:base+i+j}));
+      await b.commit();n+=part.length;btn.textContent=`Saving… ${n}/${r.ok.length}`;
+    }
+    showToast(n+" questions added");closeM("mQBBulk");await qbLoad(true);qbBuildFilters();qbRender();
+  }catch(e){showToast("Error: "+e.message)}
+  btn.disabled=false;btn.textContent="Import";
 };
 
 // ─── Load courses ────────────────────────────────────────
