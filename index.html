@@ -529,6 +529,7 @@ body{color:var(--text)}
 /* ── Custom YouTube player (branding hidden) ────────────── */
 .ytp{position:absolute;inset:0;background:#000;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 .ytp-frame{position:absolute;left:0;right:0;top:-72px;bottom:-72px;pointer-events:none}
+.ytp-frame.mask{visibility:hidden}
 .ytp-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
 .ytp-shield{position:absolute;inset:0;z-index:2}
 .ytp-cover{position:absolute;inset:0;z-index:3;background:#000 center/cover no-repeat;display:flex;align-items:center;justify-content:center;transition:opacity .2s}
@@ -2802,6 +2803,7 @@ const _fmtT=t=>{t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+":"+Strin
 function unmountYT(box){
   if(!box) return;
   if(box._ytTimer){clearInterval(box._ytTimer);box._ytTimer=null}
+  if(box._stallT){clearInterval(box._stallT);box._stallT=null}
   if(box._yt){try{box._yt.destroy()}catch(e){}box._yt=null}
   box.querySelectorAll(".ytp").forEach(n=>n.remove());
 }
@@ -2849,6 +2851,26 @@ function mountYT(box,id,o={}){
   };
   fitFrame();
   try{new ResizeObserver(fitFrame).observe(wrap)}catch(_){window.addEventListener("resize",fitFrame)}
+  // ── Smart buffering: if playback stalls mid-video, pause and let ~20s build up, then resume ──
+  let hasPlayed=false,stallT=null,cool=0,stallStart=0;
+  const ahead=()=>{try{const d=pl.getDuration()||0;return Math.max(0,pl.getVideoLoadedFraction()*d-pl.getCurrentTime())}catch(_){return 0}};
+  const endStall=r=>{
+    if(stallT){clearInterval(stallT);stallT=null;box._stallT=null}
+    if(typeof bufHide==="function")bufHide(box);
+    if(r){cool=Date.now()+6000;try{pl.playVideo()}catch(_){}}
+  };
+  const startStall=()=>{
+    if(stallT||!hasPlayed||o.live||Date.now()<cool||!pl||!pl.getVideoLoadedFraction)return;
+    if(ahead()>=3)return;                      // tiny hiccup, YouTube recovers on its own
+    stallStart=Date.now();try{pl.pauseVideo()}catch(_){return}
+    stallT=box._stallT=setInterval(()=>{
+      if(!pl||!wrap.isConnected){endStall(false);return}
+      const a=ahead(),el=(Date.now()-stallStart)/1000,full=(pl.getVideoLoadedFraction()||0)>=0.99;
+      bufShow(box,"Buffering…");
+      const sp=box.querySelector(":scope>.vbuf span");if(sp)sp.textContent="Buffering… "+Math.min(20,Math.floor(a))+"s / 20s ready";
+      if(a>=20||el>=15||full)endStall(true);
+    },500);
+  };
   const applyQ=()=>{
     if(!pl||!pl.getPlaybackQuality)return;const e=eff();
     try{pl.setPlaybackQualityRange&&pl.setPlaybackQualityRange(e,e)}catch(_){}
@@ -2860,7 +2882,7 @@ function mountYT(box,id,o={}){
     if(!cur||cur===eff()||cur==="unknown")return;
     if(qTries++<6){applyQ();return}
     // still not honoured: one forced reload at the same second
-    if(!qReloaded){qReloaded=true;try{const t=pl.getCurrentTime()||0;pl.loadVideoById({videoId:id,startSeconds:t,suggestedQuality:eff()});setTimeout(applyQ,600)}catch(_){}}
+    if(!qReloaded){qReloaded=true;try{const t=pl.getCurrentTime()||0;frameEl.classList.add("mask");setTimeout(()=>frameEl.classList.remove("mask"),3500);pl.loadVideoById({videoId:id,startSeconds:t,suggestedQuality:eff()});setTimeout(applyQ,600)}catch(_){frameEl.classList.remove("mask")}}
   };
   const closeQ=()=>{qm.style.display="none"};
   if(o.live) qb.style.display="none";
@@ -2877,13 +2899,8 @@ function mountYT(box,id,o={}){
     const x=e.target&&e.target.dataset&&e.target.dataset.q;if(!x)return;
     closeQ();curQ=x;qb.textContent=x==="auto"?"Auto":QL[x];fitFrame();
     if(!pl||!pl.getCurrentTime)return;
-    const qq=eff();
-    qRestore={t:pl.getCurrentTime()||0,rate:pl.getPlaybackRate?pl.getPlaybackRate():1,play:playing};
-    qTries=0;qReloaded=false;
-    applyQ();
-    // reload at the same second with the chosen quality (most reliable way with the iframe API)
-    try{pl.loadVideoById({videoId:id,startSeconds:qRestore.t,suggestedQuality:qq})}catch(_){qRestore=null}
-    setTimeout(applyQ,700);setTimeout(applyQ,2000);
+        qTries=0;qReloaded=false;
+    applyQ();setTimeout(applyQ,700);setTimeout(applyQ,2000);setTimeout(checkQ,2500);
   });
   const fsb=q(".ytp-fs");if(fsb)fsb.addEventListener("click",e=>{e.stopPropagation();(o.onFs||window.toggleFullscreen)()});
   sk.addEventListener("input",()=>{drag=true;showBar()});
@@ -2903,6 +2920,8 @@ function mountYT(box,id,o={}){
       onStateChange:e=>{
         playing=(e.data===1||e.data===3);
         if(e.data===1||e.data===3){applyQ();setTimeout(checkQ,500)}
+        if(e.data===1){hasPlayed=true;if(stallT)endStall(false)}
+        if(e.data===3)startStall();
         if(e.data===1&&qRestore){const r=qRestore;qRestore=null;try{pl.setPlaybackRate(r.rate);if(!r.play)pl.pauseVideo()}catch(_){}}
         if(e.data===1)cover.classList.add("off");
         pp.innerHTML=playing?PAUSE:PLAY;
@@ -2910,7 +2929,7 @@ function mountYT(box,id,o={}){
       }
     }});
     box._yt=pl;
-    box._ytLoad=nid=>{id=nid;qRestore=null;cover.style.backgroundImage="url(https://i.ytimg.com/vi/"+nid+"/hqdefault.jpg)";cover.classList.remove("off");
+    box._ytLoad=nid=>{id=nid;qRestore=null;hasPlayed=false;endStall(false);cover.style.backgroundImage="url(https://i.ytimg.com/vi/"+nid+"/hqdefault.jpg)";cover.classList.remove("off");
       curQ="auto";qTries=0;qReloaded=false;qb.textContent="Auto";fitFrame();
       if(!ready)return; // onReady loads the latest id
       try{pl.loadVideoById({videoId:nid,startSeconds:0,suggestedQuality:eff()});setTimeout(applyQ,600)}catch(_){}};
