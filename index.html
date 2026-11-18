@@ -6,6 +6,9 @@
 <link rel="preconnect" href="https://www.youtube-nocookie.com" crossorigin/>
 <link rel="preconnect" href="https://i.ytimg.com" crossorigin/>
 <link rel="preconnect" href="https://s.ytimg.com" crossorigin/>
+<link rel="dns-prefetch" href="https://googlevideo.com"/>
+<link rel="preconnect" href="https://i.ytimg.com" crossorigin/>
+<link rel="preconnect" href="https://s.ytimg.com" crossorigin/>
 <link rel="dns-prefetch" href="https://googleads.g.doubleclick.net"/>
 <link rel="dns-prefetch" href="https://www.google.com"/>
 <link rel="preload" as="script" href="https://www.youtube.com/iframe_api"/>
@@ -537,10 +540,15 @@ body{color:var(--text)}
 .ytp-bar button.ytp-q{min-width:44px}
 
 
-/* ── Rajib Tutorial watermark (low opacity, video corner) ── */
+/* ── Rajib Tutorial watermark (low opacity, colour + shine effect) ── */
 .player-area::after,.lv-player::after{content:"Rajib Tutorial";position:absolute;top:10px;right:12px;z-index:5;pointer-events:none;
-  font:800 clamp(11px,2.4vw,16px)/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.03em;color:#fff;opacity:.28;
-  text-shadow:0 1px 3px rgba(0,0,0,.55);-webkit-user-select:none;user-select:none}
+  font:800 clamp(11px,2.5vw,17px)/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.05em;
+  background:linear-gradient(100deg,#ff9a3c 0%,#ff4d8d 30%,#a78bfa 55%,#38bdf8 75%,#ff9a3c 100%);background-size:250% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+  opacity:.5;filter:drop-shadow(0 0 4px rgba(255,120,80,.45)) drop-shadow(0 1px 2px rgba(0,0,0,.6));
+  animation:rtWmShine 5s linear infinite,rtWmPulse 3.2s ease-in-out infinite;-webkit-user-select:none;user-select:none}
+@keyframes rtWmShine{0%{background-position:0% 50%}100%{background-position:250% 50%}}
+@keyframes rtWmPulse{0%,100%{opacity:.34;transform:translateY(0)}50%{opacity:.58;transform:translateY(1px)}}
 
 /* ── Screen capture prevention ──────────────────────────── */
 @media screen {
@@ -2776,6 +2784,8 @@ function mountYT(box,id,o={}){
       }
     }});
     box._yt=pl;
+    box._ytLoad=nid=>{id=nid;cover.style.backgroundImage="url(https://i.ytimg.com/vi/"+nid+"/hqdefault.jpg)";cover.classList.remove("off");
+      curQ="auto";qb.textContent="Auto";try{pl.loadVideoById({videoId:nid,startSeconds:0})}catch(_){}};
     box._ytTimer=setInterval(()=>{
       if(!pl||!pl.getDuration)return;
       const d=pl.getDuration()||0,c=pl.getCurrentTime()||0;
@@ -3792,7 +3802,7 @@ async function _playVideo(vid){
   _loadingVid=vid;vState="loading";clearInterval(_vWatchT);renderVlist();bufShow($("playerArea"),"Loading…");
   // ── Verify session before every play ──
   if(session?.mobile&&!adminIn){
-    (async()=>{try{
+    setTimeout(async()=>{try{
       const snap=await getDoc(doc(db,"tutorial_courses","_member_"+session.mobile));
       if(snap.exists()){
         const d=snap.data();
@@ -3812,17 +3822,17 @@ async function _playVideo(vid){
           return;
         }
       }
-    }catch(e){}})();// runs in background: playback starts immediately, kicks out if session invalid
+    }catch(e){}},10000);// session check runs 10s AFTER the video starts, never delays playback
   }
   curVideo=want;
   renderVlist();
   const area=$("playerArea"),embed=ytEmbed(curVideo.url||"");
-  unmountYT(area);
+  if(!(embed&&area._yt&&area._ytLoad&&area.querySelector(".ytp")))unmountYT(area);
   if(embed&&IS_EXE&&navigator.onLine===false){
     area.innerHTML=placeholder(I.warn,"YouTube video চালাতে internet লাগবে");
   }else if(embed){
-    area.innerHTML="";
-    mountYT(area,ytId(curVideo.url),{autoplay:1});
+    if(area._yt&&area._ytLoad&&area.querySelector(".ytp")&&area._yt.loadVideoById){area._ytLoad(ytId(curVideo.url))}
+    else{area.innerHTML="";mountYT(area,ytId(curVideo.url),{autoplay:1})}
   }else if(curVideo.url){
     let src=curVideo.url,_ob=null,_nat=false;
     if(NV){try{if(await NV.has(curVideo.id,curVideo.url)){src=NV.src(curVideo.id);_nat=true}}catch(e){}}
