@@ -420,11 +420,21 @@ final class DiscussionScreen extends Screen {
             if (released) return;
             if (e != null || docs == null) {
                 if (msgs.isEmpty() && list != null) {
+                    List<Fs.Doc> cached = OfflineCache.loadChat(a);
+                    if (!cached.isEmpty()) {
+                        List<Msg> old = new ArrayList<>();
+                        for (int i = cached.size() - 1; i >= 0; i--) old.add(toMsg(cached.get(i)));
+                        msgs = old;
+                        if (headSub != null) headSub.setText(subText());
+                        renderMessages();
+                        return;
+                    }
                     String why = e != null && e.getMessage() != null ? e.getMessage() : "";
                     showNote("Could not load messages. Retrying…" + (why.isEmpty() ? "" : "\n\n" + why));
                 }
                 return;
             }
+            OfflineCache.saveChat(a, docs);
             List<Msg> out = new ArrayList<>();
             for (int i = docs.size() - 1; i >= 0; i--) out.add(toMsg(docs.get(i)));   // oldest → newest
             StringBuilder rs = new StringBuilder();
