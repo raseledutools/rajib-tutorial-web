@@ -550,8 +550,7 @@ body{color:var(--text)}
   font:800 clamp(11px,2.5vw,17px)/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.05em;
   background:linear-gradient(100deg,#ffb347 0%,#ff5c8a 30%,#c4b5fd 55%,#5eead4 75%,#ffb347 100%);background-size:250% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
-  opacity:.65;filter:drop-shadow(0 0 5px rgba(255,170,90,.55));
-  animation:rtWmShine 5s linear infinite,rtWmPulse 3.2s ease-in-out infinite;-webkit-user-select:none;user-select:none}
+  opacity:.6;-webkit-user-select:none;user-select:none}
 @keyframes rtWmShine{0%{background-position:0% 50%}100%{background-position:250% 50%}}
 @keyframes rtWmPulse{0%,100%{opacity:.5}50%{opacity:.78}}
 
@@ -2823,7 +2822,7 @@ function mountYT(box,id,o={}){
   const q=s=>wrap.querySelector(s);
   const cover=q(".ytp-cover"),bar=q(".ytp-bar"),pp=q(".ytp-pp"),sk=q(".ytp-sk"),
         tt=q(".ytp-t"),dd=q(".ytp-d"),sp=q(".ytp-sp");
-  let pl=null,playing=false,drag=false,hideT=null;
+  let pl=null,playing=false,drag=false,hideT=null,ready=false,startedId=id;
   const showBar=()=>{bar.classList.remove("hide");clearTimeout(hideT);if(playing)hideT=setTimeout(()=>bar.classList.add("hide"),2800)};
   const toggle=()=>{if(!pl||!pl.getPlayerState)return;playing?pl.pauseVideo():pl.playVideo()};
   q(".ytp-shield").addEventListener("click",()=>{ const m=q(".ytp-qm");if(m&&m.style.display==="block"){m.style.display="none";return} if(bar.classList.contains("hide")) showBar(); else toggle(); });
@@ -2867,7 +2866,10 @@ function mountYT(box,id,o={}){
               fs:0,disablekb:1,cc_load_policy:0,start:Math.floor(o.start||0)};
     if(/^https?:$/.test(location.protocol)) pv.origin=location.origin;
     pl=new YT.Player(uid,{host:"https://www.youtube-nocookie.com",videoId:id,playerVars:pv,events:{
-      onReady:()=>{box._yt=pl;if(o.onReady)o.onReady(pl)},
+      onReady:()=>{box._yt=pl;ready=true;
+        // a different lesson was picked while the player was still starting up -> load that one now
+        if(id!==startedId){try{pl.loadVideoById({videoId:id,startSeconds:0})}catch(_){}}
+        if(o.onReady)o.onReady(pl)},
       onStateChange:e=>{
         playing=(e.data===1||e.data===3);
         if(e.data===1&&qRestore){const r=qRestore;qRestore=null;try{pl.setPlaybackRate(r.rate);if(!r.play)pl.pauseVideo()}catch(_){}}
@@ -2877,8 +2879,10 @@ function mountYT(box,id,o={}){
       }
     }});
     box._yt=pl;
-    box._ytLoad=nid=>{id=nid;cover.style.backgroundImage="url(https://i.ytimg.com/vi/"+nid+"/hqdefault.jpg)";cover.classList.remove("off");
-      curQ="auto";qb.textContent="Auto";try{pl.loadVideoById({videoId:nid,startSeconds:0})}catch(_){}};
+    box._ytLoad=nid=>{id=nid;qRestore=null;cover.style.backgroundImage="url(https://i.ytimg.com/vi/"+nid+"/hqdefault.jpg)";cover.classList.remove("off");
+      curQ="auto";qb.textContent="Auto";
+      if(!ready)return; // onReady loads the latest id
+      try{pl.loadVideoById({videoId:nid,startSeconds:0})}catch(_){}};
     box._ytTimer=setInterval(()=>{
       if(!pl||!pl.getDuration)return;
       const d=pl.getDuration()||0,c=pl.getCurrentTime()||0;
@@ -3924,7 +3928,7 @@ async function _playVideo(vid){
   if(embed&&IS_EXE&&navigator.onLine===false){
     area.innerHTML=placeholder(I.warn,"YouTube video চালাতে internet লাগবে");
   }else if(embed){
-    if(area._yt&&area._ytLoad&&area.querySelector(".ytp")&&area._yt.loadVideoById){area._ytLoad(ytId(curVideo.url))}
+    if(area._yt&&area._ytLoad&&area.querySelector(".ytp")){area._ytLoad(ytId(curVideo.url))}
     else{area.innerHTML="";mountYT(area,ytId(curVideo.url),{autoplay:1})}
   }else if(curVideo.url){
     let src=curVideo.url,_ob=null,_nat=false;

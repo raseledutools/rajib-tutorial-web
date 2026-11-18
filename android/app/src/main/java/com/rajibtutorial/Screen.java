@@ -11,4 +11,6 @@ abstract class Screen {
     void release() {}
     void onPause() {}
     void onResume() {}
+    /** Return true if the screen handled the back press (e.g. closed fullscreen). */
+    boolean onBack() { return false; }
 }
