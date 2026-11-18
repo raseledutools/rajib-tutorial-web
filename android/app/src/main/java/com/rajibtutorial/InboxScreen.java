@@ -73,6 +73,7 @@ final class InboxScreen extends Screen {
                 .addOnSuccessListener(snap -> {
                     if (released) return;
                     List<Item> items = new ArrayList<>();
+                    JSONArray keep = new JSONArray();
                     for (DocumentSnapshot d : snap.getDocuments()) {
                         String target = d.getString("target");
                         if (!Store.notifForMe(target, d.getString("mobile"), d.getString("batch"))) continue;
@@ -83,14 +84,17 @@ final class InboxScreen extends Screen {
                         it.at = at == null ? 0L : at;
                         it.tag = "batch".equals(target) ? "Your batch: " + nz(d.getString("batch")) : ("all".equals(target) ? "" : "For you");
                         items.add(it);
+                        try { keep.put(new JSONObject().put("title", it.title).put("body", it.body).put("at", it.at).put("tag", it.tag)); } catch (Exception ignored) { }
                     }
+                    OfflineCache.saveInbox(a, keep);
                     render(items);
                 })
                 .addOnFailureListener(e -> {
                     if (released) return;
                     // offline / blocked: fall back to what this phone received
                     List<Item> local = new ArrayList<>();
-                    JSONArray arr = PushManager.inboxLoad(a);
+                    JSONArray arr = OfflineCache.loadInbox(a);
+                    if (arr.length() == 0) arr = PushManager.inboxLoad(a);
                     for (int i = 0; i < arr.length(); i++) {
                         JSONObject o = arr.optJSONObject(i);
                         if (o == null) continue;
@@ -98,6 +102,7 @@ final class InboxScreen extends Screen {
                         it.title = o.optString("title");
                         it.body = o.optString("body");
                         it.at = o.optLong("at");
+                        it.tag = o.optString("tag", "");
                         local.add(it);
                     }
                     if (local.isEmpty()) showMessage("Could not load notifications.\nCheck your internet connection and open this page again.", Ui.SUB);

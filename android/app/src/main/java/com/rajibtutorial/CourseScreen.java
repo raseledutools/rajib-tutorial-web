@@ -180,7 +180,11 @@ final class CourseScreen extends Screen {
         renderList();
         clearPlayer();
         String embed = Store.ytEmbed(v.url, autoplay);
-        if (embed != null) {
+        if (embed != null && !OfflineCache.online(a)) {
+            showPlaceholder("YouTube lessons need an internet connection");
+        } else if (embed == null && !v.url.isEmpty() && VideoCache.getLocalPath(a, v.id) == null && !OfflineCache.online(a)) {
+            showPlaceholder("You're offline and this lesson isn't saved yet.\nOpen it once with internet to save it.");
+        } else if (embed != null) {
             // YouTube — stream only, no local cache possible
             web = Media.newPlayerWebView(a);
             playerFrame.addView(web, new FrameLayout.LayoutParams(MATCH, MATCH));

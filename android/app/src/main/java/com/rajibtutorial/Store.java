@@ -88,6 +88,7 @@ final class Store {
 
     private static SharedPreferences prefs;
     private static boolean inited = false;
+    static Context appCtx;                  // application context (offline cache writes)
 
     interface Cb<T> { void done(T res, Exception err); }
 
@@ -108,7 +109,8 @@ final class Store {
     static void init(Context ctx) {
         if (inited) return;
         inited = true;
-        prefs = ctx.getApplicationContext().getSharedPreferences("rt_native", Context.MODE_PRIVATE);
+        appCtx = ctx.getApplicationContext();
+        prefs = appCtx.getSharedPreferences("rt_native", Context.MODE_PRIVATE);
         String d = prefs.getString("rt_device_id", null);
         if (d == null) {
             d = "dev_" + Long.toString(System.currentTimeMillis(), 36) + "_" + UUID.randomUUID().toString().substring(0, 6);
@@ -343,6 +345,7 @@ final class Store {
             live = r.live;
             String vm = validateSession();
             if (vm != null) pendingToast = vm;
+            OfflineCache.saveMain(appCtx);      // keep a local copy so the app also works offline
             cb.done(true, null);
         });
     }
@@ -499,6 +502,7 @@ final class Store {
                     if (members.get(i).id.equals(m.id)) { members.set(i, m); replaced = true; }
                 }
                 if (!replaced) members.add(m);
+                OfflineCache.saveMain(appCtx);
             }
             cb.done(r, null);
         });
