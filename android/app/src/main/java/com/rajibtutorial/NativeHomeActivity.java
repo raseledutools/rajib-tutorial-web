@@ -222,7 +222,7 @@ public class NativeHomeActivity extends AppCompatActivity {
                 loadFailed = true;
                 loadError = e != null && e.getMessage() != null ? e.getMessage() : "";
             } else {
-                toast(VideoCache.online(this) ? "Could not refresh. Please try again." : "You're offline — showing saved data");
+                toast(OfflineCache.online(this) ? "Could not refresh. Please try again." : "You're offline — showing saved data");
             }
             refreshAll();
             if (after != null && ok != null && ok) after.run();
