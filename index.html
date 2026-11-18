@@ -1568,7 +1568,7 @@ body.chat-on .topbar{display:none}
   #viewHome .hm-hero p{font-size:15px}
   #viewHome .hm-courses .sec-hdr{display:block}
   #viewHome .hm-courses .filters{margin-top:8px;justify-content:stretch}
-  #viewHome .hm-courses .search-box{flex:1 1 100%;max-width:none}
+  #viewHome .hm-courses .search-box{flex:1 1 0;min-width:0;max-width:none}
   #viewHome .hm-courses .filters select{flex:1}
   #viewHome .course-grid{grid-template-columns:1fr}
   #viewHome .hm-band h2,#viewHome .hm-faq h2,#viewHome .hm-ctab h2{font-size:22px}
@@ -1578,6 +1578,67 @@ body.chat-on .topbar{display:none}
   #viewHome .footer span:nth-child(2){display:none}
 }
 </style>
+<style id="catUI">
+/* Category chips, semester bar, new course cards, admin grouping */
+.c-job{--c1:#F59E0B;--c2:#EA580C}.c-duet{--c1:#8B5CF6;--c2:#4F46E5}.c-diploma{--c1:#0A8BFF;--c2:#0069D9}
+.cx-cats,.cx-sems,.mg-chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+#viewHome .cx-cats{margin-top:4px}
+.cx-sems{align-items:center;padding:10px 12px;background:var(--card,#fff);border:1px solid rgba(20,18,26,.1);border-radius:14px}
+.cx-lbl{font-size:12px;font-weight:700;color:var(--sub,#4D4858);margin-right:2px}
+.cx-chip{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:999px;border:1.5px solid rgba(20,18,26,.14);background:var(--card,#fff);font-size:13.5px;font-weight:700;color:var(--text,#14121A);cursor:pointer;white-space:nowrap;transition:border-color .12s,transform .12s,box-shadow .12s}
+.cx-chip i{font-style:normal}
+.cx-chip b{font-size:11px;font-weight:700;background:rgba(20,18,26,.08);border-radius:999px;padding:1px 7px}
+.cx-chip:hover{border-color:#0A8BFF;transform:translateY(-1px)}
+.cx-chip.on{color:#fff;border-color:transparent;background:linear-gradient(135deg,#0A8BFF,#0069D9);box-shadow:0 6px 14px rgba(0,105,217,.25)}
+.cx-chip.cat-job.on{background:linear-gradient(135deg,#F59E0B,#EA580C);box-shadow:0 6px 14px rgba(234,88,12,.25)}
+.cx-chip.cat-duet.on{background:linear-gradient(135deg,#8B5CF6,#4F46E5);box-shadow:0 6px 14px rgba(79,70,229,.25)}
+.cx-chip.on b{background:rgba(255,255,255,.26)}
+.cx-chip.sm{padding:6px 12px;font-size:12.5px}
+.cx-sec{margin-top:28px}.cx-sec:first-child{margin-top:18px}
+.cx-sech{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.cx-secico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:21px;flex:none;background:linear-gradient(135deg,var(--c1),var(--c2));box-shadow:0 6px 14px rgba(20,18,26,.14)}
+.cx-sech h3{font-size:18px;font-weight:800;margin:0;color:var(--text,#14121A)}
+.cx-sech small{font-size:12.5px;color:var(--sub,#4D4858)}
+.cx-secn{margin-left:auto;font-size:12px;font-weight:700;padding:3px 11px;border-radius:999px;background:rgba(20,18,26,.07)}
+.cx-soon{padding:18px;border:1.5px dashed rgba(20,18,26,.18);border-radius:14px;text-align:center;font-size:13.5px;color:var(--sub,#4D4858);background:rgba(255,255,255,.6)}
+.cx-card{display:flex;flex-direction:column;background:var(--card,#fff);border:1px solid rgba(20,18,26,.1);border-radius:18px;overflow:hidden;cursor:pointer;box-shadow:0 2px 8px rgba(18,18,42,.05);transition:transform .15s,box-shadow .15s}
+.cx-card:hover{transform:translateY(-3px);box-shadow:0 16px 32px rgba(18,18,42,.15)}
+.cx-card:focus-visible{outline:3px solid #0A8BFF;outline-offset:2px}
+.cx-thumb{position:relative;height:104px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:linear-gradient(135deg,var(--c1),var(--c2))}
+.cx-thumb::before{content:"";position:absolute;right:-30px;top:-40px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.14)}
+.cx-thumb::after{content:"";position:absolute;left:-24px;bottom:-46px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.10)}
+.cx-ico{position:relative;z-index:1;color:#fff;display:flex}
+.cx-ico svg{width:46px;height:46px}
+.cx-count{position:absolute;z-index:1;left:12px;bottom:10px;display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#fff;background:rgba(0,0,0,.28);border-radius:999px;padding:3px 10px}
+.cx-count svg{width:13px;height:13px}
+.cx-body{display:flex;flex-direction:column;gap:7px;padding:14px 16px 16px;flex:1}
+.cx-tags{display:flex;flex-wrap:wrap;gap:6px}
+.cx-tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:#F1F5F9;color:#334155}
+.cx-tag.t-job{background:#FEF3C7;color:#92400E}.cx-tag.t-duet{background:#EDE9FE;color:#5B21B6}.cx-tag.t-diploma{background:#DBEAFE;color:#1E40AF}
+.cx-name{font-size:16.5px;font-weight:800;line-height:1.3;margin:0;color:var(--text,#14121A);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cx-meta{font-size:12.5px;font-weight:600;color:var(--sub,#4D4858)}
+.cx-desc{margin:0;font-size:13px;line-height:1.5;color:var(--sub,#4D4858);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cx-foot{margin-top:auto;padding-top:8px}
+.cx-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:11px 14px;border-radius:12px;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--c1),var(--c2));transition:filter .12s,box-shadow .12s}
+.cx-btn svg{width:16px;height:16px;transition:transform .15s}
+.cx-card:hover .cx-btn{filter:brightness(1.07);box-shadow:0 8px 18px rgba(20,18,26,.2)}
+.cx-card:hover .cx-btn svg{transform:translateX(3px)}
+/* admin grouping */
+.mg-sec{margin-bottom:22px}
+.mg-sech{display:flex;align-items:center;gap:9px;margin:18px 0 10px;padding:10px 14px;border-radius:12px;background:linear-gradient(135deg,var(--c1),var(--c2));color:#fff}
+.mg-sech b{font-size:15px;font-weight:800}.mg-sech em{margin-left:auto;font-style:normal;font-size:12px;font-weight:700;background:rgba(255,255,255,.25);border-radius:999px;padding:2px 10px}
+.mg-ico{font-size:18px}
+.mg-none{padding:14px;border:1.5px dashed rgba(20,18,26,.2);border-radius:12px;font-size:13px;color:var(--sub,#4D4858)}
+.mc-info .mg-tags{display:flex;flex-wrap:wrap;gap:6px}
+@media(max-width:700px){
+  .cx-cats,.cx-sems{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-2px;padding-bottom:4px}
+  .cx-cats::-webkit-scrollbar,.cx-sems::-webkit-scrollbar{display:none}
+  .cx-chip{flex:none}
+  .cx-sems{padding:8px 10px}
+  .cx-thumb{height:92px}
+}
+</style>
+
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -1720,10 +1781,10 @@ body.chat-on .topbar{display:none}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
             <input type="search" id="searchIn" placeholder="Search courses" oninput="setSearch(this.value)"/>
           </div>
-          <select id="semFilter" onchange="setSem(this.value)"><option value="">All Semesters</option></select>
           <button class="btn-refresh" onclick="refreshSite()" aria-label="Refresh courses" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
         </div>
       </div>
+      <div class="cx-cats" id="catBar"></div><div class="cx-sems" id="semBar" style="display:none"></div>
       <div id="courseGridWrap"><div class="loader"><div class="spin"></div>Loading courses…</div></div>
     </section>
     </div>
@@ -2056,8 +2117,9 @@ body.chat-on .topbar{display:none}
     <input type="hidden" id="editCId"/>
     <div class="fl"><label>Course Name *</label><input type="text" id="cName" placeholder="e.g. EEE Foundation Course"/></div>
     <div class="fl"><label>Title *</label><input type="text" id="cTitle" placeholder="e.g. Basic Electricity &amp; Circuit Analysis"/></div>
-    <div class="fl">
-      <label>Semester</label>
+    <div class="fl"><label>Category *</label><select id="cCat" onchange="cCatChange()"></select></div>
+    <div class="fl" id="cClassRow">
+      <label>Semester (Diploma only)</label>
       <select id="cClass"></select>
     </div>
     <div class="fl">
@@ -2107,7 +2169,8 @@ body.chat-on .topbar{display:none}
     <div id="ytNewBox">
       <div class="fl"><label>Course Name *</label><input type="text" id="ytCName" placeholder="e.g. Basic Electricity"/></div>
       <div class="fl"><label>Course Title *</label><input type="text" id="ytCTitle" placeholder="e.g. Ohm's Law &amp; Circuits"/></div>
-      <div class="fl"><label>Semester</label><select id="ytClass"></select></div>
+      <div class="fl"><label>Category</label><select id="ytCat" onchange="ytCatChange()"></select></div>
+      <div class="fl" id="ytClassRow"><label>Semester (Diploma only)</label><select id="ytClass"></select></div>
       <div class="fl"><label>Subject</label><select id="ytSubject"></select></div>
     </div>
     <div class="modal-acts">
@@ -2504,6 +2567,16 @@ const thumbIcons=[I.bolt,I.chip,I.gear,I.wave];
 // ─── State ───────────────────────────────────────────────
 const LIVE_DOC="_live_settings";
 const SEMESTERS=["1st Semester","2nd Semester","3rd Semester","4th Semester","5th Semester","6th Semester","7th Semester","8th Semester"];
+// Course categories (stored as `category` on each course doc; missing → "diploma")
+const CATS=[
+  {id:"job",label:"EEE Job Preparation",bn:"চাকরির প্রস্তুতি",ico:"💼"},
+  {id:"duet",label:"EEE DUET Admission",bn:"DUET ভর্তি প্রস্তুতি",ico:"🎓"},
+  {id:"diploma",label:"Diploma",bn:"ডিপ্লোমা কোর্স (১ম–৭ম সেমিস্টার)",ico:"📘"}
+];
+const catOf=id=>CATS.find(k=>k.id===id)||CATS[2];
+const COURSE_SEMS=SEMESTERS.slice(0,7);
+const semRank=x=>{const i=SEMESTERS.indexOf(x);return i<0?99:i};
+let filterCat="",mgCat="";
 let courses=[], curCourse=null, curVideo=null, adminIn=false, pendingDelFn=null;
 let members=[], session=null, pendingVid=null;
 let resources=[], resType="circular", resCat="";
@@ -3546,7 +3619,7 @@ async function loadCourses(){
       if(d.id.startsWith("_disc_")||d.id.startsWith("_call_")||d.id.startsWith("_payreq_"))return;
       courses.push({
         id:d.id,courseName:data.courseName||"",title:data.title||d.id,
-        className:data.className||"",subject:data.subject||"",description:data.description||"",price:parsePrice(data.price),
+        category:CATS.some(k=>k.id===data.category)?data.category:"diploma",className:data.className||"",subject:data.subject||"",description:data.description||"",price:parsePrice(data.price),
         videos:(data.videos||[]).map(v=>({id:v.id||"",title:v.title||"",url:v.cloudinaryUrl||v.url||"",durationMinutes:v.durationMinutes||0}))
       });
     });
@@ -3570,36 +3643,62 @@ function semOptions(extra){
   return set;
 }
 function buildSemFilter(){
-  const used=semOptions().filter(s=>courses.some(c=>c.className===s));
-  $("semFilter").innerHTML=`<option value="">All Semesters</option>`+used.map(s=>`<option ${s===filterSem?"selected":""}>${esc(s)}</option>`).join("");
+  const cnt=id=>courses.filter(c=>c.category===id).length;
+  $("catBar").innerHTML=`<button class="cx-chip ${!filterCat?"on":""}" onclick="setCat('')"><i>🗂️</i>All<b>${courses.length}</b></button>`+
+    CATS.map(k=>`<button class="cx-chip cat-${k.id} ${filterCat===k.id?"on":""}" onclick="setCat('${k.id}')"><i>${k.ico}</i>${k.label}<b>${cnt(k.id)}</b></button>`).join("");
+  const sb=$("semBar");
+  if(filterCat==="diploma"){
+    const extra=[...new Set(courses.filter(c=>c.category==="diploma"&&c.className&&!COURSE_SEMS.includes(c.className)).map(c=>c.className))];
+    sb.style.display="";
+    sb.innerHTML=`<span class="cx-lbl">Semester</span><button class="cx-chip sm ${!filterSem?"on":""}" onclick="setSem('')">All</button>`+
+      [...COURSE_SEMS,...extra].map(x=>{const n=courses.filter(c=>c.category==="diploma"&&c.className===x).length;
+        return `<button class="cx-chip sm ${filterSem===x?"on":""}" onclick="setSem('${esc(x)}')">${esc(x.replace(" Semester"," Sem"))}<b>${n}</b></button>`}).join("");
+  }else{sb.style.display="none";sb.innerHTML=""}
 }
 function updateStats(){
   const tv=courses.reduce((s,c)=>s+(c.videos?.length||0),0);
   $("statC").textContent=courses.length;$("statV").textContent=tv;
 }
 window.setSearch=v=>{searchQ=v.trim().toLowerCase();renderCourseGrid()};
-window.setSem=v=>{filterSem=v;renderCourseGrid()};
+window.setCat=v=>{filterCat=v;if(v!=="diploma")filterSem="";buildSemFilter();renderCourseGrid()};
+window.setSem=v=>{filterSem=v;buildSemFilter();renderCourseGrid()};
 
+function cxCard(c,i){
+  const k=catOf(c.category),n=c.videos.length;
+  const tags=[`<span class="cx-tag t-${k.id}">${k.ico} ${esc(k.label)}</span>`];
+  if(c.category==="diploma"&&c.className)tags.push(`<span class="cx-tag sem">${esc(c.className)}</span>`);
+  return `<article class="cx-card c-${k.id}" onclick="openCourse('${c.id}')" tabindex="0" onkeydown="if(event.key==='Enter')openCourse('${c.id}')">
+    <div class="cx-thumb"><span class="cx-ico">${thumbIcons[i%thumbIcons.length]}</span><span class="cx-count">${I.video}${lessonsLabel(n)}</span></div>
+    <div class="cx-body">
+      <div class="cx-tags">${tags.join("")}</div>
+      <h3 class="cx-name">${esc(c.title)}</h3>
+      <div class="cx-meta">${esc([...new Set([c.courseName,c.subject].filter(Boolean))].join(" · ")||"Diploma in EEE")}</div>
+      ${c.description?`<p class="cx-desc">${esc(c.description)}</p>`:""}
+      <div class="cx-foot"><span class="cx-btn">কোর্স দেখুন ${I.arrow}</span></div>
+    </div></article>`;
+}
 function renderCourseGrid(){
   const wrap=$("courseGridWrap");
-  const list=courses.filter(c=>(!filterSem||c.className===filterSem)&&(!searchQ||[c.title,c.courseName,c.subject,c.className,c.description].join(" ").toLowerCase().includes(searchQ)));
+  const list=courses.filter(c=>(!filterCat||c.category===filterCat)&&(!filterSem||c.className===filterSem)&&(!searchQ||[c.title,c.courseName,c.subject,c.className,c.description,catOf(c.category).label].join(" ").toLowerCase().includes(searchQ)));
   $("cntLabel").textContent=courses.length?`${list.length} of ${courses.length} courses`:"";
   if(!courses.length){wrap.innerHTML=`<div class="empty">${I.book}<p>New courses will be published soon.</p></div>`;return}
-  if(!list.length){wrap.innerHTML=`<div class="empty">${I.book}<p>No courses match your search.</p></div>`;return}
-  wrap.innerHTML=`<div class="course-grid">${list.map((c,i)=>`
-    <div class="course-card" onclick="openCourse('${c.id}')">
-      <div class="cc-thumb">${thumbIcons[i%thumbIcons.length]}<span class="cc-vcount">${lessonsLabel(c.videos.length)}</span></div>
-      <div class="cc-body">
-        ${c.courseName?`<div class="cc-tag">${esc(c.courseName)}</div>`:""}
-        <div class="cc-name">${esc(c.title)}</div>
-        <div class="cc-meta">${esc([c.className,c.subject].filter(Boolean).join(" · ")||"Diploma in EEE")}</div>
-        ${c.description?`<div class="cc-desc">${esc(c.description)}</div>`:""}
-        <div class="cc-foot">
-          <span class="cc-vids">${I.video}${lessonsLabel(c.videos.length)}</span>
-          <span class="btn-watch">View course ${I.arrow}</span>
-        </div>
-      </div>
-    </div>`).join("")}</div>`;
+  if(!list.length){wrap.innerHTML=`<div class="empty">${I.book}<p>${searchQ?"No courses match your search.":"এই ক্যাটাগরিতে নতুন কোর্স শীঘ্রই আসছে।"}</p></div>`;return}
+  let idx=0;
+  const byRank=a=>a.slice().sort((x,y)=>semRank(x.className)-semRank(y.className));
+  const grid=a=>`<div class="course-grid">${a.map(c=>cxCard(c,idx++)).join("")}</div>`;
+  const section=(k,title,sub,n,body)=>`<section class="cx-sec c-${k.id}"><div class="cx-sech"><span class="cx-secico">${k.ico}</span><div><h3>${title}</h3><small>${sub}</small></div><b class="cx-secn">${n}</b></div>${body}</section>`;
+  let html;
+  if(!filterCat){
+    html=CATS.map(k=>{
+      const a=list.filter(c=>c.category===k.id);
+      if(!a.length)return searchQ?"":section(k,esc(k.label),esc(k.bn),0,`<div class="cx-soon">নতুন কোর্স শীঘ্রই আসছে</div>`);
+      return section(k,esc(k.label),esc(k.bn),a.length,grid(k.id==="diploma"?byRank(a):a));
+    }).join("");
+  }else if(filterCat==="diploma"&&!filterSem){
+    const sems=[...new Set(list.map(c=>c.className||"Other"))].sort((x,y)=>semRank(x)-semRank(y));
+    html=sems.map(x=>{const a=list.filter(c=>(c.className||"Other")===x);return section(CATS[2],esc(x),"Diploma",a.length,grid(a))}).join("");
+  }else html=grid(filterCat==="diploma"?byRank(list):list);
+  wrap.innerHTML=html;
 }
 function renderSidebarCourses(){
   const wrap=$("sidebarCourses");
@@ -3761,15 +3860,19 @@ window.adminLogout=function(){
 window.clearPwErr=()=>$("pwErr").classList.add("h");
 window.toggleEye=()=>{const i=$("pwIn");i.type=i.type==="password"?"text":"password"};
 
+window.setMgCat=v=>{mgCat=v;renderManage()};
 function renderManage(){
   const wrap=$("manageCourseList");
   if(!courses.length){wrap.innerHTML=`<div class="empty">${I.book}<p>No courses yet. Click “+ Add Course” to create one.</p></div>`;return}
-  wrap.innerHTML=courses.map((c,i)=>`
+  const chips=`<div class="mg-chips"><button class="cx-chip ${!mgCat?"on":""}" onclick="setMgCat('')">All<b>${courses.length}</b></button>`+
+    CATS.map(k=>`<button class="cx-chip cat-${k.id} ${mgCat===k.id?"on":""}" onclick="setMgCat('${k.id}')"><i>${k.ico}</i>${k.label}<b>${courses.filter(c=>c.category===k.id).length}</b></button>`).join("")+`</div>`;
+  const card=(c,i)=>`
     <div class="manage-card">
       <div class="mc-icon">${thumbIcons[i%thumbIcons.length]}</div>
       <div class="mc-info">
         <strong>${esc(c.title)}</strong>
-        <span>${esc([c.courseName,c.className,c.subject].filter(Boolean).join(" · "))}</span>
+        <span class="mg-tags"><span class="cx-tag t-${c.category}">${catOf(c.category).ico} ${esc(catOf(c.category).label)}</span>${c.category==="diploma"&&c.className?`<span class="cx-tag sem">${esc(c.className)}</span>`:""}</span>
+        <span>${esc([...new Set([c.courseName,c.subject].filter(Boolean))].join(" · "))}</span>
         <span style="color:var(--accent2)">${lessonsLabel(c.videos.length)}${c.price>0?" · "+priceLabel(c.price):" · No price set"}</span>
       </div>
       <div class="mc-acts">
@@ -3788,23 +3891,33 @@ function renderManage(){
             <button class="btn-ic d" onclick="confirmDelVideo('${c.id}','${v.id}')" aria-label="Delete">${I.trash}</button>
           </div>
         </div>`).join("")||`<div style="font-size:12px;color:var(--sub);padding:6px 2px">No lessons yet. Click “+ Add Video”.</div>`}
-    </div>`).join("");
+    </div>`;
+  const groups=CATS.filter(k=>!mgCat||mgCat===k.id).map(k=>{
+    let a=courses.filter(c=>c.category===k.id);
+    if(k.id==="diploma")a=a.slice().sort((x,y)=>semRank(x.className)-semRank(y.className));
+    return `<div class="mg-sec c-${k.id}"><div class="mg-sech"><span class="mg-ico">${k.ico}</span><b>${esc(k.label)}</b><em>${a.length}</em></div>${a.map(c=>card(c,courses.indexOf(c))).join("")||`<div class="mg-none">এই ক্যাটাগরিতে এখনো কোনো কোর্স নেই — “+ Add Course” থেকে যোগ করুন।</div>`}</div>`;
+  }).join("");
+  wrap.innerHTML=chips+groups;
 }
 
 // ─── Course CRUD ─────────────────────────────────────────
+function fillCatSelect(val){
+  $("cCat").innerHTML=CATS.map(k=>`<option value="${k.id}" ${k.id===val?"selected":""}>${esc(k.label)}</option>`).join("");
+}
+window.cCatChange=function(){$("cClassRow").style.display=$("cCat").value==="diploma"?"":"none"};
 function fillSemSelect(val){
   $("cClass").innerHTML=`<option value="">Select semester</option>`+semOptions(val).map(s=>`<option ${s===val?"selected":""}>${esc(s)}</option>`).join("");
 }
 window.openAddCourse=function(){
   $("editCId").value="";$("mCourseTitle").textContent="New Course";
   ["cName","cTitle","cDesc","cPrice"].forEach(id=>$(id).value="");
-  fillSemSelect("");$("cSubject").value="";openM("mCourse");
+  fillSemSelect("");fillCatSelect(mgCat||"diploma");cCatChange();$("cSubject").value="";openM("mCourse");
 };
 window.openEditCourse=function(cid){
   const c=courses.find(x=>x.id===cid);if(!c)return;
   $("editCId").value=c.id;$("mCourseTitle").textContent="Edit Course";
   $("cName").value=c.courseName;$("cTitle").value=c.title;$("cDesc").value=c.description;$("cPrice").value=c.price||"";
-  fillSemSelect(c.className);
+  fillSemSelect(c.className);fillCatSelect(c.category);cCatChange();
   if(c.subject&&![...$("cSubject").options].some(o=>o.value===c.subject||o.text===c.subject)){
     const o=document.createElement("option");o.textContent=c.subject;$("cSubject").appendChild(o);
   }
@@ -3813,7 +3926,8 @@ window.openEditCourse=function(cid){
 window.saveCourse=async function(){
   const name=$("cName").value.trim(),title=$("cTitle").value.trim();
   if(!name||!title){showToast("Please enter Course Name and Title");return}
-  const data={courseName:name,title,className:$("cClass").value,subject:$("cSubject").value,description:$("cDesc").value.trim(),price:parsePrice($("cPrice").value)};
+  const cat=$("cCat").value;
+  const data={courseName:name,title,category:cat,className:cat==="diploma"?$("cClass").value:"",subject:$("cSubject").value,description:$("cDesc").value.trim(),price:parsePrice($("cPrice").value)};
   const eid=$("editCId").value;
   if(!eid){
     const dup=courses.find(c=>c.title.trim().toLowerCase()===title.toLowerCase()&&c.courseName.trim().toLowerCase()===name.toLowerCase());
@@ -3878,10 +3992,12 @@ window.openYtUpload=function(){
   const t=$("ytTarget");
   t.innerHTML='<option value="__new__">➕ New course</option>'+courses.map(c=>`<option value="${c.id}">${String(c.title||c.courseName||c.id).replace(/</g,"&lt;")}</option>`).join("");
   $("ytClass").innerHTML=$("cClass").innerHTML;
+  $("ytCat").innerHTML=CATS.map(k=>`<option value="${k.id}" ${k.id===(mgCat||"diploma")?"selected":""}>${esc(k.label)}</option>`).join("");ytCatChange();
   $("ytSubject").innerHTML=$("cSubject").innerHTML;
   $("ytLinks").value="";$("ytCName").value="";$("ytCTitle").value="";
   ytTargetChange();openM("mYt");
 };
+window.ytCatChange=function(){$("ytClassRow").style.display=$("ytCat").value==="diploma"?"":"none"};
 window.ytTargetChange=function(){$("ytNewBox").style.display=$("ytTarget").value==="__new__"?"":"none"};
 window.ytOpenStudio=function(){
   // Android app → YouTube Studio opens inside the app. Browser → YouTube upload page.
@@ -3910,7 +4026,7 @@ window.ytCreate=async function(){
       if(!name||!title){showToast("Please enter Course Name and Title");return}
       if(courses.find(c=>c.title.trim().toLowerCase()===title.toLowerCase()&&c.courseName.trim().toLowerCase()===name.toLowerCase())){showToast("A course with this name already exists");return}
       const id="course_"+Date.now().toString(36);
-      await setDoc(doc(db,"tutorial_courses",id),{courseName:name,title,className:$("ytClass").value,subject:$("ytSubject").value,description:"",videos:vids});
+      await setDoc(doc(db,"tutorial_courses",id),{courseName:name,title,category:$("ytCat").value,className:$("ytCat").value==="diploma"?$("ytClass").value:"",subject:$("ytSubject").value,description:"",videos:vids});
       showToast("Course created with "+vids.length+" video(s)");
     }else{
       const course=courses.find(c=>c.id===target);if(!course)return;
