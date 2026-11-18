@@ -1431,6 +1431,27 @@ body.chat-on .topbar{display:none}
 .qb-edfill{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .qb-edfill input{flex:1 1 120px;min-width:0;padding:9px 10px;font-size:13px;border:1px solid var(--border);border-radius:10px}
 .qb-edfoot{position:sticky;bottom:-26px;background:var(--card,#fff);padding:12px 0 2px;margin-top:10px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border)}
+/* ── Live Exam (scheduled · archive) ── */
+.lx-wrap{max-width:1040px;margin:0 auto;padding:0 40px 40px}
+.lx-h{font-size:15px;font-weight:800;margin:22px 0 10px;display:flex;align-items:center;gap:8px;color:var(--text)}
+.lx-h small{font-size:11.5px;font-weight:800;background:var(--card2);color:var(--sub);border-radius:999px;padding:2px 9px}
+.lx-card{background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow)}
+.lx-card.live{border-color:var(--accent)}
+.lx-top{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.lx-t{font-size:15px;font-weight:800;color:var(--text)}
+.lx-sub{font-size:12.5px;color:var(--sub);margin-top:2px}
+.lx-badge{font-size:11px;font-weight:800;padding:4px 9px;border-radius:999px;white-space:nowrap;background:var(--card2);color:var(--sub)}
+.lx-badge.live{background:var(--accent-soft);color:var(--accent)}
+.lx-badge.up{background:#EAF3FF;color:#1B66B5}
+.lx-meta{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0;font-size:12.5px;color:var(--sub)}
+.lx-meta b{color:var(--text)}
+.lx-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lx-go{height:42px;padding:0 20px;border-radius:12px;background:var(--accent);color:#fff;font-weight:800;font-size:13.5px;display:inline-flex;align-items:center}
+.lx-go.off{background:var(--card2);color:var(--sub);cursor:default}
+.lx-me{font-size:12.5px;font-weight:700;color:var(--green)}
+.lx-none{background:#fff;border:1.5px dashed var(--border);border-radius:14px;padding:16px;text-align:center;font-size:13px;color:var(--sub);margin-bottom:10px}
+.lx-more{display:block;margin:8px auto 0;padding:10px 18px;border-radius:12px;background:var(--card2);color:var(--text);font-weight:700;font-size:13px}
+@media(max-width:700px){.lx-wrap{padding:0 16px 32px}}
 </style>
 </head>
 <body>
@@ -2138,6 +2159,29 @@ body.chat-on .topbar{display:none}
   </div>
 </div>
 
+<div class="modal-bg hidden" id="mLEx">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-title" id="mLExTitle">New live exam</div>
+    <div class="modal-sub">Same question format as the Question Bank. After the end time the exam moves to the Archive automatically.</div>
+    <input type="hidden" id="lxEditId"/>
+    <div class="fl"><label>Exam title *</label><input type="text" id="lxTitle" placeholder="e.g. Weekly Model Test 05"/></div>
+    <div class="fl"><label>Subject / syllabus (optional)</label><input type="text" id="lxSub" placeholder="e.g. Circuit Analysis"/></div>
+    <div class="fl"><label>Starts at *</label><input type="datetime-local" id="lxStart"/></div>
+    <div class="fl"><label>Ends at * (archived after this time)</label><input type="datetime-local" id="lxEnd"/></div>
+    <div class="fl"><label>Duration per student (minutes) *</label><input type="number" id="lxDur" min="1" value="30"/></div>
+    <label class="qb-chk"><input type="checkbox" id="lxNeg" checked/> Negative marking (−0.25 per wrong answer)</label>
+    <div class="qb-hint" style="margin:12px 0 4px"><b>Format 1 — one line per question</b> (question | ক | খ | গ | ঘ | answer):</div>
+    <pre class="qb-fmt">১. একটি রম্বসের ভূমি ১২ সে.মি. ও উচ্চতা ৫ সে.মি. হলে ক্ষেত্রফল কত?|৩০|৬০|২৫|১২০|1</pre>
+    <div class="fl"><label>Answer number in Format 1</label><select id="lxBase"><option value="0">0 = ক, 1 = খ, 2 = গ, 3 = ঘ</option><option value="1">1 = ক, 2 = খ, 3 = গ, 4 = ঘ</option></select></div>
+    <div class="qb-hint" style="margin:10px 0 4px"><b>Format 2 — labelled</b> (separate questions with <b>---</b>): প্রশ্ন / ক) খ) গ) ঘ) / উত্তর / ব্যাখ্যা / শর্টকাট</div>
+    <div class="fl"><label id="lxTxtLbl">Questions text *</label><textarea id="lxTxt" style="min-height:200px;font-family:inherit"></textarea></div>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeM('mLEx')">Cancel</button>
+      <button class="btn-ok" id="lxBtn" onclick="lxReview()">Review as forms →</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg hidden" id="mConfirm">
   <div class="modal">
     <div class="modal-title" id="confTitle">Delete?</div>
@@ -2302,6 +2346,7 @@ const RES_META={
 };
 let filterSem="", searchQ="";
 let liveType="class";
+let lxAll=[],lxLoaded=false,lxErr="",lxTarget=null,lxArcN=10,lxSig="",qbLive=null;
 let live={classTitle:"",classTime:"",classUrl:"",examTitle:"",examTime:"",examUrl:"",premiumUrl:"",premiumInfo:"",payBkash:"",payNagad:"",payRocket:""};
 
 const $=id=>document.getElementById(id);
@@ -2566,23 +2611,26 @@ window.closeSidebar=()=>{$("sidebar").classList.remove("open");$("overlay").clas
 
 // ─── Live class / exam ───────────────────────────────────
 function renderLive(){
-  const cOn=!!safeUrl(live.classUrl), eOn=!!safeUrl(live.examUrl);
+  const xNow=lxAll.find(x=>lxState(x)==="live"),cOn=!!safeUrl(live.classUrl), eOn=!!safeUrl(live.examUrl)||!!xNow;
   $("btnLiveClass").classList.toggle("is-live",cOn);
   $("btnLiveExam").classList.toggle("is-live",eOn);
   $("dotClass").classList.toggle("hidden",!cOn);
   $("dotExam").classList.toggle("hidden",!eOn);
   const parts=[];
   if(cOn&&(live.classTitle||live.classTime)) parts.push(`<span>Live Class: <b>${esc(live.classTitle||"Scheduled")}</b>${live.classTime?" · "+esc(live.classTime):""}</span>`);
-  if(eOn&&(live.examTitle||live.examTime)) parts.push(`<span>Live Exam: <b>${esc(live.examTitle||"Scheduled")}</b>${live.examTime?" · "+esc(live.examTime):""}</span>`);
+  if(xNow) parts.push(`<span>Live Exam: <b>${esc(xNow.title)}</b> · ends ${esc(lxFmt(xNow.end))}</span>`);
+  else if(eOn&&(live.examTitle||live.examTime)) parts.push(`<span>Live Exam: <b>${esc(live.examTitle||"Scheduled")}</b>${live.examTime?" · "+esc(live.examTime):""}</span>`);
   $("liveInfo").innerHTML=parts.join("");
   if($("viewLive").classList.contains("active"))renderLivePage();
 }
-window.openLive=function(type){liveType=type==="exam"?"exam":"class";renderLivePage();goView("viewLive");closeSidebar()};
+window.openLive=function(type){liveType=type==="exam"?"exam":"class";qbLive=null;if(qbExam&&qbExam.live&&!qbExam.done){/* keep ticking; answers are saved */}renderLivePage();goView("viewLive");closeSidebar();
+  if(liveType==="exam")lxLoad(true).then(()=>{if($("viewLive").classList.contains("active")&&liveType==="exam"){renderLive();renderLivePage()}})};
 function platformOf(u){try{const h=new URL(u).hostname.replace(/^www\./,"");
   if(/youtu/.test(h))return"YouTube Live";if(/meet\.google/.test(h))return"Google Meet";if(/zoom/.test(h))return"Zoom";
   if(/facebook|fb\.watch/.test(h))return"Facebook Live";return h}catch(e){return"Online"}}
 function renderLivePage(){
   const exam=liveType==="exam",name=exam?"Live Exam":"Live Class";
+  if(exam){lxRenderPage();return}
   const url=safeUrl(exam?live.examUrl:live.classUrl),on=!!url;
   const title=(exam?live.examTitle:live.classTitle)||name;
   const time=(exam?live.examTime:live.classTime)||"";
@@ -2764,6 +2812,8 @@ const qbHist={get(){try{return JSON.parse(localStorage.getItem("rt_qb_hist")||"[
   add(r){try{const h=qbHist.get();h.unshift(r);localStorage.setItem("rt_qb_hist",JSON.stringify(h.slice(0,10)))}catch(e){}}};
 
 window.openQB=async function(){
+  if(qbExam&&qbExam.live){clearInterval(qbTick);qbExam=null}
+  qbLive=null;
   goView("viewQB");$("navQB")?.classList.add("active");closeSidebar();
   $("qbAdd").classList.toggle("hidden",!adminIn);$("qbBulk").classList.toggle("hidden",!adminIn);
   if(await qbLoad()){qbBuildFilters();qbRender()}
@@ -2803,7 +2853,10 @@ window.qbSetMode=m=>{qbMode=m;qbRender()};
 function qbRender(){
   document.querySelectorAll("#qbTabs button").forEach(b=>b.classList.toggle("on",b.dataset.m===qbMode));
   if(qbMode!=="read")qbStopAuto();
-  $("qbFilters").style.display=(qbMode==="exam"&&qbExam&&!qbExam.done)?"none":"";
+  $("qbTabs").style.display=qbLive?"none":"";
+  document.querySelector("#viewQB .res-head").style.display=qbLive?"none":"";
+  $("qbFilters").style.display=(qbLive||(qbMode==="exam"&&qbExam&&!qbExam.done))?"none":"";
+  if(qbLive){if(qbExam&&qbExam.live===qbLive){if(qbExam.done)qbExamResult();else qbExamQ()}else lxReviewRender();return}
   if(qbMode==="practice")qbPractice();else if(qbMode==="read")qbRead();else qbExamView();
 }
 const qbLab=x=>[x.ttl,x.src,x.sub].filter(Boolean).join(" · ")||"MCQ";
@@ -2895,15 +2948,18 @@ function qbExamQ(){
     <div class="qb-pal">${pal}</div>`;
   qbTimer();
 }
-window.qbXPick=i=>{const E=qbExam,x=E&&E.qs[E.i];if(!x||E.done)return;if(E.ans[x.id]===i)delete E.ans[x.id];else E.ans[x.id]=i;qbRender()};
+window.qbXPick=i=>{const E=qbExam,x=E&&E.qs[E.i];if(!x||E.done)return;if(E.ans[x.id]===i)delete E.ans[x.id];else E.ans[x.id]=i;if(E.live)lxSaveAns(E);qbRender()};
 window.qbXGo=i=>{if(!qbExam||i<0||i>=qbExam.qs.length)return;qbExam.i=i;qbRender();window.scrollTo(0,0)};
 window.qbFinish=()=>{
   const E=qbExam;if(!E||E.done)return;E.done=true;clearInterval(qbTick);
   let c=0,w=0,s=0;E.qs.forEach(x=>{const a=E.ans[x.id];if(a===undefined)s++;else if(a===x.a)c++;else w++});
   E.c=c;E.w=w;E.s=s;E.score=Math.round((c-(E.neg?w*0.25:0))*100)/100;
   E.pct=Math.max(0,Math.round(E.score*100/E.qs.length));
-  E.used=Math.min(E.min*60,Math.round((Date.now()-(E.end-E.min*60000))/1000));
-  qbHist.add({at:Date.now(),score:E.score,total:E.qs.length,pct:E.pct});
+  E.used=Math.min(E.min*60,Math.round((Date.now()-(E.t0||(E.end-E.min*60000)))/1000));
+  if(E.live){const R=lxRec.get(),r=R[E.live]||{};
+    if(r.done)E.used=r.used||E.used;
+    else{R[E.live]={...r,ans:E.ans,done:true,score:E.score,pct:E.pct,c:E.c,w:E.w,s:E.s,used:E.used,total:E.qs.length,at:Date.now()};lxRec.set(R)}
+  }else qbHist.add({at:Date.now(),score:E.score,total:E.qs.length,pct:E.pct});
   qbRender();window.scrollTo(0,0);
 };
 function qbExamResult(){
@@ -2911,7 +2967,7 @@ function qbExamResult(){
   $("qbBody").innerHTML=`<div class="qb-card qb-res"><div class="qb-big">${E.score} <small>/ ${E.qs.length}</small></div>
     <div class="res-sub">${E.pct}% · ${Math.floor(E.used/60)} min ${E.used%60} s${E.neg?" · negative marking on":""}</div>
     <div class="qb-stat"><span class="g">✓ ${E.c} correct</span><span class="r">✗ ${E.w} wrong</span><span>– ${E.s} skipped</span></div>
-    <div class="rc-acts"><button class="rc-btn pri" onclick="qbNewExam()">New exam</button>${E.w+E.s?`<button class="rc-btn" onclick="qbRetryWrong()">Retry wrong / skipped</button>`:""}</div></div>
+    <div class="rc-acts">${E.live?`<button class="rc-btn pri" onclick="openLive('exam')">‹ Back to Live Exam</button>`:`<button class="rc-btn pri" onclick="qbNewExam()">New exam</button>`}${!E.live&&(E.w+E.s)?`<button class="rc-btn" onclick="qbRetryWrong()">Retry wrong / skipped</button>`:""}</div></div>
     <div class="res-sub">Review</div>
     ${E.qs.map((x,n)=>`<div class="qb-card"><div class="qb-meta"><span class="qb-src">${esc(qbLab(x))}</span></div><div class="qb-q">${n+1}. ${esc(x.q)}</div>${qbOpts(x,E.ans[x.id],true,null)}${qbExp(x)}</div>`).join("")}`;
 }
@@ -3041,6 +3097,7 @@ window.qbBulkSave=async function(){
 let qbDraft=[];
 const qbBlank=()=>({q:"",o:["","","",""],a:0,e:"",t:"",src:qbSrc,sub:qbSub,ttl:""});
 window.qbEdOpen=function(list){
+  lxTarget=null;lxEdUi(false);
   qbDraft=list&&list.length?list.map(x=>({q:x.q,o:[...x.o,"","","",""].slice(0,4),a:x.a,e:x.e||"",t:x.t||"",src:x.src||"",sub:x.sub||"",ttl:x.ttl||""})):[qbBlank()];
   $("qbeTtl").value="";$("qbeSub").value="";$("qbeSrc").value="";
   qbEdRender();openM("mQBEd");
@@ -3083,7 +3140,178 @@ window.qbEdSave=async function(){
     else out.push({q:x.q.trim(),o:filled.map(p=>p.s),a:pos,e:x.e.trim(),t:x.t.trim(),src:x.src.trim(),sub:x.sub.trim(),ttl:x.ttl.trim()});
   });
   if(badI.length){showToast(badI.length+" question(s) need fixing");const el=$("qbed"+badI[0]);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});return}
+  if(lxTarget){await lxSaveExam(out);return}
   await qbImport(out,$("qbeBtn"),"Upload all");
+};
+
+// ─── Live Exam (scheduled MCQ exams · admin uploads in Question-Bank format · auto-archive after end time) ───
+const LX_COL="live_exams";
+const lxRec={get(){try{return JSON.parse(localStorage.getItem("rt_lx_rec")||"{}")}catch(e){return{}}},
+  set(o){try{localStorage.setItem("rt_lx_rec",JSON.stringify(o))}catch(e){}}};
+const lxState=(x,now)=>{now=now||Date.now();return now<x.start?"upcoming":now<x.end?"live":"archive"};
+const lxFmt=ms=>ms?new Date(ms).toLocaleString(undefined,{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"}):"—";
+const lxIn=ms=>{const m=Math.max(1,Math.round(ms/60000));if(m<60)return m+" min";const h=Math.floor(m/60);if(h<24)return h+"h "+(m%60)+"m";return Math.floor(h/24)+"d "+(h%24)+"h"};
+const lxLocalInput=ms=>{const d=new Date(ms-new Date().getTimezoneOffset()*60000);return d.toISOString().slice(0,16)};
+const lxQs=x=>x.qs.map((q,i)=>({...q,id:x.id+"_"+i}));
+async function lxLoad(force){
+  if(lxLoaded&&!force)return;
+  try{
+    const snap=await getDocs(query(collection(db,LX_COL),orderBy("start","desc"),limit(200)));
+    lxAll=[];
+    snap.forEach(d=>{const x=d.data();if(!Array.isArray(x.qs)||!x.qs.length)return;
+      lxAll.push({id:d.id,title:x.title||"Live Exam",sub:x.sub||"",start:Number(x.start)||0,end:Number(x.end)||0,dur:Number(x.dur)||20,neg:!!x.neg,
+        qs:x.qs.filter(q=>q&&Array.isArray(q.o)&&q.o.length>=2).map(q=>({q:q.q||"",o:q.o.map(String),a:Number(q.a)||0,e:q.e||"",t:q.t||"",src:q.src||"",sub:q.sub||"",ttl:q.ttl||""}))})});
+    lxLoaded=true;lxErr="";lxSig=lxAll.map(x=>x.id+lxState(x)).join();
+  }catch(e){lxErr=e.message||"Could not load";}
+}
+// state flips (upcoming → live → archive) without a reload
+setInterval(()=>{try{
+  if(!lxLoaded)return;const sig=lxAll.map(x=>x.id+lxState(x)).join();
+  if(sig!==lxSig){lxSig=sig;renderLive()}
+}catch(e){}},15000);
+
+function lxCard(x,st,now){
+  const rec=lxRec.get()[x.id]||{};
+  const badge=st==="live"?`<span class="lx-badge live">● LIVE NOW</span>`:st==="upcoming"?`<span class="lx-badge up">UPCOMING</span>`:`<span class="lx-badge">ARCHIVED</span>`;
+  let act="";
+  if(st==="live")act=`<button class="lx-go" onclick="lxStart('${x.id}')">${rec.done?"View my result":rec.started?"Resume exam":"Start exam"}</button>`;
+  else if(st==="upcoming")act=`<span class="lx-go off">Starts in ${lxIn(x.start-now)}</span>`;
+  else act=`<button class="lx-go" onclick="lxOpenReview('${x.id}')">Review questions</button>`;
+  const me=rec.done?`<span class="lx-me">✓ You scored ${rec.score} / ${rec.total} (${rec.pct}%)</span>`:(st==="archive"?`<span class="lx-sub">You did not take this exam</span>`:"");
+  const adm=adminIn?`${st!=="archive"?`<button class="rc-btn" onclick="lxOpenReview('${x.id}')">Preview</button>`:""}<button class="rc-btn" onclick="lxOpenForm('${x.id}')">Edit</button><button class="rc-btn del" onclick="lxDel('${x.id}')">Delete</button>`:"";
+  return `<div class="lx-card ${st}">
+    <div class="lx-top"><div><div class="lx-t">${esc(x.title)}</div>${x.sub?`<div class="lx-sub">${esc(x.sub)}</div>`:""}</div>${badge}</div>
+    <div class="lx-meta"><span>🗓 <b>${esc(lxFmt(x.start))}</b> → <b>${esc(lxFmt(x.end))}</b></span><span>❓ <b>${x.qs.length}</b> questions</span><span>⏱ <b>${x.dur}</b> min</span>${x.neg?`<span>− 0.25 negative marking</span>`:""}</div>
+    ${st==="live"?`<div class="lx-sub" style="margin-bottom:8px">Closes in ${lxIn(x.end-now)} — you can start any time before then.</div>`:""}
+    <div class="lx-acts">${act}${me}${adm}</div></div>`;
+}
+function lxRenderPage(){
+  const v=$("viewLive");v.dataset.type="exam";
+  const now=Date.now(),url=safeUrl(live.examUrl);
+  const L=lxAll.filter(x=>lxState(x,now)==="live"),U=lxAll.filter(x=>lxState(x,now)==="upcoming").sort((a,b)=>a.start-b.start),
+    A=lxAll.filter(x=>lxState(x,now)==="archive").sort((a,b)=>b.end-a.end);
+  const cal='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+  const sec=(h,list,empty)=>`<div class="lx-h">${h}<small>${list.length}</small></div>${list.length?"":`<div class="lx-none">${empty}</div>`}`;
+  let body;
+  if(!lxLoaded&&!lxErr)body=`<div class="loader"><div class="spin"></div>Loading exams…</div>`;
+  else if(lxErr&&!lxAll.length)body=`<div class="lx-none">Could not load exams.<br>${esc(lxErr)}</div>`;
+  else body=sec("Live now",L,"No exam is running right now.")+L.map(x=>lxCard(x,"live",now)).join("")
+    +sec("Upcoming",U,"No exam scheduled yet.")+U.map(x=>lxCard(x,"upcoming",now)).join("")
+    +sec("Archive",A,"Finished exams will appear here automatically.")+A.slice(0,lxArcN).map(x=>lxCard(x,"archive",now)).join("")
+    +(A.length>lxArcN?`<button class="lx-more" onclick="lxMore()">Show older exams (${A.length-lxArcN})</button>`:"");
+  v.innerHTML=`
+  <section class="lv-hero">
+    <div class="lv-tabs">
+      <button onclick="openLive('class')">${I.video} Live Class</button>
+      <button class="on" onclick="openLive('exam')">${cal} Live Exam</button>
+    </div>
+    <div class="lv-status ${L.length?"on":""}"><i></i>${L.length?"LIVE NOW":U.length?"UPCOMING":"NOT SCHEDULED"}</div>
+    <h1>Live Exam</h1>
+    <p class="lv-lead">Test your preparation under real exam conditions. Every exam opens and closes at a fixed time, then moves to the archive with full answers and explanations.</p>
+    <div class="lv-actions">
+      ${adminIn?`<button class="lv-join" onclick="lxOpenForm()">+ New live exam</button>`:""}
+      ${url?`<a class="lv-join" style="background:#fff;color:var(--accent);border:1.5px solid var(--accent)" href="${esc(url)}" target="_blank" rel="noopener">Join external exam link</a>`:""}
+    </div>
+  </section>
+  <div class="lx-wrap">${body}</div>`;
+}
+
+window.lxMore=()=>{lxArcN+=10;lxRenderPage()};
+// ── Student: take the exam (reuses the Question-Bank exam engine) ──
+window.lxStart=function(id){
+  const x=lxAll.find(e=>e.id===id);if(!x)return;
+  const now=Date.now(),st=lxState(x,now);
+  if(st==="upcoming"){showToast("This exam has not started yet");return}
+  if(st==="archive"){lxOpenReview(id);return}
+  const R=lxRec.get(),rec=R[id];
+  if(!rec&&!confirm(`Start "${x.title}" now?\n\n${x.qs.length} questions · ${x.dur} minutes${x.neg?" · negative marking":""}.\nThe timer cannot be paused and you can take it only once.`))return;
+  const started=rec&&rec.started?rec.started:now;
+  if(!rec||!rec.started){R[id]={...(rec||{}),started:now,ans:{}};lxRec.set(R)}
+  const endAt=Math.min(started+x.dur*60000,x.end);
+  qbLive=id;qbMode="exam";clearInterval(qbTick);
+  qbExam={qs:lxQs(x),ans:rec&&rec.ans?{...rec.ans}:{},i:0,min:x.dur,end:endAt,t0:started,neg:x.neg,done:false,live:id};
+  goView("viewQB");$("topbarTitle").textContent="Live Exam";
+  if((rec&&rec.done)||endAt<=now){qbRender();qbFinish();return}
+  qbTick=setInterval(qbTimer,1000);qbRender();window.scrollTo(0,0);
+};
+function lxSaveAns(E){const R=lxRec.get(),r=R[E.live]||{};R[E.live]={...r,ans:E.ans};lxRec.set(R)}
+// ── Archive: read-only review with correct answers + explanations ──
+window.lxOpenReview=function(id){
+  const x=lxAll.find(e=>e.id===id);if(!x)return;
+  if(lxState(x)!=="archive"&&!adminIn){showToast("Answers open after the exam ends");return}
+  if(qbExam&&qbExam.live){clearInterval(qbTick);qbExam=null}
+  qbLive=id;qbMode="exam";goView("viewQB");$("topbarTitle").textContent="Exam Archive";qbRender();window.scrollTo(0,0);
+};
+function lxReviewRender(){
+  const x=lxAll.find(e=>e.id===qbLive),B=$("qbBody");
+  if(!x){B.innerHTML=`<div class="res-empty">Exam not found.</div>`;return}
+  const rec=lxRec.get()[x.id]||{},ans=rec.ans||{};
+  B.innerHTML=`<button class="qb-lnk" onclick="openLive('exam')">‹ Back to Live Exam</button>
+    <div class="qb-card"><div class="qb-q">📚 ${esc(x.title)}</div>
+      <div class="res-sub">${esc(lxFmt(x.start))} → ${esc(lxFmt(x.end))} · ${x.qs.length} questions · ${x.dur} min</div>
+      ${rec.done?`<div class="lx-me">✓ Your score: ${rec.score} / ${rec.total} (${rec.pct}%)</div>`:`<div class="lx-sub">Correct answers and explanations are shown below.</div>`}</div>
+    ${lxQs(x).map((q,n)=>`<div class="qb-card"><div class="qb-meta"><span class="qb-src">${esc(qbLab(q))}</span></div><div class="qb-q">${n+1}. ${esc(q.q)}</div>${qbOpts(q,ans[q.id],true,null)}${qbExp(q)}</div>`).join("")}`;
+}
+
+// ── Admin: create / edit / delete ──
+function lxEdUi(on){
+  const t=document.querySelector("#mQBEd .modal-title");if(t&&t.firstChild)t.firstChild.nodeValue=on?"Live exam questions ":"Add questions ";
+  $("qbeBtn").textContent=on?(lxTarget&&lxTarget.id?"Save exam":"Publish exam"):"Upload all";
+}
+window.lxOpenForm=function(id){
+  const x=id?lxAll.find(e=>e.id===id):null;
+  $("lxEditId").value=x?x.id:"";
+  $("mLExTitle").textContent=x?"Edit live exam":"New live exam";
+  $("lxTitle").value=x?x.title:"";$("lxSub").value=x?x.sub:"";
+  const base=Math.ceil((Date.now()+3600e3)/36e5)*36e5;
+  $("lxStart").value=lxLocalInput(x?x.start:base);$("lxEnd").value=lxLocalInput(x?x.end:base+24*3600e3);
+  $("lxDur").value=x?x.dur:30;$("lxNeg").checked=x?x.neg:true;$("lxTxt").value="";
+  $("lxTxtLbl").textContent=x?`Add more questions (optional) — this exam already has ${x.qs.length}`:"Questions text *";
+  $("lxBtn").textContent=x?"Edit questions →":"Review as forms →";
+  openM("mLEx");
+};
+window.lxReview=function(){
+  const title=$("lxTitle").value.trim(),s=$("lxStart").value,e=$("lxEnd").value,dur=+$("lxDur").value;
+  if(!title){showToast("Give the exam a title");return}
+  if(!s||!e){showToast("Set the start and end date/time");return}
+  const st=new Date(s).getTime(),en=new Date(e).getTime();
+  if(!(en>st)){showToast("End time must be after the start time");return}
+  if(!(dur>=1)){showToast("Duration must be at least 1 minute");return}
+  const id=$("lxEditId").value,old=id?lxAll.find(x=>x.id===id):null,sub=$("lxSub").value.trim(),txt=$("lxTxt").value;
+  let list=[],bad=[];
+  if(txt.trim()){const r=qbParse(txt,sub,title,"",+$("lxBase").value);list=r.ok;bad=r.bad;if(!list.length){showToast("No valid questions found — check the format");return}}
+  if(old)list=[...old.qs,...list];
+  if(!list.length){showToast("Paste the questions first");return}
+  closeM("mLEx");
+  qbEdOpen(list);
+  lxTarget={id,title,sub,start:st,end:en,dur,neg:$("lxNeg").checked};
+  lxEdUi(true);
+  if(bad.length)showToast(bad.length+" skipped: #"+bad.slice(0,8).join(", #"));
+};
+async function lxSaveExam(out){
+  const T=lxTarget,btn=$("qbeBtn");
+  const qs=out.map(x=>({...x,src:x.src||T.title,sub:x.sub||T.sub}));
+  const d={title:T.title,sub:T.sub,start:T.start,end:T.end,dur:T.dur,neg:T.neg,qs,n:qs.length};
+  if(JSON.stringify(d).length>900000){showToast("Too many / too long questions for one exam (~900 KB limit). Split into two exams.");return}
+  btn.disabled=true;btn.textContent="Saving…";
+  try{
+    if(T.id)await updateDoc(doc(db,LX_COL,T.id),d);
+    else await setDoc(doc(db,LX_COL,"x"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),{...d,at:Date.now()});
+    closeM("mQBEd");lxTarget=null;lxEdUi(false);
+    showToast(T.id?"Exam updated":"Live exam published");
+    await lxLoad(true);renderLive();if($("viewLive").classList.contains("active"))renderLivePage();
+  }catch(e){showToast("Error: "+e.message)}
+  btn.disabled=false;lxEdUi(!!lxTarget);
+}
+window.lxDel=function(id){
+  const x=lxAll.find(e=>e.id===id);
+  $("confTitle").textContent="Delete this exam?";
+  $("confMsg").textContent=`“${x?x.title:id}” and its questions will be removed for everyone (including the archive).`;
+  pendingDelFn=async()=>{
+    try{await deleteDoc(doc(db,LX_COL,id));showToast("Deleted");closeM("mConfirm");await lxLoad(true);renderLive();if($("viewLive").classList.contains("active"))renderLivePage()}
+    catch(e){showToast("Error: "+e.message)}
+  };
+  openM("mConfirm");
 };
 
 // ─── Load courses ────────────────────────────────────────
@@ -3109,6 +3337,7 @@ async function loadCourses(){
     return;
   }
   resources.sort((x,y)=>y.at-x.at);
+  lxLoad().then(()=>{try{renderLive()}catch(e){}});
   buildSemFilter();renderLive();renderCourseGrid();renderSidebarCourses();updateStats();
   if($("viewRes").classList.contains("active"))renderRes();
   validateSession();renderUser();if(curCourse)renderVlist();
