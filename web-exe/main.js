@@ -398,6 +398,9 @@ app.whenReady().then(() => {
     { urls: ['https://www.youtube.com/embed/*', 'https://www.youtube-nocookie.com/embed/*'] },
     (d, cb) => { d.requestHeaders['Referer'] = SITE; cb({ requestHeaders: d.requestHeaders }); });
   try { session.defaultSession.preconnect({ url: SITE_ORIGIN, numSockets: 2 }); } catch (_) {}
+  // pre-open connections to YouTube so a lesson starts playing sooner
+  ['https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://i.ytimg.com', 'https://s.ytimg.com']
+    .forEach(u => { try { session.defaultSession.preconnect({ url: u, numSockets: 2 }); } catch (_) {} });
   try { initVideos(); } catch (_) {}
   create();
   setTimeout(initUpdater, 1500);

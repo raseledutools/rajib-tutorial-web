@@ -32,6 +32,34 @@ final class Media {
         return w;
     }
 
+    private static boolean sWarmed = false;
+
+    /**
+     * Pre-warms the WebView engine and the YouTube player files once per app run, so the first
+     * lesson starts faster. A tiny hidden page opens connections and fetches the player API
+     * into the shared HTTP cache, then is destroyed.
+     */
+    @SuppressLint("SetJavaScriptEnabled")
+    static void warmUp(Context c) {
+        if (sWarmed) return;
+        sWarmed = true;
+        try {
+            final WebView w = new WebView(c.getApplicationContext());
+            w.getSettings().setJavaScriptEnabled(true);
+            w.getSettings().setDomStorageEnabled(true);
+            w.loadDataWithBaseURL(Store.EMBED_ORIGIN,
+                "<html><head>"
+                + "<link rel='preconnect' href='https://www.youtube.com' crossorigin>"
+                + "<link rel='preconnect' href='https://www.youtube-nocookie.com' crossorigin>"
+                + "<link rel='preconnect' href='https://i.ytimg.com' crossorigin>"
+                + "<script src='https://www.youtube.com/iframe_api'></script>"
+                + "</head><body></body></html>", "text/html", "utf-8", null);
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                try { w.stopLoading(); w.destroy(); } catch (Exception ignored) { }
+            }, 8000);
+        } catch (Exception ignored) { }
+    }
+
     /** Loads the custom player (no title / share / copy-link / branding). Falls back to a plain iframe. */
     static void load(WebView w, String embedUrl) {
         String html = null;
