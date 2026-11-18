@@ -1602,6 +1602,7 @@ body.chat-on .topbar{display:none}
     <div class="res-wrap">
       <div class="res-head"><h2 id="resHead"></h2><button class="res-add hidden" id="resAddBtn" onclick="openResModal()">+ Add</button></div>
       <div class="res-sub" id="resSub"></div>
+      <div id="resMcq"></div>
       <div class="res-chips" id="resChips"></div>
       <div id="resList"></div>
     </div>
@@ -2030,6 +2031,9 @@ body.chat-on .topbar{display:none}
     <input type="hidden" id="resEditId"/>
     <div class="fl"><label>Title *</label><input type="text" id="resTitleIn" placeholder="e.g. BUET Diploma Admission Test 2025"/></div>
     <div class="fl" id="resCatWrap"><label>Category</label><select id="resCatIn"></select></div>
+    <div class="fl" id="resTextWrap">
+      <button type="button" class="btn-add-sm" style="width:100%;padding:11px 13px;font-size:13px;background:#e7f6ee;color:#0F7B4F;border-color:#12a150" onclick="closeM('mRes');qbOpenBulk()">📝 Paste questions as text (MCQ with answers)</button>
+    </div>
     <div class="fl">
       <button type="button" class="btn-add-sm" id="resUpBtn" style="width:100%;padding:11px 13px;font-size:13px" onclick="$('resFile').click()">📎 Upload PDF / image from device</button>
       <input type="file" id="resFile" accept="application/pdf,image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" class="hidden" onchange="resUploadFile(this)"/>
@@ -2617,6 +2621,7 @@ function renderRes(){
   $("resSub").textContent=m.sub;
   $("topbarTitle").textContent=m.name;
   $("resAddBtn").classList.toggle("hidden",!adminIn);
+  $("resMcq").innerHTML=resType==="circular"?"":`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"><button class="btn-ok" style="flex:1 1 200px;padding:12px;border-radius:12px" onclick="openQB()">📝 MCQ Practice &amp; Exam</button>${adminIn?`<button class="btn-secondary" style="flex:1 1 200px;padding:12px;border-radius:12px" onclick="qbOpenBulk()">📝 Paste questions as text</button>`:""}</div>`;
   $("resChips").innerHTML=qb?["",...QB_CATS].map(n=>`<button class="res-chip ${n===resCat?"on":""}" onclick="setResCat('${n}')">${n||"All"}</button>`).join(""):"";
   const list=resources.filter(r=>r.type===resType&&(!qb||!resCat||r.category.toLowerCase()===resCat.toLowerCase()));
   if(!list.length){
@@ -2651,6 +2656,7 @@ window.openResModal=function(editId){
   $("resNoteIn").value=r?r.note:"";
   if(!resUploading)$("resUpBtn").textContent="📎 Upload PDF / image from device";
   const qb=resType==="qbank";
+  $("resTextWrap").style.display=(resType!=="circular"&&!r)?"":"none";
   $("resCatWrap").style.display=qb?"":"none";
   const sel=r&&r.category?r.category:(resCat||QB_CATS[0]);
   const cats=QB_CATS.includes(sel)?QB_CATS:[...QB_CATS,sel];
@@ -2953,7 +2959,8 @@ window.qbBulkSave=async function(){
       part.forEach((x,j)=>b.set(doc(db,QB_COL,"q"+(base+i+j).toString(36)+Math.random().toString(36).slice(2,5)),{...x,at:base+i+j}));
       await b.commit();n+=part.length;btn.textContent=`Saving… ${n}/${r.ok.length}`;
     }
-    showToast(n+" questions added");closeM("mQBBulk");await qbLoad(true);qbBuildFilters();qbRender();
+    showToast(n+" questions added");closeM("mQBBulk");
+    if(!$("viewQB").classList.contains("active")){qbLoaded=false;await openQB()}else{await qbLoad(true);qbBuildFilters();qbRender()}
   }catch(e){showToast("Error: "+e.message)}
   btn.disabled=false;btn.textContent="Import";
 };
