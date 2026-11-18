@@ -1462,52 +1462,58 @@ body.chat-on .topbar{display:none}
 @media(max-width:700px){.lx-wrap{padding:0 16px 32px}.lx-rh,.lx-rr{grid-template-columns:30px 1fr 64px 46px;}.lx-rh span:last-child,.lx-rr span:last-child{display:none}}
 </style>
 <style id="homeRedesign">
-/* ── Home redesign: courses are the focus; every quick action visible on one screen ── */
-#viewHome{background:#F6F3F0}
-#viewHome .hm{max-width:1200px;margin:0 auto;padding:0 20px 4px}
-#viewHome .hm-top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:18px 0 14px}
-#viewHome .hm-brand{display:flex;align-items:center;gap:12px;min-width:0}
-#viewHome .hm-logo{width:46px;height:46px;border-radius:14px;background:var(--grad);display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 6px 16px rgba(232,54,93,.26)}
-#viewHome .hm-logo svg{width:26px;height:26px;stroke:#fff}
-#viewHome .hm-brand h1{font-size:21px;font-weight:800;letter-spacing:-.02em;line-height:1.15;color:var(--text);margin:0}
-#viewHome .hm-brand p{font-size:12.5px;line-height:1.3;color:var(--sub);margin:3px 0 0;max-width:none}
-#viewHome .hm-stats{display:flex;gap:8px}
-#viewHome .hm-stats div{background:#fff;border:1px solid var(--border);border-radius:12px;padding:7px 14px;text-align:center;min-width:86px}
-#viewHome .hm-stats b{display:block;font-size:17px;font-weight:800;line-height:1.2;color:var(--text)}
-#viewHome .hm-stats span{font-size:11px;font-weight:600;color:var(--sub)}
-#viewHome .hm-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
-#viewHome .hm-panel{order:-1;background:#fff;border:1px solid var(--border);border-radius:18px;padding:12px;box-shadow:var(--shadow)}
-#viewHome .hm-lbl{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--sub);margin:2px 2px 7px}
-#viewHome .hm-lbl:not(:first-child){margin-top:12px}
-#viewHome .hm-live{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-#viewHome .hm-livebtn{position:relative;display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 12px;border-radius:14px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-size:14px;font-weight:800;text-align:left;cursor:pointer;transition:transform .12s,box-shadow .12s}
-#viewHome .hm-livebtn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(20,18,26,.10)}
-#viewHome .hm-livebtn .ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;background:var(--accent-soft);color:var(--accent)}
-#viewHome .hm-livebtn .ic svg{width:18px;height:18px}
-#viewHome .hm-livebtn small{display:block;font-size:11px;font-weight:600;color:var(--sub);margin-top:1px}
-#viewHome .hm-livebtn.cls{background:var(--grad);color:#fff;border-color:transparent}
-#viewHome .hm-livebtn.cls small{color:rgba(255,255,255,.88)}
-#viewHome .hm-livebtn.cls .ic{background:rgba(255,255,255,.22);color:#fff}
-#viewHome .hm-pill{display:none;margin-left:auto;align-items:center;gap:4px;font-size:9.5px;font-weight:800;letter-spacing:.08em;padding:3px 7px;border-radius:6px;background:#E5233F;color:#fff}
+/* ── Home redesign (BCS-Prostuti-style layout): hero · live cards · catalogue · free resources · FAQ · CTA ── */
+#viewHome{--hb:#0A8BFF;--hb2:#0069D9;--hnavy:#12122A;--hnavy2:#1E1E44;--hcream:#FFFAF8;--hyellow:#FFD60A;--hsalmon:#FF7F7F;
+  background:var(--hcream);font-family:'Hind Siliguri','Noto Sans Bengali',Inter,system-ui,-apple-system,'Segoe UI',sans-serif}
+#viewHome .hm{max-width:1200px;margin:0 auto;padding:0 20px}
+#viewHome .hm-sec{margin-top:34px}
+#viewHome .hm-sech{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px}
+#viewHome .hm-sech h2{font-size:21px;font-weight:700;color:var(--text);margin:0;letter-spacing:-.01em}
+#viewHome .hm-sech a{font-size:13px;font-weight:600;color:var(--hb2);text-decoration:underline;cursor:pointer}
+/* hero */
+#viewHome .hm-hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:26px;align-items:center;padding:34px 0 8px}
+#viewHome .hm-badge{display:inline-block;font-size:12px;font-weight:700;color:var(--hb2);background:#DCEEFF;border:1px solid #B5DAFF;border-radius:999px;padding:4px 14px}
+#viewHome .hm-hero h1{font-size:clamp(28px,4.4vw,44px);line-height:1.2;font-weight:800;color:var(--hnavy);margin:12px 0 10px;letter-spacing:-.02em}
+#viewHome .hm-hero h1 em{font-style:normal;color:var(--hb2)}
+#viewHome .hm-hero p{font-size:16px;line-height:1.6;color:var(--sub);margin:0 0 18px;max-width:520px}
+#viewHome .hm-cta{display:flex;flex-wrap:wrap;gap:10px}
+#viewHome .hm-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:12px;font-size:14.5px;font-weight:700;border:0;cursor:pointer;text-decoration:none;transition:transform .12s,box-shadow .12s}
+#viewHome .hm-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,105,217,.22)}
+#viewHome .hm-btn.pri{background:linear-gradient(135deg,var(--hb),var(--hb2));color:#fff}
+#viewHome .hm-btn.dark{background:#000;color:#fff}
+#viewHome .hm-btn svg{width:18px;height:18px}
+#viewHome .hm-herobox{position:relative;border-radius:24px;padding:22px;background:linear-gradient(135deg,var(--hb),var(--hb2));color:#fff;overflow:hidden;box-shadow:0 18px 40px rgba(0,105,217,.25)}
+#viewHome .hm-herobox::after{content:"";position:absolute;right:-50px;top:-50px;width:190px;height:190px;border-radius:50%;background:rgba(255,255,255,.12)}
+#viewHome .hm-herologo{position:relative;z-index:1;display:flex;align-items:center;gap:12px;margin-bottom:18px}
+#viewHome .hm-herologo span{width:48px;height:48px;border-radius:14px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center}
+#viewHome .hm-herologo svg{width:28px;height:28px;stroke:#fff}
+#viewHome .hm-herologo b{font-size:19px;font-weight:800;display:block;line-height:1.2}
+#viewHome .hm-herologo small{font-size:12.5px;opacity:.9}
+#viewHome .hm-stats{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+#viewHome .hm-stats div{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);border-radius:14px;padding:12px 6px;text-align:center}
+#viewHome .hm-stats b{display:block;font-size:24px;font-weight:800;line-height:1.1}
+#viewHome .hm-stats span{font-size:12px;font-weight:600;opacity:.92}
+/* live cards */
+#viewHome .hm-live{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+#viewHome .hm-lcard{position:relative;display:block;width:100%;text-align:left;padding:0;background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .12s,box-shadow .12s}
+#viewHome .hm-lcard:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(18,18,42,.12)}
+#viewHome .hm-lhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:13px 16px;background:var(--hb);color:#fff;font-size:15px;font-weight:700}
+#viewHome .hm-lcard.exam .hm-lhead{background:var(--hyellow);color:#2B2500}
+#viewHome .hm-lhead svg{width:18px;height:18px}
+#viewHome .hm-lbody{padding:14px 16px 16px}
+#viewHome .hm-lbody b{display:block;font-size:17px;font-weight:700;color:var(--text);margin-bottom:4px}
+#viewHome .hm-lbody small{display:block;font-size:13px;color:var(--sub)}
+#viewHome .hm-lfoot{display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-size:12.5px;font-weight:600;color:#0E9F8E}
+#viewHome .hm-pill{display:none;align-items:center;gap:5px;font-size:10.5px;font-weight:800;letter-spacing:.08em;padding:3px 9px;border-radius:999px;background:#E5233F;color:#fff}
 #viewHome .hm-pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;animation:hmBlink 1.2s infinite}
-#viewHome .hm-livebtn.is-live .hm-pill{display:inline-flex}
-#viewHome .hm-livebtn.cls .hm-pill{background:#fff;color:var(--accent)}
+#viewHome .hm-lcard.is-live .hm-pill{display:inline-flex}
 @keyframes hmBlink{50%{opacity:.25}}
-#viewHome .live-info{margin-top:8px;font-size:12px;gap:4px 14px;justify-content:flex-start;text-align:left}
+#viewHome .live-info{margin-top:12px;font-size:13px;justify-content:flex-start;text-align:left}
 #viewHome .live-info:empty{display:none}
-#viewHome .hm-tools{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-#viewHome .hm-tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:78px;padding:9px 4px;background:#FAF7F5;border:1px solid var(--border);border-radius:14px;cursor:pointer;transition:transform .12s,border-color .12s,background .12s}
-#viewHome .hm-tile:hover{transform:translateY(-1px);border-color:var(--accent);background:#fff}
-#viewHome .hm-tile i{font-style:normal;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;flex:none;background:rgba(232,54,93,.12)}
-#viewHome .hm-tile:nth-child(4n+2) i{background:rgba(109,74,240,.13)}
-#viewHome .hm-tile:nth-child(4n+3) i{background:rgba(14,159,142,.14)}
-#viewHome .hm-tile:nth-child(4n+4) i{background:rgba(245,165,36,.17)}
-#viewHome .hm-tile span{font-size:11.5px;font-weight:700;line-height:1.2;text-align:center;color:var(--text)}
-#viewHome .hm-tile em{position:absolute;top:4px;right:4px;font-style:normal;font-size:8.5px;font-weight:800;letter-spacing:.04em;background:#F5A524;color:#fff;border-radius:5px;padding:1px 4px}
-/* courses = main focus */
+/* catalogue (existing markup + JS-rendered grid) */
 #viewHome .hm-courses{max-width:none;margin:0;padding:0}
-#viewHome .hm-courses .sec-hdr{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:12px}
-#viewHome .hm-courses .sec-title{font-size:21px;font-weight:800;letter-spacing:-.02em}
+#viewHome .hm-courses .sec-hdr{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:14px}
+#viewHome .hm-courses .sec-title{font-size:21px;font-weight:700;letter-spacing:-.01em}
 #viewHome .hm-courses .sec-sub{margin:2px 0 0;font-size:12.5px}
 #viewHome .hm-courses .filters{display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;margin:0;flex:1 1 320px;justify-content:flex-end}
 #viewHome .hm-courses .search-box{width:auto;flex:1 1 180px;max-width:300px}
@@ -1515,42 +1521,65 @@ body.chat-on .topbar{display:none}
 #viewHome .hm-courses .search-box input{width:100%;padding:10px 14px 10px 36px;font-size:13.5px;border:1.5px solid var(--border);border-radius:12px;background:#fff}
 #viewHome .hm-courses .filters select{width:auto;flex:0 1 160px;padding:10px 12px;font-size:13.5px;border-radius:12px;background:#fff}
 #viewHome .hm-courses .filters .btn-refresh{width:42px;height:42px;flex:none}
-#viewHome .course-grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
-#viewHome .footer{max-width:1200px;margin:14px auto 0;padding:18px 20px 28px;text-align:left;justify-content:space-between}
+#viewHome .course-grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+/* free resources (navy band) */
+#viewHome .hm-band{margin-top:40px;background:var(--hnavy);border-top:3px solid var(--hb);padding:38px 0 42px}
+#viewHome .hm-band .hm-head{text-align:center;margin-bottom:22px}
+#viewHome .hm-band .hm-badge{background:rgba(10,139,255,.16);border-color:rgba(10,139,255,.35);color:#8CC8FF}
+#viewHome .hm-band h2{color:#fff;font-size:26px;font-weight:700;margin:10px 0 4px}
+#viewHome .hm-band .hm-head p{color:#9AA0C6;font-size:14px;margin:0}
+#viewHome .hm-tools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+#viewHome .hm-tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:16px;background:var(--hnavy2);border:1px solid rgba(255,255,255,.08);border-radius:16px;cursor:pointer;transition:transform .12s,border-color .12s}
+#viewHome .hm-tile:hover{transform:translateY(-2px);border-color:var(--hb)}
+#viewHome .hm-tile i{font-style:normal;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:21px;background:rgba(10,139,255,.18)}
+#viewHome .hm-tile:nth-child(4n+2) i{background:rgba(109,74,240,.25)}
+#viewHome .hm-tile:nth-child(4n+3) i{background:rgba(14,159,142,.25)}
+#viewHome .hm-tile:nth-child(4n+4) i{background:rgba(245,165,36,.25)}
+#viewHome .hm-tile span{font-size:15px;font-weight:700;color:#fff;line-height:1.25}
+#viewHome .hm-tile small{font-size:12px;color:#9AA0C6;line-height:1.4}
+#viewHome .hm-tile em{position:absolute;top:10px;right:10px;font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.04em;background:#F5A524;color:#fff;border-radius:6px;padding:2px 6px}
+/* FAQ */
+#viewHome .hm-faq{max-width:860px;margin:0 auto}
+#viewHome .hm-faq .hm-head{text-align:center;margin-bottom:16px}
+#viewHome .hm-faq .hm-badge{background:#EAF4FF}
+#viewHome .hm-faq h2{font-size:26px;font-weight:800;margin:10px 0 0;color:var(--text)}
+#viewHome .hm-faq details{background:#fff;border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden}
+#viewHome .hm-faq summary{list-style:none;cursor:pointer;padding:15px 18px;font-size:15px;font-weight:700;color:var(--text);display:flex;justify-content:space-between;align-items:center;gap:12px}
+#viewHome .hm-faq summary::-webkit-details-marker{display:none}
+#viewHome .hm-faq summary::after{content:"";width:9px;height:9px;border-right:2.4px solid var(--hb);border-bottom:2.4px solid var(--hb);transform:rotate(45deg);transition:transform .15s;flex:none;margin-top:-4px}
+#viewHome .hm-faq details[open] summary::after{transform:rotate(-135deg);margin-top:4px}
+#viewHome .hm-faq details p{margin:0;padding:0 18px 16px;font-size:14.5px;line-height:1.7;color:var(--sub)}
+/* bottom CTA */
+#viewHome .hm-ctab{margin-top:34px;border-radius:20px;padding:34px 20px;text-align:center;color:#fff;background:linear-gradient(135deg,var(--hb),var(--hb2));box-shadow:0 18px 40px rgba(0,105,217,.22)}
+#viewHome .hm-ctab h2{font-size:26px;font-weight:800;margin:0 0 6px}
+#viewHome .hm-ctab p{font-size:15px;margin:0 0 18px;opacity:.95}
+#viewHome .hm-ctab .hm-cta{justify-content:center}
+#viewHome .hm-ctab .hm-btn.light{background:#fff;color:var(--hb2)}
+#viewHome .footer{max-width:1200px;margin:22px auto 0;padding:18px 20px 28px;text-align:left;justify-content:space-between}
 #viewHome .footer span:nth-child(2){display:inline}
-@media(min-width:1000px){
-  #viewHome .hm-grid{grid-template-columns:minmax(0,1fr) 312px;gap:22px}
-  #viewHome .hm-panel{order:0;position:sticky;top:68px;padding:14px}
-  #viewHome .hm-live{grid-template-columns:1fr}
-  #viewHome .hm-tools{grid-template-columns:1fr 1fr}
-  #viewHome .hm-tile{flex-direction:row;justify-content:flex-start;gap:9px;min-height:48px;padding:7px 9px}
-  #viewHome .hm-tile i{width:30px;height:30px;font-size:15px}
-  #viewHome .hm-tile span{text-align:left;font-size:12.5px}
-  #viewHome .hm-tile em{position:static;margin-left:auto;flex:none}
+@media(max-width:900px){
+  #viewHome .hm-hero{grid-template-columns:1fr;padding-top:22px}
+  #viewHome .hm-tools{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:700px){
-  #viewHome .hm{padding:0 12px 4px}
-  #viewHome .hm-top{padding:12px 0 10px;gap:10px}
-  #viewHome .hm-brand h1{font-size:18px}
-  #viewHome .hm-brand p{font-size:11.5px}
-  #viewHome .hm-logo{width:40px;height:40px;border-radius:12px}
-  #viewHome .hm-stats{width:100%}
-  #viewHome .hm-stats div{flex:1;min-width:0;padding:6px 4px;display:flex;align-items:baseline;justify-content:center;gap:5px}
-  #viewHome .hm-stats b{display:inline;font-size:15px}
-  #viewHome .hm-stats span{font-size:10.5px}
-  #viewHome .hm-livebtn small{display:none}
-  #viewHome .hm-livebtn{min-height:48px;padding:7px 10px;font-size:13.5px}
-  #viewHome .hm-pill{position:absolute;top:-7px;right:8px;margin:0}
+  #viewHome .hm{padding:0 14px}
+  #viewHome .hm-sec{margin-top:28px}
+  #viewHome .hm-live{grid-template-columns:1fr}
+  #viewHome .hm-hero p{font-size:15px}
   #viewHome .hm-courses .sec-hdr{display:block}
   #viewHome .hm-courses .filters{margin-top:8px;justify-content:stretch}
   #viewHome .hm-courses .search-box{flex:1 1 100%;max-width:none}
   #viewHome .hm-courses .filters select{flex:1}
   #viewHome .course-grid{grid-template-columns:1fr}
-  #viewHome .footer{padding:16px 12px 24px;justify-content:center;text-align:center}
+  #viewHome .hm-band h2,#viewHome .hm-faq h2,#viewHome .hm-ctab h2{font-size:22px}
+  #viewHome .hm-tile{padding:13px}
+  #viewHome .hm-tile span{font-size:14px}
+  #viewHome .footer{padding:16px 14px 24px;justify-content:center;text-align:center}
   #viewHome .footer span:nth-child(2){display:none}
 }
-@media(max-width:360px){#viewHome .hm-tile span{font-size:10.5px}#viewHome .hm-tools{gap:6px}}
 </style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -1639,23 +1668,51 @@ body.chat-on .topbar{display:none}
   <!-- HOME -->
   <div class="view active" id="viewHome">
   <div class="hm">
-    <header class="hm-top">
-      <div class="hm-brand">
-        <div class="hm-logo"><svg viewBox="0 0 100 100" fill="none" stroke-width="8" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg></div>
-        <div><h1>Rajib Tutorial</h1><p>Diploma in Electrical &amp; Electronic Engineering · all 8 semesters</p></div>
+    <!-- HERO -->
+    <section class="hm-hero">
+      <div>
+        <span class="hm-badge">ডিপ্লোমা ইন EEE</span>
+        <h1>সহজ ভাষায় EEE শেখার <em>স্মার্ট সঙ্গী</em></h1>
+        <p>ভিডিও লেসন, লাইভ ক্লাস ও এক্সাম, প্রশ্নব্যাংক আর MCQ প্র্যাকটিস — সব ৮ সেমিস্টারের প্রস্তুতি এখন আরও সহজ, একদম আপনার হাতের মুঠোয়।</p>
+        <div class="hm-cta">
+          <a class="hm-btn pri" href="#coursesAnchor" onclick="document.getElementById('coursesAnchor').scrollIntoView({behavior:'smooth'});return false">কোর্স দেখুন</a>
+          <a class="hm-btn dark" href="RajibTutorial.apk" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg><span>Download App</span></a>
+        </div>
       </div>
-      <div class="hm-stats">
-        <div><b id="statC">–</b><span>Courses</span></div>
-        <div><b id="statV">–</b><span>Video Lessons</span></div>
-        <div><b>8</b><span>Semesters</span></div>
+      <div class="hm-herobox">
+        <div class="hm-herologo"><span><svg viewBox="0 0 100 100" fill="none" stroke-width="8" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg></span><div><b>Rajib Tutorial</b><small>Diploma in Electrical &amp; Electronic Engineering</small></div></div>
+        <div class="hm-stats">
+          <div><b id="statC">–</b><span>কোর্স</span></div>
+          <div><b id="statV">–</b><span>ভিডিও লেসন</span></div>
+          <div><b>8</b><span>সেমিস্টার</span></div>
+        </div>
       </div>
-    </header>
+    </section>
 
-    <div class="hm-grid">
+    <!-- LIVE -->
+    <section class="hm-sec">
+      <div class="hm-sech"><h2>লাইভ ক্লাস ও এক্সাম</h2></div>
+      <div class="hm-live">
+        <button class="hm-lcard cls" id="btnLiveClass" onclick="openLive('class')">
+          <div class="hm-lhead"><span>লাইভ ক্লাস</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg></div>
+          <div class="hm-lbody"><b>ক্লাসে জয়েন করুন</b><small>চলমান ও আসন্ন ক্লাসের লিংক এখানে পাবেন</small>
+            <div class="hm-lfoot"><span>Join the class</span><span class="hm-pill">LIVE</span></div></div>
+        </button>
+        <button class="hm-lcard exam" id="btnLiveExam" onclick="openLive('exam')">
+          <div class="hm-lhead"><span>লাইভ এক্সাম</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></div>
+          <div class="hm-lbody"><b>পরীক্ষা ও ফলাফল</b><small>শিডিউল করা MCQ পরীক্ষা, উত্তর ও র‍্যাংক</small>
+            <div class="hm-lfoot"><span>Exams &amp; results</span><span class="hm-pill">LIVE</span></div></div>
+        </button>
+      </div>
+      <div class="live-info" id="liveInfo"></div>
+    </section>
+
+    <!-- CATALOGUE -->
+    <div class="hm-sec">
       <section class="courses-section hm-courses" id="coursesAnchor">
       <div class="sec-hdr">
         <div>
-          <div class="sec-title">Course Catalogue</div>
+          <div class="sec-title">কোর্স ক্যাটালগ</div>
           <div class="sec-sub" id="cntLabel"></div>
         </div>
         <div class="filters">
@@ -1669,27 +1726,43 @@ body.chat-on .topbar{display:none}
       </div>
       <div id="courseGridWrap"><div class="loader"><div class="spin"></div>Loading courses…</div></div>
     </section>
-
-      <aside class="hm-panel" aria-label="Quick access">
-        <div class="hm-lbl">Live</div>
-        <div class="hm-live">
-          <button class="hm-livebtn cls" id="btnLiveClass" onclick="openLive('class')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg></span><span>Live Class<small>Join the class</small></span><span class="hm-pill">LIVE</span></button>
-          <button class="hm-livebtn" id="btnLiveExam" onclick="openLive('exam')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></span><span>Live Exam<small>Exams &amp; results</small></span><span class="hm-pill">LIVE</span></button>
-        </div>
-        <div class="live-info" id="liveInfo"></div>
-        <div class="hm-lbl">Quick access</div>
-        <div class="hm-tools">
-          <button class="hm-tile" onclick="openRes('circular')"><i>📢</i><span>Current Circular</span></button>
-          <button class="hm-tile" onclick="openRes('qbank')"><i>📚</i><span>Question Bank</span></button>
-          <button class="hm-tile" onclick="openRes('recent')"><i>🆕</i><span>Recent Questions</span></button>
-          <button class="hm-tile" onclick="openQB()"><i>📝</i><span>MCQ Practice</span></button>
-          <button class="hm-tile" onclick="openDiscussion()"><i>💬</i><span>Discussion</span><em>PRO</em></button>
-          <button class="hm-tile" onclick="openInbox()"><i>🔔</i><span>Notifications</span></button>
-          <button class="hm-tile" onclick="openOffline()"><i>📥</i><span>Offline Lessons</span></button>
-          <button class="hm-tile" id="tilePremium" onclick="openPremiumGate()"><i>⭐</i><span>Go Premium</span></button>
-        </div>
-      </aside>
     </div>
+  </div>
+
+  <!-- FREE RESOURCES -->
+  <section class="hm-band" aria-label="ফ্রি রিসোর্স">
+    <div class="hm">
+      <div class="hm-head"><span class="hm-badge">ফ্রি রিসোর্স</span><h2>প্রস্তুতির সব রিসোর্স এক জায়গায়</h2><p>সার্কুলার, প্রশ্নব্যাংক, MCQ প্র্যাকটিস আর আরও অনেক কিছু</p></div>
+      <div class="hm-tools">
+        <button class="hm-tile" onclick="openRes('circular')"><i>📢</i><span>Current Circular</span><small>সর্বশেষ নোটিশ ও সার্কুলার</small></button>
+        <button class="hm-tile" onclick="openRes('qbank')"><i>📚</i><span>Question Bank</span><small>আগের প্রশ্ন ও সমাধান</small></button>
+        <button class="hm-tile" onclick="openRes('recent')"><i>🆕</i><span>Recent Questions</span><small>সাম্প্রতিক পরীক্ষার প্রশ্ন</small></button>
+        <button class="hm-tile" onclick="openQB()"><i>📝</i><span>MCQ Practice</span><small>অনুশীলন, পড়া ও এক্সাম মোড</small></button>
+        <button class="hm-tile" onclick="openDiscussion()"><i>💬</i><span>Discussion</span><small>প্রশ্ন করুন, আলোচনা করুন</small><em>PRO</em></button>
+        <button class="hm-tile" onclick="openInbox()"><i>🔔</i><span>Notifications</span><small>নতুন আপডেট ও বিজ্ঞপ্তি</small></button>
+        <button class="hm-tile" onclick="openOffline()"><i>📥</i><span>Offline Lessons</span><small>সেভ করা লেসন অফলাইনে দেখুন</small></button>
+        <button class="hm-tile" id="tilePremium" onclick="openPremiumGate()"><i>⭐</i><span>Go Premium</span><small>সব ফিচার আনলক করুন</small></button>
+      </div>
+    </div>
+  </section>
+
+  <div class="hm">
+    <!-- FAQ -->
+    <section class="hm-sec hm-faq">
+      <div class="hm-head"><span class="hm-badge">সাধারণ জিজ্ঞাসা</span><h2>FAQ</h2></div>
+      <details><summary>Rajib Tutorial কী? কাদের জন্য?</summary><p>এটি ডিপ্লোমা ইন ইলেকট্রিক্যাল অ্যান্ড ইলেকট্রনিক ইঞ্জিনিয়ারিং (EEE) শিক্ষার্থীদের জন্য — সব ৮ সেমিস্টারের ভিডিও লেসন, লাইভ ক্লাস ও এক্সাম, প্রশ্নব্যাংক আর MCQ প্র্যাকটিস এক জায়গায়।</p></details>
+      <details><summary>কিভাবে শুরু করব?</summary><p>উপরের কোর্স ক্যাটালগ থেকে সেমিস্টার বেছে নিন, পছন্দের কোর্সে ক্লিক করুন এবং ভিডিও লেসনগুলো ধারাবাহিকভাবে দেখুন। কোর্স খুঁজতে সার্চ বক্সও ব্যবহার করতে পারেন।</p></details>
+      <details><summary>লাইভ ক্লাস ও এক্সামে কীভাবে অংশ নেব?</summary><p>লাইভ চালু থাকলে Live Class বা Live Exam কার্ডে লাল LIVE ব্যাজ দেখা যায়। কার্ডে ক্লিক করে ক্লাসে জয়েন করুন বা পরীক্ষা শুরু করুন। পরীক্ষা শেষ হওয়ার পর নির্ধারিত সময়ে ফলাফল ও র‍্যাংক দেখা যায়।</p></details>
+      <details><summary>MCQ প্র্যাকটিস কীভাবে কাজ করে?</summary><p>MCQ Practice-এ তিনটি মোড আছে — Practice, Read ও Exam। প্রশ্ন বুকমার্ক করা, নাইট মোড এবং টাইমার সুবিধাও পাবেন।</p></details>
+      <details><summary>ইন্টারনেট ছাড়া ভিডিও দেখা যাবে?</summary><p>অ্যাপ বা ডেস্কটপ ভার্সনে লেসন অফলাইনের জন্য সেভ করে রাখা যায়। সেভ করা লেসনগুলো Offline Lessons থেকে দেখুন।</p></details>
+    </section>
+
+    <!-- BOTTOM CTA -->
+    <section class="hm-ctab">
+      <h2>শুরু করুন এখনই</h2>
+      <p>EEE প্রস্তুতি এখন আরও স্মার্ট, আরও সহজ আর একদম আপনার মুঠোফোনে</p>
+      <div class="hm-cta"><a class="hm-btn light" href="RajibTutorial.apk" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg><span>Download App</span></a></div>
+    </section>
   </div>
 
     <footer class="footer">
