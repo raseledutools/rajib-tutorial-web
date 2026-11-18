@@ -2837,18 +2837,30 @@ function mountYT(box,id,o={}){
   const QL={hd2160:"2160p",hd1440:"1440p",hd1080:"1080p",hd720:"720p",large:"480p",medium:"360p",small:"240p",tiny:"144p"};
   const qb=q(".ytp-q"),qm=q(".ytp-qm");let curQ="auto",qRestore=null,qTries=0,qReloaded=false;
   // YouTube treats quality only as a hint and silently goes back to the highest one, so re-apply the chosen level
+  const eff=()=>curQ==="auto"?"large":curQ;  // Auto = 480p
+  const QW={hd2160:3840,hd1440:2560,hd1080:1920,hd720:1280,large:854,medium:640,small:426,tiny:256};
+  // YouTube picks quality from the player's pixel size, so give the iframe a layout size that matches the chosen
+  // quality and scale it up to fill the area (looks the same, but YouTube can no longer pick a higher level)
+  const frameEl=wrap.querySelector(".ytp-frame");
+  const fitFrame=()=>{
+    const w=wrap.clientWidth,h=wrap.clientHeight;if(!w||!h||!frameEl)return;
+    const H=h+144,lw=Math.max(160,Math.round(QW[eff()]/(window.devicePixelRatio||1))),lh=Math.round(lw*H/w),sc=w/lw;
+    frameEl.style.cssText="left:0;top:-72px;right:auto;bottom:auto;width:"+lw+"px;height:"+lh+"px;transform-origin:0 0;transform:scale("+sc+")";
+  };
+  fitFrame();
+  try{new ResizeObserver(fitFrame).observe(wrap)}catch(_){window.addEventListener("resize",fitFrame)}
   const applyQ=()=>{
-    if(curQ==="auto"||!pl||!pl.getPlaybackQuality)return;
-    try{pl.setPlaybackQualityRange&&pl.setPlaybackQualityRange(curQ,curQ)}catch(_){}
-    try{pl.setPlaybackQuality&&pl.setPlaybackQuality(curQ)}catch(_){}
+    if(!pl||!pl.getPlaybackQuality)return;const e=eff();
+    try{pl.setPlaybackQualityRange&&pl.setPlaybackQualityRange(e,e)}catch(_){}
+    try{pl.setPlaybackQuality&&pl.setPlaybackQuality(e)}catch(_){}
   };
   const checkQ=()=>{
-    if(curQ==="auto"||!pl||!pl.getPlaybackQuality)return;
+    if(!pl||!pl.getPlaybackQuality)return;
     let cur="";try{cur=pl.getPlaybackQuality()}catch(_){}
-    if(!cur||cur===curQ||cur==="unknown")return;
+    if(!cur||cur===eff()||cur==="unknown")return;
     if(qTries++<6){applyQ();return}
     // still not honoured: one forced reload at the same second
-    if(!qReloaded){qReloaded=true;try{const t=pl.getCurrentTime()||0;pl.loadVideoById({videoId:id,startSeconds:t,suggestedQuality:curQ});setTimeout(applyQ,600)}catch(_){}}
+    if(!qReloaded){qReloaded=true;try{const t=pl.getCurrentTime()||0;pl.loadVideoById({videoId:id,startSeconds:t,suggestedQuality:eff()});setTimeout(applyQ,600)}catch(_){}}
   };
   const closeQ=()=>{qm.style.display="none"};
   if(o.live) qb.style.display="none";
@@ -2857,15 +2869,15 @@ function mountYT(box,id,o={}){
     if(qm.style.display==="block"){closeQ();return}
     let lv=[];try{lv=(pl&&pl.getAvailableQualityLevels&&pl.getAvailableQualityLevels())||[]}catch(_){}
     lv=lv.filter(x=>QL[x]);if(!lv.length)lv=["hd1080","hd720","large","medium","small","tiny"];
-    qm.innerHTML=["auto",...lv].map(x=>`<div data-q="${x}" class="${x===curQ?"on":""}">${x==="auto"?"Auto":QL[x]}</div>`).join("");
+    qm.innerHTML=["auto",...lv].map(x=>`<div data-q="${x}" class="${x===curQ?"on":""}">${x==="auto"?"Auto (480p)":QL[x]}</div>`).join("");
     qm.style.display="block";showBar();
   });
   qm.addEventListener("click",e=>{
     e.stopPropagation();
     const x=e.target&&e.target.dataset&&e.target.dataset.q;if(!x)return;
-    closeQ();curQ=x;qb.textContent=x==="auto"?"Auto":QL[x];
+    closeQ();curQ=x;qb.textContent=x==="auto"?"Auto":QL[x];fitFrame();
     if(!pl||!pl.getCurrentTime)return;
-    const qq=x==="auto"?"default":x;
+    const qq=eff();
     qRestore={t:pl.getCurrentTime()||0,rate:pl.getPlaybackRate?pl.getPlaybackRate():1,play:playing};
     qTries=0;qReloaded=false;
     applyQ();
@@ -2883,7 +2895,7 @@ function mountYT(box,id,o={}){
               fs:0,disablekb:1,cc_load_policy:0,start:Math.floor(o.start||0)};
     if(/^https?:$/.test(location.protocol)) pv.origin=location.origin;
     pl=new YT.Player(uid,{host:"https://www.youtube-nocookie.com",videoId:id,playerVars:pv,events:{
-      onReady:()=>{box._yt=pl;ready=true;
+      onReady:()=>{box._yt=pl;ready=true;applyQ();
         // a different lesson was picked while the player was still starting up -> load that one now
         if(id!==startedId){try{pl.loadVideoById({videoId:id,startSeconds:0})}catch(_){}}
         if(o.onReady)o.onReady(pl)},
@@ -2899,9 +2911,9 @@ function mountYT(box,id,o={}){
     }});
     box._yt=pl;
     box._ytLoad=nid=>{id=nid;qRestore=null;cover.style.backgroundImage="url(https://i.ytimg.com/vi/"+nid+"/hqdefault.jpg)";cover.classList.remove("off");
-      curQ="auto";qTries=0;qReloaded=false;qb.textContent="Auto";
+      curQ="auto";qTries=0;qReloaded=false;qb.textContent="Auto";fitFrame();
       if(!ready)return; // onReady loads the latest id
-      try{pl.loadVideoById({videoId:nid,startSeconds:0})}catch(_){}};
+      try{pl.loadVideoById({videoId:nid,startSeconds:0,suggestedQuality:eff()});setTimeout(applyQ,600)}catch(_){}};
     box._ytTimer=setInterval(()=>{
       if(!pl||!pl.getDuration)return;
       const d=pl.getDuration()||0,c=pl.getCurrentTime()||0;
