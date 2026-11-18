@@ -77,6 +77,26 @@ ipcRenderer.on('update:state', (_e, st) => { lastUpdate = st || { status: 'idle'
 window.addEventListener('DOMContentLoaded', () => { ipcRenderer.send('update:get'); renderUpdateBtn(); });
 window.addEventListener('load', renderUpdateBtn);
 
+
+// Focus Mode: floating button (above the update-check button) opens the Focus window
+let focusOn = false;
+function renderFocusBtn() {
+  if (location.protocol === 'file:') return;
+  let f = document.getElementById('__rt_focus');
+  if (!f) {
+    f = document.createElement('button');
+    f.id = '__rt_focus';
+    f.style.cssText = 'position:fixed;right:14px;bottom:58px;z-index:2147483646;border:0;border-radius:999px;padding:8px 14px;color:#fff;font:600 12.5px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);backdrop-filter:blur(6px)';
+    f.onclick = () => ipcRenderer.send('focus:open');
+    (document.body || document.documentElement).appendChild(f);
+  }
+  f.textContent = focusOn ? '🎯 Focus চলছে' : '🎯 Focus Mode';
+  f.style.background = focusOn ? 'rgba(22,163,74,.92)' : 'rgba(12,168,176,.92)';
+}
+ipcRenderer.on('focus:badge', (_e, on) => { focusOn = !!on; renderFocusBtn(); });
+window.addEventListener('DOMContentLoaded', renderFocusBtn);
+window.addEventListener('load', renderFocusBtn);
+
 // Expose a safe bridge so the website can open URLs inside the Electron app
 // (used by openInAppBrowser for YouTube, Google, YouTube Studio etc.)
 contextBridge.exposeInMainWorld('ElectronShell', {
