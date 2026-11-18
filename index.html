@@ -515,6 +515,8 @@ body{color:var(--text)}
 }
 
 /* ── Fullscreen video overlay ───────────────────────────── */
+.player-area:fullscreen{border-radius:0!important;border:0!important;aspect-ratio:auto!important;width:100vw!important;height:100vh!important}
+.player-area:-webkit-full-screen{border-radius:0!important;border:0!important;aspect-ratio:auto!important;width:100vw!important;height:100vh!important}
 #fsOverlay{display:none;position:fixed;inset:0;z-index:9999;background:#000}
 #fsOverlay.show{display:block}
 #fsOverlay iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
@@ -4160,11 +4162,32 @@ window.toggleFullscreen=function(){
   if(!curVideo?.url) return;
   const id=ytId(curVideo.url);
   if(!id) return;
+  const area=$("playerArea");
+  const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
+  // already fullscreen on the real player -> exit (same player keeps playing, no reload)
+  if(fsEl===area){
+    try{const ef=document.exitFullscreen||document.webkitExitFullscreen;const r=ef.call(document);if(r&&r.catch)r.catch(()=>{})}catch(e){}
+    return;
+  }
+  // Fullscreen the SAME player element (no destroy / re-create) so the already
+  // buffered video keeps playing smoothly instead of starting to buffer again.
+  const rf=area.requestFullscreen||area.webkitRequestFullscreen;
+  if(rf&&area._yt){
+    const ok=()=>{$("fsLabel").textContent="Exit";try{location.href="rtapp://fullscreen"}catch(e){}};
+    try{
+      const r=rf.call(area);
+      if(r&&r.then)r.then(ok).catch(()=>legacyFs(id));else ok();
+      return;
+    }catch(e){}
+  }
+  legacyFs(id);
+};
+function legacyFs(id){
   const main=$("playerArea")._yt;
   let t=0;
   try{t=main.getCurrentTime()||0;main.pauseVideo()}catch(e){}
   openFsOverlay(id,t);
-};
+}
 
 function openFsOverlay(id,start){
   const ov=$("fsOverlay");
@@ -4195,7 +4218,12 @@ window.closeFsOverlay=function(){
 
 ["fullscreenchange","webkitfullscreenchange"].forEach(ev=>document.addEventListener(ev,()=>{
   const ov=$("fsOverlay");
-  if(ov&&ov.classList.contains("show")&&!document.fullscreenElement&&!document.webkitFullscreenElement)closeFsOverlay();
+  if(ov&&ov.classList.contains("show")&&!document.fullscreenElement&&!document.webkitFullscreenElement){closeFsOverlay();return}
+  // fullscreen on the main player ended (Esc / Exit button)
+  if(!document.fullscreenElement&&!document.webkitFullscreenElement){
+    const fl=$("fsLabel");
+    if(fl&&fl.textContent==="Exit"){fl.textContent="Fullscreen";try{location.href="rtapp://exitfullscreen"}catch(e){}}
+  }
 }));
 
 // ─── Premium membership ──────────────────────────────────
