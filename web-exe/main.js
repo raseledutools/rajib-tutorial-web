@@ -3,11 +3,18 @@ const { app, BrowserWindow, Menu, session, shell, clipboard, globalShortcut, ipc
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { Readable } = require('stream');
+const vidstore = require('./vidstore');
 
 const SITE = 'https://raseledutools.github.io/rajib-tutorial-web/';
 const SITE_ORIGIN = new URL(SITE).origin;
 const PACKAGED = app.isPackaged;
 let win = null;
+
+// rtvid://  — plays saved lesson videos from disk (with Range support so seeking works)
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'rtvid', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: true } },
+]);
 
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
@@ -84,6 +91,32 @@ function setOfflineHandling(on) {
     probeTimer.unref();
   }
 }
+
+/* ---------- Offline lesson videos ----------
+   Direct video files are saved to disk by the main process (userData/offline-videos): resumable,
+   not held in RAM, served back through rtvid:// . YouTube lessons can't be saved. */
+let vids = null;
+function trusted(e) { return !!win && !win.isDestroyed() && e.sender === win.webContents; }
+function initVideos() {
+  vids = vidstore.create(path.join(app.getPath('userData'), 'offline-videos'), (ev) => {
+    if (win && !win.isDestroyed()) win.webContents.send('vid:event', ev);
+  });
+  protocol.handle('rtvid', (request) => {
+    try {
+      const id = decodeURIComponent(new URL(request.url).pathname.slice(1));
+      const r = vids.open(id, request.headers.get('range'));
+      if (!r) return new Response('not found', { status: 404 });
+      if (!r.stream) return new Response(null, { status: r.status, headers: r.headers });
+      return new Response(Readable.toWeb(r.stream), { status: r.status, headers: r.headers });
+    } catch (_) { return new Response('error', { status: 500 }); }
+  });
+}
+ipcMain.handle('vid:list', (e) => (trusted(e) && vids ? vids.list() : []));
+ipcMain.handle('vid:active', (e) => (trusted(e) && vids ? vids.activeList() : []));
+ipcMain.handle('vid:has', (e, id, url) => (trusted(e) && vids ? vids.info(String(id), String(url || '')) : null));
+ipcMain.handle('vid:start', (e, o) => (trusted(e) && vids ? vids.start(o) : { error: 'unavailable' }));
+ipcMain.handle('vid:remove', (e, id) => (trusted(e) && vids ? vids.remove(String(id)) : false));
+ipcMain.on('vid:cancel', (e, id) => { if (trusted(e) && vids) vids.cancel(String(id)); });
 
 /* Screenshot / screen-record protection. */
 function protect(w) {
@@ -365,6 +398,7 @@ app.whenReady().then(() => {
     { urls: ['https://www.youtube.com/embed/*', 'https://www.youtube-nocookie.com/embed/*'] },
     (d, cb) => { d.requestHeaders['Referer'] = SITE; cb({ requestHeaders: d.requestHeaders }); });
   try { session.defaultSession.preconnect({ url: SITE_ORIGIN, numSockets: 2 }); } catch (_) {}
+  try { initVideos(); } catch (_) {}
   create();
   setTimeout(initUpdater, 1500);
   try { globalShortcut.register('PrintScreen', () => { try { clipboard.clear(); } catch (_) {} }); } catch (_) {}

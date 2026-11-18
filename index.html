@@ -2074,8 +2074,20 @@ try{
   db=IS_EXE?initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentSingleTabManager()})}):getFirestore(app);
 }catch(e){db=getFirestore(app)}
 const _offNow=()=>IS_EXE&&navigator.onLine===false;
-const getDocs=q=>_offNow()?getDocsFromCache(q):_getDocs(q);
-const getDoc=r=>_offNow()?getDocFromCache(r):_getDoc(r);
+// Online-but-unreachable (Wi-Fi without internet): after a few seconds use the saved copy instead of hanging.
+const _race=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),ms))]);
+const getDocs=q=>{
+  if(!IS_EXE)return _getDocs(q);
+  if(_offNow())return getDocsFromCache(q);
+  const p=_getDocs(q);p.catch(()=>{});
+  return _race(p,8000).catch(async()=>{try{const c=await getDocsFromCache(q);if(!c.empty)return c}catch(e){}return p});
+};
+const getDoc=r=>{
+  if(!IS_EXE)return _getDoc(r);
+  if(_offNow())return getDocFromCache(r);
+  const p=_getDoc(r);p.catch(()=>{});
+  return _race(p,6000).catch(async()=>{try{const c=await getDocFromCache(r);if(c.exists())return c}catch(e){}return p});
+};
 
 // ─── Icons ───────────────────────────────────────────────
 const I = {
@@ -2716,10 +2728,11 @@ async function _playVideo(vid){
     area.innerHTML="";
     mountYT(area,ytId(curVideo.url),{autoplay:1});
   }else if(curVideo.url){
-    let src=curVideo.url,_ob=null;
-    try{_ob=await OFF.blob(curVideo.id);if(_ob){if(window._offUrl)URL.revokeObjectURL(window._offUrl);src=window._offUrl=URL.createObjectURL(_ob)}}catch(e){}
+    let src=curVideo.url,_ob=null,_nat=false;
+    if(NV){try{if(await NV.has(curVideo.id,curVideo.url)){src=NV.src(curVideo.id);_nat=true}}catch(e){}}
+    if(!_nat){try{_ob=await offLegacyBlob(curVideo);if(_ob){if(window._offUrl)URL.revokeObjectURL(window._offUrl);src=window._offUrl=URL.createObjectURL(_ob)}}catch(e){}}
     if(curVideo.id!==want.id)return;
-    if(!_ob&&IS_EXE&&navigator.onLine===false){
+    if(!_ob&&!_nat&&IS_EXE&&navigator.onLine===false){
       area.innerHTML=placeholder(I.warn,"এই lesson offline save করা নেই — internet লাগবে");
       $("playerTitle").textContent=curVideo.title;$("playerMeta").textContent=curVideo.durationMinutes?`${curVideo.durationMinutes} min`:"";
       _loadingVid=null;vState="idle";bufHide(area);renderVlist();offBarRender(curVideo);return;
@@ -4009,6 +4022,31 @@ const OFF={
   save(m,b){return this._do(["meta","blob"],"readwrite",t=>{t.objectStore("blob").put(b,m.id);return t.objectStore("meta").put(m)})},
   remove(id){return this._do(["meta","blob"],"readwrite",t=>{t.objectStore("blob").delete(id);return t.objectStore("meta").delete(id)})}
 };
+// Windows exe (new builds): lessons are saved to disk by the app itself (resumable, not held in RAM).
+// Old exe builds / the website keep using the IndexedDB store above.
+const NV=(IS_EXE&&window.ElectronShell&&window.ElectronShell.vid)||null;
+// IndexedDB copy, ignored when the admin has since replaced the video URL
+async function offLegacyBlob(v){
+  const m=await OFF.meta(v.id);
+  if(!m||(m.url&&v.url&&m.url!==v.url))return null;
+  return OFF.blob(v.id);
+}
+async function offMeta(v){
+  if(NV){try{const m=await NV.has(v.id,v.url);if(m)return m}catch(e){}}
+  try{const m=await OFF.meta(v.id);if(m&&(!m.url||!v.url||m.url===v.url))return m}catch(e){}
+  return null;
+}
+async function offListAll(){
+  let a=[],b=[];
+  if(NV){try{a=await NV.list()}catch(e){}}
+  try{b=await OFF.list()}catch(e){}
+  const ids=new Set(a.map(x=>x.id));
+  return a.concat(b.filter(x=>!ids.has(x.id)));
+}
+async function offRemoveAny(id){
+  if(NV){try{await NV.remove(id)}catch(e){}}
+  try{await OFF.remove(id)}catch(e){}
+}
 const offDirect=v=>!!(v&&v.url&&/^https?:\/\//i.test(v.url)&&!ytEmbed(v.url));
 const offMB=n=>(n/1048576).toFixed(1)+" MB";
 const offBusy={};
@@ -4019,7 +4057,7 @@ async function offBarRender(v,pct,got){
   if(offBusy[v.id]){
     bar.innerHTML=`<span style="font-size:13px">⬇ Downloading… ${pct>=0?pct+"%":offMB(got||0)}</span>`;return;
   }
-  let m=null;try{m=await OFF.meta(v.id)}catch(e){}
+  const m=await offMeta(v);
   if(!curVideo||curVideo.id!==v.id)return;
   bar.innerHTML=m
     ?`<span style="font-size:13px;margin-right:10px">✅ Offline saved (${offMB(m.size||0)})</span><button style="${bs};background:#64748b" onclick="offRemoveCur()">Remove</button>`
@@ -4032,7 +4070,7 @@ const offCtl={};                // id -> AbortController
 const offVid=id=>(curCourse&&curCourse.videos||[]).find(x=>x.id===id)||null;
 async function offRefresh(){
   if(!IS_EXE)return;
-  try{offSet=new Set((await OFF.list()).map(m=>m.id))}catch(e){}
+  try{offSet=new Set((await offListAll()).map(m=>m.id))}catch(e){}
   renderVlist();
 }
 function offIcon(v){
@@ -4053,10 +4091,10 @@ function offTick(id){
 }
 window.offToggle=function(id){
   const v=offVid(id);if(!v)return;
-  if(offBusy[id]){try{offCtl[id]&&offCtl[id].abort()}catch(e){}return}
+  if(offBusy[id]){if(NV){NV.cancel(id)}else{try{offCtl[id]&&offCtl[id].abort()}catch(e){}}return}
   if(offSet.has(id)){
     if(!confirm("Ei offline video ti remove korben?"))return;
-    OFF.remove(id).then(()=>{offSet.delete(id);offTick(id);offBarRender(v);showToast("Offline copy remove hoyeche")}).catch(()=>{});
+    offRemoveAny(id).then(()=>{offSet.delete(id);offTick(id);offBarRender(v);showToast("Offline copy remove hoyeche")});
     return;
   }
   offDownload(v);
@@ -4066,6 +4104,18 @@ async function offDownload(v){
   if(navigator.onLine===false){showToast("Internet nei — download kora jabe na");return}
   const id=v.id,ctl=new AbortController();
   offBusy[id]=1;offProg[id]=0;offCtl[id]=ctl;offTick(id);offBarRender(v,0,0);
+  if(NV){
+    // the app downloads straight to disk (resumes after a dropped connection / restart); progress comes via vid events
+    try{
+      const r=await NV.start({id,url:v.url,title:v.title||"",course:(curCourse&&curCourse.title)||""});
+      if(r&&(r.error||r.status==="saved")){
+        delete offBusy[id];delete offProg[id];delete offCtl[id];
+        if(r.status==="saved")offSet.add(id);else showToast("❌ Save hoyni: "+r.error);
+        offTick(id);offBarRender(v);
+      }
+    }catch(e){delete offBusy[id];delete offProg[id];delete offCtl[id];offTick(id);offBarRender(v);showToast("❌ Save hoyni")}
+    return;
+  }
   try{
     try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
     const r=await fetch(v.url,{signal:ctl.signal});if(!r.ok)throw new Error("HTTP "+r.status);
@@ -4079,7 +4129,7 @@ async function offDownload(v){
       }
     }else{const b=await r.blob();parts.push(b);got=b.size}
     const blob=new Blob(parts,{type:r.headers.get("content-type")||"video/mp4"});
-    await OFF.save({id,title:v.title||"",course:(curCourse&&curCourse.title)||"",size:blob.size,at:Date.now()},blob);
+    await OFF.save({id,url:v.url,title:v.title||"",course:(curCourse&&curCourse.title)||"",size:blob.size,at:Date.now()},blob);
     offSet.add(id);
     showToast("✅ Offline e save hoyeche");
   }catch(e){
@@ -4095,22 +4145,35 @@ const offAutoTried={};
 async function offAuto(v){
   if(offAutoTried[v.id]||offBusy[v.id])return;
   offAutoTried[v.id]=1;
-  try{if(await OFF.meta(v.id))return}catch(e){return}
+  try{if(await offMeta(v))return}catch(e){return}
   if(curVideo&&curVideo.id===v.id)offDownloadCur();
 }
 window.offRemoveCur=async function(){
   const v=curVideo;if(!v)return;
-  try{await OFF.remove(v.id);offSet.delete(v.id);showToast("Offline copy remove hoyeche")}catch(e){}
+  try{await offRemoveAny(v.id);offSet.delete(v.id);showToast("Offline copy remove hoyeche")}catch(e){}
   offBarRender(v);offTick(v.id);
 };
-if(IS_EXE){window.addEventListener("online",()=>{renderVlist()});window.addEventListener("offline",()=>{renderVlist()});OFF.list().then(l=>{offSet=new Set(l.map(m=>m.id))}).catch(()=>{})}
+if(IS_EXE){window.addEventListener("online",()=>{renderVlist()});window.addEventListener("offline",()=>{renderVlist()});offListAll().then(l=>{offSet=new Set(l.map(m=>m.id));renderVlist()}).catch(()=>{})}
+if(NV){
+  // downloads keep running in the app even if the page is reloaded: pick up the ones already running
+  NV.active().then(a=>{(a||[]).forEach(x=>{offBusy[x.id]=1;offProg[x.id]=x.pct});renderVlist()}).catch(()=>{});
+  NV.onEvent(ev=>{
+    if(!ev||!ev.id)return;const id=ev.id,v=offVid(id);
+    if(ev.type==="progress"){offBusy[id]=1;offProg[id]=ev.pct;offTick(id);if(v)offBarRender(v,ev.pct,ev.got);return}
+    delete offBusy[id];delete offProg[id];delete offCtl[id];
+    if(ev.type==="done"){offSet.add(id);showToast("✅ Offline e save hoyeche")}
+    else if(ev.type==="cancel"){showToast("Download cancel kora hoyeche")}
+    else{showToast("⚠ Save adhura — net ashle abar chalaole ja baki ta theke shuru hobe")}
+    offTick(id);if(v)offBarRender(v);if($("viewOffline")&&$("viewOffline").classList.contains("active"))offRender();
+  });
+}
 window.openOffline=function(){goView("viewOffline");closeSidebar()};
 window.offRender=async function(){
   const box=$("offList"),pl=$("offPlayer");if(!box)return;
   if(window._offUrl2){try{URL.revokeObjectURL(window._offUrl2)}catch(e){}window._offUrl2=null}
   pl.innerHTML="";
   if(!(adminIn||isPremium())){box.innerHTML='<div class="empty" style="padding:30px 10px"><p>Offline lesson dekhte Premium login korun.</p></div>';return}
-  let list=[];try{list=await OFF.list()}catch(e){}
+  let list=[];try{list=await offListAll()}catch(e){}
   list.sort((a,b)=>(b.at||0)-(a.at||0));
   box.innerHTML=list.length?list.map(m=>`
     <div style="display:flex;align-items:center;gap:10px;padding:12px;margin-bottom:8px;background:#fff;border:1px solid var(--border);border-radius:12px">
@@ -4121,16 +4184,20 @@ window.offRender=async function(){
 };
 window.offPlay=async function(id){
   try{
-    const b=await OFF.blob(id);if(!b){showToast("Video paoa jayni");return}
-    if(window._offUrl2)URL.revokeObjectURL(window._offUrl2);
-    window._offUrl2=URL.createObjectURL(b);
-    $("offPlayer").innerHTML=`<div style="position:relative;padding-top:56.25%;background:#000;border-radius:12px;overflow:hidden;margin-bottom:14px"><video controls autoplay playsinline controlsList="nodownload" src="${window._offUrl2}" style="position:absolute;inset:0;width:100%;height:100%"></video></div>`;
+    let src=null;
+    if(NV){try{if(await NV.has(id,""))src=NV.src(id)}catch(e){}}
+    if(!src){
+      const b=await OFF.blob(id);if(!b){showToast("Video paoa jayni");return}
+      if(window._offUrl2)URL.revokeObjectURL(window._offUrl2);
+      src=window._offUrl2=URL.createObjectURL(b);
+    }
+    $("offPlayer").innerHTML=`<div style="position:relative;padding-top:56.25%;background:#000;border-radius:12px;overflow:hidden;margin-bottom:14px"><video controls autoplay playsinline controlsList="nodownload" src="${esc(src)}" style="position:absolute;inset:0;width:100%;height:100%"></video></div>`;
     window.scrollTo(0,0);
   }catch(e){showToast("Play kora jayni")}
 };
 window.offDel=async function(id){
   if(!confirm("Ei offline video ti remove korben?"))return;
-  try{await OFF.remove(id);offSet.delete(id)}catch(e){}
+  try{await offRemoveAny(id);offSet.delete(id)}catch(e){}
   offRender();renderVlist();
 };
 

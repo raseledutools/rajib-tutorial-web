@@ -23,6 +23,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "vidstore.js",
       "offline.html",
       "splash.html",
       "package.json"
