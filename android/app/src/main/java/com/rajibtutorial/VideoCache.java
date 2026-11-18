@@ -50,10 +50,29 @@ final class VideoCache {
         return url != null && (url.contains("youtube.com") || url.contains("youtu.be"));
     }
 
-    /** Returns the cached file path if the video is fully downloaded, else null. */
+    /** Offline copies of directly-hosted videos are temporary: they expire after this many days. */
+    static final long OFFLINE_DAYS   = 7;
+    private static final long MAX_AGE_MS = OFFLINE_DAYS * 24L * 60 * 60 * 1000;
+
+    /** Returns the cached file path if the video is fully downloaded and not expired, else null. */
     static String getLocalPath(Context ctx, String videoId) {
         File f = cacheFile(ctx, videoId);
-        return (f.exists() && f.length() > 0) ? f.getAbsolutePath() : null;
+        if (!f.exists() || f.length() <= 0) return null;
+        if (System.currentTimeMillis() - f.lastModified() > MAX_AGE_MS) {
+            // expired temporary copy — remove it; it will be re-saved next time it is played online
+            //noinspection ResultOfMethodCallIgnored
+            f.delete();
+            return null;
+        }
+        return f.getAbsolutePath();
+    }
+
+    /** Whole days left before the offline copy expires (0 if none / expired). */
+    static int daysLeft(Context ctx, String videoId) {
+        File f = cacheFile(ctx, videoId);
+        if (!f.exists()) return 0;
+        long left = MAX_AGE_MS - (System.currentTimeMillis() - f.lastModified());
+        return left <= 0 ? 0 : (int) Math.ceil(left / 86400000.0);
     }
 
     static boolean isDownloaded(Context ctx, String videoId) {
@@ -126,6 +145,7 @@ final class VideoCache {
                 in.close();
                 // rename tmp → final
                 tmpFile.renameTo(cacheFile(appCtx, videoId));
+                cacheFile(appCtx, videoId).setLastModified(System.currentTimeMillis()); // start the 7-day timer
                 sProgress.remove(videoId);
                 sCancel.remove(videoId);
                 notifyListener(videoId, 100);
