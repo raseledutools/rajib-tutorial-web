@@ -20,6 +20,14 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'rtvid', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: true } },
 ]);
 
+// Smooth video: keep GPU decoding / rasterization on and never let the renderer be throttled.
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => { showMain(); });
 
@@ -124,10 +132,13 @@ ipcMain.on('vid:cancel', (e, id) => { if (trusted(e) && vids) vids.cancel(String
 
 /* Screenshot / screen-record protection. */
 function protect(w) {
-  const apply = () => { try { w.setContentProtection(true); } catch (_) {} };
+  // Re-calling setContentProtection (the old 2s timer + focus/maximize hooks) forces DWM to recompose
+  // the window, which showed up as video stutter / endless buffering. The affinity sticks, so set it once
+  // and again only after the window is shown.
+  let on = false;
+  const apply = () => { if (on) return; try { w.setContentProtection(true); on = true; } catch (_) {} };
   apply();
-  ['show', 'restore', 'focus', 'maximize', 'unmaximize', 'leave-full-screen'].forEach((ev) => w.on(ev, apply));
-  setInterval(apply, 2000).unref();
+  w.once('show', apply);
 }
 
 function guard(wc) {
@@ -238,6 +249,7 @@ function create() {
       sandbox: true,
       nodeIntegration: false,
       devTools: !PACKAGED,
+      backgroundThrottling: false,
       preload: path.join(__dirname, 'preload.js'),
     },
   });
