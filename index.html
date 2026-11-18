@@ -1562,6 +1562,12 @@ body.chat-on .topbar{display:none}
           <button class="btn-add" onclick="openAddCourse()">+ Add Course</button>
         </div>
       </div>
+      <div style="font-size:14px;font-weight:700;color:var(--text);margin:4px 0 8px">Circulars &amp; Question Banks</div>
+      <div style="display:flex;gap:6px;margin-bottom:16px">
+        <button class="btn-secondary" style="flex:1" onclick="openRes('circular')">📢 Circular</button>
+        <button class="btn-secondary" style="flex:1" onclick="openRes('qbank')">📚 Question Bank</button>
+        <button class="btn-secondary" style="flex:1" onclick="openRes('recent')">🆕 Recent</button>
+      </div>
       <div id="manageCourseList"><div class="loader"><div class="spin"></div>Loading…</div></div>
     </div>
   </div>
@@ -1951,11 +1957,15 @@ body.chat-on .topbar{display:none}
 <div class="modal-bg hidden" id="mRes">
   <div class="modal">
     <div class="modal-title" id="mResTitle">Add</div>
-    <div class="modal-sub">Paste a link (Google Drive / web page / PDF).</div>
+    <div class="modal-sub">Upload a PDF or image from your device, or paste a link (Google Drive / web page).</div>
     <input type="hidden" id="resEditId"/>
     <div class="fl"><label>Title *</label><input type="text" id="resTitleIn" placeholder="e.g. BUET Diploma Admission Test 2025"/></div>
     <div class="fl" id="resCatWrap"><label>Category</label><select id="resCatIn"></select></div>
-    <div class="fl"><label>File link *</label><input type="url" id="resUrlIn" placeholder="https://…"/></div>
+    <div class="fl">
+      <button type="button" class="btn-add-sm" id="resUpBtn" style="width:100%;padding:11px 13px;font-size:13px" onclick="$('resFile').click()">📎 Upload PDF / image from device</button>
+      <input type="file" id="resFile" accept="application/pdf,image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" class="hidden" onchange="resUploadFile(this)"/>
+    </div>
+    <div class="fl"><label>File link (filled automatically after upload) *</label><input type="url" id="resUrlIn" placeholder="https://…"/></div>
     <div class="fl"><label>Note (optional)</label><input type="text" id="resNoteIn" placeholder="e.g. Last date 30 Nov · 25 posts"/></div>
     <div class="modal-acts">
       <button class="btn-cancel" onclick="closeM('mRes')">Cancel</button>
@@ -2523,6 +2533,7 @@ window.openResModal=function(editId){
   $("resTitleIn").value=r?r.title:"";
   $("resUrlIn").value=r?r.url:"";
   $("resNoteIn").value=r?r.note:"";
+  if(!resUploading)$("resUpBtn").textContent="📎 Upload PDF / image from device";
   const qb=resType==="qbank";
   $("resCatWrap").style.display=qb?"":"none";
   const sel=r&&r.category?r.category:(resCat||QB_CATS[0]);
@@ -2530,7 +2541,33 @@ window.openResModal=function(editId){
   $("resCatIn").innerHTML=cats.map(c=>`<option ${c===sel?"selected":""}>${esc(c)}</option>`).join("");
   openM("mRes");
 };
+let resUploading=false;
+window.resUploadFile=function(inp){
+  const f=inp.files&&inp.files[0];inp.value="";
+  if(!f||resUploading)return;
+  if(f.size>CLD_MAX){showToast("File is too large (max 100 MB)");return}
+  const btn=$("resUpBtn"),label="📎 Upload PDF / image from device";
+  resUploading=true;btn.textContent="Uploading… 0%";
+  const fd=new FormData();fd.append("file",f,f.name);fd.append("upload_preset",CLD_PRESET);
+  const x=new XMLHttpRequest();x.open("POST",CLD_URL);
+  const fail=m=>{resUploading=false;btn.textContent=label;showToast("Upload failed: "+m)};
+  x.upload.onprogress=e=>{if(e.lengthComputable)btn.textContent="Uploading… "+Math.round(e.loaded*100/e.total)+"%"};
+  x.onload=()=>{
+    try{
+      const j=JSON.parse(x.responseText);
+      if(x.status>=200&&x.status<300&&j.secure_url){
+        resUploading=false;
+        $("resUrlIn").value=j.secure_url;
+        if(!$("resTitleIn").value.trim())$("resTitleIn").value=f.name.replace(/\.[A-Za-z0-9]{1,5}$/,"");
+        btn.textContent="✓ Uploaded: "+f.name;
+      }else fail((j.error&&j.error.message)||"try again");
+    }catch(e){fail("try again")}
+  };
+  x.onerror=()=>fail("network error");
+  x.send(fd);
+};
 window.saveRes=async function(){
+  if(resUploading){showToast("Please wait — the file is still uploading");return}
   const t=$("resTitleIn").value.trim(), u=safeUrl($("resUrlIn").value), n=$("resNoteIn").value.trim(), eid=$("resEditId").value;
   if(!t){showToast("Please enter a title");return}
   if(!u){showToast("Link must start with http:// or https://");return}
