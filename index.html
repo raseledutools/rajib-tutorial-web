@@ -5,6 +5,7 @@
 <link rel="preconnect" href="https://www.youtube.com" crossorigin/>
 <link rel="preconnect" href="https://www.youtube-nocookie.com" crossorigin/>
 <link rel="preconnect" href="https://i.ytimg.com" crossorigin/>
+<link rel="preconnect" href="https://res.cloudinary.com" crossorigin/>
 <link rel="preconnect" href="https://s.ytimg.com" crossorigin/>
 <link rel="dns-prefetch" href="https://googlevideo.com"/>
 <link rel="preconnect" href="https://i.ytimg.com" crossorigin/>
@@ -202,6 +203,7 @@ svg{display:block;flex-shrink:0}
 .vspin{width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
 .vlist-item:not(.playing) .vspin{border-color:rgba(0,0,0,.2);border-top-color:var(--accent)}
 .vbuf{position:absolute;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(0,0,0,.55);color:#fff;font:600 13px system-ui,sans-serif;pointer-events:none}
+.player-area:has(.ytp-cover.off)>.vbuf,.player-area:has(video)>.vbuf,.lv-player:has(.ytp-cover.off)>.vbuf{background:rgba(0,0,0,.94)}
 .vbuf i{width:44px;height:44px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
 .vnum{width:30px;height:30px;border-radius:8px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--sub);flex-shrink:0}
 .vlist-item.playing .vnum{background:var(--accent);color:#fff}
@@ -541,14 +543,14 @@ body{color:var(--text)}
 
 
 /* ── Rajib Tutorial watermark (low opacity, colour + shine effect) ── */
-.player-area::after,.lv-player::after{content:"Rajib Tutorial";position:absolute;top:10px;right:12px;z-index:5;pointer-events:none;
+.player-area::after,.lv-player::after{content:"Rajib Tutorial";position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;
   font:800 clamp(11px,2.5vw,17px)/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.05em;
-  background:linear-gradient(100deg,#ff9a3c 0%,#ff4d8d 30%,#a78bfa 55%,#38bdf8 75%,#ff9a3c 100%);background-size:250% 100%;
+  background:linear-gradient(100deg,#ffb347 0%,#ff5c8a 30%,#c4b5fd 55%,#5eead4 75%,#ffb347 100%);background-size:250% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
-  opacity:.5;filter:drop-shadow(0 0 4px rgba(255,120,80,.45)) drop-shadow(0 1px 2px rgba(0,0,0,.6));
+  opacity:.65;filter:drop-shadow(0 0 5px rgba(255,170,90,.55));
   animation:rtWmShine 5s linear infinite,rtWmPulse 3.2s ease-in-out infinite;-webkit-user-select:none;user-select:none}
 @keyframes rtWmShine{0%{background-position:0% 50%}100%{background-position:250% 50%}}
-@keyframes rtWmPulse{0%,100%{opacity:.34;transform:translateY(0)}50%{opacity:.58;transform:translateY(1px)}}
+@keyframes rtWmPulse{0%,100%{opacity:.5}50%{opacity:.78}}
 
 /* ── Screen capture prevention ──────────────────────────── */
 @media screen {
@@ -2704,6 +2706,16 @@ function loadYTApi(){
 }
 // warm up: fetch the YouTube player API once the page is idle so the first lesson starts faster
 try{loadYTApi()}catch(e){}
+let _ytWarmed=false;
+function ytWarm(v){
+  if(_ytWarmed||!v)return;const id=ytId(v.url);if(!id)return;_ytWarmed=true;
+  loadYTApi().then(()=>{
+    const h=document.createElement("div");h.style.cssText="position:fixed;left:-9999px;top:0;width:320px;height:180px;opacity:0;pointer-events:none";
+    const d=document.createElement("div");h.appendChild(d);document.body.appendChild(h);
+    try{const p=new YT.Player(d,{host:"https://www.youtube-nocookie.com",videoId:id,playerVars:{autoplay:0,controls:0,playsinline:1},
+      events:{onReady:()=>setTimeout(()=>{try{p.destroy()}catch(e){}h.remove()},1500)}});setTimeout(()=>h.isConnected&&h.remove(),15000)}catch(e){h.remove()}
+  });
+}
 const _fmtT=t=>{t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+":"+String(t%60).padStart(2,"0")};
 function unmountYT(box){
   if(!box) return;
@@ -2778,7 +2790,7 @@ function mountYT(box,id,o={}){
       onStateChange:e=>{
         playing=(e.data===1||e.data===3);
         if(e.data===1&&qRestore){const r=qRestore;qRestore=null;try{pl.setPlaybackRate(r.rate);if(!r.play)pl.pauseVideo()}catch(_){}}
-        cover.classList.toggle("off",playing);
+        if(e.data===1)cover.classList.add("off");
         pp.innerHTML=playing?PAUSE:PLAY;
         if(e.data===1)showBar();else{bar.classList.remove("hide");clearTimeout(hideT)}
       }
@@ -3731,7 +3743,7 @@ window.openCourse=function(cid){
   curVideo=null;
   $("cpTitle").textContent=curCourse.title;
   $("cpSub").textContent=lessonsLabel(curCourse.videos.length);
-  renderVlist();offRefresh();
+  renderVlist();offRefresh();try{ytWarm(curCourse.videos[0])}catch(e){}
   $("playerArea").innerHTML=placeholder(I.play,"Select a lesson to start watching");
   $("playerTitle").textContent="–";$("playerMeta").textContent="";
   goView("viewCourse");renderSidebarCourses();closeSidebar();
