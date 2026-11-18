@@ -1461,6 +1461,96 @@ body.chat-on .topbar{display:none}
 .lx-rr .nm{font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis}.lx-rr .nm small{display:block;font-weight:400;color:var(--sub);font-size:11px}
 @media(max-width:700px){.lx-wrap{padding:0 16px 32px}.lx-rh,.lx-rr{grid-template-columns:30px 1fr 64px 46px;}.lx-rh span:last-child,.lx-rr span:last-child{display:none}}
 </style>
+<style id="homeRedesign">
+/* ── Home redesign: courses are the focus; every quick action visible on one screen ── */
+#viewHome{background:#F6F3F0}
+#viewHome .hm{max-width:1200px;margin:0 auto;padding:0 20px 4px}
+#viewHome .hm-top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:18px 0 14px}
+#viewHome .hm-brand{display:flex;align-items:center;gap:12px;min-width:0}
+#viewHome .hm-logo{width:46px;height:46px;border-radius:14px;background:var(--grad);display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 6px 16px rgba(232,54,93,.26)}
+#viewHome .hm-logo svg{width:26px;height:26px;stroke:#fff}
+#viewHome .hm-brand h1{font-size:21px;font-weight:800;letter-spacing:-.02em;line-height:1.15;color:var(--text);margin:0}
+#viewHome .hm-brand p{font-size:12.5px;line-height:1.3;color:var(--sub);margin:3px 0 0;max-width:none}
+#viewHome .hm-stats{display:flex;gap:8px}
+#viewHome .hm-stats div{background:#fff;border:1px solid var(--border);border-radius:12px;padding:7px 14px;text-align:center;min-width:86px}
+#viewHome .hm-stats b{display:block;font-size:17px;font-weight:800;line-height:1.2;color:var(--text)}
+#viewHome .hm-stats span{font-size:11px;font-weight:600;color:var(--sub)}
+#viewHome .hm-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+#viewHome .hm-panel{order:-1;background:#fff;border:1px solid var(--border);border-radius:18px;padding:12px;box-shadow:var(--shadow)}
+#viewHome .hm-lbl{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--sub);margin:2px 2px 7px}
+#viewHome .hm-lbl:not(:first-child){margin-top:12px}
+#viewHome .hm-live{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#viewHome .hm-livebtn{position:relative;display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 12px;border-radius:14px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-size:14px;font-weight:800;text-align:left;cursor:pointer;transition:transform .12s,box-shadow .12s}
+#viewHome .hm-livebtn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(20,18,26,.10)}
+#viewHome .hm-livebtn .ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;background:var(--accent-soft);color:var(--accent)}
+#viewHome .hm-livebtn .ic svg{width:18px;height:18px}
+#viewHome .hm-livebtn small{display:block;font-size:11px;font-weight:600;color:var(--sub);margin-top:1px}
+#viewHome .hm-livebtn.cls{background:var(--grad);color:#fff;border-color:transparent}
+#viewHome .hm-livebtn.cls small{color:rgba(255,255,255,.88)}
+#viewHome .hm-livebtn.cls .ic{background:rgba(255,255,255,.22);color:#fff}
+#viewHome .hm-pill{display:none;margin-left:auto;align-items:center;gap:4px;font-size:9.5px;font-weight:800;letter-spacing:.08em;padding:3px 7px;border-radius:6px;background:#E5233F;color:#fff}
+#viewHome .hm-pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;animation:hmBlink 1.2s infinite}
+#viewHome .hm-livebtn.is-live .hm-pill{display:inline-flex}
+#viewHome .hm-livebtn.cls .hm-pill{background:#fff;color:var(--accent)}
+@keyframes hmBlink{50%{opacity:.25}}
+#viewHome .live-info{margin-top:8px;font-size:12px;gap:4px 14px;justify-content:flex-start;text-align:left}
+#viewHome .live-info:empty{display:none}
+#viewHome .hm-tools{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+#viewHome .hm-tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:78px;padding:9px 4px;background:#FAF7F5;border:1px solid var(--border);border-radius:14px;cursor:pointer;transition:transform .12s,border-color .12s,background .12s}
+#viewHome .hm-tile:hover{transform:translateY(-1px);border-color:var(--accent);background:#fff}
+#viewHome .hm-tile i{font-style:normal;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;flex:none;background:rgba(232,54,93,.12)}
+#viewHome .hm-tile:nth-child(4n+2) i{background:rgba(109,74,240,.13)}
+#viewHome .hm-tile:nth-child(4n+3) i{background:rgba(14,159,142,.14)}
+#viewHome .hm-tile:nth-child(4n+4) i{background:rgba(245,165,36,.17)}
+#viewHome .hm-tile span{font-size:11.5px;font-weight:700;line-height:1.2;text-align:center;color:var(--text)}
+#viewHome .hm-tile em{position:absolute;top:4px;right:4px;font-style:normal;font-size:8.5px;font-weight:800;letter-spacing:.04em;background:#F5A524;color:#fff;border-radius:5px;padding:1px 4px}
+/* courses = main focus */
+#viewHome .hm-courses{max-width:none;margin:0;padding:0}
+#viewHome .hm-courses .sec-hdr{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:12px}
+#viewHome .hm-courses .sec-title{font-size:21px;font-weight:800;letter-spacing:-.02em}
+#viewHome .hm-courses .sec-sub{margin:2px 0 0;font-size:12.5px}
+#viewHome .hm-courses .filters{display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;margin:0;flex:1 1 320px;justify-content:flex-end}
+#viewHome .hm-courses .search-box{width:auto;flex:1 1 180px;max-width:300px}
+#viewHome .hm-courses .search-box svg{display:block}
+#viewHome .hm-courses .search-box input{width:100%;padding:10px 14px 10px 36px;font-size:13.5px;border:1.5px solid var(--border);border-radius:12px;background:#fff}
+#viewHome .hm-courses .filters select{width:auto;flex:0 1 160px;padding:10px 12px;font-size:13.5px;border-radius:12px;background:#fff}
+#viewHome .hm-courses .filters .btn-refresh{width:42px;height:42px;flex:none}
+#viewHome .course-grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+#viewHome .footer{max-width:1200px;margin:14px auto 0;padding:18px 20px 28px;text-align:left;justify-content:space-between}
+#viewHome .footer span:nth-child(2){display:inline}
+@media(min-width:1000px){
+  #viewHome .hm-grid{grid-template-columns:minmax(0,1fr) 312px;gap:22px}
+  #viewHome .hm-panel{order:0;position:sticky;top:68px;padding:14px}
+  #viewHome .hm-live{grid-template-columns:1fr}
+  #viewHome .hm-tools{grid-template-columns:1fr 1fr}
+  #viewHome .hm-tile{flex-direction:row;justify-content:flex-start;gap:9px;min-height:48px;padding:7px 9px}
+  #viewHome .hm-tile i{width:30px;height:30px;font-size:15px}
+  #viewHome .hm-tile span{text-align:left;font-size:12.5px}
+  #viewHome .hm-tile em{position:static;margin-left:auto;flex:none}
+}
+@media(max-width:700px){
+  #viewHome .hm{padding:0 12px 4px}
+  #viewHome .hm-top{padding:12px 0 10px;gap:10px}
+  #viewHome .hm-brand h1{font-size:18px}
+  #viewHome .hm-brand p{font-size:11.5px}
+  #viewHome .hm-logo{width:40px;height:40px;border-radius:12px}
+  #viewHome .hm-stats{width:100%}
+  #viewHome .hm-stats div{flex:1;min-width:0;padding:6px 4px;display:flex;align-items:baseline;justify-content:center;gap:5px}
+  #viewHome .hm-stats b{display:inline;font-size:15px}
+  #viewHome .hm-stats span{font-size:10.5px}
+  #viewHome .hm-livebtn small{display:none}
+  #viewHome .hm-livebtn{min-height:48px;padding:7px 10px;font-size:13.5px}
+  #viewHome .hm-pill{position:absolute;top:-7px;right:8px;margin:0}
+  #viewHome .hm-courses .sec-hdr{display:block}
+  #viewHome .hm-courses .filters{margin-top:8px;justify-content:stretch}
+  #viewHome .hm-courses .search-box{flex:1 1 100%;max-width:none}
+  #viewHome .hm-courses .filters select{flex:1}
+  #viewHome .course-grid{grid-template-columns:1fr}
+  #viewHome .footer{padding:16px 12px 24px;justify-content:center;text-align:center}
+  #viewHome .footer span:nth-child(2){display:none}
+}
+@media(max-width:360px){#viewHome .hm-tile span{font-size:10.5px}#viewHome .hm-tools{gap:6px}}
+</style>
 </head>
 <body>
 
@@ -1548,46 +1638,21 @@ body.chat-on .topbar{display:none}
 
   <!-- HOME -->
   <div class="view active" id="viewHome">
-    <section class="home-hero">
-      <div class="hero-logo">
-        <svg width="34" height="34" viewBox="0 0 100 100" fill="none" stroke="#E8365D" stroke-width="8" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg>
+  <div class="hm">
+    <header class="hm-top">
+      <div class="hm-brand">
+        <div class="hm-logo"><svg viewBox="0 0 100 100" fill="none" stroke-width="8" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg></div>
+        <div><h1>Rajib Tutorial</h1><p>Diploma in Electrical &amp; Electronic Engineering · all 8 semesters</p></div>
       </div>
-      <div class="hero-badge">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h8l-1 8 10-12h-8z"/></svg>
-        Diploma in Electrical &amp; Electronic Engineering
+      <div class="hm-stats">
+        <div><b id="statC">–</b><span>Courses</span></div>
+        <div><b id="statV">–</b><span>Video Lessons</span></div>
+        <div><b>8</b><span>Semesters</span></div>
       </div>
-      <h1>Master Diploma EEE with <span>structured, expert-led</span> learning</h1>
-      <p>Comprehensive video courses, live classes and scheduled live exams designed for Diploma in EEE students across all eight semesters. Study at your own pace and measure your progress with confidence.</p>
+    </header>
 
-      <div class="hero-actions">
-        <button class="btn-live primary" id="btnLiveClass" onclick="openLive('class')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg>
-          Join Live Class <span class="live-pill">LIVE</span>
-        </button>
-        <button class="btn-live outline" id="btnLiveExam" onclick="openLive('exam')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>
-          Take Live Exam <span class="live-pill">LIVE</span>
-        </button>
-        <button class="btn-live ghost" onclick="openDiscussion()">💬  Discussion Group  ⭐ Premium</button>
-        <button class="btn-live ghost" onclick="document.getElementById('coursesAnchor').scrollIntoView()">Browse Courses</button>
-      </div>
-      <div class="live-info" id="liveInfo"></div>
-
-      <div class="hero-stats">
-        <div><div class="stat-n" id="statC">–</div><div class="stat-l">Courses</div></div>
-        <div><div class="stat-n" id="statV">–</div><div class="stat-l">Video Lessons</div></div>
-        <div><div class="stat-n">8</div><div class="stat-l">Semesters Covered</div></div>
-      </div>
-    </section>
-
-    <section class="quick-row">
-      <button class="quick-tile" onclick="openRes('circular')"><span class="qt-ic">📢</span><span class="qt-tx">Current<br>Circular</span></button>
-      <button class="quick-tile" onclick="openRes('qbank')"><span class="qt-ic">📚</span><span class="qt-tx">Question<br>Bank</span></button>
-      <button class="quick-tile" onclick="openRes('recent')"><span class="qt-ic">🆕</span><span class="qt-tx">Recent<br>Questions</span></button>
-      <button class="quick-tile" onclick="openQB()"><span class="qt-ic">📝</span><span class="qt-tx">MCQ<br>Practice</span></button>
-    </section>
-
-    <section class="courses-section" id="coursesAnchor">
+    <div class="hm-grid">
+      <section class="courses-section hm-courses" id="coursesAnchor">
       <div class="sec-hdr">
         <div>
           <div class="sec-title">Course Catalogue</div>
@@ -1604,6 +1669,28 @@ body.chat-on .topbar{display:none}
       </div>
       <div id="courseGridWrap"><div class="loader"><div class="spin"></div>Loading courses…</div></div>
     </section>
+
+      <aside class="hm-panel" aria-label="Quick access">
+        <div class="hm-lbl">Live</div>
+        <div class="hm-live">
+          <button class="hm-livebtn cls" id="btnLiveClass" onclick="openLive('class')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg></span><span>Live Class<small>Join the class</small></span><span class="hm-pill">LIVE</span></button>
+          <button class="hm-livebtn" id="btnLiveExam" onclick="openLive('exam')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></span><span>Live Exam<small>Exams &amp; results</small></span><span class="hm-pill">LIVE</span></button>
+        </div>
+        <div class="live-info" id="liveInfo"></div>
+        <div class="hm-lbl">Quick access</div>
+        <div class="hm-tools">
+          <button class="hm-tile" onclick="openRes('circular')"><i>📢</i><span>Current Circular</span></button>
+          <button class="hm-tile" onclick="openRes('qbank')"><i>📚</i><span>Question Bank</span></button>
+          <button class="hm-tile" onclick="openRes('recent')"><i>🆕</i><span>Recent Questions</span></button>
+          <button class="hm-tile" onclick="openQB()"><i>📝</i><span>MCQ Practice</span></button>
+          <button class="hm-tile" onclick="openDiscussion()"><i>💬</i><span>Discussion</span><em>PRO</em></button>
+          <button class="hm-tile" onclick="openInbox()"><i>🔔</i><span>Notifications</span></button>
+          <button class="hm-tile" onclick="openOffline()"><i>📥</i><span>Offline Lessons</span></button>
+          <button class="hm-tile" id="tilePremium" onclick="openPremiumGate()"><i>⭐</i><span>Go Premium</span></button>
+        </div>
+      </aside>
+    </div>
+  </div>
 
     <footer class="footer">
       <span>© <span id="yr"></span> Rajib Tutorial. All rights reserved.</span>
@@ -3885,6 +3972,7 @@ function syncPushUser(){
 }
 function renderUser(){
   syncPushUser();
+  {const tp=$("tilePremium");if(tp)tp.style.display=(adminIn||isPremium())?"none":""}
   setTimeout(()=>{try{dRender()}catch(e){}},0);
   const wrap=$("userArea");
   const chip=(name,sub)=>`<div class="userchip" onclick="toggleUserMenu(event)"><span class="av">${esc((name||"U").trim().charAt(0).toUpperCase())}</span><span class="un">${esc(name)}</span><span class="pro">PRO</span></div>
