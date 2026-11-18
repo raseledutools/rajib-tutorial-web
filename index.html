@@ -543,7 +543,7 @@ body{color:var(--text)}
 
 
 /* ── Rajib Tutorial watermark (low opacity, colour + shine effect) ── */
-.player-area::after,.lv-player::after{content:"Rajib Tutorial";position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;
+.player-area::after,.lv-player::after,#fsOverlay.show::after{content:"Rajib Tutorial";position:absolute;top:10px;right:12px;z-index:10;pointer-events:none;
   font:800 clamp(11px,2.5vw,17px)/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.05em;
   background:linear-gradient(100deg,#ffb347 0%,#ff5c8a 30%,#c4b5fd 55%,#5eead4 75%,#ffb347 100%);background-size:250% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
@@ -4093,6 +4093,8 @@ function openFsOverlay(id,start){
   if(!box){box=document.createElement("div");box.className="fs-box";box.style.cssText="position:absolute;inset:0";ov.appendChild(box)}
   mountYT(box,id,{autoplay:1,start:start||0,fs:false});
   ov.classList.add("show");
+  // real fullscreen (hides Chrome title bar / address bar); overlay + Java bridge stay as before
+  try{const rf=ov.requestFullscreen||ov.webkitRequestFullscreen;if(rf){const r=rf.call(ov);if(r&&r.catch)r.catch(()=>{})}}catch(e){}
   $("fsLabel").textContent="Exit";
   // Signal Java → rotate to landscape
   try{ location.href="rtapp://fullscreen"; }catch(e){}
@@ -4100,6 +4102,7 @@ function openFsOverlay(id,start){
 
 window.closeFsOverlay=function(){
   const ov=$("fsOverlay");
+  try{if(document.fullscreenElement||document.webkitFullscreenElement){const ef=document.exitFullscreen||document.webkitExitFullscreen;const r=ef.call(document);if(r&&r.catch)r.catch(()=>{})}}catch(e){}
   const box=ov.querySelector(".fs-box");
   let t=0;
   if(box){try{t=box._yt.getCurrentTime()||0}catch(e){}unmountYT(box)}
@@ -4110,6 +4113,11 @@ window.closeFsOverlay=function(){
   try{ location.href="rtapp://exitfullscreen"; }catch(e){}
 };
 
+
+["fullscreenchange","webkitfullscreenchange"].forEach(ev=>document.addEventListener(ev,()=>{
+  const ov=$("fsOverlay");
+  if(ov&&ov.classList.contains("show")&&!document.fullscreenElement&&!document.webkitFullscreenElement)closeFsOverlay();
+}));
 
 // ─── Premium membership ──────────────────────────────────
 const LS_KEY="rt_member";
