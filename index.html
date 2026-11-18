@@ -204,7 +204,9 @@ svg{display:block;flex-shrink:0}
 .vspin{width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
 .vlist-item:not(.playing) .vspin{border-color:rgba(0,0,0,.2);border-top-color:var(--accent)}
 .vbuf{position:absolute;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(0,0,0,.55);color:#fff;font:600 13px system-ui,sans-serif;pointer-events:none}
-.player-area:has(.ytp-cover.off)>.vbuf,.player-area:has(video)>.vbuf,.lv-player:has(.ytp-cover.off)>.vbuf{background:rgba(0,0,0,.94)}
+.player-area:has(.ytp-cover.off)>.vbuf,.player-area:has(video)>.vbuf,.lv-player:has(.ytp-cover.off)>.vbuf{background:transparent}
+.player-area:has(.ytp-cover.off)>.vbuf span,.player-area:has(video)>.vbuf span,.lv-player:has(.ytp-cover.off)>.vbuf span{display:none}
+.player-area:has(.ytp-cover.off)>.vbuf i,.player-area:has(video)>.vbuf i,.lv-player:has(.ytp-cover.off)>.vbuf i{width:34px;height:34px;border-width:3px;filter:drop-shadow(0 0 4px rgba(0,0,0,.8))}
 .vbuf i{width:44px;height:44px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
 .vnum{width:30px;height:30px;border-radius:8px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--sub);flex-shrink:0}
 .vlist-item.playing .vnum{background:var(--accent);color:#fff}
@@ -2833,7 +2835,21 @@ function mountYT(box,id,o={}){
   if(o.live) sp.style.display="none";
   // ── Video quality (Auto / 1080p / 720p / 480p / 360p / 240p / 144p) ──
   const QL={hd2160:"2160p",hd1440:"1440p",hd1080:"1080p",hd720:"720p",large:"480p",medium:"360p",small:"240p",tiny:"144p"};
-  const qb=q(".ytp-q"),qm=q(".ytp-qm");let curQ="auto",qRestore=null;
+  const qb=q(".ytp-q"),qm=q(".ytp-qm");let curQ="auto",qRestore=null,qTries=0,qReloaded=false;
+  // YouTube treats quality only as a hint and silently goes back to the highest one, so re-apply the chosen level
+  const applyQ=()=>{
+    if(curQ==="auto"||!pl||!pl.getPlaybackQuality)return;
+    try{pl.setPlaybackQualityRange&&pl.setPlaybackQualityRange(curQ,curQ)}catch(_){}
+    try{pl.setPlaybackQuality&&pl.setPlaybackQuality(curQ)}catch(_){}
+  };
+  const checkQ=()=>{
+    if(curQ==="auto"||!pl||!pl.getPlaybackQuality)return;
+    let cur="";try{cur=pl.getPlaybackQuality()}catch(_){}
+    if(!cur||cur===curQ||cur==="unknown")return;
+    if(qTries++<6){applyQ();return}
+    // still not honoured: one forced reload at the same second
+    if(!qReloaded){qReloaded=true;try{const t=pl.getCurrentTime()||0;pl.loadVideoById({videoId:id,startSeconds:t,suggestedQuality:curQ});setTimeout(applyQ,600)}catch(_){}}
+  };
   const closeQ=()=>{qm.style.display="none"};
   if(o.live) qb.style.display="none";
   qb.addEventListener("click",e=>{
@@ -2851,10 +2867,11 @@ function mountYT(box,id,o={}){
     if(!pl||!pl.getCurrentTime)return;
     const qq=x==="auto"?"default":x;
     qRestore={t:pl.getCurrentTime()||0,rate:pl.getPlaybackRate?pl.getPlaybackRate():1,play:playing};
-    try{pl.setPlaybackQualityRange&&pl.setPlaybackQualityRange(qq,qq)}catch(_){}
-    try{pl.setPlaybackQuality&&pl.setPlaybackQuality(qq)}catch(_){}
+    qTries=0;qReloaded=false;
+    applyQ();
     // reload at the same second with the chosen quality (most reliable way with the iframe API)
     try{pl.loadVideoById({videoId:id,startSeconds:qRestore.t,suggestedQuality:qq})}catch(_){qRestore=null}
+    setTimeout(applyQ,700);setTimeout(applyQ,2000);
   });
   const fsb=q(".ytp-fs");if(fsb)fsb.addEventListener("click",e=>{e.stopPropagation();(o.onFs||window.toggleFullscreen)()});
   sk.addEventListener("input",()=>{drag=true;showBar()});
@@ -2870,8 +2887,10 @@ function mountYT(box,id,o={}){
         // a different lesson was picked while the player was still starting up -> load that one now
         if(id!==startedId){try{pl.loadVideoById({videoId:id,startSeconds:0})}catch(_){}}
         if(o.onReady)o.onReady(pl)},
+      onPlaybackQualityChange:()=>checkQ(),
       onStateChange:e=>{
         playing=(e.data===1||e.data===3);
+        if(e.data===1||e.data===3){applyQ();setTimeout(checkQ,500)}
         if(e.data===1&&qRestore){const r=qRestore;qRestore=null;try{pl.setPlaybackRate(r.rate);if(!r.play)pl.pauseVideo()}catch(_){}}
         if(e.data===1)cover.classList.add("off");
         pp.innerHTML=playing?PAUSE:PLAY;
@@ -2880,7 +2899,7 @@ function mountYT(box,id,o={}){
     }});
     box._yt=pl;
     box._ytLoad=nid=>{id=nid;qRestore=null;cover.style.backgroundImage="url(https://i.ytimg.com/vi/"+nid+"/hqdefault.jpg)";cover.classList.remove("off");
-      curQ="auto";qb.textContent="Auto";
+      curQ="auto";qTries=0;qReloaded=false;qb.textContent="Auto";
       if(!ready)return; // onReady loads the latest id
       try{pl.loadVideoById({videoId:nid,startSeconds:0})}catch(_){}};
     box._ytTimer=setInterval(()=>{
