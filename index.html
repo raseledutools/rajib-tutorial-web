@@ -1416,6 +1416,22 @@ body.chat-on .topbar{display:none}
 .qb-hist{display:flex;justify-content:space-between;padding:8px 12px;background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;font-size:13px}
 .qb-fmt{background:var(--card2);border-radius:10px;padding:10px;font-size:11.5px;line-height:1.55;white-space:pre-wrap;margin-bottom:12px;overflow-x:auto}
 </style>
+<style>
+.qb-ed{border:1.5px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px;background:#fff}
+.qb-ed.qb-edbad{border-color:#d93025;background:#fff8f7}
+.qb-edh{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.qb-edmsg{flex:1;color:#d93025;font-size:12px;font-weight:700}
+.qb-edx{background:none;border:0;color:#d93025;font-weight:700;font-size:12.5px;cursor:pointer;margin-left:auto}
+.qb-edrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.qb-edopt{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.qb-edopt>input[type=text]{flex:1;min-width:0;padding:10px 12px;font-size:13.5px;border:1.5px solid rgba(20,18,26,.16);border-radius:10px;background:var(--bg,#fff)}
+.qb-edr{display:flex;align-items:center;gap:4px;font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0;width:48px}
+.qb-edr input{accent-color:#12a150;width:18px;height:18px}
+.qb-hint{font-size:11.5px;color:var(--sub);margin:-2px 0 8px}
+.qb-edfill{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.qb-edfill input{flex:1 1 120px;min-width:0;padding:9px 10px;font-size:13px;border:1px solid var(--border);border-radius:10px}
+.qb-edfoot{position:sticky;bottom:-26px;background:var(--card,#fff);padding:12px 0 2px;margin-top:10px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border)}
+</style>
 </head>
 <body>
 
@@ -2051,6 +2067,7 @@ body.chat-on .topbar{display:none}
   <div class="modal">
     <div class="modal-title" id="mQBTitle">Add MCQ</div>
     <input type="hidden" id="qbfId"/>
+    <div class="fl"><label>Title / topic</label><input type="text" id="qbfTtl"/></div>
     <div class="fl"><label>Subject (বিষয়)</label><input type="text" id="qbfSub" list="qbSubList" placeholder="e.g. গণিত, English, বাংলা"/><datalist id="qbSubList"></datalist></div>
     <div class="fl"><label>Source / Exam</label><input type="text" id="qbfSrc" list="qbSrcList" placeholder="e.g. 31st BCS Written · 2011"/><datalist id="qbSrcList"></datalist></div>
     <div class="fl"><label>Question *</label><textarea id="qbfQ" placeholder="প্রশ্ন লিখুন…"></textarea></div>
@@ -2069,11 +2086,18 @@ body.chat-on .topbar{display:none}
 </div>
 
 <div class="modal-bg hidden" id="mQBBulk">
-  <div class="modal" style="max-width:560px">
-    <div class="modal-title">Bulk upload MCQ (text)</div>
-    <div class="modal-sub">Paste many questions at once. Separate questions with a line of <b>---</b>.</div>
+  <div class="modal" style="max-width:600px">
+    <div class="modal-title">Paste questions (text)</div>
+    <div class="modal-sub">Paste many questions, then review each one as a form before uploading.</div>
+    <div class="fl"><label>Default title / topic (optional)</label><input type="text" id="qbbTtl" placeholder="e.g. জ্যামিতি"/></div>
     <div class="fl"><label>Default subject (optional)</label><input type="text" id="qbbSub" placeholder="e.g. গণিত"/></div>
     <div class="fl"><label>Default source (optional)</label><input type="text" id="qbbSrc" placeholder="e.g. 31st BCS Written · 2011"/></div>
+    <div class="qb-hint" style="margin-bottom:4px"><b>Format 1 — one line per question</b> (question | ক | খ | গ | ঘ | answer):</div>
+    <pre class="qb-fmt">১. একটি রম্বসের ভূমি ১২ সে.মি. ও উচ্চতা ৫ সে.মি. হলে ক্ষেত্রফল কত?|৩০|৬০|২৫|১২০|1
+২. পানামা খাল কোন দুটি মহাসাগরকে সংযুক্ত করেছে?|আটলান্টিক ও ভারত|প্রশান্ত ও আর্কটিক|আটলান্টিক ও প্রশান্ত|ভারত ও প্রশান্ত|2</pre>
+    <div class="fl"><label>Answer number in Format 1</label><select id="qbbBase" onchange="qbBulkPreview()"><option value="0">0 = ক, 1 = খ, 2 = গ, 3 = ঘ</option><option value="1">1 = ক, 2 = খ, 3 = গ, 4 = ঘ</option></select></div>
+    <div class="qb-hint" style="margin-bottom:4px">The answer can also be a letter (ক/খ/গ/ঘ or A–D). Optional extras after the answer: <code>|ব্যাখ্যা|শর্টকাট</code></div>
+    <div class="qb-hint" style="margin:10px 0 4px"><b>Format 2 — labelled</b> (separate questions with <b>---</b>):</div>
     <pre class="qb-fmt">প্রশ্ন: কোন সংখ্যার ৪০% এর সাথে ৪২ যোগ করলে ফলাফল সেই সংখ্যাই হবে?
 ক) ৭০
 খ) ৮০
@@ -2085,11 +2109,31 @@ body.chat-on .topbar{display:none}
 সোর্স: 31st BCS · 2011   (optional)
 বিষয়: গণিত   (optional)
 ---</pre>
-    <div class="fl"><label>Questions text *</label><textarea id="qbbTxt" style="min-height:220px;font-family:inherit" oninput="qbBulkPreview()"></textarea></div>
+    <div class="fl"><label>Questions text *</label><textarea id="qbbTxt" style="min-height:200px;font-family:inherit" oninput="qbBulkPreview()"></textarea></div>
     <div class="res-sub" id="qbbInfo"></div>
-    <div class="modal-acts">
+    <div class="modal-acts" style="flex-wrap:wrap">
       <button class="btn-cancel" onclick="closeM('mQBBulk')">Cancel</button>
-      <button class="btn-ok" id="qbbBtn" onclick="qbBulkSave()">Import</button>
+      <button class="btn-cancel" id="qbbBtn" onclick="qbBulkSave()">Import directly</button>
+      <button class="btn-ok" onclick="qbBulkReview()">Review as forms →</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="mQBEd">
+  <div class="modal" style="max-width:780px">
+    <div class="modal-title">Add questions <span class="qb-src" id="qbeCount"></span></div>
+    <div class="modal-sub">Every question has its own form. Edit anything, add more, then upload all together.</div>
+    <div class="qb-edfill">
+      <input type="text" id="qbeTtl" placeholder="Title / topic"/>
+      <input type="text" id="qbeSub" list="qbSubList" placeholder="Subject"/>
+      <input type="text" id="qbeSrc" list="qbSrcList" placeholder="Source / exam"/>
+      <button class="btn-add-sm" onclick="qbEdFill()">Fill empty fields in all</button>
+    </div>
+    <div id="qbeList"></div>
+    <button class="qb-show" onclick="qbEdAdd()">+ Add another question</button>
+    <div class="qb-edfoot">
+      <button class="btn-cancel" onclick="closeM('mQBEd')">Cancel</button>
+      <button class="btn-ok" id="qbeBtn" onclick="qbEdSave()">Upload all</button>
     </div>
   </div>
 </div>
@@ -2731,7 +2775,7 @@ async function qbLoad(force){
     const snap=await getDocs(query(collection(db,QB_COL),orderBy("at","asc"),limit(3000)));
     qbAll=[];
     snap.forEach(d=>{const x=d.data();if(!Array.isArray(x.o)||x.o.length<2)return;
-      qbAll.push({id:d.id,q:x.q||"",o:x.o.map(String),a:Number(x.a)||0,e:x.e||"",t:x.t||"",src:x.src||"",sub:x.sub||"",at:Number(x.at)||0})});
+      qbAll.push({id:d.id,q:x.q||"",o:x.o.map(String),a:Number(x.a)||0,e:x.e||"",t:x.t||"",src:x.src||"",sub:x.sub||"",ttl:x.ttl||"",at:Number(x.at)||0})});
     qbLoaded=true;return true;
   }catch(e){
     qbAll=[];$("qbBody").innerHTML=`<div class="res-empty">Could not load questions.<br>${esc(e.message||"")}</div>`;return false;
@@ -2762,6 +2806,7 @@ function qbRender(){
   $("qbFilters").style.display=(qbMode==="exam"&&qbExam&&!qbExam.done)?"none":"";
   if(qbMode==="practice")qbPractice();else if(qbMode==="read")qbRead();else qbExamView();
 }
+const qbLab=x=>[x.ttl,x.src,x.sub].filter(Boolean).join(" · ")||"MCQ";
 const qbEmpty=()=>`<div class="res-empty">${qbAll.length?"No questions match the filter.":(adminIn?"No questions yet. Tap “+ Add” or “⤒ Bulk” to upload.":"Questions will be added soon. Please check back.")}</div>`;
 function qbOpts(x,chosen,reveal,fn){
   return x.o.map((t,i)=>{
@@ -2772,7 +2817,7 @@ function qbOpts(x,chosen,reveal,fn){
 }
 const qbExp=x=>(x.e?`<div class="qb-exp"><b>ব্যাখ্যা:</b>\n${esc(x.e)}</div>`:"")+(x.t?`<div class="qb-trick"><b>⚡ শর্টকাট সমাধান</b>\n${esc(x.t)}</div>`:"");
 const qbAdm=x=>adminIn?`<div class="rc-acts"><button class="rc-btn" onclick="qbOpenForm('${x.id}')">Edit</button><button class="rc-btn del" onclick="qbDel('${x.id}')">Delete</button></div>`:"";
-const qbHead=x=>{const b=qbBm.get().has(x.id);return `<div class="qb-meta"><span class="qb-src">${esc([x.src,x.sub].filter(Boolean).join(" · ")||"MCQ")}</span><button class="qb-heart ${b?"on":""}" onclick="qbHeart('${x.id}')">${b?"♥":"♡"}</button></div>`};
+const qbHead=x=>{const b=qbBm.get().has(x.id);return `<div class="qb-meta"><span class="qb-src">${esc(qbLab(x))}</span><button class="qb-heart ${b?"on":""}" onclick="qbHeart('${x.id}')">${b?"♥":"♡"}</button></div>`};
 window.qbHeart=id=>{const s=qbBm.get();s.has(id)?s.delete(id):s.add(id);qbBm.set(s);qbRender()};
 
 // ── Practice ──
@@ -2845,7 +2890,7 @@ function qbExamQ(){
   const E=qbExam,x=E.qs[E.i],ch=E.ans[x.id],left=E.qs.filter(q=>E.ans[q.id]===undefined).length;
   const pal=E.qs.map((q,i)=>`<button class="qb-pg ${i===E.i?"cur":""} ${E.ans[q.id]!==undefined?"g":""}" onclick="qbXGo(${i})">${i+1}</button>`).join("");
   $("qbBody").innerHTML=`<div class="qb-stat"><span>⏱ <b id="qbTimer">--:--</b></span><span class="qb-cnt">${E.i+1} / ${E.qs.length}</span><button class="qb-lnk" onclick="qbFinish()">Submit${left?` (${left} left)`:""}</button></div>
-    <div class="qb-card"><div class="qb-meta"><span class="qb-src">${esc([x.src,x.sub].filter(Boolean).join(" · ")||"MCQ")}</span></div><div class="qb-q">${E.i+1}. ${esc(x.q)}</div>${qbOpts(x,ch,false,"qbXPick")}</div>
+    <div class="qb-card"><div class="qb-meta"><span class="qb-src">${esc(qbLab(x))}</span></div><div class="qb-q">${E.i+1}. ${esc(x.q)}</div>${qbOpts(x,ch,false,"qbXPick")}</div>
     <div class="qb-nav"><button class="qb-nb" onclick="qbXGo(${E.i-1})" ${E.i?"":"disabled"}>‹ Prev</button><div class="qb-pgs"></div><button class="qb-nb pri" onclick="qbXGo(${E.i+1})" ${E.i<E.qs.length-1?"":"disabled"}>Next ›</button></div>
     <div class="qb-pal">${pal}</div>`;
   qbTimer();
@@ -2868,14 +2913,16 @@ function qbExamResult(){
     <div class="qb-stat"><span class="g">✓ ${E.c} correct</span><span class="r">✗ ${E.w} wrong</span><span>– ${E.s} skipped</span></div>
     <div class="rc-acts"><button class="rc-btn pri" onclick="qbNewExam()">New exam</button>${E.w+E.s?`<button class="rc-btn" onclick="qbRetryWrong()">Retry wrong / skipped</button>`:""}</div></div>
     <div class="res-sub">Review</div>
-    ${E.qs.map((x,n)=>`<div class="qb-card"><div class="qb-meta"><span class="qb-src">${esc([x.src,x.sub].filter(Boolean).join(" · ")||"MCQ")}</span></div><div class="qb-q">${n+1}. ${esc(x.q)}</div>${qbOpts(x,E.ans[x.id],true,null)}${qbExp(x)}</div>`).join("")}`;
+    ${E.qs.map((x,n)=>`<div class="qb-card"><div class="qb-meta"><span class="qb-src">${esc(qbLab(x))}</span></div><div class="qb-q">${n+1}. ${esc(x.q)}</div>${qbOpts(x,E.ans[x.id],true,null)}${qbExp(x)}</div>`).join("")}`;
 }
 window.qbNewExam=()=>{qbExam=null;qbRender();window.scrollTo(0,0)};
 window.qbRetryWrong=()=>{const E=qbExam,qs=E.qs.filter(x=>E.ans[x.id]!==x.a);qbBegin(qs,Math.max(1,Math.ceil(qs.length*E.min/E.qs.length)),E.neg)};
 
 // ── Admin: add / edit / delete ──
 window.qbOpenForm=function(id){
+  if(!id){qbEdOpen([]);return}
   const x=id?qbAll.find(q=>q.id===id):null;
+  $("qbfTtl").value=x?x.ttl:"";
   $("qbfId").value=x?x.id:"";$("mQBTitle").textContent=x?"Edit MCQ":"Add MCQ";
   $("qbfSub").value=x?x.sub:qbSub;$("qbfSrc").value=x?x.src:qbSrc;$("qbfQ").value=x?x.q:"";
   for(let i=0;i<4;i++)$("qbfO"+i).value=x&&x.o[i]!==undefined?x.o[i]:"";
@@ -2888,7 +2935,7 @@ window.qbSaveForm=async function(){
   if(!q){showToast("Please enter the question");return}
   if(o.filter(Boolean).length<2){showToast("Add at least 2 options");return}
   if(!o[a]){showToast("The correct answer option is empty");return}
-  const d={q,o,a,e:$("qbfE").value.trim(),t:$("qbfT").value.trim(),src:$("qbfSrc").value.trim(),sub:$("qbfSub").value.trim()},eid=$("qbfId").value;
+  const d={q,o,a,e:$("qbfE").value.trim(),t:$("qbfT").value.trim(),src:$("qbfSrc").value.trim(),sub:$("qbfSub").value.trim(),ttl:$("qbfTtl").value.trim()},eid=$("qbfId").value;
   try{
     if(eid)await updateDoc(doc(db,QB_COL,eid),d);
     else await setDoc(doc(db,QB_COL,"q"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),{...d,at:Date.now()});
@@ -2907,62 +2954,136 @@ window.qbDel=function(id){
 };
 
 // ── Admin: bulk text import ──
-function qbParse(txt,defSub,defSrc){
+function qbParse(txt,defSub,defSrc,defTtl,base){
+  base=base===1?1:0;defTtl=defTtl||"";
   const KEYS=[["q",/^(?:প্রশ্ন|Q(?:uestion)?)\s*[\d০-৯]*\s*[:：ঃ.\-)]\s*(.*)$/i],
     ["a",/^(?:সঠিক\s*উত্তর|উত্তর|Ans(?:wer)?)\s*[:：ঃ.\-]\s*(.*)$/i],
     ["e",/^(?:ব্যাখ্যা|Exp(?:lanation)?)\s*[:：ঃ.\-]\s*(.*)$/i],
     ["t",/^(?:শর্টকাট(?:\s*সমাধান)?|ট্রিক|Trick|Short(?:cut)?)\s*[:：ঃ.\-]\s*(.*)$/i],
     ["src",/^(?:সোর্স|সূত্র|Source)\s*[:：ঃ.\-]\s*(.*)$/i],
-    ["sub",/^(?:বিষয়|Subject)\s*[:：ঃ.\-]\s*(.*)$/i]];
+    ["sub",/^(?:বিষয়|Subject)\s*[:：ঃ.\-]\s*(.*)$/i],
+    ["ttl",/^(?:টাইটেল|শিরোনাম|Title)\s*[:：ঃ.\-]\s*(.*)$/i]];
   const OPT=/^\(?([কখগঘABCDabcd])[\)\.।:]\s*(.*)$/,LET="কখগঘ";
   const idxOf=v=>{const ch=String(v).replace(/[()\s]/g,"").charAt(0);if(!ch)return -1;
     let i=LET.indexOf(ch);if(i>=0)return i;i="ABCD".indexOf(ch.toUpperCase());if(i>=0)return i;
     i="1234".indexOf(ch);if(i>=0)return i;return "১২৩৪".indexOf(ch)};
+  // one-line format:  question|ক|খ|গ|ঘ|answer[|explanation|shortcut]   (answer: 0-3 / ০-৩ / ক-ঘ / A-D)
+  const pipeAns=v=>{const m=String(v).trim().match(/^\(?\s*([0-4০-৪কখগঘA-Da-d])\s*\)?$/);if(!m)return null;
+    const c=m[1];let i=LET.indexOf(c);if(i>=0)return i;i="ABCD".indexOf(c.toUpperCase());if(i>=0)return i;
+    const d="০১২৩৪".indexOf(c);return (d>=0?d:+c)-base};
+  const pipeLine=line=>{
+    const p=line.split("|").map(x=>x.trim());if(p.length<5)return null;
+    let a,opts,rest=[];
+    if(p.length>=6){a=pipeAns(p[5]);opts=p.slice(1,5);rest=p.slice(6)}else{a=pipeAns(p[p.length-1]);opts=p.slice(1,p.length-1)}
+    if(a===null)return null;
+    return {q:p[0].replace(/^[\d০-৯]+\s*[.)।]\s*/,""),o:opts,a,e:rest[0]||"",t:rest[1]||"",src:defSrc,sub:defSub,ttl:defTtl};
+  };
   const all=[];let cur=null,field=null;
   const push=()=>{if(cur)all.push(cur);cur=null;field=null};
-  const fresh=q=>({q,o:[],a:-1,e:"",t:"",src:defSrc,sub:defSub});
-  const add=(k,s)=>{if(!cur)return;if(cur[k]&&k!=="o")cur[k]+=(k==="src"||k==="sub"?" ":"\n")+s;else cur[k]=s};
+  const fresh=q=>({q,o:[],a:-1,e:"",t:"",src:defSrc,sub:defSub,ttl:defTtl});
   String(txt).replace(/\r/g,"").split("\n").forEach(raw=>{
     const line=raw.trim();
     if(/^[-=]{3,}$/.test(line)){push();return}
     if(!line){if(cur&&(field==="e"||field==="t")&&cur[field]&&!cur[field].endsWith("\n"))cur[field]+="\n";return}
+    const pl=line.includes("|")?pipeLine(line):null;
+    if(pl){push();all.push(pl);return}
     let hit=null;for(const [k,re] of KEYS){const m=line.match(re);if(m){hit=[k,m[1].trim()];break}}
     if(hit&&hit[0]==="q"){push();cur=fresh(hit[1]);field="q";return}
     if(!cur){cur=fresh(line.replace(/^[\d০-৯]+\s*[.)।]\s*/,""));field="q";return}
-    if(hit){field=hit[0];if(field==="a")cur.a=idxOf(hit[1]);else if(field==="src"||field==="sub")cur[field]=hit[1];else cur[field]=hit[1];return}
+    if(hit){field=hit[0];if(field==="a")cur.a=idxOf(hit[1]);else cur[field]=hit[1];return}
     const om=(field==="q"||field==="o")&&line.match(OPT);
     if(om){cur.o.push(om[2].trim());field="o";return}
     if(field==="o"&&cur.o.length)cur.o[cur.o.length-1]+=" "+line;
     else if(field==="q"||field==="e"||field==="t")cur[field]+=(cur[field]&&!cur[field].endsWith("\n")?"\n":"")+line;
-    else if(field==="src"||field==="sub")cur[field]+=" "+line;
+    else if(field==="src"||field==="sub"||field==="ttl")cur[field]+=" "+line;
   });
   push();
   const ok=[],bad=[];
   all.forEach((x,i)=>{
-    x.q=x.q.trim();x.e=x.e.trim();x.t=x.t.trim();x.src=(x.src||"").trim();x.sub=(x.sub||"").trim();
-    if(x.q&&x.o.length>=2&&x.a>=0&&x.a<x.o.length&&x.o[x.a])ok.push({q:x.q,o:x.o,a:x.a,e:x.e,t:x.t,src:x.src,sub:x.sub});else bad.push(i+1);
+    ["q","e","t","src","sub","ttl"].forEach(k=>x[k]=(x[k]||"").trim());
+    if(x.q&&x.o.length>=2&&x.a>=0&&x.a<x.o.length&&x.o[x.a])ok.push(x);else bad.push(i+1);
   });
   return {ok,bad};
 }
-window.qbOpenBulk=function(){$("qbbSub").value=qbSub;$("qbbSrc").value=qbSrc;$("qbbTxt").value="";$("qbbInfo").textContent="";openM("mQBBulk")};
+
+// ── Admin: bulk paste (step 1) → review as forms (step 2) → upload ──
+window.qbOpenBulk=function(){$("qbbTtl").value="";$("qbbSub").value=qbSub;$("qbbSrc").value=qbSrc;$("qbbTxt").value="";$("qbbInfo").textContent="";openM("mQBBulk")};
 window.qbBulkPreview=function(){
-  const r=qbParse($("qbbTxt").value,$("qbbSub").value.trim(),$("qbbSrc").value.trim());
+  const r=qbParse($("qbbTxt").value,$("qbbSub").value.trim(),$("qbbSrc").value.trim(),$("qbbTtl").value.trim(),+$("qbbBase").value);
   $("qbbInfo").innerHTML=$("qbbTxt").value.trim()?`✓ ${r.ok.length} question(s) ready`+(r.bad.length?` · <span style="color:var(--red)">${r.bad.length} skipped (no options / answer): #${r.bad.slice(0,8).join(", #")}</span>`:""):"";
   return r;
 };
-window.qbBulkSave=async function(){
-  const r=window.qbBulkPreview();if(!r.ok.length){showToast("No valid questions found");return}
-  const btn=$("qbbBtn"),base=Date.now();btn.disabled=true;let n=0;
+window.qbBulkReview=function(){
+  const r=window.qbBulkPreview();
+  if(!r.ok.length){showToast("No valid questions found — check the format");return}
+  closeM("mQBBulk");qbEdOpen(r.ok);
+  if(r.bad.length)showToast(r.bad.length+" skipped: #"+r.bad.slice(0,8).join(", #"));
+};
+async function qbImport(list,btn,label){
+  const base=Date.now();btn.disabled=true;let n=0;
   try{
-    for(let i=0;i<r.ok.length;i+=400){
-      const b=writeBatch(db),part=r.ok.slice(i,i+400);
+    for(let i=0;i<list.length;i+=400){
+      const b=writeBatch(db),part=list.slice(i,i+400);
       part.forEach((x,j)=>b.set(doc(db,QB_COL,"q"+(base+i+j).toString(36)+Math.random().toString(36).slice(2,5)),{...x,at:base+i+j}));
-      await b.commit();n+=part.length;btn.textContent=`Saving… ${n}/${r.ok.length}`;
+      await b.commit();n+=part.length;btn.textContent=`Saving… ${n}/${list.length}`;
     }
-    showToast(n+" questions added");closeM("mQBBulk");
+    showToast(n+" questions added");closeM("mQBBulk");closeM("mQBEd");
     if(!$("viewQB").classList.contains("active")){qbLoaded=false;await openQB()}else{await qbLoad(true);qbBuildFilters();qbRender()}
   }catch(e){showToast("Error: "+e.message)}
-  btn.disabled=false;btn.textContent="Import";
+  btn.disabled=false;btn.textContent=label;
+}
+window.qbBulkSave=async function(){
+  const r=window.qbBulkPreview();if(!r.ok.length){showToast("No valid questions found");return}
+  await qbImport(r.ok,$("qbbBtn"),"Import directly");
+};
+
+// ── Per-question forms (editor) ──
+let qbDraft=[];
+const qbBlank=()=>({q:"",o:["","","",""],a:0,e:"",t:"",src:qbSrc,sub:qbSub,ttl:""});
+window.qbEdOpen=function(list){
+  qbDraft=list&&list.length?list.map(x=>({q:x.q,o:[...x.o,"","","",""].slice(0,4),a:x.a,e:x.e||"",t:x.t||"",src:x.src||"",sub:x.sub||"",ttl:x.ttl||""})):[qbBlank()];
+  $("qbeTtl").value="";$("qbeSub").value="";$("qbeSrc").value="";
+  qbEdRender();openM("mQBEd");
+};
+function qbEdRender(){
+  $("qbeCount").textContent=qbDraft.length+(qbDraft.length===1?" question":" questions");
+  $("qbeList").innerHTML=qbDraft.map((x,i)=>`<div class="qb-ed" id="qbed${i}">
+    <div class="qb-edh"><b>Question ${i+1}</b><span class="qb-edmsg" id="qbem${i}"></span><button class="qb-edx" onclick="qbEdDel(${i})">✕ Remove</button></div>
+    <div class="qb-edrow">
+      <div class="fl"><label>Title / topic</label><input type="text" value="${esc(x.ttl)}" placeholder="e.g. জ্যামিতি" oninput="qbEdSet(${i},'ttl',this.value)"/></div>
+      <div class="fl"><label>Subject</label><input type="text" list="qbSubList" value="${esc(x.sub)}" placeholder="e.g. গণিত" oninput="qbEdSet(${i},'sub',this.value)"/></div>
+      <div class="fl"><label>Source / exam</label><input type="text" list="qbSrcList" value="${esc(x.src)}" placeholder="e.g. 31st BCS · 2011" oninput="qbEdSet(${i},'src',this.value)"/></div>
+    </div>
+    <div class="fl"><label>Question *</label><textarea oninput="qbEdSet(${i},'q',this.value)">${esc(x.q)}</textarea></div>
+    ${x.o.map((t,j)=>`<div class="qb-edopt"><label class="qb-edr" title="Mark as correct answer"><input type="radio" name="qbea${i}" ${x.a===j?"checked":""} onchange="qbEdAns(${i},${j})"/><span>${QB_LET[j]}</span></label><input type="text" value="${esc(t)}" placeholder="Option ${QB_LET[j]}${j<2?" *":""}" oninput="qbEdOpt(${i},${j},this.value)"/></div>`).join("")}
+    <div class="qb-hint">● Select the circle next to the correct option</div>
+    <div class="fl"><label>Explanation (ব্যাখ্যা)</label><textarea oninput="qbEdSet(${i},'e',this.value)">${esc(x.e)}</textarea></div>
+    <div class="fl"><label>Shortcut / trick (শর্টকাট সমাধান)</label><textarea oninput="qbEdSet(${i},'t',this.value)">${esc(x.t)}</textarea></div>
+  </div>`).join("");
+}
+window.qbEdSet=(i,k,v)=>{if(qbDraft[i])qbDraft[i][k]=v};
+window.qbEdOpt=(i,j,v)=>{if(qbDraft[i])qbDraft[i].o[j]=v};
+window.qbEdAns=(i,j)=>{if(qbDraft[i])qbDraft[i].a=j};
+window.qbEdDel=i=>{qbDraft.splice(i,1);if(!qbDraft.length)qbDraft.push(qbBlank());qbEdRender()};
+window.qbEdAdd=()=>{qbDraft.push(qbBlank());qbEdRender();const el=$("qbed"+(qbDraft.length-1));if(el)el.scrollIntoView({behavior:"smooth",block:"center"})};
+window.qbEdFill=()=>{
+  const v={ttl:$("qbeTtl").value.trim(),sub:$("qbeSub").value.trim(),src:$("qbeSrc").value.trim()};
+  qbDraft.forEach(x=>{for(const k in v)if(v[k]&&!String(x[k]).trim())x[k]=v[k]});
+  qbEdRender();showToast("Filled the empty fields in all questions");
+};
+window.qbEdSave=async function(){
+  const out=[],badI=[];
+  qbDraft.forEach((x,i)=>{
+    const filled=x.o.map((s,j)=>({s:s.trim(),j})).filter(p=>p.s);
+    const pos=filled.findIndex(p=>p.j===x.a);
+    let msg="";
+    if(!x.q.trim())msg="Question is empty";else if(filled.length<2)msg="Need at least 2 options";else if(pos<0)msg="The correct answer option is empty";
+    const m=$("qbem"+i);if(m)m.textContent=msg;const c=$("qbed"+i);if(c)c.classList.toggle("qb-edbad",!!msg);
+    if(msg)badI.push(i);
+    else out.push({q:x.q.trim(),o:filled.map(p=>p.s),a:pos,e:x.e.trim(),t:x.t.trim(),src:x.src.trim(),sub:x.sub.trim(),ttl:x.ttl.trim()});
+  });
+  if(badI.length){showToast(badI.length+" question(s) need fixing");const el=$("qbed"+badI[0]);if(el)el.scrollIntoView({behavior:"smooth",block:"center"});return}
+  await qbImport(out,$("qbeBtn"),"Upload all");
 };
 
 // ─── Load courses ────────────────────────────────────────
