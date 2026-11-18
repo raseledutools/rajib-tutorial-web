@@ -26,7 +26,11 @@
       "vidstore.js",
       "offline.html",
       "splash.html",
-      "package.json"
+      "package.json",
+      "focus.js",
+      "focus-core.js",
+      "focus.html",
+      "build/icon.png"
     ],
     "win": {
       "target": [

@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Focus Mode</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+  :root { --teal:#0ca8b0; --teal-h:#1eb9c3; --dark:#323232; --gray:#787878; --border:#dce1e6; --bg:#f8fafc; --green:#5aaa14; --green-h:#64be19; --red:#e74c3c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--dark); font:15px 'Segoe UI',system-ui,sans-serif; }
+  .wrap { max-width:960px; margin:0 auto; padding:22px 20px 40px; }
+  h1 { margin:0 0 4px; font-size:26px; } .sub { color:var(--gray); margin:0 0 16px; font-size:13px; }
+  .card { background:#fff; border:1.5px solid var(--border); border-radius:10px; padding:22px 26px; }
+  .row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  hr { border:0; border-top:1.5px solid var(--border); margin:18px 0; }
+  select, input[type=text], input[type=password], textarea { font:inherit; color:var(--dark); border:1.5px solid var(--border); border-radius:6px; padding:8px 10px; background:#fff; outline:none; }
+  input[type=text]:focus, input[type=password]:focus, textarea:focus, select:focus { border-color:var(--teal); }
+  select { cursor:pointer; min-width:170px; } select:disabled, input:disabled { background:var(--bg); color:var(--gray); cursor:not-allowed; }
+  button { font:600 14px 'Segoe UI',system-ui,sans-serif; border:0; border-radius:6px; padding:9px 16px; color:#fff; background:var(--teal); cursor:pointer; }
+  button:hover:not(:disabled) { background:var(--teal-h); } button:disabled { background:#c8c8c8; cursor:not-allowed; }
+  button.ghost { background:#fff; color:var(--dark); border:1.5px solid var(--border); } button.ghost:hover:not(:disabled) { background:var(--bg); }
+  #startBtn { background:var(--green); min-width:150px; padding:11px 18px; } #startBtn:hover:not(:disabled){ background:var(--green-h); }
+  #startBtn.on { background:var(--red); } #startBtn.on:hover { background:#c93d2e; }
+  .info { color:var(--red); font-style:italic; font-size:13px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:34px; margin-top:6px; }
+  @media (max-width:760px){ .cols { grid-template-columns:1fr; } }
+  h2 { margin:0 0 10px; font-size:22px; }
+  .add { display:flex; gap:8px; margin-bottom:8px; } .add input { flex:1; min-width:0; } .add select { min-width:0; width:44px; padding:8px 4px; }
+  .tools { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; } .tools button { padding:7px 12px; font-size:12.5px; }
+  .list { border:1.5px solid var(--border); border-radius:6px; background:var(--bg); height:230px; overflow:auto; }
+  .item { display:flex; align-items:center; justify-content:space-between; padding:6px 10px; border-bottom:1px solid var(--border); min-height:34px; }
+  .item span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .item .tag { color:var(--gray); font-size:11px; margin-left:6px; }
+  .item button { background:none; color:var(--red); padding:2px 8px; font-size:16px; } .item button:hover:not(:disabled){ background:#fdecea; } .item button:disabled { background:none; color:#bbb; }
+  .empty { color:var(--gray); text-align:center; padding:18px; font-size:13px; }
+  label.chk { display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+  .locked { opacity:.6; pointer-events:none; }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:10; }
+  .overlay.show { display:flex; }
+  .modal { background:#fff; border-radius:12px; padding:26px 30px; width:min(560px,92vw); max-height:88vh; overflow:auto; }
+  .modal h3 { margin:0 0 14px; text-align:center; font-size:20px; letter-spacing:.3px; }
+  .modal .btns { display:flex; gap:10px; justify-content:center; margin-top:18px; }
+  .modal input[type=password], .modal input[type=text], .modal textarea { width:100%; margin-top:8px; }
+  .modal textarea { height:200px; resize:vertical; }
+  .spin { display:flex; align-items:center; justify-content:center; gap:0; margin:8px 0; } .spin b { min-width:70px; text-align:center; font-size:20px; border-top:1.5px solid var(--border); border-bottom:1.5px solid var(--border); padding:6px 0; }
+  .spin button { background:var(--border); color:var(--dark); border-radius:0; width:36px; padding:8px 0; font-size:18px; } .spin button:hover:not(:disabled){ background:#c9cfd6; }
+  .tl { text-align:center; color:var(--gray); font-size:13px; margin-top:2px; }
+  .cnt { text-align:center; font-weight:700; margin:4px 0; } .ok { color:var(--green); } .bad { color:var(--red); }
+  .err { color:var(--red); font-size:13px; text-align:center; min-height:18px; margin-top:8px; }
+  .pick { display:flex; align-items:center; justify-content:space-between; padding:6px 4px; border-bottom:1px solid var(--border); }
+  .pick button { padding:5px 14px; }
+  #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:#222; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; display:none; z-index:20; max-width:80vw; }
+  .unsupported { background:#fff7e0; border:1.5px solid #ffc107; color:#7a5a00; padding:12px 16px; border-radius:8px; margin-bottom:14px; display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row" style="margin-bottom:6px"><button class="ghost" id="backBtn">← Back</button><h1 style="margin:0">🎯 Focus Mode</h1></div>
+  <p class="sub">Block distracting websites &amp; apps for a fixed time. Task Manager and uninstall windows are restricted while Focus is active.</p>
+  <div id="unsupported" class="unsupported">Focus Mode শুধু Windows এ কাজ করে। এই কম্পিউটারে এটা চালু করা যাবে না।</div>
+
+  <div class="card">
+    <div class="row">
+      <select id="control" title="Control mode">
+        <option value="self">Self Control</option>
+        <option value="parents">Parents Control</option>
+        <option value="longtext">Long Text Control</option>
+      </select>
+      <button id="startBtn">Start Focus</button>
+      <span class="info" id="activeInfo" style="display:none"></span>
+    </div>
+    <hr>
+    <div id="settings">
+      <div class="row">
+        <b>Select Mode:</b>
+        <select id="mode">
+          <option value="allow">Allow Apps &amp; Web</option>
+          <option value="block">Block Apps &amp; Web</option>
+        </select>
+      </div>
+      <div class="cols">
+        <section>
+          <h2>Websites</h2>
+          <div class="add">
+            <input type="text" id="siteInput" placeholder="e.g. facebook.com" maxlength="100">
+            <select id="siteCommon" title="Common websites"></select>
+            <button id="siteAdd">+ Add</button>
+          </div>
+          <div class="list" id="siteList"></div>
+        </section>
+        <section>
+          <h2>Applications</h2>
+          <div class="add">
+            <input type="text" id="appInput" placeholder="e.g. telegram.exe" maxlength="100">
+            <select id="appCommon" title="Common apps"></select>
+            <button id="appAdd">+ Add</button>
+          </div>
+          <div class="tools">
+            <button class="ghost" id="addExe">Add Exe…</button>
+            <button class="ghost" id="addRunning">Add Running App</button>
+            <button class="ghost" id="addTitle">Add Window Title</button>
+          </div>
+          <div class="list" id="appList"></div>
+        </section>
+      </div>
+      <hr>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="quotes"> Motivational Quotes</label>
+        <select id="lang" style="min-width:110px"><option value="bn">Bangla</option><option value="en">English</option></select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- time -->
+<div class="overlay" id="ovTime"><div class="modal">
+  <h3>SET FOCUS DURATION</h3>
+  <div class="row" style="justify-content:center;gap:34px">
+    <div><div class="tl">Hours</div><div class="spin"><button data-d="h-">−</button><b id="hv">1</b><button data-d="h+">+</button></div></div>
+    <div><div class="tl">Minutes</div><div class="spin"><button data-d="m-">−</button><b id="mv">0</b><button data-d="m+">+</button></div></div>
+  </div>
+  <div id="pwSetWrap" style="display:none;margin-top:10px">
+    <div class="tl" style="text-align:left">Parent password (needed to stop Focus)</div>
+    <input type="password" id="pwSet" maxlength="40" placeholder="Set password (min 4 characters)" autocomplete="off">
+  </div>
+  <div class="err" id="timeErr"></div>
+  <div class="btns"><button class="ghost" id="timeCancel">Cancel</button><button id="timeStart">Start Focus</button></div>
+</div></div>
+
+<!-- parent password to stop -->
+<div class="overlay" id="ovPass"><div class="modal">
+  <h3>ENTER PASSWORD TO STOP</h3>
+  <input type="password" id="pwStop" maxlength="40" placeholder="Type password here..." autocomplete="off">
+  <div class="err" id="passErr"></div>
+  <div class="btns"><button class="ghost" id="passCancel">Cancel</button><button id="passOk">Confirm</button></div>
+</div></div>
+
+<!-- long text to stop -->
+<div class="overlay" id="ovLong"><div class="modal">
+  <h3>TYPE 200 WORDS TO STOP FOCUS</h3>
+  <div class="cnt bad" id="wc">Word Count: 0 / 200</div>
+  <textarea id="longText" placeholder="Start typing here... Type at least 200 words explaining why you are stopping this session." maxlength="6000"></textarea>
+  <div class="err" id="longErr"></div>
+  <div class="btns"><button class="ghost" id="longCancel">Cancel</button><button id="longOk" disabled>Stop Focus</button></div>
+</div></div>
+
+<!-- running apps -->
+<div class="overlay" id="ovRun"><div class="modal">
+  <h3>ADD RUNNING APP</h3>
+  <div id="runList" style="max-height:48vh;overflow:auto"></div>
+  <div class="btns"><button id="runClose">Close</button></div>
+</div></div>
+
+<!-- window title -->
+<div class="overlay" id="ovTitle"><div class="modal">
+  <h3>ENTER WINDOW TITLE</h3>
+  <input type="text" id="titleInput" maxlength="100" placeholder="e.g. Google Chrome">
+  <div class="tl" style="margin-top:8px">Any window whose title contains this text will be blocked/allowed.</div>
+  <div class="btns"><button class="ghost" id="titleCancel">Cancel (Esc)</button><button id="titleAdd">Add Title</button></div>
+</div></div>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  let S = null;                        // latest state from the main process
+  let dur = { h: 1, m: 0 };
+
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.style.display = 'block';
+    clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = 'none'; }, 3500);
+  }
+  function show(id, on) { $(id).classList.toggle('show', !!on); }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function wordCount(s) { return String(s || '').trim().split(/\s+/).filter(Boolean).length; }
+
+  /* ---- push local edits to main (it validates and returns the cleaned state) ---- */
+  async function push(patch) {
+    const r = await FocusAPI.update(patch);
+    if (r && r.state) setState(r.state);
+    if (r && r.error) toast(r.error);
+    return r;
+  }
+  function plainApps() { return S.settings.apps.filter((a) => !a.locked).map((a) => ({ type: a.type, name: a.name })); }
+
+  /* ---- render ---- */
+  function listEl(el, rows, onRemove, locked) {
+    el.textContent = '';
+    if (!rows.length) { const d = document.createElement('div'); d.className = 'empty'; d.textContent = 'Nothing added yet'; el.appendChild(d); return; }
+    rows.forEach((r, i) => {
+      const d = document.createElement('div'); d.className = 'item';
+      const s = document.createElement('span'); s.textContent = r.name;
+      if (r.tag) { const t = document.createElement('i'); t.className = 'tag'; t.textContent = r.tag; s.appendChild(t); }
+      d.appendChild(s);
+      const b = document.createElement('button');
+      if (r.locked) { b.textContent = '🔒'; b.disabled = true; b.title = 'System app — always allowed'; }
+      else { b.textContent = '✕'; b.title = 'Remove'; b.disabled = locked; b.onclick = () => onRemove(r, i); }
+      d.appendChild(b); el.appendChild(d);
+    });
+  }
+  function fillCommon(sel, items) {
+    if (sel.dataset.filled) return; sel.dataset.filled = '1';
+    const o = document.createElement('option'); o.value = ''; o.textContent = '▾'; sel.appendChild(o);
+    items.forEach((x) => { const e = document.createElement('option'); e.value = x; e.textContent = x; sel.appendChild(e); });
+  }
+  function render() {
+    if (!S) return;
+    const s = S.settings, on = S.active;
+    $('unsupported').style.display = S.supported ? 'none' : 'block';
+    fillCommon($('siteCommon'), S.common.sites); fillCommon($('appCommon'), S.common.apps);
+    $('control').value = s.controlMode; $('mode').value = s.mode;
+    $('quotes').checked = s.showQuotes; $('lang').value = s.quoteLang;
+    $('settings').classList.toggle('locked', on);
+    $('control').disabled = on;
+    const sb = $('startBtn'); sb.classList.toggle('on', on); sb.disabled = !S.supported;
+    $('activeInfo').style.display = on ? '' : 'none';
+    listEl($('siteList'), s.sites.map((n) => ({ name: n })), (r) => push({ sites: s.sites.filter((x) => x !== r.name) }), on);
+    listEl($('appList'), s.apps.map((a) => ({ name: a.name, tag: a.type === 'title' ? ' (window title)' : '', locked: a.locked, type: a.type })),
+      (r) => push({ apps: plainApps().filter((a) => !(a.type === r.type && a.name === r.name)) }), on);
+    tick();
+  }
+  function tick() {
+    if (!S) return;
+    const sb = $('startBtn');
+    if (!S.active) { sb.textContent = 'Start Focus'; return; }
+    const left = Math.max(0, S.endAt - (Date.now() - (S._skew || 0)));
+    const m = Math.floor(left / 60000), sec = Math.floor(left / 1000) % 60, h = Math.floor(m / 60);
+    sb.textContent = S.settings.controlMode === 'self' ? 'Stop (' + (m + 1) + 'm left)' : 'Stop Focus';
+    $('activeInfo').textContent = 'FOCUS ACTIVE — ' + pad(h) + ':' + pad(m % 60) + ':' + pad(sec) + ' left · Uninstallation & Task Manager restricted.';
+  }
+  function setState(ns) { S = ns; S._skew = Date.now() - ns.now; render(); }
+  setInterval(tick, 1000);
+
+  /* ---- adding items ---- */
+  function addSite(v) {
+    v = String(v || '').trim(); if (!v) return;
+    push({ sites: S.settings.sites.concat([v]) }).then((r) => { if (r && r.ok) $('siteInput').value = ''; });
+  }
+  function addApp(name, type) {
+    name = String(name || '').trim(); if (!name) return Promise.resolve();
+    return push({ apps: plainApps().concat([{ type: type || 'exe', name }]) });
+  }
+  $('siteAdd').onclick = () => addSite($('siteInput').value);
+  $('siteInput').onkeydown = (e) => { if (e.key === 'Enter') addSite(e.target.value); };
+  $('siteCommon').onchange = (e) => { if (e.target.value) addSite(e.target.value); e.target.value = ''; };
+  $('appAdd').onclick = () => addApp($('appInput').value).then(() => { $('appInput').value = ''; });
+  $('appInput').onkeydown = (e) => { if (e.key === 'Enter') addApp(e.target.value).then(() => { $('appInput').value = ''; }); };
+  $('appCommon').onchange = (e) => { if (e.target.value) addApp(e.target.value); e.target.value = ''; };
+  $('addExe').onclick = async () => { const n = await FocusAPI.pickExe(); if (n) addApp(n); };
+  $('addRunning').onclick = async () => {
+    const box = $('runList'); box.textContent = 'Loading…'; show('ovRun', true);
+    const names = await FocusAPI.running();
+    box.textContent = '';
+    if (!names.length) { box.textContent = 'No running apps found'; return; }
+    names.forEach((n) => {
+      const d = document.createElement('div'); d.className = 'pick';
+      const s = document.createElement('span'); s.textContent = n;
+      const b = document.createElement('button'); b.textContent = 'Add'; b.onclick = () => { addApp(n); b.disabled = true; b.textContent = 'Added'; };
+      d.append(s, b); box.appendChild(d);
+    });
+  };
+  $('runClose').onclick = () => show('ovRun', false);
+  $('addTitle').onclick = () => { $('titleInput').value = ''; show('ovTitle', true); $('titleInput').focus(); };
+  const closeTitle = () => show('ovTitle', false);
+  $('titleCancel').onclick = closeTitle;
+  $('titleAdd').onclick = async () => { const v = $('titleInput').value.trim(); if (v) await addApp(v, 'title'); closeTitle(); };
+
+  /* ---- settings ---- */
+  $('control').onchange = (e) => push({ controlMode: e.target.value });
+  $('mode').onchange = (e) => push({ mode: e.target.value });
+  $('quotes').onchange = (e) => push({ showQuotes: e.target.checked });
+  $('lang').onchange = (e) => push({ quoteLang: e.target.value });
+
+  /* ---- start / stop ---- */
+  function paintDur() { $('hv').textContent = dur.h; $('mv').textContent = dur.m; }
+  $('startBtn').onclick = () => {
+    if (!S) return;
+    if (!S.active) {
+      dur = { h: S.settings.hours, m: S.settings.mins }; paintDur();
+      $('timeErr').textContent = ''; $('pwSet').value = '';
+      $('pwSetWrap').style.display = S.settings.controlMode === 'parents' ? '' : 'none';
+      show('ovTime', true);
+    } else if (S.settings.controlMode === 'parents') { $('pwStop').value = ''; $('passErr').textContent = ''; show('ovPass', true); $('pwStop').focus(); }
+    else if (S.settings.controlMode === 'longtext') { $('longText').value = ''; updateWc(); $('longErr').textContent = ''; show('ovLong', true); $('longText').focus(); }
+    else { FocusAPI.stop({}).then((r) => { if (r && r.error) toast(r.error); }); }
+  };
+  document.querySelectorAll('#ovTime .spin button').forEach((b) => {
+    b.onclick = () => {
+      const d = b.dataset.d;
+      if (d === 'h-' && dur.h > 0) dur.h--;
+      if (d === 'h+' && dur.h < 23) dur.h++;
+      if (d === 'm-') dur.m = dur.m - 5 < 0 ? 55 : dur.m - 5;
+      if (d === 'm+') dur.m = (dur.m + 5) % 60;
+      paintDur();
+    };
+  });
+  $('timeCancel').onclick = () => show('ovTime', false);
+  $('timeStart').onclick = async () => {
+    $('timeErr').textContent = '';
+    await push({ hours: dur.h, mins: dur.m });
+    const r = await FocusAPI.start({ password: $('pwSet').value });
+    if (r && r.ok) { show('ovTime', false); $('pwSet').value = ''; }
+    else $('timeErr').textContent = (r && r.error) || 'Could not start Focus.';
+  };
+  $('passCancel').onclick = () => show('ovPass', false);
+  $('passOk').onclick = async () => {
+    const r = await FocusAPI.stop({ password: $('pwStop').value });
+    if (r && r.ok) { show('ovPass', false); $('pwStop').value = ''; } else $('passErr').textContent = (r && r.error) || 'Wrong password';
+  };
+  $('pwStop').onkeydown = (e) => { if (e.key === 'Enter') $('passOk').click(); };
+  function updateWc() {
+    const n = wordCount($('longText').value), ok = n >= 200;
+    const c = $('wc'); c.textContent = 'Word Count: ' + n + ' / 200'; c.className = 'cnt ' + (ok ? 'ok' : 'bad');
+    $('longOk').disabled = !ok;
+  }
+  $('longText').oninput = updateWc;
+  $('longCancel').onclick = () => show('ovLong', false);
+  $('longOk').onclick = async () => {
+    const r = await FocusAPI.stop({ text: $('longText').value });
+    if (r && r.ok) { show('ovLong', false); $('longText').value = ''; } else $('longErr').textContent = (r && r.error) || 'Could not stop Focus.';
+  };
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    ['ovTime', 'ovPass', 'ovLong', 'ovRun', 'ovTitle'].forEach((id) => show(id, false));
+  });
+
+  $('backBtn').onclick = () => { if (history.length > 1) history.back(); else location.href = 'app://retry'; };
+  FocusAPI.onState(setState);
+  FocusAPI.get().then((s) => { if (s) setState(s); });
+})();
+</script>
+</body>
+</html>

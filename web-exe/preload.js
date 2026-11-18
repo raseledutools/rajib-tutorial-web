@@ -1,6 +1,21 @@
 'use strict';
 const { ipcRenderer, contextBridge } = require('electron');
 
+// Custom title bar (white, drag area, app icon + title). Native min/max/close buttons come from titleBarOverlay in main.js.
+function buildTitleBar() {
+  if (!document.body || document.getElementById('__rt_titlebar')) return;
+  const isFile = location.protocol === 'file:';
+  const bar = document.createElement('div');
+  bar.id = '__rt_titlebar';
+  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:36px;z-index:2147483646;display:flex;align-items:center;gap:8px;padding:0 150px 0 12px;background:#fff;border-bottom:1px solid #E3E6EA;font:600 13px "Segoe UI",system-ui,sans-serif;color:#1f2937;-webkit-app-region:drag;user-select:none';
+  bar.innerHTML = '<svg width="18" height="18" viewBox="0 0 100 100" fill="none" stroke="#00959c" stroke-width="9" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg><span>Rajib Tutorial</span>';
+  document.body.appendChild(bar);
+  // Local pages (focus / offline) have no layout that knows about the bar: push their content down.
+  if (isFile && !location.pathname.endsWith('splash.html')) document.documentElement.style.paddingTop = '36px';
+}
+window.addEventListener('DOMContentLoaded', buildTitleBar);
+window.addEventListener('load', buildTitleBar);
+
 // Nav bar (back / forward / reload)
 function buildNavBar() {
   if (location.protocol === 'file:' && location.pathname.endsWith('splash.html')) return;
@@ -77,6 +92,26 @@ ipcRenderer.on('update:state', (_e, st) => { lastUpdate = st || { status: 'idle'
 window.addEventListener('DOMContentLoaded', () => { ipcRenderer.send('update:get'); renderUpdateBtn(); });
 window.addEventListener('load', renderUpdateBtn);
 
+
+// Focus Mode: floating button (above the update-check button) opens the Focus window
+let focusOn = false;
+function renderFocusBtn() {
+  if (location.protocol === 'file:') return;
+  let f = document.getElementById('__rt_focus');
+  if (!f) {
+    f = document.createElement('button');
+    f.id = '__rt_focus';
+    f.style.cssText = 'position:fixed;right:14px;bottom:58px;z-index:2147483646;border:0;border-radius:999px;padding:8px 14px;color:#fff;font:600 12.5px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);backdrop-filter:blur(6px)';
+    f.onclick = () => ipcRenderer.send('focus:open');
+    (document.body || document.documentElement).appendChild(f);
+  }
+  f.textContent = focusOn ? '🎯 Focus চলছে' : '🎯 Focus Mode';
+  f.style.background = focusOn ? 'rgba(22,163,74,.92)' : 'rgba(12,168,176,.92)';
+}
+ipcRenderer.on('focus:badge', (_e, on) => { focusOn = !!on; renderFocusBtn(); });
+window.addEventListener('DOMContentLoaded', renderFocusBtn);
+window.addEventListener('load', renderFocusBtn);
+
 // Expose a safe bridge so the website can open URLs inside the Electron app
 // (used by openInAppBrowser for YouTube, Google, YouTube Studio etc.)
 contextBridge.exposeInMainWorld('ElectronShell', {
@@ -95,3 +130,16 @@ contextBridge.exposeInMainWorld('ElectronShell', {
     onEvent: (fn) => { ipcRenderer.on('vid:event', (_e, ev) => { try { fn(ev); } catch (_) {} }); },
   },
 });
+
+// Focus Mode API — only on the local focus.html page (never exposed to the website)
+if (location.protocol === 'file:' && location.pathname.endsWith('focus.html')) {
+  contextBridge.exposeInMainWorld('FocusAPI', {
+    get: () => ipcRenderer.invoke('focus:get'),
+    update: (patch) => ipcRenderer.invoke('focus:update', patch),
+    start: (o) => ipcRenderer.invoke('focus:start', o || {}),
+    stop: (o) => ipcRenderer.invoke('focus:stop', o || {}),
+    pickExe: () => ipcRenderer.invoke('focus:pickExe'),
+    running: () => ipcRenderer.invoke('focus:running'),
+    onState: (fn) => { ipcRenderer.on('focus:state', (_e, st) => { try { fn(st); } catch (_) {} }); },
+  });
+}

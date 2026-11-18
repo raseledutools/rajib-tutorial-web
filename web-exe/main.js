@@ -1,15 +1,19 @@
 'use strict';
-const { app, BrowserWindow, Menu, session, shell, clipboard, globalShortcut, ipcMain, Notification, protocol, net } = require('electron');
+const { app, BrowserWindow, Menu, Tray, nativeImage, session, shell, clipboard, globalShortcut, ipcMain, Notification, protocol, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { Readable } = require('stream');
 const vidstore = require('./vidstore');
+const focus = require('./focus');
 
 const SITE = 'https://raseledutools.github.io/rajib-tutorial-web/';
 const SITE_ORIGIN = new URL(SITE).origin;
 const PACKAGED = app.isPackaged;
 let win = null;
+let tray = null;
+let forceQuit = false; // true only for a real quit (tray → Quit, installing an update, Windows shutdown)
+let startHidden = process.argv.includes('--hidden'); // started by Windows at login: stay in the tray
 
 // rtvid://  — plays saved lesson videos from disk (with Range support so seeking works)
 protocol.registerSchemesAsPrivileged([
@@ -17,7 +21,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 if (!app.requestSingleInstanceLock()) app.quit();
-app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+app.on('second-instance', () => { showMain(); });
 
 
 /* ---------- Offline cache for the website shell ----------
@@ -225,6 +229,9 @@ function create() {
   win = new BrowserWindow({
     width: 1280, height: 820, minWidth: 900, minHeight: 600, show: false,
     backgroundColor: '#0f172a', title: 'Rajib Tutorial', autoHideMenuBar: true,
+    // custom title bar (drawn by preload.js); Windows draws only the min / max / close buttons
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#ffffff', symbolColor: '#1f2937', height: 36 },
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       contextIsolation: true,
@@ -236,7 +243,17 @@ function create() {
   });
   protect(win);
   // Local splash paints almost instantly, so the window appears right after the click.
-  win.once('ready-to-show', () => { win.maximize(); win.show(); });
+  win.once('ready-to-show', () => { win.maximize(); if (!startHidden) win.show(); startHidden = false; });
+  // Closing the window only hides it to the tray, so update / admin-panel notifications and Focus Mode keep working.
+  win.on('close', (e) => {
+    if (forceQuit || !tray) return;
+    e.preventDefault();
+    win.hide();
+    if (!hintedTray && Notification.isSupported()) {
+      hintedTray = true;
+      new Notification({ title: 'Rajib Tutorial', body: 'অ্যাপ background এ চলছে (system tray)। পুরোপুরি বন্ধ করতে tray আইকনে right-click → Quit।' }).show();
+    }
+  });
   win.on('closed', () => { win = null; });
   win.setMenuBarVisibility(false);
 
@@ -268,6 +285,56 @@ function create() {
   win.loadFile(path.join(__dirname, 'splash.html'));
 }
 
+
+
+/* ---------- Tray, background mode, start with Windows ----------
+   The window hides instead of closing, so the site's admin-panel notifications and the update check keep
+   running while the window is closed. Focus Mode can't be quit while a session is active. */
+let hintedTray = false;
+const PREFS = () => path.join(app.getPath('userData'), 'prefs.json');
+function readPrefs() { try { return JSON.parse(fs.readFileSync(PREFS(), 'utf8')) || {}; } catch (_) { return {}; } }
+function writePrefs(p) { try { fs.writeFileSync(PREFS(), JSON.stringify(p)); } catch (_) {} }
+function autostartOn() { const p = readPrefs(); return p.autostart !== false; } // default: on
+function applyAutostart(on) {
+  if (!PACKAGED) return; // never register the dev electron.exe
+  try { app.setLoginItemSettings({ openAtLogin: !!on, args: ['--hidden'] }); } catch (_) {}
+}
+function showMain() {
+  if (!win || win.isDestroyed()) { startHidden = false; create(); return; }
+  if (win.isMinimized()) win.restore();
+  win.show(); win.focus();
+}
+function trayMenu() {
+  const active = focus.isActive();
+  return Menu.buildFromTemplate([
+    { label: 'Open Rajib Tutorial', click: showMain },
+    { label: active ? 'Focus Mode (চলছে)' : 'Focus Mode', click: () => focus.openWindow() },
+    { type: 'separator' },
+    {
+      label: 'Start with Windows', type: 'checkbox', checked: autostartOn() || active, enabled: !active,
+      click: (item) => { const p = readPrefs(); p.autostart = item.checked; writePrefs(p); applyAutostart(item.checked); },
+    },
+    { type: 'separator' },
+    { label: active ? 'Quit (Focus চলার সময় বন্ধ করা যাবে না)' : 'Quit', enabled: !active, click: () => { forceQuit = true; app.quit(); } },
+  ]);
+}
+function initTray() {
+  try {
+    const img = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon.png'));
+    if (img.isEmpty()) return; // no icon → no tray → the close button keeps its normal behaviour
+    tray = new Tray(img.resize({ width: 16, height: 16 }));
+    tray.setToolTip('Rajib Tutorial');
+    tray.setContextMenu(trayMenu());
+    tray.on('click', showMain);
+  } catch (_) { tray = null; }
+}
+function refreshTrayMenu() { if (tray) tray.setContextMenu(trayMenu()); }
+
+app.on('before-quit', (e) => {
+  if (!forceQuit && focus.isActive()) e.preventDefault(); // a Focus session is running
+});
+app.on('session-end', () => { forceQuit = true; });
+app.on('will-quit', () => { focus.stop(); });
 
 /* ---------- Auto update (GitHub Releases) ----------
    CI publishes a new version on every push to web-exe/**.
@@ -340,7 +407,7 @@ function initUpdater() {
   autoUpdater.on('update-downloaded', () => {
     setUpdate({ status: 'installing', percent: 100 });
     // silent install, then relaunch the new version
-    setTimeout(() => autoUpdater.quitAndInstall(true, true), 800);
+    setTimeout(() => { forceQuit = true; autoUpdater.quitAndInstall(true, true); }, 800);
   });
   autoUpdater.on('error', () => {
     if (updateState.status === 'downloading') setUpdate({ status: 'available' });
@@ -403,8 +470,11 @@ app.whenReady().then(() => {
     .forEach(u => { try { session.defaultSession.preconnect({ url: u, numSockets: 2 }); } catch (_) {} });
   try { initVideos(); } catch (_) {}
   create();
+  initTray();
+  focus.init({ getMainWin: () => win, onStart: () => applyAutostart(true), onActiveChange: refreshTrayMenu });
+  applyAutostart(autostartOn() || focus.isActive());
   setTimeout(initUpdater, 1500);
   try { globalShortcut.register('PrintScreen', () => { try { clipboard.clear(); } catch (_) {} }); } catch (_) {}
 });
 app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch (_) {} });
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', () => { if (!tray || forceQuit) app.quit(); });
