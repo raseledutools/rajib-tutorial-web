@@ -536,6 +536,12 @@ body{color:var(--text)}
 .ytp-qm div.on{background:var(--accent,#e8365d)}
 .ytp-bar button.ytp-q{min-width:44px}
 
+
+/* ── Rajib Tutorial watermark (low opacity, video corner) ── */
+.player-area::after,.lv-player::after{content:"Rajib Tutorial";position:absolute;top:10px;right:12px;z-index:5;pointer-events:none;
+  font:800 clamp(11px,2.4vw,16px)/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.03em;color:#fff;opacity:.28;
+  text-shadow:0 1px 3px rgba(0,0,0,.55);-webkit-user-select:none;user-select:none}
+
 /* ── Screen capture prevention ──────────────────────────── */
 @media screen {
   .player-area, .player-area *, .player-panel {
@@ -2689,7 +2695,7 @@ function loadYTApi(){
   return _ytApi;
 }
 // warm up: fetch the YouTube player API once the page is idle so the first lesson starts faster
-window.addEventListener("load",()=>setTimeout(()=>{try{loadYTApi()}catch(e){}},1200));
+try{loadYTApi()}catch(e){}
 const _fmtT=t=>{t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+":"+String(t%60).padStart(2,"0")};
 function unmountYT(box){
   if(!box) return;
@@ -3786,7 +3792,7 @@ async function _playVideo(vid){
   _loadingVid=vid;vState="loading";clearInterval(_vWatchT);renderVlist();bufShow($("playerArea"),"Loading…");
   // ── Verify session before every play ──
   if(session?.mobile&&!adminIn){
-    try{
+    (async()=>{try{
       const snap=await getDoc(doc(db,"tutorial_courses","_member_"+session.mobile));
       if(snap.exists()){
         const d=snap.data();
@@ -3806,7 +3812,7 @@ async function _playVideo(vid){
           return;
         }
       }
-    }catch(e){}// network issue — allow play
+    }catch(e){}})();// runs in background: playback starts immediately, kicks out if session invalid
   }
   curVideo=want;
   renderVlist();
