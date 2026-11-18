@@ -1,6 +1,9 @@
 package com.rajibtutorial;
 
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.graphics.Color;
+import java.util.ArrayList;
 import android.net.Uri;
 import android.view.Gravity;
 import android.view.View;
@@ -35,6 +38,12 @@ final class CourseScreen extends Screen {
     private VideoView video;
     private boolean released      = false;
     private boolean inlineSuspended = false;
+    // in-place fullscreen: the SAME player view is moved into fsLayer (no re-create => no re-buffering)
+    private FrameLayout fsLayer;
+    private TextView fsClose;
+    private int fsPrevOrientation;
+    private boolean resumeVideo = false, fsWasPlaying = false;
+    private int fsPos = 0;
 
     CourseScreen(NativeHomeActivity host) { a = host; }
 
@@ -127,6 +136,7 @@ final class CourseScreen extends Screen {
     // ── Player ──────────────────────────────────────────────────────────────
 
     private void clearPlayer() {
+        resumeVideo = false;
         if (video != null) {
             try { video.stopPlayback(); } catch (Exception ignored) { }
             video = null;
@@ -214,6 +224,10 @@ final class CourseScreen extends Screen {
             playerFrame.addView(vSpin, sLp);
             video.setOnPreparedListener(mp -> {
                 vSpin.setVisibility(View.GONE);
+                if (resumeVideo) {            // coming back from in-place fullscreen: continue where it was
+                    resumeVideo = false;
+                    try { if (fsPos > 0) video.seekTo(fsPos); if (fsWasPlaying) video.start(); } catch (Exception ignored) { }
+                }
                 mp.setOnInfoListener((m, what, extra) -> {
                     if (what == android.media.MediaPlayer.MEDIA_INFO_BUFFERING_START) vSpin.setVisibility(View.VISIBLE);
                     else if (what == android.media.MediaPlayer.MEDIA_INFO_BUFFERING_END
@@ -240,14 +254,115 @@ final class CourseScreen extends Screen {
     private void openFullscreen() {
         Store.Video v = a.curVideo;
         if (v == null || v.url.isEmpty()) { a.toast("Select a lesson first"); return; }
-        Intent i = new Intent(a, PlayerActivity.class);
-        // prefer local cached file for fullscreen too
-        String local = VideoCache.getLocalPath(a, v.id);
-        i.putExtra("url", local != null ? "file://" + local : v.url);
-        i.putExtra("title", v.title);
-        inlineSuspended = true;
-        showPlaceholder("Playing in fullscreen…");
-        a.startActivity(i);
+        if (fsLayer != null) { closeFullscreen(); return; }
+        final View pv = web != null ? web : video;
+        if (pv == null) {                     // no live player (placeholder) -> old separate-screen fullscreen
+            Intent i = new Intent(a, PlayerActivity.class);
+            String local = VideoCache.getLocalPath(a, v.id);
+            i.putExtra("url", local != null ? "file://" + local : v.url);
+            i.putExtra("title", v.title);
+            inlineSuspended = true;
+            showPlaceholder("Playing in fullscreen…");
+            a.startActivity(i);
+            return;
+        }
+        saveState();
+
+        // take every child (player + buffering spinner) out of the inline frame
+        ArrayList<View> kids = new ArrayList<>();
+        for (int k = 0; k < playerFrame.getChildCount(); k++) kids.add(playerFrame.getChildAt(k));
+        playerFrame.removeAllViews();
+
+        fsLayer = new FrameLayout(a);
+        fsLayer.setBackgroundColor(Color.BLACK);
+        for (View k : kids) {
+            ViewGroup.LayoutParams lp = k.getLayoutParams();
+            fsLayer.addView(k, lp != null ? lp : new FrameLayout.LayoutParams(MATCH, MATCH));
+        }
+        fsClose = new TextView(a);
+        fsClose.setText("✕");
+        fsClose.setTextColor(Color.WHITE);
+        fsClose.setTextSize(20);
+        fsClose.setGravity(Gravity.CENTER);
+        fsClose.setBackgroundColor(0x88000000);
+        int sz = Ui.dp(a, 44);
+        FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(sz, sz);
+        cl.gravity = Gravity.TOP | Gravity.END;
+        cl.setMargins(0, Ui.dp(a, 8), Ui.dp(a, 8), 0);
+        fsLayer.addView(fsClose, cl);
+        fsClose.setOnClickListener(x -> closeFullscreen());
+
+        // placeholder where the player used to be
+        TextView t = Ui.tv(a, "▶\nPlaying in fullscreen…", 13, 0xFFCFC9D6, false);
+        t.setGravity(Gravity.CENTER);
+        playerFrame.addView(t, new FrameLayout.LayoutParams(MATCH, MATCH));
+
+        ViewGroup decor = (ViewGroup) a.getWindow().getDecorView();
+        decor.addView(fsLayer, new FrameLayout.LayoutParams(MATCH, MATCH));
+        fsPrevOrientation = a.getRequestedOrientation();
+        a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        hideBars(decor);
+        afterMove();
+    }
+
+    private void closeFullscreen() {
+        if (fsLayer == null) return;
+        saveState();
+        ArrayList<View> kids = new ArrayList<>();
+        for (int k = 0; k < fsLayer.getChildCount(); k++) {
+            View c = fsLayer.getChildAt(k);
+            if (c != fsClose) kids.add(c);
+        }
+        fsLayer.removeAllViews();
+        ViewGroup decor = (ViewGroup) a.getWindow().getDecorView();
+        decor.removeView(fsLayer);
+        fsLayer = null;
+        fsClose = null;
+
+        playerFrame.removeAllViews();
+        for (View k : kids) {
+            ViewGroup.LayoutParams lp = k.getLayoutParams();
+            playerFrame.addView(k, lp != null ? lp : new FrameLayout.LayoutParams(MATCH, MATCH));
+        }
+        a.setRequestedOrientation(fsPrevOrientation);
+        decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+        afterMove();
+    }
+
+    /** Remember play state before the player view is re-parented. */
+    private void saveState() {
+        if (video != null) {
+            try { fsPos = video.getCurrentPosition(); fsWasPlaying = video.isPlaying(); resumeVideo = true; }
+            catch (Exception ignored) { }
+        }
+        if (web != null) web.evaluateJavascript("window.__fsPrep&&window.__fsPrep()", null);
+    }
+
+    /** Resume playback after the player view changed parent. */
+    private void afterMove() {
+        if (web != null) {
+            web.onResume();
+            web.evaluateJavascript("window.__fsRestore&&window.__fsRestore()", null);
+        }
+        if (video != null) {
+            // if the surface was not re-created, the prepared-listener never fires: just keep playing
+            playerFrame.postDelayed(() -> {
+                try { if (video != null && fsWasPlaying && !video.isPlaying()) video.start(); } catch (Exception ignored) { }
+            }, 1500);
+        }
+    }
+
+    private void hideBars(View decor) {
+        decor.setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+    }
+
+    @Override
+    boolean onBack() {
+        if (fsLayer != null) { closeFullscreen(); return true; }
+        return false;
     }
 
     @Override
@@ -267,6 +382,7 @@ final class CourseScreen extends Screen {
     @Override
     void release() {
         released = true;
+        if (fsLayer != null) closeFullscreen();
         if (root != null) clearPlayer();
     }
 

@@ -498,6 +498,7 @@ public class NativeHomeActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
+        if (screen != null && screen.onBack()) return;
         if (currentView != V_HOME) goHome();
         else super.onBackPressed();
     }
