@@ -1451,7 +1451,15 @@ body.chat-on .topbar{display:none}
 .lx-me{font-size:12.5px;font-weight:700;color:var(--green)}
 .lx-none{background:#fff;border:1.5px dashed var(--border);border-radius:14px;padding:16px;text-align:center;font-size:13px;color:var(--sub);margin-bottom:10px}
 .lx-more{display:block;margin:8px auto 0;padding:10px 18px;border-radius:12px;background:var(--card2);color:var(--text);font-weight:700;font-size:13px}
-@media(max-width:700px){.lx-wrap{padding:0 16px 32px}}
+.lx-stats{display:flex;gap:10px;margin:10px 0}
+.lx-stats div{flex:1;background:var(--card2);border-radius:12px;padding:10px;text-align:center}
+.lx-stats b{display:block;font-size:18px;color:var(--text)}.lx-stats small{font-size:11.5px;color:var(--sub)}
+.lx-rank{background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.lx-rh,.lx-rr{display:grid;grid-template-columns:38px 1fr 78px 58px 64px;gap:6px;align-items:center;padding:10px 12px;font-size:12.5px}
+.lx-rh{background:var(--card2);font-weight:800;color:var(--sub);font-size:11.5px}
+.lx-rr{border-top:1px solid var(--border)}.lx-rr.me{background:var(--accent-soft)}
+.lx-rr .nm{font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis}.lx-rr .nm small{display:block;font-weight:400;color:var(--sub);font-size:11px}
+@media(max-width:700px){.lx-wrap{padding:0 16px 32px}.lx-rh,.lx-rr{grid-template-columns:30px 1fr 64px 46px;}.lx-rh span:last-child,.lx-rr span:last-child{display:none}}
 </style>
 </head>
 <body>
@@ -2167,7 +2175,8 @@ body.chat-on .topbar{display:none}
     <div class="fl"><label>Exam title *</label><input type="text" id="lxTitle" placeholder="e.g. Weekly Model Test 05"/></div>
     <div class="fl"><label>Subject / syllabus (optional)</label><input type="text" id="lxSub" placeholder="e.g. Circuit Analysis"/></div>
     <div class="fl"><label>Starts at *</label><input type="datetime-local" id="lxStart"/></div>
-    <div class="fl"><label>Ends at * (archived after this time)</label><input type="datetime-local" id="lxEnd"/></div>
+    <div class="fl"><label>Ends at * (archived after this time)</label><input type="datetime-local" id="lxEnd" onchange="if($('lxRes').value<this.value)$('lxRes').value=this.value"/></div>
+    <div class="fl"><label>Results visible to students from * (not before the end time)</label><input type="datetime-local" id="lxRes"/></div>
     <div class="fl"><label>Duration per student (minutes) *</label><input type="number" id="lxDur" min="1" value="30"/></div>
     <label class="qb-chk"><input type="checkbox" id="lxNeg" checked/> Negative marking (−0.25 per wrong answer)</label>
     <div class="qb-hint" style="margin:12px 0 4px"><b>Format 1 — one line per question</b> (question | ক | খ | গ | ঘ | answer):</div>
@@ -2346,7 +2355,7 @@ const RES_META={
 };
 let filterSem="", searchQ="";
 let liveType="class";
-let lxAll=[],lxLoaded=false,lxErr="",lxTarget=null,lxArcN=10,lxSig="",qbLive=null;
+let lxAll=[],lxLoaded=false,lxErr="",lxTarget=null,lxArcN=10,lxSig="",qbLive=null,lxView="review";
 let live={classTitle:"",classTime:"",classUrl:"",examTitle:"",examTime:"",examUrl:"",premiumUrl:"",premiumInfo:"",payBkash:"",payNagad:"",payRocket:""};
 
 const $=id=>document.getElementById(id);
@@ -2856,7 +2865,7 @@ function qbRender(){
   $("qbTabs").style.display=qbLive?"none":"";
   document.querySelector("#viewQB .res-head").style.display=qbLive?"none":"";
   $("qbFilters").style.display=(qbLive||(qbMode==="exam"&&qbExam&&!qbExam.done))?"none":"";
-  if(qbLive){if(qbExam&&qbExam.live===qbLive){if(qbExam.done)qbExamResult();else qbExamQ()}else lxReviewRender();return}
+  if(qbLive){if(qbExam&&qbExam.live===qbLive){if(qbExam.done)qbExamResult();else qbExamQ()}else if(lxView==="results")lxResultsRender();else lxReviewRender();return}
   if(qbMode==="practice")qbPractice();else if(qbMode==="read")qbRead();else qbExamView();
 }
 const qbLab=x=>[x.ttl,x.src,x.sub].filter(Boolean).join(" · ")||"MCQ";
@@ -2958,7 +2967,7 @@ window.qbFinish=()=>{
   E.used=Math.min(E.min*60,Math.round((Date.now()-(E.t0||(E.end-E.min*60000)))/1000));
   if(E.live){const R=lxRec.get(),r=R[E.live]||{};
     if(r.done)E.used=r.used||E.used;
-    else{R[E.live]={...r,ans:E.ans,done:true,score:E.score,pct:E.pct,c:E.c,w:E.w,s:E.s,used:E.used,total:E.qs.length,at:Date.now()};lxRec.set(R)}
+    else{R[E.live]={...r,ans:E.ans,done:true,score:E.score,pct:E.pct,c:E.c,w:E.w,s:E.s,used:E.used,total:E.qs.length,at:Date.now()};lxRec.set(R);lxSend(E.live)}
   }else qbHist.add({at:Date.now(),score:E.score,total:E.qs.length,pct:E.pct});
   qbRender();window.scrollTo(0,0);
 };
@@ -3159,9 +3168,10 @@ async function lxLoad(force){
     const snap=await getDocs(query(collection(db,LX_COL),orderBy("start","desc"),limit(200)));
     lxAll=[];
     snap.forEach(d=>{const x=d.data();if(!Array.isArray(x.qs)||!x.qs.length)return;
-      lxAll.push({id:d.id,title:x.title||"Live Exam",sub:x.sub||"",start:Number(x.start)||0,end:Number(x.end)||0,dur:Number(x.dur)||20,neg:!!x.neg,
+      lxAll.push({id:d.id,title:x.title||"Live Exam",sub:x.sub||"",start:Number(x.start)||0,end:Number(x.end)||0,rt:Number(x.rt)||Number(x.end)||0,dur:Number(x.dur)||20,neg:!!x.neg,
         qs:x.qs.filter(q=>q&&Array.isArray(q.o)&&q.o.length>=2).map(q=>({q:q.q||"",o:q.o.map(String),a:Number(q.a)||0,e:q.e||"",t:q.t||"",src:q.src||"",sub:q.sub||"",ttl:q.ttl||""}))})});
     lxLoaded=true;lxErr="";lxSig=lxAll.map(x=>x.id+lxState(x)).join();
+    Object.keys(lxRec.get()).forEach(id=>lxSend(id));
   }catch(e){lxErr=e.message||"Could not load";}
 }
 // state flips (upcoming → live → archive) without a reload
@@ -3197,6 +3207,8 @@ function lxRenderPage(){
   else if(lxErr&&!lxAll.length)body=`<div class="lx-none">Could not load exams.<br>${esc(lxErr)}</div>`;
   else body=sec("Live now",L,"No exam is running right now.")+L.map(x=>lxCard(x,"live",now)).join("")
     +sec("Upcoming",U,"No exam scheduled yet.")+U.map(x=>lxCard(x,"upcoming",now)).join("")
+    +sec("🏆 Results",A,"Results appear here after an exam ends.")+A.slice(0,lxArcN).map(x=>{const ok=now>=x.rt;
+      return `<div class="lx-card"><div class="lx-top"><div><div class="lx-t">${esc(x.title)}</div><div class="lx-sub">${esc(lxFmt(x.end))} · ${x.qs.length} questions</div></div>${ok?`<button class="lx-go" onclick="lxOpenResults('${x.id}')">View results</button>`:`<span class="lx-go off">Results on ${esc(lxFmt(x.rt))}</span>`}${adminIn&&!ok?`<button class="rc-btn" onclick="lxOpenResults('${x.id}')">Preview</button>`:""}</div></div>`}).join("")
     +sec("Archive",A,"Finished exams will appear here automatically.")+A.slice(0,lxArcN).map(x=>lxCard(x,"archive",now)).join("")
     +(A.length>lxArcN?`<button class="lx-more" onclick="lxMore()">Show older exams (${A.length-lxArcN})</button>`:"");
   v.innerHTML=`
@@ -3216,6 +3228,50 @@ function lxRenderPage(){
   <div class="lx-wrap">${body}</div>`;
 }
 
+const LXR_COL="live_exam_results";
+const lxMask=m=>{m=String(m||"").replace(/\D/g,"");return m.length>=8?m.slice(0,3)+"XXXX"+m.slice(-3):""};
+function lxUid(){
+  if(session&&session.mobile){let h=2166136261;const t="rt"+normMobile(session.mobile);for(let i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619)}return "m"+(h>>>0).toString(36)}
+  try{let u=localStorage.getItem("rt_uid");if(!u){u="d"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);localStorage.setItem("rt_uid",u)}return u}catch(e){return "d"+Math.random().toString(36).slice(2,10)}
+}
+function lxName(){const m=curMember();if(m&&m.name)return m.name;try{return localStorage.getItem("rt_lx_name")||""}catch(e){return ""}}
+async function lxSend(id){
+  const r=lxRec.get()[id];if(!r||!r.done||r.sent||!r.uid)return;
+  try{
+    await setDoc(doc(db,LXR_COL,id+"_"+r.uid),{ex:id,uid:r.uid,name:r.name||"Student",mob:r.mob||"",score:r.score,total:r.total,pct:r.pct,c:r.c,w:r.w,s:r.s,used:r.used||0,at:r.at||Date.now()});
+    const R=lxRec.get();R[id]={...R[id],sent:true};lxRec.set(R);
+  }catch(e){}
+}
+// ── Results section: who took the exam, marks, rank (visible from the time the admin sets) ──
+window.lxOpenResults=function(id){
+  const x=lxAll.find(e=>e.id===id);if(!x)return;
+  if(Date.now()<x.rt&&!adminIn){showToast("Results will be published on "+lxFmt(x.rt));return}
+  if(qbExam&&qbExam.live){clearInterval(qbTick);qbExam=null}
+  qbLive=id;lxView="results";qbMode="exam";goView("viewQB");$("topbarTitle").textContent="Exam Results";qbRender();window.scrollTo(0,0);
+};
+async function lxResultsRender(){
+  const id=qbLive,x=lxAll.find(e=>e.id===id),B=$("qbBody");
+  if(!x){B.innerHTML=`<div class="res-empty">Exam not found.</div>`;return}
+  B.innerHTML=`<div class="loader"><div class="spin"></div>Loading results…</div>`;
+  let rows=[],err="";
+  try{
+    const snap=await getDocs(query(collection(db,LXR_COL),where("ex","==",id),limit(1000)));
+    snap.forEach(d=>{const r=d.data();rows.push({uid:r.uid||d.id,name:r.name||"Student",mob:r.mob||"",score:Number(r.score)||0,total:Number(r.total)||x.qs.length,c:Number(r.c)||0,w:Number(r.w)||0,s:Number(r.s)||0,used:Number(r.used)||0})});
+  }catch(e){err=e.message||"error"}
+  if(qbLive!==id||lxView!=="results")return;
+  rows.sort((a,b)=>b.score-a.score||a.used-b.used);
+  const me=lxRec.get()[id],myUid=me&&me.uid,n=rows.length,top=n?rows[0].score:0,avg=n?Math.round(rows.reduce((t,r)=>t+r.score,0)/n*100)/100:0;
+  const myPos=rows.findIndex(r=>r.uid===myUid);
+  const fm=sec=>Math.floor(sec/60)+"m "+(sec%60)+"s";
+  B.innerHTML=`<button class="qb-lnk" onclick="openLive('exam')">‹ Back to Live Exam</button>
+    <div class="qb-card"><div class="qb-q">🏆 ${esc(x.title)} — Results</div>
+      <div class="res-sub">${esc(lxFmt(x.start))} → ${esc(lxFmt(x.end))} · ${x.qs.length} questions</div>
+      ${err?`<div class="lx-sub" style="color:var(--red)">Could not load results: ${esc(err)}</div>`:`<div class="lx-stats"><div><b>${n}</b><small>Participants</small></div><div><b>${top}</b><small>Top score</small></div><div><b>${avg}</b><small>Average</small></div></div>`}
+      ${myPos>=0?`<div class="lx-me">Your rank: #${myPos+1} of ${n} · ${rows[myPos].score} / ${rows[myPos].total}</div>`:(me&&me.done?`<div class="lx-sub">Your result is still syncing — reload in a moment.</div>`:"")}</div>
+    ${n?`<div class="lx-rank"><div class="lx-rh"><span>#</span><span>Name</span><span>Score</span><span>✓ / ✗</span><span>Time</span></div>
+      ${rows.map((r,i)=>`<div class="lx-rr ${r.uid===myUid?"me":""}"><span>${i<3?["🥇","🥈","🥉"][i]:i+1}</span><span class="nm">${esc(r.name)}${r.mob?`<small>${esc(r.mob)}</small>`:""}</span><span><b>${r.score}</b> / ${r.total}</span><span>${r.c} / ${r.w}</span><span>${fm(r.used)}</span></div>`).join("")}</div>`
+      :(err?"":`<div class="res-empty">No one took this exam.</div>`)}`;
+}
 window.lxMore=()=>{lxArcN+=10;lxRenderPage()};
 // ── Student: take the exam (reuses the Question-Bank exam engine) ──
 window.lxStart=function(id){
@@ -3224,11 +3280,13 @@ window.lxStart=function(id){
   if(st==="upcoming"){showToast("This exam has not started yet");return}
   if(st==="archive"){lxOpenReview(id);return}
   const R=lxRec.get(),rec=R[id];
+  let nm=lxName();
+  if(!rec&&!nm){nm=(prompt("Your name (shown in the exam results):")||"").trim();if(!nm)return;try{localStorage.setItem("rt_lx_name",nm)}catch(e){}}
   if(!rec&&!confirm(`Start "${x.title}" now?\n\n${x.qs.length} questions · ${x.dur} minutes${x.neg?" · negative marking":""}.\nThe timer cannot be paused and you can take it only once.`))return;
   const started=rec&&rec.started?rec.started:now;
-  if(!rec||!rec.started){R[id]={...(rec||{}),started:now,ans:{}};lxRec.set(R)}
+  if(!rec||!rec.started){R[id]={...(rec||{}),started:now,ans:{},uid:lxUid(),name:nm,mob:lxMask(session&&session.mobile)};lxRec.set(R)}
   const endAt=Math.min(started+x.dur*60000,x.end);
-  qbLive=id;qbMode="exam";clearInterval(qbTick);
+  qbLive=id;lxView="review";qbMode="exam";clearInterval(qbTick);
   qbExam={qs:lxQs(x),ans:rec&&rec.ans?{...rec.ans}:{},i:0,min:x.dur,end:endAt,t0:started,neg:x.neg,done:false,live:id};
   goView("viewQB");$("topbarTitle").textContent="Live Exam";
   if((rec&&rec.done)||endAt<=now){qbRender();qbFinish();return}
@@ -3240,7 +3298,7 @@ window.lxOpenReview=function(id){
   const x=lxAll.find(e=>e.id===id);if(!x)return;
   if(lxState(x)!=="archive"&&!adminIn){showToast("Answers open after the exam ends");return}
   if(qbExam&&qbExam.live){clearInterval(qbTick);qbExam=null}
-  qbLive=id;qbMode="exam";goView("viewQB");$("topbarTitle").textContent="Exam Archive";qbRender();window.scrollTo(0,0);
+  qbLive=id;lxView="review";qbMode="exam";goView("viewQB");$("topbarTitle").textContent="Exam Archive";qbRender();window.scrollTo(0,0);
 };
 function lxReviewRender(){
   const x=lxAll.find(e=>e.id===qbLive),B=$("qbBody");
@@ -3265,7 +3323,7 @@ window.lxOpenForm=function(id){
   $("lxTitle").value=x?x.title:"";$("lxSub").value=x?x.sub:"";
   const base=Math.ceil((Date.now()+3600e3)/36e5)*36e5;
   $("lxStart").value=lxLocalInput(x?x.start:base);$("lxEnd").value=lxLocalInput(x?x.end:base+24*3600e3);
-  $("lxDur").value=x?x.dur:30;$("lxNeg").checked=x?x.neg:true;$("lxTxt").value="";
+  $("lxRes").value=lxLocalInput(x?x.rt:base+24*3600e3);$("lxDur").value=x?x.dur:30;$("lxNeg").checked=x?x.neg:true;$("lxTxt").value="";
   $("lxTxtLbl").textContent=x?`Add more questions (optional) — this exam already has ${x.qs.length}`:"Questions text *";
   $("lxBtn").textContent=x?"Edit questions →":"Review as forms →";
   openM("mLEx");
@@ -3274,8 +3332,9 @@ window.lxReview=function(){
   const title=$("lxTitle").value.trim(),s=$("lxStart").value,e=$("lxEnd").value,dur=+$("lxDur").value;
   if(!title){showToast("Give the exam a title");return}
   if(!s||!e){showToast("Set the start and end date/time");return}
-  const st=new Date(s).getTime(),en=new Date(e).getTime();
+  const st=new Date(s).getTime(),en=new Date(e).getTime(),rt=new Date($("lxRes").value||e).getTime();
   if(!(en>st)){showToast("End time must be after the start time");return}
+  if(!(rt>=en)){showToast("Result time cannot be before the exam end time");return}
   if(!(dur>=1)){showToast("Duration must be at least 1 minute");return}
   const id=$("lxEditId").value,old=id?lxAll.find(x=>x.id===id):null,sub=$("lxSub").value.trim(),txt=$("lxTxt").value;
   let list=[],bad=[];
@@ -3284,14 +3343,14 @@ window.lxReview=function(){
   if(!list.length){showToast("Paste the questions first");return}
   closeM("mLEx");
   qbEdOpen(list);
-  lxTarget={id,title,sub,start:st,end:en,dur,neg:$("lxNeg").checked};
+  lxTarget={id,title,sub,start:st,end:en,rt,dur,neg:$("lxNeg").checked};
   lxEdUi(true);
   if(bad.length)showToast(bad.length+" skipped: #"+bad.slice(0,8).join(", #"));
 };
 async function lxSaveExam(out){
   const T=lxTarget,btn=$("qbeBtn");
   const qs=out.map(x=>({...x,src:x.src||T.title,sub:x.sub||T.sub}));
-  const d={title:T.title,sub:T.sub,start:T.start,end:T.end,dur:T.dur,neg:T.neg,qs,n:qs.length};
+  const d={title:T.title,sub:T.sub,start:T.start,end:T.end,rt:T.rt,dur:T.dur,neg:T.neg,qs,n:qs.length};
   if(JSON.stringify(d).length>900000){showToast("Too many / too long questions for one exam (~900 KB limit). Split into two exams.");return}
   btn.disabled=true;btn.textContent="Saving…";
   try{
@@ -3308,7 +3367,7 @@ window.lxDel=function(id){
   $("confTitle").textContent="Delete this exam?";
   $("confMsg").textContent=`“${x?x.title:id}” and its questions will be removed for everyone (including the archive).`;
   pendingDelFn=async()=>{
-    try{await deleteDoc(doc(db,LX_COL,id));showToast("Deleted");closeM("mConfirm");await lxLoad(true);renderLive();if($("viewLive").classList.contains("active"))renderLivePage()}
+    try{await deleteDoc(doc(db,LX_COL,id));try{const sn=await getDocs(query(collection(db,LXR_COL),where("ex","==",id),limit(500)));await Promise.all(sn.docs.map(d=>deleteDoc(d.ref)))}catch(e){}showToast("Deleted");closeM("mConfirm");await lxLoad(true);renderLive();if($("viewLive").classList.contains("active"))renderLivePage()}
     catch(e){showToast("Error: "+e.message)}
   };
   openM("mConfirm");
