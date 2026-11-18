@@ -75,6 +75,8 @@ public class NativeHomeActivity extends AppCompatActivity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         Store.init(this);
+        // warm up the YouTube player in the background so the first lesson starts faster
+        if (OfflineCache.online(this)) Media.warmUp(this);
         // Show the last saved data instantly (works with no internet); the fresh download below replaces it.
         if (OfflineCache.loadMain(this)) {
             if (Store.curMember() != null) {

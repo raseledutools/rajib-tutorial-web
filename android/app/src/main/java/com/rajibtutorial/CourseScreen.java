@@ -207,6 +207,20 @@ final class CourseScreen extends Screen {
                 a.toast("Could not play this video");
                 return true;
             });
+            // buffering spinner until the first frame is ready
+            final android.widget.ProgressBar vSpin = new android.widget.ProgressBar(a);
+            FrameLayout.LayoutParams sLp = new FrameLayout.LayoutParams(Ui.dp(a, 44), Ui.dp(a, 44));
+            sLp.gravity = Gravity.CENTER;
+            playerFrame.addView(vSpin, sLp);
+            video.setOnPreparedListener(mp -> {
+                vSpin.setVisibility(View.GONE);
+                mp.setOnInfoListener((m, what, extra) -> {
+                    if (what == android.media.MediaPlayer.MEDIA_INFO_BUFFERING_START) vSpin.setVisibility(View.VISIBLE);
+                    else if (what == android.media.MediaPlayer.MEDIA_INFO_BUFFERING_END
+                          || what == android.media.MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) vSpin.setVisibility(View.GONE);
+                    return false;
+                });
+            });
             if (autoplay) video.start();
 
             // Auto-cache: if not downloaded yet, start downloading in background
@@ -301,6 +315,14 @@ final class CourseScreen extends Screen {
                 row.addView(Ui.tv(a, "🔒", 15, Ui.SUB, false));
             }
 
+            // ── YouTube lessons: stream-only, so show an "online only" sign ──
+            if (isYT && can) {
+                TextView net = Ui.tv(a, "🌐", 13, Ui.SUB, false);
+                net.setAlpha(0.6f);
+                net.setPadding(Ui.dp(a, 10), 0, Ui.dp(a, 2), 0);
+                row.addView(net);
+            }
+
             // ── offline / download indicator (only for direct video, not YouTube) ──
             if (!isYT && !v.url.isEmpty() && can) {
                 boolean downloaded  = VideoCache.isDownloaded(a, v.id);
@@ -336,15 +358,21 @@ final class CourseScreen extends Screen {
                         row.addView(pct);
                     }
                 } else {
-                    // Dot: green = offline ready, faint = not downloaded
-                    View dot = new View(a);
-                    int dotSize = Ui.dp(a, 10);
+                    // Icon: green ✓ = saved offline (works without internet), faint ⬇ = not saved yet
+                    TextView dot = Ui.tv(a, downloaded ? "✓" : "⬇", 12, Ui.WHITE, true);
+                    dot.setGravity(Gravity.CENTER);
                     dot.setBackground(Ui.circle(downloaded ? COL_OFFLINE_OK : COL_OFFLINE_NO));
+                    int dotSize = Ui.dp(a, 24);
                     LinearLayout.LayoutParams dotLp =
                             new LinearLayout.LayoutParams(dotSize, dotSize);
                     dotLp.setMargins(Ui.dp(a, 10), 0, Ui.dp(a, 2), 0);
                     dotLp.gravity = Gravity.CENTER_VERTICAL;
                     row.addView(dot, dotLp);
+                    if (downloaded) {
+                        TextView left = Ui.tv(a, VideoCache.daysLeft(a, v.id) + "d", 10, COL_OFFLINE_OK, false);
+                        left.setPadding(Ui.dp(a, 2), 0, 0, 0);
+                        row.addView(left);
+                    }
 
                     // Long-press to delete, tap to download
                     final String vid = v.id;
