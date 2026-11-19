@@ -1806,6 +1806,9 @@ body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
   #viewHome .hm-hero h1{font-size:22px}
   .sidebar{width:220px}
 }
+/* hidden admin entry: 5 taps on logo/brand or Ctrl+Shift+A */
+#btnAdminLogin,.sidebar-bottom{display:none!important}
+.sidebar-top,.hm-herologo{-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 </style>
 
 
@@ -4093,6 +4096,15 @@ window.adminLogout=function(){
 };
 window.clearPwErr=()=>$("pwErr").classList.add("h");
 window.toggleEye=()=>{const i=$("pwIn");i.type=i.type==="password"?"text":"password"};
+// Hidden admin entry: 5 quick taps on the sidebar logo/brand (or home logo), or Ctrl+Shift+A
+(function(){
+  let n=0,t=0;
+  const hit=()=>{const now=Date.now();n=(now-t<1500)?n+1:1;t=now;if(n>=5){n=0;openAdminLogin()}};
+  document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest(".sidebar-top,.hm-herologo"))hit()});
+  document.addEventListener("keydown",e=>{
+    if(e.ctrlKey&&e.shiftKey&&!e.altKey&&(e.key==="A"||e.key==="a")){e.preventDefault();openAdminLogin()}
+  });
+})();
 
 window.setMgCat=v=>{mgCat=v;renderManage()};
 function renderManage(){
