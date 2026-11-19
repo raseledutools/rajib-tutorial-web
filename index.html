@@ -1839,63 +1839,87 @@ body:has(#viewExt.active) #__rt_nav,body:has(#viewExt.active) #__rt_updcheck,bod
 </style>
 
 <style id="rasBrowser">
-/* ── Safe Browser: Chrome look (tab strip + toolbar, follows system light/dark like Chrome) ── */
-#viewBrowser{--c-frame:#dee1e6;--c-tab:#fff;--c-tab-hover:rgba(255,255,255,.55);--c-omni:#f1f3f4;--c-omni-hover:#e8eaed;--c-text:#202124;--c-icon:#5f6368;--c-hover:rgba(60,64,67,.1);--c-line:#dadce0;--c-sep:#80868b;--c-blue:#1a73e8;
-  position:relative;flex-direction:column;background:var(--c-tab);font-family:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif}
-@media(prefers-color-scheme:dark){#viewBrowser{--c-frame:#202124;--c-tab:#35363a;--c-tab-hover:rgba(255,255,255,.1);--c-omni:#202124;--c-omni-hover:#2b2c2f;--c-text:#e8eaed;--c-icon:#bdc1c6;--c-hover:rgba(255,255,255,.1);--c-line:#4a4c50;--c-sep:#9aa0a6;--c-blue:#8ab4f8}}
+/* ── Safe Browser: Chrome dark theme (tab strip · toolbar · bookmarks bar) ── */
+#viewBrowser{--c-frame:#1f1f1f;--c-bar:#3c3c3c;--c-bar2:#474747;--c-omni:#282828;--c-omni-hover:#2e2e2e;--c-text:#e3e3e3;--c-icon:#c4c7c5;--c-hover:rgba(255,255,255,.1);--c-line:#2b2b2b;--c-sep:#8e918f;--c-blue:#a8c7fa;--c-page:#3c3c3c;
+  position:relative;flex-direction:column;background:var(--c-page);color:var(--c-text);font-family:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;color-scheme:dark}
 #viewBrowser.active{display:flex;height:calc(100vh - var(--tb,0px) - 64px)}
-.bt-strip{display:flex;align-items:flex-end;gap:0;background:var(--c-frame);padding:8px 8px 0;flex:none;height:41px;box-sizing:border-box}
-.bt-tabs{display:flex;align-items:flex-end;min-width:0;flex:0 1 auto;max-width:calc(100% - 44px)}
-.bt{position:relative;display:flex;align-items:center;gap:8px;height:33px;min-width:36px;max-width:240px;flex:1 1 240px;padding:0 8px 0 12px;border-radius:9px 9px 0 0;color:var(--c-icon);font-size:12px;cursor:default;user-select:none;-webkit-user-select:none;box-sizing:border-box}
-.bt:hover:not(.on){background:var(--c-tab-hover);border-radius:9px}
-.bt.on{background:var(--c-tab);color:var(--c-text);z-index:2}
+#viewBrowser button{font-family:inherit}
+.bt-strip{display:flex;align-items:flex-end;background:var(--c-frame);padding:8px 8px 0 8px;flex:none;height:41px;box-sizing:border-box}
+.bt-ts{width:28px;height:28px;margin:0 8px 3px 0;border:0;border-radius:8px;background:var(--c-bar);color:var(--c-icon);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
+.bt-ts:hover{background:var(--c-bar2)}
+.bt-ts svg{width:16px;height:16px}
+.bt-tabs{display:flex;align-items:flex-end;min-width:0;flex:0 1 auto;max-width:calc(100% - 90px)}
+.bt{position:relative;display:flex;align-items:center;gap:8px;height:33px;min-width:38px;max-width:240px;flex:1 1 240px;padding:0 8px 0 12px;border-radius:9px 9px 0 0;color:var(--c-icon);font-size:12px;cursor:default;user-select:none;-webkit-user-select:none;box-sizing:border-box}
+.bt:hover:not(.on){background:rgba(255,255,255,.08);border-radius:9px}
+.bt.on{background:var(--c-bar);color:var(--c-text);z-index:2}
 .bt.on::before,.bt.on::after{content:"";position:absolute;bottom:0;width:8px;height:8px;pointer-events:none}
-.bt.on::before{left:-8px;background:radial-gradient(circle at 0 0,transparent 7.5px,var(--c-tab) 8px)}
-.bt.on::after{right:-8px;background:radial-gradient(circle at 100% 0,transparent 7.5px,var(--c-tab) 8px)}
-.bt+.bt:not(.on)::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:1px;background:var(--c-sep);opacity:.55}
+.bt.on::before{left:-8px;background:radial-gradient(circle at 0 0,transparent 7.5px,var(--c-bar) 8px)}
+.bt.on::after{right:-8px;background:radial-gradient(circle at 100% 0,transparent 7.5px,var(--c-bar) 8px)}
+.bt+.bt:not(.on)::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:1px;background:var(--c-sep);opacity:.6}
 .bt.on+.bt::before,.bt:hover::before,.bt:hover+.bt::before{display:none}
 .bt-ico{width:16px;height:16px;flex:none;border-radius:3px;display:flex;align-items:center;justify-content:center;object-fit:contain}
 .bt-ico svg{width:14px;height:14px;color:var(--c-icon)}
-.bt-t{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:clip;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent)}
-.bt-spin{width:14px;height:14px;flex:none;border-radius:50%;border:2px solid var(--c-line);border-top-color:var(--c-blue);animation:btSpin .8s linear infinite;box-sizing:border-box}
+.bt-t{flex:1;min-width:0;overflow:hidden;white-space:nowrap;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 16px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 16px),transparent)}
+.bt-spin{width:14px;height:14px;flex:none;border-radius:50%;border:2px solid #5f6368;border-top-color:var(--c-blue);animation:btSpin .8s linear infinite;box-sizing:border-box}
 @keyframes btSpin{to{transform:rotate(360deg)}}
 .bt-x{width:18px;height:18px;border:0;border-radius:50%;background:transparent;color:var(--c-icon);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
 .bt-x:hover{background:var(--c-hover)}
 .bt-x svg{width:11px;height:11px}
-.bt:not(.on) .bt-x{opacity:0}.bt:hover .bt-x,.bt.on .bt-x{opacity:1}
-.bt-new{width:28px;height:28px;margin:0 0 3px 6px;border:0;border-radius:50%;background:transparent;color:var(--c-icon);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
-.bt-new:hover{background:var(--c-hover)}
+.bt-new{width:28px;height:28px;margin:0 0 3px 8px;border:0;border-radius:50%;background:var(--c-bar);color:var(--c-icon);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
+.bt-new:hover{background:var(--c-bar2)}
 .bt-new svg{width:16px;height:16px}
-.bt-bar{position:relative;display:flex;align-items:center;gap:2px;padding:4px 8px;height:41px;box-sizing:border-box;background:var(--c-tab);border-bottom:1px solid var(--c-line);flex:none}
-.bt-bar>button,.bt-menu button.bt-ib{width:32px;height:32px;border-radius:50%;border:0;background:transparent;color:var(--c-icon);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
+.bt-bar{position:relative;display:flex;align-items:center;gap:2px;padding:4px 10px 4px 8px;height:42px;box-sizing:border-box;background:var(--c-bar);flex:none}
+.bt-bar>button{width:32px;height:32px;border-radius:50%;border:0;background:transparent;color:var(--c-icon);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
 .bt-bar>button:hover:not(:disabled){background:var(--c-hover)}
 .bt-bar>button:disabled{opacity:.38;cursor:default}
 .bt-bar svg{width:18px;height:18px}
-.bt-omni{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:32px;margin:0 6px;padding:0 4px 0 4px;border-radius:999px;background:var(--c-omni);border:2px solid transparent;box-sizing:border-box}
+.bt-vsep{width:1px;height:20px;background:var(--c-sep);opacity:.6;margin:0 6px;flex:none}
+.bt-omni{flex:1;min-width:0;display:flex;align-items:center;gap:4px;height:34px;margin:0 8px 0 6px;padding:0 6px 0 4px;border-radius:999px;background:var(--c-omni);border:2px solid transparent;box-sizing:border-box}
 .bt-omni:hover{background:var(--c-omni-hover)}
-.bt-omni:focus-within{background:var(--c-tab);border-color:var(--c-blue)}
-.bt-lock{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;color:var(--c-icon);flex:none}
+.bt-omni:focus-within{border-color:var(--c-blue);background:var(--c-omni)}
+.bt-lock{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;color:var(--c-icon);flex:none}
 .bt-lock:hover{background:var(--c-hover)}
-.bt-lock.ins{color:#d93025}
-.bt-lock svg{width:15px;height:15px}
+.bt-lock.ins{color:#f28b82}
+.bt-lock svg{width:16px;height:16px}
 #btUrl{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:14px;color:var(--c-text);font-family:inherit;padding:0 6px 0 2px}
 #btUrl::placeholder{color:var(--c-icon)}
+.bt-oib{width:26px;height:26px;border:0;border-radius:50%;background:transparent;color:var(--c-icon);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
+.bt-oib:hover{background:var(--c-hover)}.bt-oib.on{color:var(--c-blue)}.bt-oib svg{width:16px;height:16px}
+.bt-ai{display:flex;align-items:center;gap:6px;height:26px;padding:0 12px 0 8px;border:0;border-radius:999px;background:var(--c-bar);color:var(--c-text);font-size:13px;font-weight:500;cursor:pointer;flex:none}
+.bt-ai:hover{background:var(--c-bar2)}.bt-ai svg{width:16px;height:16px}
 .bt-fsb.on{color:var(--c-blue)}
-.bt-menu{position:absolute;right:8px;top:40px;z-index:30;min-width:230px;padding:6px 0;border-radius:8px;background:var(--c-tab);color:var(--c-text);border:1px solid var(--c-line);box-shadow:0 4px 16px rgba(0,0,0,.28);display:none}
-.bt-menu.show{display:block}
-.bt-menu .bt-mi{display:flex;align-items:center;gap:12px;width:100%;height:32px;padding:0 16px;border:0;background:transparent;color:inherit;font:13px 'Segoe UI',system-ui,sans-serif;cursor:pointer;text-align:left}
-.bt-menu .bt-mi:hover{background:var(--c-hover)}
-.bt-menu .bt-mi svg{width:16px;height:16px;color:var(--c-icon);flex:none}
-.bt-menu .bt-mi kbd{margin-left:auto;font:11.5px inherit;color:var(--c-icon)}
-.bt-note{display:flex;align-items:center;gap:10px;padding:7px 12px;background:#fff8e1;border-bottom:1px solid #f0e2b0;color:#6b5600;font-size:12.5px;flex:none}.bt-note span{flex:1}.bt-note button{border:0;border-radius:6px;padding:5px 10px;background:#1a73e8;color:#fff;font-size:12px;cursor:pointer;flex:none}
-.bt-body{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;background:#fff}
-#btHost{flex:1;min-height:0;display:flex;flex-direction:column;background:#fff}
+.bt-avatar{width:28px;height:28px;margin:0 4px 0 2px;border-radius:50%;background:linear-gradient(135deg,#4285f4,#34a853);color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none;user-select:none;cursor:default}
+.bt-bmbar{display:flex;align-items:center;height:36px;padding:0 8px;background:var(--c-bar);border-bottom:1px solid var(--c-line);flex:none;box-sizing:border-box}
+.bt-bmapps{width:30px;height:28px;border:0;border-radius:8px;background:transparent;color:var(--c-icon);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
+.bt-bmapps:hover,.bt-bmore:hover{background:var(--c-hover)}
+.bt-bmapps svg{width:18px;height:18px}
+.bt-bms{display:flex;align-items:center;gap:2px;flex:1;min-width:0;overflow:hidden}
+.bt-bmi{display:flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:var(--c-text);font-size:13px;cursor:pointer;flex:none;max-width:200px;white-space:nowrap}
+.bt-bmi:hover{background:var(--c-hover)}
+.bt-bmi img{width:16px;height:16px;flex:none;border-radius:3px}
+.bt-bmi span{overflow:hidden;text-overflow:ellipsis}
+.bt-bmore{display:none;width:28px;height:28px;border:0;border-radius:8px;background:transparent;color:var(--c-icon);align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0;margin-left:2px}
+.bt-bmore svg{width:16px;height:16px}
+.bt-pop{position:absolute;z-index:60;min-width:230px;max-width:340px;max-height:70vh;overflow:auto;padding:6px 0;border-radius:10px;background:#2b2b2b;color:var(--c-text);border:1px solid #4a4a4a;box-shadow:0 8px 28px rgba(0,0,0,.55);display:none}
+.bt-pop.show{display:block}
+.bt-mi{display:flex;align-items:center;gap:12px;width:100%;min-height:34px;padding:0 16px;border:0;background:transparent;color:inherit;font-size:13px;cursor:pointer;text-align:left}
+.bt-mi:hover:not(.dis){background:var(--c-hover)}
+.bt-mi.on{background:rgba(168,199,250,.16)}
+.bt-mi.dis{opacity:.6;cursor:default}
+.bt-mi svg{width:16px;height:16px;color:var(--c-icon);flex:none}
+.bt-mi img{width:16px;height:16px;flex:none;border-radius:3px}
+.bt-mi .l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bt-mi kbd{margin-left:16px;font:12px inherit;color:var(--c-icon)}
+.bt-ps{height:1px;margin:6px 0;background:#4a4a4a}
+.bt-note{display:flex;align-items:center;gap:10px;padding:7px 12px;background:#4a3f12;border-bottom:1px solid #6b5a1a;color:#f3e3a0;font-size:12.5px;flex:none}.bt-note span{flex:1}.bt-note button{border:0;border-radius:6px;padding:5px 10px;background:#8ab4f8;color:#202124;font-size:12px;cursor:pointer;flex:none}
+.bt-body{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;background:var(--c-page)}
+#btHost{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--c-page)}
 #btHost>webview,#btHost>iframe{flex:1;min-height:0;width:100%;border:0;display:flex}
-#btErr{position:absolute;inset:0;background:var(--c-tab);flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:var(--c-text)}
+#btErr{position:absolute;inset:0;background:var(--c-page);flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:var(--c-text)}
 #btErr p{margin:0;font-size:15px;font-weight:600}
 #btErr small{color:var(--c-icon);font-size:12.5px}
-#btErr button{border:0;border-radius:18px;padding:8px 18px;background:var(--c-blue);color:#fff;font-weight:600;cursor:pointer;font-size:13px}
-.bt-fshint{position:absolute;left:50%;top:56px;transform:translateX(-50%);z-index:40;padding:10px 18px;border-radius:8px;background:rgba(32,33,36,.94);color:#fff;font:13px 'Segoe UI',system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .25s}
+#btErr button{border:0;border-radius:18px;padding:8px 18px;background:var(--c-blue);color:#202124;font-weight:600;cursor:pointer;font-size:13px}
+.bt-fshint{position:absolute;left:50%;top:84px;transform:translateX(-50%);z-index:70;padding:10px 18px;border-radius:8px;background:rgba(20,20,20,.95);color:#fff;font:13px 'Segoe UI',system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .25s}
 .bt-fshint.show{opacity:1}
 body:has(#viewBrowser.active) #__rt_nav,body:has(#viewBrowser.active) #__rt_updcheck,body:has(#viewBrowser.active) #__rt_focus{display:none!important}
 @media(max-width:900px){#viewBrowser.active{height:calc(100vh - var(--tb,0px) - 56px)}}
@@ -2179,25 +2203,31 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
 
   <div class="view" id="viewBrowser">
     <div class="bt-strip" id="btStrip">
+      <button class="bt-ts" onclick="btTabSearch(event)" title="Search tabs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
       <div class="bt-tabs" id="btTabs"></div>
       <button class="bt-new" onclick="btNewTab()" title="New tab (Ctrl+T)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
     </div>
     <div class="bt-bar">
       <button id="btBack" onclick="btNav('back')" title="Back (Alt+Left)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
       <button id="btFwd" onclick="btNav('forward')" title="Forward (Alt+Right)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
-      <button onclick="btNav('reload')" title="Reload (Ctrl+R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
-      <button onclick="btNav('home')" title="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></button>
+      <button id="btReload" onclick="btNav('reload')" title="Reload (Ctrl+R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
       <div class="bt-omni">
-        <span class="bt-lock" id="btLock" title="Connection info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg></span>
+        <span class="bt-lock" id="btLock" title="Connection info"></span>
         <input id="btUrl" type="text" spellcheck="false" autocomplete="off" placeholder="Search Google or type a URL" onkeydown="if(event.key==='Enter'){btGo(this.value)}" onfocus="this.select()">
+        <button class="bt-oib" id="btStar" onclick="btStar()" title="Bookmark this tab (Ctrl+D)" style="display:none"></button>
+        <button class="bt-ai" id="btAi" onclick="btAiMode()" title="AI Mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><path d="M15 15l5 5"/><path d="M10 7.5v5M7.5 10h5" stroke-width="1.6"/></svg>AI Mode</button>
       </div>
       <button class="bt-fsb" id="btFsBtn" onclick="btFs()" title="Full screen (F11)"><svg id="btFsIc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
-      <button id="btMenuBtn" onclick="btMenu(event)" title="Customize and control"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
-      <div class="bt-menu" id="btMenu">
-        <button class="bt-mi" onclick="btNewTab();btMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>New tab<kbd>Ctrl+T</kbd></button>
-        <button class="bt-mi" onclick="btFs();btMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Full screen<kbd>F11</kbd></button>
-        <button class="bt-mi" onclick="btPopOut();btMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg>Open in separate window</button>
-      </div>
+      <button id="btExt" onclick="btExt(event)" title="Extensions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11h-1.5V7a2 2 0 0 0-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5h-4a2 2 0 0 0-2 2v3.8h1.5a2.7 2.7 0 0 1 0 5.4H3.5V20a2 2 0 0 0 2 2h3.8v-1.5a2.7 2.7 0 0 1 5.4 0V22h3.8a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z" transform="translate(0 -1) scale(.96)"/></svg></button>
+      <span class="bt-vsep"></span>
+      <div class="bt-avatar" id="btAvatar" title="Safe Browser">R</div>
+      <button id="btMenuBtn" onclick="btMenu(event)" title="Customize and control Safe Browser"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
+    </div>
+    <div class="bt-bmbar">
+      <button class="bt-bmapps" onclick="btApps(event)" title="Apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg></button>
+      <span class="bt-vsep"></span>
+      <div class="bt-bms" id="btBm"></div>
+      <button class="bt-bmore" id="btBmMore" onclick="btBmMore(event)" title="Other bookmarks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l6 6-6 6M13 6l6 6-6 6"/></svg></button>
     </div>
     <div class="bt-note" id="btNote" style="display:none"><span>এই web version-এ Google, YouTube-এর মতো অনেক সাইট এখানে খোলে না (সাইটগুলো নিজেই block করে)। পুরো Safe Browser <b>Windows exe</b>-তে কাজ করে।</span><button onclick="btPopOut()">নতুন tab-এ খুলুন</button></div>
     <div class="ext-prog" id="btProg"></div>
@@ -2205,6 +2235,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
       <div id="btHost"></div>
       <div id="btErr" style="display:none"><p id="btErrT">This page could not be loaded</p><small id="btErrM"></small><button onclick="btNav('reload')">Reload</button></div>
     </div>
+    <div class="bt-pop" id="btPop"></div>
     <div class="bt-fshint" id="btFsHint">Press F11 or Esc to exit full screen</div>
   </div>
 
@@ -5623,7 +5654,7 @@ window.mBrowserOpenExternal = function() {
     if(t!==cur)return;
     const u=$("btUrl");
     if(document.activeElement!==u)u.value=t.url||"";
-    $("btLock").classList.toggle("ins",!/^https:/.test(t.url||""));
+    omniUi(t);
     try{$("btBack").disabled=!(t.web?t.el.canGoBack():false);$("btFwd").disabled=!(t.web?t.el.canGoForward():false)}catch(e){}
     $("btProg").classList.toggle("on",!!t.loading);
   }
@@ -5680,7 +5711,7 @@ window.mBrowserOpenExternal = function() {
     try{
       if(act==="home"){btGo(HOME);return}
       $("btErr").style.display="none";
-      if(t.web){if(act==="back")t.el.goBack();else if(act==="forward")t.el.goForward();else t.el.reload()}
+      if(t.web){if(act==="back")t.el.goBack();else if(act==="forward")t.el.goForward();else if(t.loading)t.el.stop();else t.el.reload()}
       else if(act==="reload"){t.loading=true;t.el.src=t.url;renderTabs()}
       else if(act==="back")t.el.contentWindow.history.back();else if(act==="forward")t.el.contentWindow.history.forward();
     }catch(e){}
@@ -5694,8 +5725,125 @@ window.mBrowserOpenExternal = function() {
     const a=document.querySelector(".view.active");if(a&&a.id!=="viewBrowser")prev=a.id;
     goView("viewBrowser");try{closeSidebar()}catch(e){}
     $("btNote").style.display=web()?"none":"flex";
-    if(!tabs.length)btNewTab(url||HOME);else if(url)btNewTab(url);
+    renderBm();if(!tabs.length)btNewTab(url||HOME);else if(url)btNewTab(url);
   };
+  // ── Chrome extras: bookmarks bar, popup menus, tab search, omnibox state, full screen ──
+  const svg=(d,x)=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" '+(x||"")+'>'+d+'</svg>';
+  const IC={
+    tune:svg('<path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/>'),
+    g:'<svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>',
+    star0:svg('<path d="M12 3.5l2.7 5.6 6.1.8-4.5 4.2 1.2 6.1L12 17.2 6.5 20.2l1.2-6.1L3.2 9.9l6.1-.8z"/>'),
+    star1:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3.5l2.7 5.6 6.1.8-4.5 4.2 1.2 6.1L12 17.2 6.5 20.2l1.2-6.1L3.2 9.9l6.1-.8z"/></svg>',
+    reload:svg('<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>'),
+    stop:svg('<path d="M18 6L6 18M6 6l12 12"/>'),
+    plus:svg('<path d="M12 5v14M5 12h14"/>'),
+    fs:svg('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'),
+    out:svg('<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14L21 3"/>'),
+    del:svg('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')
+  };
+  const BM_KEY="rt_bt_bm";
+  const BM_DEF=[{t:"Google",u:"https://www.google.com/"},{t:"YouTube",u:"https://www.youtube.com/"},{t:"Wikipedia",u:"https://www.wikipedia.org/"}];
+  const bmLoad=()=>{try{const a=JSON.parse(localStorage.getItem(BM_KEY));if(Array.isArray(a))return a.filter(b=>b&&b.u)}catch(e){}return BM_DEF.slice()};
+  const bmSave=()=>{try{localStorage.setItem(BM_KEY,JSON.stringify(bms))}catch(e){}};
+  let bms=bmLoad();
+  const favUrl=u=>"https://www.google.com/s2/favicons?sz=32&domain="+encodeURIComponent(host(u));
+  const sameUrl=(a,b)=>String(a||"").replace(/\/+$/,"")===String(b||"").replace(/\/+$/,"");
+  const globeEl=()=>Object.assign(document.createElement("span"),{className:"bt-ico",innerHTML:GLOBE});
+  function favImg(u){const im=document.createElement("img");im.src=favUrl(u);im.alt="";im.onerror=()=>im.replaceWith(globeEl());return im}
+
+  // popup menu (kebab, tab search, extensions, apps, bookmark right-click)
+  const pop=()=>$("btPop");
+  function popupAt(x,y,items,alignRight){
+    const p=pop();p.innerHTML="";
+    items.forEach(it=>{
+      if(it.sep){const s=document.createElement("div");s.className="bt-ps";p.appendChild(s);return}
+      const b=document.createElement("button");b.className="bt-mi"+(it.on?" on":"")+(it.dis?" dis":"");
+      if(it.fav)b.appendChild(favImg(it.fav));else if(it.ic)b.insertAdjacentHTML("beforeend",it.ic);
+      const l=document.createElement("span");l.className="l";l.textContent=it.l;b.appendChild(l);
+      if(it.k){const k=document.createElement("kbd");k.textContent=it.k;b.appendChild(k)}
+      b.onclick=e=>{e.stopPropagation();if(it.dis)return;p.classList.remove("show");p._a=null;if(it.f)it.f()};
+      p.appendChild(b);
+    });
+    const r=$("viewBrowser").getBoundingClientRect();
+    p.style.left="0px";p.style.top="0px";p.classList.add("show");
+    const w=p.offsetWidth,h=p.offsetHeight;
+    let left=(alignRight?x-w:x)-r.left,top=y-r.top;
+    p.style.left=Math.max(4,Math.min(left,r.width-w-4))+"px";
+    p.style.top=Math.max(4,Math.min(top,r.height-h-4))+"px";
+  }
+  function popupBelow(e,btn,items,right){
+    if(e)e.stopPropagation();
+    const p=pop();
+    if(p.classList.contains("show")&&p._a===btn){p.classList.remove("show");p._a=null;return}
+    const b=btn.getBoundingClientRect();popupAt(right?b.right:b.left,b.bottom+4,items,!!right);p._a=btn;
+  }
+  document.addEventListener("click",()=>{const p=pop();if(p){p.classList.remove("show");p._a=null}});
+
+  window.btMenu=function(e){
+    popupBelow(e,$("btMenuBtn"),[
+      {l:"New tab",ic:IC.plus,k:"Ctrl+T",f:()=>btNewTab()},
+      {sep:1},
+      {l:"Bookmark this tab",ic:IC.star0,k:"Ctrl+D",f:()=>btStar()},
+      {l:"Reload",ic:IC.reload,k:"Ctrl+R",f:()=>btNav("reload")},
+      {l:fsOn()?"Exit full screen":"Full screen",ic:IC.fs,k:"F11",f:()=>btFs()},
+      {sep:1},
+      {l:"Open in separate window",ic:IC.out,f:()=>btPopOut()}
+    ],true);
+  };
+  window.btTabSearch=function(e){
+    popupBelow(e,e.currentTarget,tabs.map(t=>({l:t.title||host(t.url)||"New tab",fav:t.url,on:t===cur,f:()=>activate(t)})).concat([{sep:1},{l:"New tab",ic:IC.plus,k:"Ctrl+T",f:()=>btNewTab()}]),false);
+  };
+  window.btExt=function(e){
+    popupBelow(e,$("btExt"),[{l:"Extensions are turned off in Safe Browser",dis:1}],true);
+  };
+  window.btApps=function(e){
+    const A=[["YouTube","https://www.youtube.com/"],["Gmail","https://mail.google.com/"],["Google Drive","https://drive.google.com/"],["Google Maps","https://www.google.com/maps"],["Google Translate","https://translate.google.com/"],["Google Scholar","https://scholar.google.com/"]];
+    popupBelow(e,e.currentTarget,A.map(a=>({l:a[0],fav:a[1],f:()=>btGo(a[1])})),false);
+  };
+  window.btBmMore=function(e){
+    popupBelow(e,e.currentTarget,bms.map(b=>({l:b.t,fav:b.u,f:()=>btGo(b.u)})),true);
+  };
+
+  // bookmarks bar
+  function renderBm(){
+    const box=$("btBm");if(!box)return;box.innerHTML="";
+    bms.forEach((b,i)=>{
+      const d=document.createElement("button");d.className="bt-bmi";d.title=b.t+"\n"+b.u;
+      const s=document.createElement("span");s.textContent=b.t;
+      d.append(favImg(b.u),s);
+      d.onclick=()=>btGo(b.u);
+      d.onauxclick=e=>{if(e.button===1){e.preventDefault();btNewTab(b.u)}};
+      d.oncontextmenu=e=>{e.preventDefault();e.stopPropagation();popupAt(e.clientX,e.clientY,[{l:"Open in new tab",ic:IC.plus,f:()=>btNewTab(b.u)},{l:"Delete",ic:IC.del,f:()=>{bms.splice(i,1);bmSave();renderBm();omniUi(cur)}}])};
+      box.appendChild(d);
+    });
+    try{const n=(typeof session!=="undefined"&&session&&session.name)||"R";$("btAvatar").textContent=String(n).trim().charAt(0).toUpperCase()||"R"}catch(e){}
+    requestAnimationFrame(()=>{$("btBmMore").style.display=box.scrollWidth>box.clientWidth+1?"flex":"none"});
+  }
+  window.addEventListener("resize",()=>{if(isActive())renderBm()});
+  window.btStar=function(){
+    if(!cur||!cur.url)return;
+    const i=bms.findIndex(b=>sameUrl(b.u,cur.url));
+    if(i>=0)bms.splice(i,1);else bms.push({t:String(cur.title||host(cur.url)).slice(0,28),u:cur.url});
+    bmSave();renderBm();omniUi(cur);
+  };
+  window.btAiMode=function(){
+    const q=$("btUrl").value.trim();
+    btGo("https://www.google.com/search?udm=50"+(q&&!/^https?:\/\//i.test(q)?"&q="+encodeURIComponent(q):""));
+  };
+
+  // omnibox icons: Google "G" + AI Mode on the Google home page, otherwise site-info icon + bookmark star
+  function omniUi(t){
+    if(!t)return;
+    const u=t.url||"",lk=$("btLock");
+    const home=!u||/^about:/.test(u)||/^https:\/\/www\.google\.[a-z.]+\/?(\?.*)?$/.test(u);
+    lk.innerHTML=home?IC.g:IC.tune;
+    lk.classList.toggle("ins",!home&&!/^https:/.test(u));
+    $("btAi").style.display=home?"flex":"none";
+    const st=$("btStar"),on=bms.some(b=>sameUrl(b.u,u));
+    st.style.display=home?"none":"flex";st.classList.toggle("on",on);st.innerHTML=on?IC.star1:IC.star0;
+    const rl=$("btReload");rl.innerHTML=t.loading?IC.stop:IC.reload;rl.title=t.loading?"Stop loading this page":"Reload (Ctrl+R)";
+  }
+
   // ── Full screen (like Chrome F11): hides app title bar, header and sidebar ──
   let fsHintT=0;
   const fsOn=()=>document.documentElement.classList.contains("bt-fs");
@@ -5704,6 +5852,7 @@ window.mBrowserOpenExternal = function() {
     const b=$("btFsBtn");if(b){b.classList.toggle("on",on);b.title=on?"Exit full screen (F11)":"Full screen (F11)";
       $("btFsIc").innerHTML=on?'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>':'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'}
     if(on){const h=$("btFsHint");h.classList.add("show");clearTimeout(fsHintT);fsHintT=setTimeout(()=>h.classList.remove("show"),2600)}
+    setTimeout(renderBm,60);
   }
   window.btFs=function(force){
     const want=typeof force==="boolean"?force:!fsOn();
@@ -5718,17 +5867,13 @@ window.mBrowserOpenExternal = function() {
   ["fullscreenchange","webkitfullscreenchange"].forEach(ev=>document.addEventListener(ev,()=>{
     if(!document.fullscreenElement&&!document.webkitFullscreenElement&&fsOn())fsUi(false);   // Esc pressed
   }));
-  window.btMenu=function(e){
-    if(e)e.stopPropagation();
-    const m=$("btMenu");m.classList.toggle("show",e?!m.classList.contains("show"):false);
-  };
-  document.addEventListener("click",()=>{const m=$("btMenu");if(m)m.classList.remove("show")});
   document.addEventListener("keydown",e=>{
     if(!isActive())return;
     if(e.key==="F11"){e.preventDefault();btFs()}
-    else if(e.key==="Escape"&&fsOn()){btFs(false)}
+    else if(e.key==="Escape"){const p=pop();if(p&&p.classList.contains("show")){p.classList.remove("show");p._a=null}else if(fsOn())btFs(false)}
     else if(e.altKey&&e.key==="ArrowLeft"){e.preventDefault();btNav("back")}
     else if(e.altKey&&e.key==="ArrowRight"){e.preventDefault();btNav("forward")}
+    else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="d"){e.preventDefault();btStar()}
   });
   document.addEventListener("keydown",e=>{
     if(!isActive()||!(e.ctrlKey||e.metaKey))return;
