@@ -1864,6 +1864,7 @@ body:has(#viewExt.active) #__rt_nav,body:has(#viewExt.active) #__rt_updcheck,bod
 .bt-bar>button:hover:not(:disabled){background:#eceef1}
 .bt-bar>button:disabled{opacity:.3;cursor:default}
 .bt-bar svg{width:18px;height:18px}
+.bt-note{display:flex;align-items:center;gap:10px;padding:7px 12px;background:#fff8e1;border-bottom:1px solid #f0e2b0;color:#6b5600;font-size:12.5px;flex:none}.bt-note span{flex:1}.bt-note button{border:0;border-radius:6px;padding:5px 10px;background:#1a73e8;color:#fff;font-size:12px;cursor:pointer;flex:none}
 .bt-omni{flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:999px;background:#f1f3f4;border:2px solid transparent}
 .bt-omni:focus-within{background:#fff;border-color:#1a73e8}
 .bt-lock{display:flex;color:#5f6368;flex:none}
@@ -2162,6 +2163,7 @@ body:has(#viewBrowser.active) #__rt_nav,body:has(#viewBrowser.active) #__rt_updc
       </div>
       <button onclick="btPopOut()" title="Open in separate window"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg></button>
     </div>
+    <div class="bt-note" id="btNote" style="display:none"><span>এই web version-এ Google, YouTube-এর মতো অনেক সাইট এখানে খোলে না (সাইটগুলো নিজেই block করে)। পুরো Safe Browser <b>Windows exe</b>-তে কাজ করে।</span><button onclick="btPopOut()">নতুন tab-এ খুলুন</button></div>
     <div class="ext-prog" id="btProg"></div>
     <div id="btHost"></div>
     <div id="btErr" style="display:none"><p id="btErrT">This page could not be loaded</p><small id="btErrM"></small><button onclick="btNav('reload')">Try again</button></div>
@@ -5505,6 +5507,7 @@ window.mBrowserOpenExternal = function() {
   window.openBrowser=function(url){
     const a=document.querySelector(".view.active");if(a&&a.id!=="viewBrowser")prev=a.id;
     goView("viewBrowser");try{closeSidebar()}catch(e){}
+    $("btNote").style.display=web()?"none":"flex";
     if(!tabs.length)btNewTab(url||HOME);else if(url)btNewTab(url);
   };
   document.addEventListener("keydown",e=>{
