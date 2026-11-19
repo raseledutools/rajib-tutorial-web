@@ -318,10 +318,6 @@ function create() {
     e.preventDefault();
     win.hide();
     stopAllMedia(); // window is hidden → course / YouTube videos must not keep playing in the background
-    if (!hintedTray && Notification.isSupported()) {
-      hintedTray = true;
-      new Notification({ title: 'Rajib Tutorial', body: 'অ্যাপ background এ চলছে (system tray)। পুরোপুরি বন্ধ করতে tray আইকনে right-click → Quit।' }).show();
-    }
   });
   win.on('show', unmuteAll);
   win.on('closed', () => { win = null; });
