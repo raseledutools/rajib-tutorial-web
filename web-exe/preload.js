@@ -93,24 +93,12 @@ window.addEventListener('DOMContentLoaded', () => { ipcRenderer.send('update:get
 window.addEventListener('load', renderUpdateBtn);
 
 
-// Focus Mode: floating button (above the update-check button) opens the Focus window
+// Focus Mode: opened from the website's sidebar item (no floating button any more)
 let focusOn = false;
-function renderFocusBtn() {
-  if (location.protocol === 'file:') return;
-  let f = document.getElementById('__rt_focus');
-  if (!f) {
-    f = document.createElement('button');
-    f.id = '__rt_focus';
-    f.style.cssText = 'position:fixed;right:14px;bottom:58px;z-index:2147483646;border:0;border-radius:999px;padding:8px 14px;color:#fff;font:600 12.5px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);backdrop-filter:blur(6px)';
-    f.onclick = () => ipcRenderer.send('focus:open');
-    (document.body || document.documentElement).appendChild(f);
-  }
-  f.textContent = focusOn ? '🎯 Focus চলছে' : '🎯 Focus Mode';
-  f.style.background = focusOn ? 'rgba(22,163,74,.92)' : 'rgba(12,168,176,.92)';
-}
-ipcRenderer.on('focus:badge', (_e, on) => { focusOn = !!on; renderFocusBtn(); });
-window.addEventListener('DOMContentLoaded', renderFocusBtn);
-window.addEventListener('load', renderFocusBtn);
+const focusListeners = [];
+function setFocusOn(on) { focusOn = !!on; focusListeners.forEach((fn) => { try { fn(focusOn); } catch (_) {} }); }
+ipcRenderer.on('focus:badge', (_e, on) => setFocusOn(on));
+window.addEventListener('DOMContentLoaded', () => { ipcRenderer.invoke('focus:isActive').then(setFocusOn).catch(() => {}); });
 
 // Keys forwarded by main.js from the page inside the Safe Browser <webview> (F11, Esc, Ctrl+T …) → handled by index.html like normal key presses
 ipcRenderer.on('bt:key', (_e, k) => {
@@ -129,6 +117,11 @@ contextBridge.exposeInMainWorld('ElectronShell', {
   openUrl: (url) => ipcRenderer.send('shell:openUrl', url),
   notify: (title, body) => ipcRenderer.send('notify:show', String(title || ''), String(body || '')),
   isElectron: true,
+  focus: {
+    open: () => ipcRenderer.send('focus:open'),
+    isOn: () => focusOn,
+    onChange: (fn) => { focusListeners.push(fn); },
+  },
   embed: true, // this build can show YouTube / Studio / Google inside the app layout (<webview>)
   // offline lesson videos (saved to disk by the main process)
   vid: {

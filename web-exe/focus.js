@@ -314,6 +314,7 @@ function init(opts) {
   save();
 
   ipcMain.on('focus:open', openWindow);
+  ipcMain.handle('focus:isActive', (e) => { const mw = getMainWin(); return !!(mw && !mw.isDestroyed() && e.sender === mw.webContents && st.active); });
   ipcMain.handle('focus:get', (e) => (fromFocusWin(e) ? publicState() : null));
   ipcMain.handle('focus:update', (e, patch) => {
     if (!fromFocusWin(e)) return { ok: false };
