@@ -1923,6 +1923,22 @@ body:has(#viewExt.active) #__rt_nav,body:has(#viewExt.active) #__rt_updcheck,bod
 .bt-fshint.show{opacity:1}
 body:has(#viewBrowser.active) #__rt_nav,body:has(#viewBrowser.active) #__rt_updcheck,body:has(#viewBrowser.active) #__rt_focus{display:none!important}
 @media(max-width:900px){#viewBrowser.active{height:calc(100vh - var(--tb,0px) - 56px)}}
+/* New Tab page (like Chrome's dark NTP) */
+.bt-ntp{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;padding:0 24px 90px;background:var(--c-page);overflow:auto}
+.bt-ntp>*{flex:none}
+.bt-logo{font-family:'Product Sans','Google Sans','Segoe UI',Arial,sans-serif;font-size:80px;font-weight:500;letter-spacing:-3px;line-height:1;color:#fff;user-select:none;-webkit-user-select:none}
+.bt-nsearch{display:flex;align-items:center;gap:12px;width:min(584px,100%);height:46px;padding:0 18px;border-radius:999px;background:var(--c-omni);border:1px solid transparent;box-sizing:border-box}
+.bt-nsearch:hover,.bt-nsearch:focus-within{background:#2f2f2f;box-shadow:0 1px 6px rgba(0,0,0,.45)}
+.bt-nsearch svg{width:20px;height:20px;color:var(--c-icon);flex:none}
+.bt-nsearch input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--c-text);font-size:16px;font-family:inherit}
+.bt-nsearch input::placeholder{color:var(--c-icon)}
+.bt-tiles{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 12px;max-width:660px}
+.bt-tile{display:flex;flex-direction:column;align-items:center;gap:8px;width:112px;padding:10px 0 8px;border:0;border-radius:12px;background:transparent;color:var(--c-text);font-size:12px;cursor:pointer}
+.bt-tile:hover{background:var(--c-hover)}
+.bt-tile i{width:48px;height:48px;border-radius:50%;background:#2b2b2b;display:flex;align-items:center;justify-content:center}
+.bt-tile i img{width:26px;height:26px;border-radius:4px}
+.bt-tile i .bt-ico{width:24px;height:24px}.bt-tile i .bt-ico svg{width:20px;height:20px}
+.bt-tile span{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* ── Full screen: app title bar, header and sidebar disappear, only the browser remains ── */
 html.bt-fs .sidebar,html.bt-fs .sidebar-overlay,html.bt-fs .topbar,html.bt-fs #__rt_titlebar,html.bt-fs #__rt_nav,html.bt-fs #__rt_update,html.bt-fs #__rt_updcheck,html.bt-fs #__rt_focus{display:none!important}
 html.bt-fs .main{margin-left:0!important;padding-top:0!important}
@@ -5660,6 +5676,7 @@ window.mBrowserOpenExternal = function() {
   }
   function err(t,a,b){if(t!==cur)return;$("btErrT").textContent=a;$("btErrM").textContent=b||"";$("btErr").style.display="flex"}
   function make(url){
+    if(!url){const n={id:++seq,url:"",title:"New tab",fav:"",loading:false,web:false,ntp:true,el:ntpEl()};return n}
     const t={id:++seq,url,title:"",fav:"",loading:true,web:web(),el:null};
     if(t.web){
       const el=document.createElement("webview");
@@ -5685,11 +5702,11 @@ window.mBrowserOpenExternal = function() {
     return t;
   }
   function activate(t){
-    cur=t;tabs.forEach(x=>{x.el.style.display=x===t?"flex":"none"});
+    cur=t;tabs.forEach(x=>{x.el.style.display=x===t?"flex":"none"});if(t.ntp)fillNtp(t.el);
     $("btErr").style.display="none";renderTabs();sync(t);
   }
   window.btNewTab=function(url){
-    const t=make(norm(url)||HOME);tabs.push(t);$("btHost").appendChild(t.el);activate(t);
+    const t=make(norm(url));tabs.push(t);$("btHost").appendChild(t.el);activate(t);
     if(!url){const u=$("btUrl");u.value="";setTimeout(()=>{u.focus()},50)}
     return t;
   };
@@ -5702,12 +5719,13 @@ window.mBrowserOpenExternal = function() {
   window.btGo=function(v){
     const u=norm(v);if(!u)return;
     if(!cur){btNewTab(u);return}
+    if(cur.ntp){const i=tabs.indexOf(cur),o=cur,n=make(u);tabs[i]=n;o.el.replaceWith(n.el);cur=null;activate(n);$("btUrl").blur();return}
     cur.url=u;cur.title="";cur.fav="";cur.loading=true;$("btErr").style.display="none";
     try{if(cur.web)cur.el.loadURL(u);else cur.el.src=u}catch(e){}
     renderTabs();sync(cur);$("btUrl").blur();
   };
   window.btNav=function(act){
-    const t=cur;if(!t)return;
+    const t=cur;if(!t||t.ntp)return;
     try{
       if(act==="home"){btGo(HOME);return}
       $("btErr").style.display="none";
@@ -5725,7 +5743,7 @@ window.mBrowserOpenExternal = function() {
     const a=document.querySelector(".view.active");if(a&&a.id!=="viewBrowser")prev=a.id;
     goView("viewBrowser");try{closeSidebar()}catch(e){}
     $("btNote").style.display=web()?"none":"flex";
-    renderBm();if(!tabs.length)btNewTab(url||HOME);else if(url)btNewTab(url);
+    renderBm();if(!tabs.length)btNewTab(url);else if(url)btNewTab(url);
   };
   // ── Chrome extras: bookmarks bar, popup menus, tab search, omnibox state, full screen ──
   const svg=(d,x)=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" '+(x||"")+'>'+d+'</svg>';
@@ -5844,6 +5862,26 @@ window.mBrowserOpenExternal = function() {
     const rl=$("btReload");rl.innerHTML=t.loading?IC.stop:IC.reload;rl.title=t.loading?"Stop loading this page":"Reload (Ctrl+R)";
   }
 
+  // ── Chrome-style New Tab page (dark): Google wordmark, search box, shortcut tiles from the bookmarks ──
+  function fillNtp(el){
+    const box=el.querySelector(".bt-tiles");if(!box)return;box.innerHTML="";
+    bms.slice(0,10).forEach(b=>{
+      const t=document.createElement("button");t.className="bt-tile";t.title=b.u;
+      const i=document.createElement("i");i.appendChild(favImg(b.u));
+      const s=document.createElement("span");s.textContent=b.t;
+      t.append(i,s);t.onclick=()=>btGo(b.u);box.appendChild(t);
+    });
+  }
+  function ntpEl(){
+    const d=document.createElement("div");d.className="bt-ntp";
+    d.innerHTML='<div class="bt-logo">Google</div>'+
+      '<label class="bt-nsearch">'+svg('<circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>')+'<input type="text" spellcheck="false" autocomplete="off" placeholder="Search Google or type a URL"></label>'+
+      '<div class="bt-tiles"></div>';
+    const inp=d.querySelector("input");
+    inp.addEventListener("keydown",e=>{if(e.key==="Enter"&&inp.value.trim())btGo(inp.value)});
+    fillNtp(d);
+    return d;
+  }
   // ── Full screen (like Chrome F11): hides app title bar, header and sidebar ──
   let fsHintT=0;
   const fsOn=()=>document.documentElement.classList.contains("bt-fs");

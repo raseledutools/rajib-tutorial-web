@@ -263,6 +263,18 @@ function openChild(url, title) {
   });
 }
 
+// A new exe build drops the old HTTP cache once, so the newest website (GitHub Pages caches pages for ~10 min) loads at the first start.
+async function freshCacheOnce() {
+  try {
+    const f = path.join(app.getPath('userData'), 'cache-ver.txt');
+    let prev = ''; try { prev = fs.readFileSync(f, 'utf8'); } catch (_) {}
+    if (prev !== app.getVersion()) {
+      await session.defaultSession.clearCache();
+      fs.writeFileSync(f, app.getVersion());
+    }
+  } catch (_) {}
+}
+
 function create() {
   win = new BrowserWindow({
     width: 1280, height: 820, minWidth: 900, minHeight: 600, show: false,
@@ -301,7 +313,7 @@ function create() {
   // Start loading the real site as soon as the splash is up.
   let siteStarted = false;
   wc.on('did-finish-load', () => {
-    if (!siteStarted) { siteStarted = true; win.loadURL(SITE); return; }
+    if (!siteStarted) { siteStarted = true; freshCacheOnce().finally(() => { if (win) win.loadURL(SITE); }); return; }
     if (!offlineHandling && !warmedOnce && wc.getURL().startsWith(SITE_ORIGIN)) setTimeout(warmCache, 3000);
   });
   wc.on('did-fail-load', (_e, code, _d, url, isMain) => {
