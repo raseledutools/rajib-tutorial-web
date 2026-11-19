@@ -169,7 +169,7 @@ const protectedWins = new WeakSet();
 function protect(w) {
   if (!w || protectedWins.has(w)) return;
   protectedWins.add(w);
-  const apply = () => { try { if (!w.isDestroyed()) w.setContentProtection(true); } catch (_) {} };
+  const apply = () => { try { if (!w.isDestroyed()) w.setContentProtection(!!pref('screenProtect', true)); } catch (_) {} };
   let t = null;
   const soon = () => { clearTimeout(t); t = setTimeout(apply, 300); };
   apply();
@@ -184,7 +184,7 @@ function guard(wc) {
   wc.on('before-input-event', (e, input) => {
     const k = (input.key || '').toLowerCase();
     const ctrl = input.control || input.meta;
-    if (k === 'printscreen') { e.preventDefault(); try { clipboard.clear(); } catch (_) {} return; }
+    if (k === 'printscreen') { if (!pref('screenProtect', true)) return; e.preventDefault(); try { clipboard.clear(); } catch (_) {} return; }
     if (input.type !== 'keyDown') return;
     if (input.alt && (k === 'arrowleft' || k === 'arrowright')) {
       e.preventDefault();
@@ -313,6 +313,7 @@ function create() {
   // Closing the window only hides it to the tray, so update / admin-panel notifications and Focus Mode keep working.
   win.on('close', (e) => {
     if (forceQuit || !tray) return;
+    if (!pref('closeToTray', true) && !focus.isActive()) { forceQuit = true; return; } // setting: close = quit
     e.preventDefault();
     win.hide();
     if (!hintedTray && Notification.isSupported()) {
@@ -363,6 +364,7 @@ let hintedTray = false;
 const PREFS = () => path.join(app.getPath('userData'), 'prefs.json');
 function readPrefs() { try { return JSON.parse(fs.readFileSync(PREFS(), 'utf8')) || {}; } catch (_) { return {}; } }
 function writePrefs(p) { try { fs.writeFileSync(PREFS(), JSON.stringify(p)); } catch (_) {} }
+function pref(k, d) { const p = readPrefs(); return p[k] === undefined ? d : p[k]; } // settings panel (sidebar): notifications, screenProtect, autostart, closeToTray
 function autostartOn() { const p = readPrefs(); return p.autostart !== false; } // default: on
 function applyAutostart(on) {
   if (!PACKAGED) return; // never register the dev electron.exe
@@ -500,7 +502,7 @@ ipcMain.on('update:get', () => sendUpdateState());
 
 // IPC: website → native Windows notification (admin panel push)
 ipcMain.on('notify:show', (_e, title, body) => {
-  if (!Notification.isSupported()) return;
+  if (!Notification.isSupported() || !pref('notifications', true)) return;
   const n = new Notification({
     title: String(title || 'Rajib Tutorial'),
     body: String(body || ''),
@@ -510,6 +512,28 @@ ipcMain.on('notify:show', (_e, title, body) => {
     if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
   });
   n.show();
+});
+
+// IPC: sidebar Settings panel (index.html). Only the main window may call these.
+function settingsState() {
+  return { notifications: !!pref('notifications', true), screenProtect: !!pref('screenProtect', true), autostart: autostartOn(),
+           closeToTray: !!pref('closeToTray', true), version: app.getVersion(), packaged: PACKAGED };
+}
+ipcMain.handle('settings:get', (e) => (trusted(e) ? settingsState() : null));
+ipcMain.handle('settings:set', (e, key, val) => {
+  if (!trusted(e) || !['notifications', 'screenProtect', 'autostart', 'closeToTray'].includes(key)) return null;
+  val = !!val;
+  if (key === 'autostart' && !val && focus.isActive()) return settingsState(); // Focus session running: keep Start-with-Windows on
+  const p = readPrefs(); p[key] = val; writePrefs(p);
+  if (key === 'screenProtect') BrowserWindow.getAllWindows().forEach((w) => { try { if (!w.isDestroyed()) w.setContentProtection(val); } catch (_) {} });
+  if (key === 'autostart') applyAutostart(val);
+  refreshTrayMenu();
+  return settingsState();
+});
+ipcMain.handle('settings:clearCache', async (e) => {
+  if (!trusted(e)) return false;
+  try { await session.defaultSession.clearCache(); await session.fromPartition(EXT_PARTITION).clearCache(); } catch (_) { return false; }
+  return true;
 });
 
 // IPC: website calls window.ElectronShell.openUrl(url) → openChild()
@@ -641,11 +665,16 @@ app.whenReady().then(() => {
     // Embedded sites (YouTube, Studio, Google): own persistent session so logins are kept, and a normal
     // Chrome user-agent (Google refuses sign-in from browsers that announce "Electron").
     const ext = session.fromPartition(EXT_PARTITION);
-    ext.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/' + process.versions.chrome + ' Safari/537.36');
+    // Reported Chrome version never below MIN_CHROME_MAJOR (Electron's own Chrome gets old -> "out of date browser")
+    const MIN_CHROME_MAJOR = 146;
+    const realMajor = parseInt(String(process.versions.chrome).split('.')[0], 10);
+    const spoofMajor = Math.max(realMajor, MIN_CHROME_MAJOR);
+    const spoofFull = spoofMajor + '.0.0.0';
+    ext.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/' + spoofFull + ' Safari/537.36');
     // Client-hint headers: send the same "Google Chrome" brands as the user-agent (no "Electron" anywhere).
-    const major = String(process.versions.chrome).split('.')[0];
+    const major = String(spoofMajor);
     const brands = '"Chromium";v="' + major + '", "Google Chrome";v="' + major + '", "Not_A Brand";v="24"';
-    const fullList = '"Chromium";v="' + process.versions.chrome + '", "Google Chrome";v="' + process.versions.chrome + '", "Not_A Brand";v="24.0.0.0"';
+    const fullList = '"Chromium";v="' + spoofFull + '", "Google Chrome";v="' + spoofFull + '", "Not_A Brand";v="24.0.0.0"';
     // YouTube ads: cancel the ad / tracking requests (only in this embedded session; ext-preload.js handles the rest)
     ext.webRequest.onBeforeRequest({ urls: [
       '*://*.doubleclick.net/*', '*://*.googlesyndication.com/*', '*://*.googleadservices.com/*', '*://adservice.google.com/*',
