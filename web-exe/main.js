@@ -468,6 +468,18 @@ ipcMain.on('nav', (e, act) => {
 });
 
 const EXT_PARTITION = 'persist:rtext';
+// Ad / ad-tracking networks: blocked for every site opened in the embedded view (these domains serve ads only).
+const AD_DOMAINS = [
+  'doubleclick.net', 'googlesyndication.com', 'googleadservices.com', 'googletagservices.com', 'adservice.google.com', '2mdn.net',
+  'moatads.com', 'adnxs.com', 'adsrvr.org', 'advertising.com', 'adform.net', 'rubiconproject.com', 'pubmatic.com', 'openx.net',
+  'criteo.com', 'criteo.net', 'taboola.com', 'outbrain.com', 'amazon-adsystem.com', 'casalemedia.com', '33across.com',
+  'smartadserver.com', 'mgid.com', 'revcontent.com', 'popads.net', 'popcash.net', 'propellerads.com', 'exoclick.com', 'exosrv.com',
+  'juicyads.com', 'trafficjunky.net', 'adsterra.com', 'highperformanceformat.com', 'effectivegatecpm.com', 'onclickads.net',
+  'adcash.com', 'a-ads.com', 'ad-maven.com', 'admaven.com', 'yieldmo.com', 'sharethrough.com', 'teads.tv', 'zedo.com', 'adtng.com',
+  'bidswitch.net', 'contextweb.com', 'lijit.com', 'sovrn.com', 'indexww.com', 'triplelift.com', 'smaato.net', 'inmobi.com',
+  'adroll.com', 'adthrive.com', 'adskeeper.com', 'adcolony.com', 'applovin.com', 'unity3d.com/ads',
+].filter((d) => !d.includes('/'));
+const AD_HOST_RE = new RegExp('(^|\\.)(' + AD_DOMAINS.map((d) => d.replace(/\./g, '\\.')).join('|') + ')$', 'i');
 app.on('web-contents-created', (_e, wc) => {
   guard(wc);
   // The main window may embed external sites in a <webview>; lock those guests down.
@@ -475,7 +487,8 @@ app.on('web-contents-created', (_e, wc) => {
     let ok = false;
     try { ok = new URL(params.src).protocol === 'https:' && params.partition === EXT_PARTITION; } catch (_) {}
     if (!ok) { e.preventDefault(); return; }
-    delete webPreferences.preload; delete webPreferences.preloadURL;
+    delete webPreferences.preloadURL;
+    webPreferences.preload = path.join(__dirname, 'ext-preload.js'); // makes the page look like normal Chrome (Google sign-in)
     webPreferences.nodeIntegration = false;
     webPreferences.contextIsolation = true;
     webPreferences.sandbox = true;
@@ -487,6 +500,7 @@ app.on('web-contents-created', (_e, wc) => {
     wc.setWindowOpenHandler(({ url: u }) => {
       try {
         const parsed = new URL(u);
+        if (AD_HOST_RE.test(parsed.hostname)) return { action: 'deny' };   // ad pop-up / pop-under
         if (parsed.protocol === 'https:') wc.loadURL(u);
         else if (parsed.protocol === 'mailto:' || parsed.protocol === 'tel:') shell.openExternal(u);
       } catch (_) {}
@@ -504,6 +518,28 @@ app.whenReady().then(() => {
     // Chrome user-agent (Google refuses sign-in from browsers that announce "Electron").
     const ext = session.fromPartition(EXT_PARTITION);
     ext.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/' + process.versions.chrome + ' Safari/537.36');
+    // Client-hint headers: send the same "Google Chrome" brands as the user-agent (no "Electron" anywhere).
+    const major = String(process.versions.chrome).split('.')[0];
+    const brands = '"Chromium";v="' + major + '", "Google Chrome";v="' + major + '", "Not_A Brand";v="24"';
+    const fullList = '"Chromium";v="' + process.versions.chrome + '", "Google Chrome";v="' + process.versions.chrome + '", "Not_A Brand";v="24.0.0.0"';
+    // YouTube ads: cancel the ad / tracking requests (only in this embedded session; ext-preload.js handles the rest)
+    ext.webRequest.onBeforeRequest({ urls: [
+      '*://*.doubleclick.net/*', '*://*.googlesyndication.com/*', '*://*.googleadservices.com/*', '*://adservice.google.com/*',
+      '*://*.youtube.com/pagead/*', '*://*.youtube.com/api/stats/ads*', '*://*.youtube.com/ptracking*',
+      '*://*.youtube.com/get_midroll_info*', '*://*.youtube.com/youtubei/v1/player/ad_break*',
+      ...AD_DOMAINS.map((d) => '*://*.' + d + '/*'),
+    ] }, (_d, cb) => cb({ cancel: true }));
+    ext.webRequest.onBeforeSendHeaders((details, cb) => {
+      const h = details.requestHeaders;
+      for (const k of Object.keys(h)) {
+        const l = k.toLowerCase();
+        if (l === 'sec-ch-ua') h[k] = brands;
+        else if (l === 'sec-ch-ua-full-version-list') h[k] = fullList;
+        else if (l === 'sec-ch-ua-mobile') h[k] = '?0';
+        else if (l === 'sec-ch-ua-platform') h[k] = '"Windows"';
+      }
+      cb({ requestHeaders: h });
+    });
     ext.setPermissionRequestHandler((_wc, perm, cb) =>
       cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));
   }
