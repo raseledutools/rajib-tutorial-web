@@ -5811,7 +5811,7 @@ setTimeout(()=>{pushUI();if(pushOk()&&Notification.permission==="granted")pushEn
 
 
 // ── Offline lessons ──────────────────────────────────────────────
-// Only direct video files (e.g. Cloudinary) can be saved. YouTube videos cannot be saved offline.
+// Direct video files (Cloudinary etc.) and YouTube lessons (exe only, via yt-dlp) can be saved.
 // Data lives in the app's private browser storage (IndexedDB): not a normal file, not visible in any folder.
 const OFF={
   _db:null,
@@ -5997,7 +5997,7 @@ if(NV){
     delete offBusy[id];delete offProg[id];delete offCtl[id];
     if(ev.type==="done"){offSet.add(id);showToast("✅ Offline e save hoyeche")}
     else if(ev.type==="cancel"){showToast("Download cancel kora hoyeche")}
-    else{showToast("⚠ Save adhura — net ashle abar chalaole ja baki ta theke shuru hobe")}
+    else{showToast(ev.error&&!/^(connection lost|aborted)/i.test(ev.error)?"❌ Save hoyni — "+String(ev.error).slice(0,140):"⚠ Save adhura — net ashle abar chalaole ja baki ta theke shuru hobe")}
     offTick(id);if(v)offBarRender(v);if($("viewOffline")&&$("viewOffline").classList.contains("active"))offRender();
   });
 }
@@ -6014,7 +6014,7 @@ window.offRender=async function(){
       <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${esc(m.title)}</div><div style="font-size:12px;color:var(--sub)">${esc(m.course)} · ${offMB(m.size||0)} · ${offLeft(m)} din baki</div></div>
       <button style="padding:8px 14px;border:0;border-radius:10px;background:var(--accent,#e8365d);color:#fff;font-weight:700;cursor:pointer" onclick="offPlay('${esc(m.id)}')">▶ Play</button>
       <button style="padding:8px 12px;border:0;border-radius:10px;background:#64748b;color:#fff;cursor:pointer" onclick="offDel('${esc(m.id)}')">🗑</button>
-    </div>`).join(""):'<div class="empty" style="padding:30px 10px"><p>Kono lesson offline save kora nai.<br>Lesson er niche "Offline e save koren" chapen (shudhu direct video, YouTube na).</p></div>';
+    </div>`).join(""):'<div class="empty" style="padding:30px 10px"><p>Kono lesson offline save kora nai.<br>Lesson er pashe ☁ icon e chapen (YouTube ar direct video duitai save hoy).</p></div>';
 };
 window.offPlay=async function(id){
   try{

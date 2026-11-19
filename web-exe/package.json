@@ -33,6 +33,19 @@
       "focus.html",
       "build/icon.png"
     ],
+    "extraResources": [
+      {
+        "from": "bin/yt-dlp.exe",
+        "to": "yt-dlp.exe",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "bin/ffmpeg.exe",
+        "to": "ffmpeg.exe"
+      }
+    ],
     "win": {
       "target": [
         {

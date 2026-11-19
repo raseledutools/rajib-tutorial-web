@@ -124,7 +124,7 @@ contextBridge.exposeInMainWorld('ElectronShell', {
     list: () => ipcRenderer.invoke('vid:list'),
     active: () => ipcRenderer.invoke('vid:active'),
     has: (id, url) => ipcRenderer.invoke('vid:has', String(id), String(url || '')),
-    start: (o) => ipcRenderer.invoke('vid:start', { id: String(o.id), url: String(o.url), title: String(o.title || ''), course: String(o.course || '') }),
+    start: (o) => ipcRenderer.invoke('vid:start', { id: String(o.id), url: String(o.url), title: String(o.title || ''), course: String(o.course || ''), expireDays: Number(o.expireDays) || 7 }),
     remove: (id) => ipcRenderer.invoke('vid:remove', String(id)),
     cancel: (id) => ipcRenderer.send('vid:cancel', String(id)),
     src: (id) => 'rtvid://v/' + encodeURIComponent(String(id)),

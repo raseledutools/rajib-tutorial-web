@@ -1,2 +1,4 @@
 node_modules/
 dist/
+
+# yt-dlp binary bundled in repo (web-exe/bin/yt-dlp.exe)
