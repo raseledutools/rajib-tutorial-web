@@ -516,7 +516,7 @@ function initUpdater() {
   autoUpdater.on('update-downloaded', () => {
     setUpdate({ status: 'installing', percent: 100 });
     // silent install, then relaunch the new version
-    setTimeout(() => { forceQuit = true; autoUpdater.quitAndInstall(true, true); }, 800);
+    setTimeout(() => { forceQuit = true; autoUpdater.quitAndInstall(true, true); }, 150);
   });
   autoUpdater.on('error', () => {
     if (updateState.status === 'downloading') setUpdate({ status: 'available' });
