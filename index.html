@@ -3102,6 +3102,7 @@ function mountYT(box,id,o={}){
   const frameEl=wrap.querySelector(".ytp-frame");
   const fitFrame=()=>{
     const w=wrap.clientWidth,h=wrap.clientHeight;if(!w||!h||!frameEl)return;
+    if(useWv){frameEl.style.cssText="left:0;right:0;top:0;bottom:0";return}   // webview page is already clean: full size, no crop / scaling
     const H=h+144,lw=Math.max(160,Math.round(QW[eff()]/(window.devicePixelRatio||1))),lh=Math.round(lw*H/w),sc=w/lw;
     frameEl.style.cssText="left:0;top:-72px;right:auto;bottom:auto;width:"+lw+"px;height:"+lh+"px;transform-origin:0 0;transform:scale("+sc+")";
   };
@@ -3153,7 +3154,9 @@ function mountYT(box,id,o={}){
   qm.addEventListener("click",e=>{
     e.stopPropagation();
     const x=e.target&&e.target.dataset&&e.target.dataset.q;if(!x)return;
-    closeQ();curQ=x;qb.textContent=x==="auto"?"Auto":QL[x];fitFrame();
+    closeQ();curQ=x;qb.textContent=x==="auto"?"Auto":QL[x];
+    frameEl.classList.add("mask");clearTimeout(qm._mk);qm._mk=setTimeout(()=>frameEl.classList.remove("mask"),2600);   // no YouTube overlay flash while quality changes
+    fitFrame();
     if(!pl||!pl.getCurrentTime)return;
         qTries=0;qReloaded=false;
     applyQ();setTimeout(applyQ,700);setTimeout(applyQ,2000);setTimeout(checkQ,2500);
@@ -3180,6 +3183,7 @@ function mountYT(box,id,o={}){
         if(e.data===3)startStall();
         if(e.data===1&&qRestore){const r=qRestore;qRestore=null;try{pl.setPlaybackRate(r.rate);if(!r.play)pl.pauseVideo()}catch(_){}}
         if(e.data===1)cover.classList.add("off");
+        if(e.data===0){cover.classList.remove("off");bar.classList.remove("hide");clearTimeout(hideT)}   // ended: our cover (poster + play) instead of YouTube's end screen
         pp.innerHTML=playing?PAUSE:PLAY;
         if(e.data===1)showBar();else{bar.classList.remove("hide");clearTimeout(hideT)}
       }
