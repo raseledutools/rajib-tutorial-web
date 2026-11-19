@@ -308,6 +308,7 @@ function create() {
     },
   });
   protect(win);
+  if (pref('alwaysOnTop', false)) { try { win.setAlwaysOnTop(true); } catch (_) {} }
   // Local splash paints almost instantly, so the window appears right after the click.
   win.once('ready-to-show', () => { win.maximize(); if (!startHidden) win.show(); startHidden = false; });
   // Closing the window only hides it to the tray, so update / admin-panel notifications and Focus Mode keep working.
@@ -469,7 +470,7 @@ function initUpdater() {
   autoUpdater.on('update-available', (info) => {
     const first = updateState.version !== info.version;
     setUpdate({ status: 'available', version: info.version, percent: 0 });
-    if (first && Notification.isSupported()) {
+    if (first && Notification.isSupported() && pref('notifications', true)) {
       const n = new Notification({
         title: 'Rajib Tutorial — নতুন আপডেট',
         body: 'Version ' + info.version + ' এসেছে। আপডেট করতে ক্লিক করুন।',
@@ -507,6 +508,7 @@ ipcMain.on('notify:show', (_e, title, body) => {
     title: String(title || 'Rajib Tutorial'),
     body: String(body || ''),
     icon: path.join(__dirname, 'build', 'icon.png'),
+    silent: !pref('notifySound', true),
   });
   n.on('click', () => {
     if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
@@ -517,18 +519,27 @@ ipcMain.on('notify:show', (_e, title, body) => {
 // IPC: sidebar Settings panel (index.html). Only the main window may call these.
 function settingsState() {
   return { notifications: !!pref('notifications', true), screenProtect: !!pref('screenProtect', true), autostart: autostartOn(),
-           closeToTray: !!pref('closeToTray', true), version: app.getVersion(), packaged: PACKAGED };
+           closeToTray: !!pref('closeToTray', true), notifySound: !!pref('notifySound', true), alwaysOnTop: !!pref('alwaysOnTop', false),
+           version: app.getVersion(), packaged: PACKAGED };
 }
 ipcMain.handle('settings:get', (e) => (trusted(e) ? settingsState() : null));
 ipcMain.handle('settings:set', (e, key, val) => {
-  if (!trusted(e) || !['notifications', 'screenProtect', 'autostart', 'closeToTray'].includes(key)) return null;
+  if (!trusted(e) || !['notifications', 'screenProtect', 'autostart', 'closeToTray', 'notifySound', 'alwaysOnTop'].includes(key)) return null;
   val = !!val;
   if (key === 'autostart' && !val && focus.isActive()) return settingsState(); // Focus session running: keep Start-with-Windows on
   const p = readPrefs(); p[key] = val; writePrefs(p);
   if (key === 'screenProtect') BrowserWindow.getAllWindows().forEach((w) => { try { if (!w.isDestroyed()) w.setContentProtection(val); } catch (_) {} });
   if (key === 'autostart') applyAutostart(val);
+  if (key === 'alwaysOnTop' && win && !win.isDestroyed()) { try { win.setAlwaysOnTop(val); } catch (_) {} }
   refreshTrayMenu();
   return settingsState();
+});
+ipcMain.handle('settings:testNotify', (e) => {
+  if (!trusted(e) || !Notification.isSupported()) return false;
+  const on = !!pref('notifications', true);
+  if (!on) return 'off';
+  new Notification({ title: 'Rajib Tutorial', body: 'Test notification — সব ঠিক আছে ✓', icon: path.join(__dirname, 'build', 'icon.png'), silent: !pref('notifySound', true) }).show();
+  return true;
 });
 ipcMain.handle('settings:clearCache', async (e) => {
   if (!trusted(e)) return false;
