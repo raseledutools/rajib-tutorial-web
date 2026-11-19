@@ -509,6 +509,12 @@ app.whenReady().then(() => {
     const major = String(process.versions.chrome).split('.')[0];
     const brands = '"Chromium";v="' + major + '", "Google Chrome";v="' + major + '", "Not_A Brand";v="24"';
     const fullList = '"Chromium";v="' + process.versions.chrome + '", "Google Chrome";v="' + process.versions.chrome + '", "Not_A Brand";v="24.0.0.0"';
+    // YouTube ads: cancel the ad / tracking requests (only in this embedded session; ext-preload.js handles the rest)
+    ext.webRequest.onBeforeRequest({ urls: [
+      '*://*.doubleclick.net/*', '*://*.googlesyndication.com/*', '*://*.googleadservices.com/*', '*://adservice.google.com/*',
+      '*://*.youtube.com/pagead/*', '*://*.youtube.com/api/stats/ads*', '*://*.youtube.com/ptracking*',
+      '*://*.youtube.com/get_midroll_info*', '*://*.youtube.com/youtubei/v1/player/ad_break*',
+    ] }, (_d, cb) => cb({ cancel: true }));
     ext.webRequest.onBeforeSendHeaders((details, cb) => {
       const h = details.requestHeaders;
       for (const k of Object.keys(h)) {
