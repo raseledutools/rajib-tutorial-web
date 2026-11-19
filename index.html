@@ -3133,8 +3133,13 @@ function mountYT(box,id,o={}){
     try{pl.setPlaybackQualityRange&&pl.setPlaybackQualityRange(e,e)}catch(_){}
     try{pl.setPlaybackQuality&&pl.setPlaybackQuality(e)}catch(_){}
   };
+  // end of video: YouTube draws its own end-screen (avatar / title / channel / logo / replay). Hide the player completely
+  // (frame hidden + our cover) as soon as the end is near, and until playback starts again.
+  let atEnd=false;
+  const endOn=()=>{if(atEnd)return;atEnd=true;frameEl.classList.add("mask");cover.classList.remove("off");bar.classList.remove("hide");clearTimeout(hideT)};
+  const endOff=()=>{if(!atEnd)return;atEnd=false;frameEl.classList.remove("mask")};
   const checkQ=()=>{
-    if(!pl||!pl.getPlaybackQuality)return;
+    if(atEnd||!pl||!pl.getPlaybackQuality)return;
     let cur="";try{cur=pl.getPlaybackQuality()}catch(_){}
     if(!cur||cur===eff()||cur==="unknown")return;
     if(qTries++<6){applyQ();return}
@@ -3155,7 +3160,7 @@ function mountYT(box,id,o={}){
     e.stopPropagation();
     const x=e.target&&e.target.dataset&&e.target.dataset.q;if(!x)return;
     closeQ();curQ=x;qb.textContent=x==="auto"?"Auto":QL[x];
-    frameEl.classList.add("mask");clearTimeout(qm._mk);qm._mk=setTimeout(()=>frameEl.classList.remove("mask"),2600);   // no YouTube overlay flash while quality changes
+    frameEl.classList.add("mask");clearTimeout(qm._mk);qm._mk=setTimeout(()=>{if(!atEnd)frameEl.classList.remove("mask")},2600);   // no YouTube overlay flash while quality changes
     fitFrame();
     if(!pl||!pl.getCurrentTime)return;
         qTries=0;qReloaded=false;
@@ -3182,8 +3187,8 @@ function mountYT(box,id,o={}){
         if(e.data===1){hasPlayed=true;if(stallT)endStall(false)}
         if(e.data===3)startStall();
         if(e.data===1&&qRestore){const r=qRestore;qRestore=null;try{pl.setPlaybackRate(r.rate);if(!r.play)pl.pauseVideo()}catch(_){}}
-        if(e.data===1)cover.classList.add("off");
-        if(e.data===0){cover.classList.remove("off");bar.classList.remove("hide");clearTimeout(hideT)}   // ended: our cover (poster + play) instead of YouTube's end screen
+        if(e.data===1){endOff();cover.classList.add("off")}
+        if(e.data===0)endOn();   // ended: our cover (poster + play) instead of YouTube's end screen
         pp.innerHTML=playing?PAUSE:PLAY;
         if(e.data===1)showBar();else{bar.classList.remove("hide");clearTimeout(hideT)}
       }
@@ -3204,6 +3209,7 @@ function mountYT(box,id,o={}){
       if(!pl||!pl.getDuration)return;
       const d=pl.getDuration()||0,c=pl.getCurrentTime()||0;
       sk.style.visibility=d>0?"visible":"hidden";
+      if(!o.live&&d>5&&c>=d-1.0)endOn();else if(atEnd&&d>0&&c<d-2.5)endOff();   // last second -> hide before YouTube's end-screen appears
       tt.textContent=_fmtT(c);dd.textContent=d>0?_fmtT(d):"LIVE";
       if(!drag&&d>0)sk.value=Math.round(c/d*1000);
     },400);
