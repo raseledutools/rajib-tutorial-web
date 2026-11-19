@@ -4096,14 +4096,18 @@ window.adminLogout=function(){
 };
 window.clearPwErr=()=>$("pwErr").classList.add("h");
 window.toggleEye=()=>{const i=$("pwIn");i.type=i.type==="password"?"text":"password"};
-// Hidden admin entry: 5 quick taps on the sidebar logo/brand (or home logo), or Ctrl+Shift+A
+// Hidden admin entry: 5 quick taps on the sidebar logo/brand (or home logo), or Ctrl+Shift+A / Alt+Shift+A
 (function(){
   let n=0,t=0;
   const hit=()=>{const now=Date.now();n=(now-t<1500)?n+1:1;t=now;if(n>=5){n=0;openAdminLogin()}};
   document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest(".sidebar-top,.hm-herologo"))hit()});
-  document.addEventListener("keydown",e=>{
-    if(e.ctrlKey&&e.shiftKey&&!e.altKey&&(e.key==="A"||e.key==="a")){e.preventDefault();openAdminLogin()}
-  });
+  // capture phase on window = best chance to beat browser shortcuts; Alt+Shift+A is a backup (Chrome uses Ctrl+Shift+A for "Search tabs")
+  window.addEventListener("keydown",e=>{
+    const isA=e.code==="KeyA"||(e.key||"").toLowerCase()==="a";
+    if(isA&&e.shiftKey&&((e.ctrlKey&&!e.altKey)||(e.altKey&&!e.ctrlKey))){
+      e.preventDefault();e.stopPropagation();openAdminLogin();
+    }
+  },true);
 })();
 
 window.setMgCat=v=>{mgCat=v;renderManage()};
