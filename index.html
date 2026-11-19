@@ -1737,9 +1737,80 @@ body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Noto Sans Bengali',s
 }
 </style>
 
+<style id="rasCompact">
+/* ── Compact sidebar + smaller professional typography ── */
+:root{--rd-sidebar-w:204px;--ff-ui:'Inter','Segoe UI',system-ui,-apple-system,Roboto,'Hind Siliguri','Noto Sans Bengali',sans-serif}
+body,#viewHome,button,input,select,textarea{font-family:var(--ff-ui)}
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+/* sidebar */
+.sidebar-top{padding:13px 14px;gap:10px}
+.sidebar-logo{width:34px;height:34px}
+.sidebar-logo svg{width:20px;height:20px}
+.sidebar-brand{font-size:14px;font-weight:700;letter-spacing:-.005em}
+.sidebar-brand small{font-size:10.5px}
+.sidebar-nav{padding:8px 0}
+.nav-label{font-size:10px;letter-spacing:.09em;padding:12px 16px 5px}
+.nav-item,.course-nav-item{padding:9px 16px;font-size:13px;font-weight:500;gap:11px}
+.nav-item.active,.course-nav-item.active{font-weight:600}
+.nav-item svg{width:17px;height:17px}
+.sidebar-bottom{padding:10px}
+.btn-admin-login{font-size:12.5px;padding:8px 10px}
+/* top bar */
+.topbar-title{font-size:18px;font-weight:600}
+/* home page */
+#viewHome .hm{padding:0 18px}
+#viewHome .hm-hero{padding:22px 22px}
+#viewHome .hm-badge{font-size:11px;font-weight:600;padding:3px 11px}
+#viewHome .hm-hero h1{font-size:clamp(22px,2.8vw,30px);font-weight:700;line-height:1.25;margin:10px 0 8px}
+#viewHome .hm-hero p{font-size:13.5px;line-height:1.6;margin-bottom:14px}
+#viewHome .hm-btn{font-size:13px;font-weight:600;padding:9px 16px}
+#viewHome .hm-btn svg{width:16px;height:16px}
+#viewHome .hm-herologo span{width:40px;height:40px}
+#viewHome .hm-herologo svg{width:24px;height:24px}
+#viewHome .hm-herologo b{font-size:16px;font-weight:700}
+#viewHome .hm-herologo small{font-size:11.5px}
+#viewHome .hm-stats b{font-size:20px;font-weight:700}
+#viewHome .hm-stats span{font-size:11px;font-weight:500}
+#viewHome .hm-sec{margin-top:26px}
+#viewHome .hm-sech h2,#viewHome .hm-courses .sec-title{font-size:17px;font-weight:600}
+#viewHome .hm-courses .sec-sub{font-size:12px}
+#viewHome .hm-lhead{font-size:13px;font-weight:600;padding:10px 14px}
+#viewHome .hm-lbody{padding:12px 14px 14px}
+#viewHome .hm-lbody b{font-size:14.5px;font-weight:600}
+#viewHome .hm-lbody small{font-size:12px}
+#viewHome .hm-lfoot{font-size:11.5px}
+#viewHome .hm-courses .search-box input,#viewHome .hm-courses .filters select{font-size:12.5px;padding:8px 12px 8px 34px}
+#viewHome .hm-courses .filters .btn-refresh{width:36px;height:36px}
+#viewHome .course-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+#viewHome .cx-name{font-size:14px;font-weight:600}
+#viewHome .cx-meta,#viewHome .cx-desc{font-size:12px}
+#viewHome .cx-tag,#viewHome .cx-count,#viewHome .cx-btn{font-size:11px}
+#viewHome .cx-sech h3{font-size:15px;font-weight:600}
+#viewHome .cx-sech small{font-size:11.5px}
+#viewHome .hm-band{padding:28px 0 32px}
+#viewHome .hm-band h2{font-size:20px;font-weight:600}
+#viewHome .hm-band .hm-head p{font-size:13px}
+#viewHome .hm-tile{padding:13px}
+#viewHome .hm-tile i{width:36px;height:36px;font-size:18px}
+#viewHome .hm-tile span{font-size:13px;font-weight:600}
+#viewHome .hm-tile small{font-size:11px}
+#viewHome .hm-faq h2{font-size:20px;font-weight:600}
+#viewHome .hm-faq summary{font-size:13.5px;font-weight:600;padding:12px 16px}
+#viewHome .hm-faq details p{font-size:13px;line-height:1.65;padding:0 16px 14px}
+#viewHome .hm-ctab{padding:26px 18px}
+#viewHome .hm-ctab h2{font-size:20px;font-weight:600}
+#viewHome .hm-ctab p{font-size:13.5px}
+#viewHome .footer{font-size:12px}
+@media(max-width:900px){
+  #viewHome .hm-hero{padding:18px 14px}
+  #viewHome .hm-hero h1{font-size:22px}
+  .sidebar{width:220px}
+}
+</style>
+
 
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -1769,7 +1840,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Noto Sans Bengali',s
     <div class="nav-item" id="navDisc" onclick="openDiscussion()"><span class="nav-ico">💬</span><span>Discussion</span></div>
     <div class="nav-item" id="navInbox" onclick="openInbox()"><span class="nav-ico">🔔</span><span>Notifications</span></div>
     <div class="nav-item" id="navOffline" onclick="openOffline()"><span class="nav-ico">📥</span><span>Offline Lessons</span></div>
-    <div class="nav-item" id="navPush" style="display:none" onclick="pushEnableClick();closeSidebar()"><span class="nav-ico">✅</span><span>Notification চালু করুন</span></div>
+    <div class="nav-item" id="navPush" style="display:none" onclick="pushEnableClick();closeSidebar()"><span class="nav-ico">✅</span><span>Enable Notifications</span></div>
     <div class="nav-item" id="navResCircular" onclick="openRes('circular')"><span class="nav-ico">📢</span><span>Current Circular</span></div>
     <div class="nav-item" id="navResQbank" onclick="openRes('qbank')"><span class="nav-ico">📚</span><span>Question Bank</span></div>
     <div class="nav-item" id="navResRecent" onclick="openRes('recent')"><span class="nav-ico">🆕</span><span>Recent Question Bank</span></div>
@@ -1831,36 +1902,36 @@ body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Noto Sans Bengali',s
     <!-- HERO -->
     <section class="hm-hero">
       <div>
-        <span class="hm-badge">ডিপ্লোমা ইন EEE</span>
-        <h1>সহজ ভাষায় EEE শেখার <em>স্মার্ট সঙ্গী</em></h1>
-        <p>ভিডিও লেসন, লাইভ ক্লাস ও এক্সাম, প্রশ্নব্যাংক আর MCQ প্র্যাকটিস — সব ৮ সেমিস্টারের প্রস্তুতি এখন আরও সহজ, একদম আপনার হাতের মুঠোয়।</p>
+        <span class="hm-badge">Diploma in EEE</span>
+        <h1>Learn EEE the <em>Smart &amp; Simple Way</em></h1>
+        <p>Video lessons, live classes and exams, a question bank and MCQ practice — complete preparation for all 8 semesters, right at your fingertips.</p>
         <div class="hm-cta">
-          <a class="hm-btn pri" href="#coursesAnchor" onclick="document.getElementById('coursesAnchor').scrollIntoView({behavior:'smooth'});return false">কোর্স দেখুন</a>
+          <a class="hm-btn pri" href="#coursesAnchor" onclick="document.getElementById('coursesAnchor').scrollIntoView({behavior:'smooth'});return false">Browse Courses</a>
           <a class="hm-btn dark" href="RajibTutorial.apk" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg><span>Download App</span></a>
         </div>
       </div>
       <div class="hm-herobox">
         <div class="hm-herologo"><span><svg viewBox="0 0 100 100" fill="none" stroke-width="8" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg></span><div><b>Rajib Tutorial</b><small>Diploma in Electrical &amp; Electronic Engineering</small></div></div>
         <div class="hm-stats">
-          <div><b id="statC">–</b><span>কোর্স</span></div>
-          <div><b id="statV">–</b><span>ভিডিও লেসন</span></div>
-          <div><b>8</b><span>সেমিস্টার</span></div>
+          <div><b id="statC">–</b><span>Courses</span></div>
+          <div><b id="statV">–</b><span>Video Lessons</span></div>
+          <div><b>8</b><span>Semesters</span></div>
         </div>
       </div>
     </section>
 
     <!-- LIVE -->
     <section class="hm-sec">
-      <div class="hm-sech"><h2>লাইভ ক্লাস ও এক্সাম</h2></div>
+      <div class="hm-sech"><h2>Live Classes &amp; Exams</h2></div>
       <div class="hm-live">
         <button class="hm-lcard cls" id="btnLiveClass" onclick="openLive('class')">
-          <div class="hm-lhead"><span>লাইভ ক্লাস</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg></div>
-          <div class="hm-lbody"><b>ক্লাসে জয়েন করুন</b><small>চলমান ও আসন্ন ক্লাসের লিংক এখানে পাবেন</small>
+          <div class="hm-lhead"><span>Live Class</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg></div>
+          <div class="hm-lbody"><b>Join a Class</b><small>Find links to ongoing and upcoming classes here</small>
             <div class="hm-lfoot"><span>Join the class</span><span class="hm-pill">LIVE</span></div></div>
         </button>
         <button class="hm-lcard exam" id="btnLiveExam" onclick="openLive('exam')">
-          <div class="hm-lhead"><span>লাইভ এক্সাম</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></div>
-          <div class="hm-lbody"><b>পরীক্ষা ও ফলাফল</b><small>শিডিউল করা MCQ পরীক্ষা, উত্তর ও র‍্যাংক</small>
+          <div class="hm-lhead"><span>Live Exam</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></div>
+          <div class="hm-lbody"><b>Exams &amp; Results</b><small>Scheduled MCQ exams, answers and rankings</small>
             <div class="hm-lfoot"><span>Exams &amp; results</span><span class="hm-pill">LIVE</span></div></div>
         </button>
       </div>
@@ -1872,7 +1943,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Noto Sans Bengali',s
       <section class="courses-section hm-courses" id="coursesAnchor">
       <div class="sec-hdr">
         <div>
-          <div class="sec-title">কোর্স ক্যাটালগ</div>
+          <div class="sec-title">Course Catalog</div>
           <div class="sec-sub" id="cntLabel"></div>
         </div>
         <div class="filters">
@@ -1890,18 +1961,18 @@ body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Noto Sans Bengali',s
   </div>
 
   <!-- FREE RESOURCES -->
-  <section class="hm-band" aria-label="ফ্রি রিসোর্স">
+  <section class="hm-band" aria-label="Free Resources">
     <div class="hm">
-      <div class="hm-head"><span class="hm-badge">ফ্রি রিসোর্স</span><h2>প্রস্তুতির সব রিসোর্স এক জায়গায়</h2><p>সার্কুলার, প্রশ্নব্যাংক, MCQ প্র্যাকটিস আর আরও অনেক কিছু</p></div>
+      <div class="hm-head"><span class="hm-badge">Free Resources</span><h2>All Your Study Resources in One Place</h2><p>Circulars, question bank, MCQ practice and much more</p></div>
       <div class="hm-tools">
-        <button class="hm-tile" onclick="openRes('circular')"><i>📢</i><span>Current Circular</span><small>সর্বশেষ নোটিশ ও সার্কুলার</small></button>
-        <button class="hm-tile" onclick="openRes('qbank')"><i>📚</i><span>Question Bank</span><small>আগের প্রশ্ন ও সমাধান</small></button>
-        <button class="hm-tile" onclick="openRes('recent')"><i>🆕</i><span>Recent Questions</span><small>সাম্প্রতিক পরীক্ষার প্রশ্ন</small></button>
-        <button class="hm-tile" onclick="openQB()"><i>📝</i><span>MCQ Practice</span><small>অনুশীলন, পড়া ও এক্সাম মোড</small></button>
-        <button class="hm-tile" onclick="openDiscussion()"><i>💬</i><span>Discussion</span><small>প্রশ্ন করুন, আলোচনা করুন</small><em>PRO</em></button>
-        <button class="hm-tile" onclick="openInbox()"><i>🔔</i><span>Notifications</span><small>নতুন আপডেট ও বিজ্ঞপ্তি</small></button>
-        <button class="hm-tile" onclick="openOffline()"><i>📥</i><span>Offline Lessons</span><small>সেভ করা লেসন অফলাইনে দেখুন</small></button>
-        <button class="hm-tile" id="tilePremium" onclick="openPremiumGate()"><i>⭐</i><span>Go Premium</span><small>সব ফিচার আনলক করুন</small></button>
+        <button class="hm-tile" onclick="openRes('circular')"><i>📢</i><span>Current Circular</span><small>Latest notices and circulars</small></button>
+        <button class="hm-tile" onclick="openRes('qbank')"><i>📚</i><span>Question Bank</span><small>Past questions with solutions</small></button>
+        <button class="hm-tile" onclick="openRes('recent')"><i>🆕</i><span>Recent Questions</span><small>Questions from recent exams</small></button>
+        <button class="hm-tile" onclick="openQB()"><i>📝</i><span>MCQ Practice</span><small>Practice, Read and Exam modes</small></button>
+        <button class="hm-tile" onclick="openDiscussion()"><i>💬</i><span>Discussion</span><small>Ask questions and join discussions</small><em>PRO</em></button>
+        <button class="hm-tile" onclick="openInbox()"><i>🔔</i><span>Notifications</span><small>New updates and announcements</small></button>
+        <button class="hm-tile" onclick="openOffline()"><i>📥</i><span>Offline Lessons</span><small>Watch saved lessons offline</small></button>
+        <button class="hm-tile" id="tilePremium" onclick="openPremiumGate()"><i>⭐</i><span>Go Premium</span><small>Unlock all features</small></button>
       </div>
     </div>
   </section>
@@ -1909,18 +1980,18 @@ body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Noto Sans Bengali',s
   <div class="hm">
     <!-- FAQ -->
     <section class="hm-sec hm-faq">
-      <div class="hm-head"><span class="hm-badge">সাধারণ জিজ্ঞাসা</span><h2>FAQ</h2></div>
-      <details><summary>Rajib Tutorial কী? কাদের জন্য?</summary><p>এটি ডিপ্লোমা ইন ইলেকট্রিক্যাল অ্যান্ড ইলেকট্রনিক ইঞ্জিনিয়ারিং (EEE) শিক্ষার্থীদের জন্য — সব ৮ সেমিস্টারের ভিডিও লেসন, লাইভ ক্লাস ও এক্সাম, প্রশ্নব্যাংক আর MCQ প্র্যাকটিস এক জায়গায়।</p></details>
-      <details><summary>কিভাবে শুরু করব?</summary><p>উপরের কোর্স ক্যাটালগ থেকে সেমিস্টার বেছে নিন, পছন্দের কোর্সে ক্লিক করুন এবং ভিডিও লেসনগুলো ধারাবাহিকভাবে দেখুন। কোর্স খুঁজতে সার্চ বক্সও ব্যবহার করতে পারেন।</p></details>
-      <details><summary>লাইভ ক্লাস ও এক্সামে কীভাবে অংশ নেব?</summary><p>লাইভ চালু থাকলে Live Class বা Live Exam কার্ডে লাল LIVE ব্যাজ দেখা যায়। কার্ডে ক্লিক করে ক্লাসে জয়েন করুন বা পরীক্ষা শুরু করুন। পরীক্ষা শেষ হওয়ার পর নির্ধারিত সময়ে ফলাফল ও র‍্যাংক দেখা যায়।</p></details>
-      <details><summary>MCQ প্র্যাকটিস কীভাবে কাজ করে?</summary><p>MCQ Practice-এ তিনটি মোড আছে — Practice, Read ও Exam। প্রশ্ন বুকমার্ক করা, নাইট মোড এবং টাইমার সুবিধাও পাবেন।</p></details>
-      <details><summary>ইন্টারনেট ছাড়া ভিডিও দেখা যাবে?</summary><p>অ্যাপ বা ডেস্কটপ ভার্সনে লেসন অফলাইনের জন্য সেভ করে রাখা যায়। সেভ করা লেসনগুলো Offline Lessons থেকে দেখুন।</p></details>
+      <div class="hm-head"><span class="hm-badge">Common Questions</span><h2>FAQ</h2></div>
+      <details><summary>What is Rajib Tutorial and who is it for?</summary><p>Rajib Tutorial is built for Diploma in Electrical &amp; Electronic Engineering (EEE) students. It brings video lessons for all 8 semesters, live classes and exams, a question bank and MCQ practice together in one place.</p></details>
+      <details><summary>How do I get started?</summary><p>Choose a semester from the course catalog above, open a course and watch the video lessons in order. You can also use the search box to find a course quickly.</p></details>
+      <details><summary>How do I join live classes and exams?</summary><p>When a session is live, the Live Class or Live Exam card shows a red LIVE badge. Click the card to join the class or start the exam. Results and rankings appear at the scheduled time after the exam ends.</p></details>
+      <details><summary>How does MCQ Practice work?</summary><p>MCQ Practice has three modes — Practice, Read and Exam. You can also bookmark questions, use night mode and set a timer.</p></details>
+      <details><summary>Can I watch videos without internet?</summary><p>Yes. In the mobile app or desktop version you can save lessons for offline use, then watch them from Offline Lessons.</p></details>
     </section>
 
     <!-- BOTTOM CTA -->
     <section class="hm-ctab">
-      <h2>শুরু করুন এখনই</h2>
-      <p>EEE প্রস্তুতি এখন আরও স্মার্ট, আরও সহজ আর একদম আপনার মুঠোফোনে</p>
+      <h2>Get Started Today</h2>
+      <p>Smarter, simpler EEE preparation — right on your phone</p>
       <div class="hm-cta"><a class="hm-btn light" href="RajibTutorial.apk" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg><span>Download App</span></a></div>
     </section>
   </div>
@@ -2668,9 +2739,9 @@ const LIVE_DOC="_live_settings";
 const SEMESTERS=["1st Semester","2nd Semester","3rd Semester","4th Semester","5th Semester","6th Semester","7th Semester","8th Semester"];
 // Course categories (stored as `category` on each course doc; missing → "diploma")
 const CATS=[
-  {id:"job",label:"EEE Job Preparation",bn:"চাকরির প্রস্তুতি",ico:"💼"},
-  {id:"duet",label:"EEE DUET Admission",bn:"DUET ভর্তি প্রস্তুতি",ico:"🎓"},
-  {id:"diploma",label:"Diploma",bn:"ডিপ্লোমা কোর্স (১ম–৭ম সেমিস্টার)",ico:"📘"}
+  {id:"job",label:"EEE Job Preparation",bn:"Job exam preparation",ico:"💼"},
+  {id:"duet",label:"EEE DUET Admission",bn:"University admission preparation",ico:"🎓"},
+  {id:"diploma",label:"Diploma",bn:"Diploma courses (Semesters 1–7)",ico:"📘"}
 ];
 const catOf=id=>CATS.find(k=>k.id===id)||CATS[2];
 const COURSE_SEMS=SEMESTERS.slice(0,7);
@@ -3837,7 +3908,7 @@ function cxCard(c,i){
       <h3 class="cx-name">${esc(c.title)}</h3>
       <div class="cx-meta">${esc([...new Set([c.courseName,c.subject].filter(Boolean))].join(" · ")||"Diploma in EEE")}</div>
       ${c.description?`<p class="cx-desc">${esc(c.description)}</p>`:""}
-      <div class="cx-foot"><span class="cx-btn">কোর্স দেখুন ${I.arrow}</span></div>
+      <div class="cx-foot"><span class="cx-btn">View Course ${I.arrow}</span></div>
     </div></article>`;
 }
 function renderCourseGrid(){
@@ -3845,7 +3916,7 @@ function renderCourseGrid(){
   const list=courses.filter(c=>(!filterCat||c.category===filterCat)&&(!filterSem||c.className===filterSem)&&(!searchQ||[c.title,c.courseName,c.subject,c.className,c.description,catOf(c.category).label].join(" ").toLowerCase().includes(searchQ)));
   $("cntLabel").textContent=courses.length?`${list.length} of ${courses.length} courses`:"";
   if(!courses.length){wrap.innerHTML=`<div class="empty">${I.book}<p>New courses will be published soon.</p></div>`;return}
-  if(!list.length){wrap.innerHTML=`<div class="empty">${I.book}<p>${searchQ?"No courses match your search.":"এই ক্যাটাগরিতে নতুন কোর্স শীঘ্রই আসছে।"}</p></div>`;return}
+  if(!list.length){wrap.innerHTML=`<div class="empty">${I.book}<p>${searchQ?"No courses match your search.":"New courses in this category are coming soon."}</p></div>`;return}
   let idx=0;
   const byRank=a=>a.slice().sort((x,y)=>semRank(x.className)-semRank(y.className));
   const grid=a=>`<div class="course-grid">${a.map(c=>cxCard(c,idx++)).join("")}</div>`;
@@ -3854,7 +3925,7 @@ function renderCourseGrid(){
   if(!filterCat){
     html=CATS.map(k=>{
       const a=list.filter(c=>c.category===k.id);
-      if(!a.length)return searchQ?"":section(k,esc(k.label),esc(k.bn),0,`<div class="cx-soon">নতুন কোর্স শীঘ্রই আসছে</div>`);
+      if(!a.length)return searchQ?"":section(k,esc(k.label),esc(k.bn),0,`<div class="cx-soon">New courses coming soon</div>`);
       return section(k,esc(k.label),esc(k.bn),a.length,grid(k.id==="diploma"?byRank(a):a));
     }).join("");
   }else if(filterCat==="diploma"&&!filterSem){
