@@ -555,11 +555,18 @@ app.on('web-contents-created', (_e, wc) => {
     wc.on('will-navigate', (ev, u) => { if (!/^https:/i.test(u) || isLessonPage(wc)) ev.preventDefault(); });
     // Safe Browser shortcuts (F11 / Esc / Ctrl+T, W, L, R, D, Tab) typed while the page inside the <webview> has focus
     // never reach the app window — pass them on, so full screen and tabs work exactly like in Chrome.
+    // right-click inside the page → Chrome-style menu drawn by index.html (Safe Browser tabs only, never the course video)
+    wc.on('context-menu', (_ev, params) => {
+      try {
+        if (isLessonPage(wc) || !wc.hostWebContents || wc.hostWebContents.isDestroyed()) return;
+        wc.hostWebContents.send('bt:ctx', JSON.stringify({ x: params.x, y: params.y, linkURL: params.linkURL || '', srcURL: params.srcURL || '', mediaType: params.mediaType || '', selectionText: (params.selectionText || '').slice(0, 300), isEditable: !!params.isEditable }));
+      } catch (_) {}
+    });
     wc.on('before-input-event', (_ev, input) => {
       try {
         if (input.type !== 'keyDown' || isLessonPage(wc)) return;
         const k = input.key, ctrl = !!(input.control || input.meta);
-        const fwd = k === 'F11' || k === 'Escape' || (ctrl && (/^[twlrd]$/i.test(k) || k === 'Tab')) || (input.alt && (k === 'ArrowLeft' || k === 'ArrowRight'));
+        const fwd = k === 'F11' || k === 'F5' || k === 'Escape' || (ctrl && (/^[twlrdfhp0-9=+\-_]$/i.test(k) || k === 'Tab')) || (input.alt && (k === 'ArrowLeft' || k === 'ArrowRight'));
         if (fwd && wc.hostWebContents && !wc.hostWebContents.isDestroyed()) {
           wc.hostWebContents.send('bt:key', { key: k, ctrlKey: ctrl, shiftKey: !!input.shift, altKey: !!input.alt });
         }

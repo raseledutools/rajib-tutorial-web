@@ -119,6 +119,10 @@ ipcRenderer.on('bt:key', (_e, k) => {
   } catch (_) {}
 });
 
+ipcRenderer.on('bt:ctx', (_e, json) => {
+  try { document.dispatchEvent(new CustomEvent('bt-ctx', { detail: String(json || '') })); } catch (_) {}
+});
+
 // Expose a safe bridge so the website can open URLs inside the Electron app
 // (used by openInAppBrowser for YouTube, Google, YouTube Studio etc.)
 contextBridge.exposeInMainWorld('ElectronShell', {
