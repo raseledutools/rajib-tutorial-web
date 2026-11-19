@@ -1837,6 +1837,48 @@ body:has(#viewExt.active) #__rt_nav,body:has(#viewExt.active) #__rt_updcheck,bod
 @media(max-width:900px){#viewExt.active{height:calc(100vh - var(--tb,0px) - 56px)}}
 </style>
 
+<style id="rasBrowser">
+/* ── Safe Browser: Chrome-style tab strip + toolbar ── */
+#viewBrowser{position:relative;flex-direction:column;background:#fff}
+#viewBrowser.active{display:flex;height:calc(100vh - var(--tb,0px) - 64px)}
+.bt-strip{display:flex;align-items:flex-end;gap:2px;background:#dee1e6;padding:8px 8px 0;flex:none;min-height:42px}
+.bt-tabs{display:flex;align-items:flex-end;gap:0;min-width:0;flex:0 1 auto;overflow:hidden}
+.bt{position:relative;display:flex;align-items:center;gap:8px;height:34px;min-width:44px;max-width:240px;flex:1 1 200px;padding:0 8px 0 12px;border-radius:10px 10px 0 0;color:#5f6368;font-size:12.5px;cursor:default;user-select:none;-webkit-user-select:none}
+.bt:hover:not(.on){background:rgba(255,255,255,.55)}
+.bt.on{background:#fff;color:#202124}
+.bt+.bt:not(.on)::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:1px;background:#9aa0a6;opacity:.5}
+.bt.on+.bt::before,.bt.on::before{display:none}
+.bt-ico{width:16px;height:16px;flex:none;border-radius:3px;display:flex;align-items:center;justify-content:center;object-fit:contain}
+.bt-ico svg{width:14px;height:14px;color:#5f6368}
+.bt-t{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.bt-spin{width:14px;height:14px;flex:none;border-radius:50%;border:2px solid #cbd5e1;border-top-color:#1a73e8;animation:btSpin .8s linear infinite}
+@keyframes btSpin{to{transform:rotate(360deg)}}
+.bt-x{width:20px;height:20px;border:0;border-radius:50%;background:transparent;color:#5f6368;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
+.bt-x:hover{background:rgba(0,0,0,.1)}
+.bt-x svg{width:12px;height:12px}
+.bt-new{width:30px;height:30px;margin:0 0 3px 4px;border:0;border-radius:50%;background:transparent;color:#444746;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.bt-new:hover{background:rgba(0,0,0,.1)}
+.bt-new svg{width:16px;height:16px}
+.bt-bar{display:flex;align-items:center;gap:4px;padding:6px 10px;background:#fff;border-bottom:1px solid #e3e6ea;flex:none}
+.bt-bar>button{width:32px;height:32px;border-radius:50%;border:0;background:transparent;color:#444746;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.bt-bar>button:hover:not(:disabled){background:#eceef1}
+.bt-bar>button:disabled{opacity:.3;cursor:default}
+.bt-bar svg{width:18px;height:18px}
+.bt-omni{flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:999px;background:#f1f3f4;border:2px solid transparent}
+.bt-omni:focus-within{background:#fff;border-color:#1a73e8}
+.bt-lock{display:flex;color:#5f6368;flex:none}
+.bt-lock svg{width:14px;height:14px}
+#btUrl{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:14px;color:#202124;font-family:inherit}
+#btHost{flex:1;min-height:0;display:flex;flex-direction:column;background:#fff}
+#btHost>webview,#btHost>iframe{flex:1;min-height:0;width:100%;border:0;display:flex}
+#btErr{position:absolute;left:0;right:0;top:92px;bottom:0;background:#fff;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#374151}
+#btErr p{margin:0;font-size:15px;font-weight:600}
+#btErr small{color:#6b7280;font-size:12.5px}
+#btErr button{border:0;border-radius:8px;padding:9px 18px;background:#1a73e8;color:#fff;font-weight:600;cursor:pointer;font-size:13px}
+body:has(#viewBrowser.active) #__rt_nav,body:has(#viewBrowser.active) #__rt_updcheck,body:has(#viewBrowser.active) #__rt_focus{display:none!important}
+@media(max-width:900px){#viewBrowser.active{height:calc(100vh - var(--tb,0px) - 56px)}}
+</style>
+
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -1873,6 +1915,7 @@ body:has(#viewExt.active) #__rt_nav,body:has(#viewExt.active) #__rt_updcheck,bod
     <div class="nav-item" id="navResQbank" onclick="openRes('qbank')"><span class="nav-ico">📚</span><span>Question Bank</span></div>
     <div class="nav-item" id="navResRecent" onclick="openRes('recent')"><span class="nav-ico">🆕</span><span>Recent Question Bank</span></div>
     <div class="nav-item" id="navQB" onclick="openQB()"><span class="nav-ico">📝</span><span>MCQ Practice</span></div>
+    <div class="nav-item" id="navBrowser" onclick="openBrowser()"><span class="nav-ico">🌐</span><span>Safe Browser</span></div>
     <div class="nav-label">Courses</div>
     <div id="sidebarCourses"><div style="padding:6px 12px;font-size:12px;color:var(--sub)">Loading…</div></div>
   </nav>
@@ -1888,6 +1931,7 @@ body:has(#viewExt.active) #__rt_nav,body:has(#viewExt.active) #__rt_updcheck,bod
     <button class="btn-admin-action" onclick="openNotify();closeSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg> Notification Center
     </button>
+    <button class="btn-admin-action" onclick="openBrowser();closeSidebar()">🌐 Safe Browser</button>
     <button class="btn-admin-action" onclick="openInAppBrowser('https://m.youtube.com/','YouTube');closeSidebar()">▶️ YouTube</button>
     <button class="btn-admin-action" onclick="openInAppBrowser('https://www.google.com/','Google');closeSidebar()">🔍 Google</button>
     <button class="btn-admin-action" onclick="openInAppBrowser('https://studio.youtube.com/','YouTube Studio');closeSidebar()">🎬 YouTube Studio</button>
@@ -2100,6 +2144,27 @@ body:has(#viewExt.active) #__rt_nav,body:has(#viewExt.active) #__rt_updcheck,bod
     <div class="ext-prog" id="extProg"></div>
     <div id="extHost"></div>
     <div id="extErr" style="display:none"><p id="extErrT">This page could not be loaded here</p><small id="extErrM"></small><button id="extErrBtn" onclick="extNav('reload')">Try again</button></div>
+  </div>
+
+  <div class="view" id="viewBrowser">
+    <div class="bt-strip" id="btStrip">
+      <div class="bt-tabs" id="btTabs"></div>
+      <button class="bt-new" onclick="btNewTab()" title="New tab (Ctrl+T)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+    <div class="bt-bar">
+      <button id="btBack" onclick="btNav('back')" title="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button id="btFwd" onclick="btNav('forward')" title="Forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+      <button onclick="btNav('reload')" title="Reload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
+      <button onclick="btNav('home')" title="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></button>
+      <div class="bt-omni">
+        <span class="bt-lock" id="btLock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+        <input id="btUrl" type="text" spellcheck="false" autocomplete="off" placeholder="Search Google or type a URL" onkeydown="if(event.key==='Enter'){btGo(this.value)}" onfocus="this.select()">
+      </div>
+      <button onclick="btPopOut()" title="Open in separate window"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg></button>
+    </div>
+    <div class="ext-prog" id="btProg"></div>
+    <div id="btHost"></div>
+    <div id="btErr" style="display:none"><p id="btErrT">This page could not be loaded</p><small id="btErrM"></small><button onclick="btNav('reload')">Try again</button></div>
   </div>
 
   <div class="view" id="viewManage">
@@ -3076,7 +3141,7 @@ window.goView=function(id, _fromPop){
   window.scrollTo(0,0);
   document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
   if(id==="viewHome") $("navHome").classList.add("active");
-  const titles={viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewOffline:"Offline Lessons",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewQB:"MCQ Practice",viewMembers:"Premium Members",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class"};
+  const titles={viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewOffline:"Offline Lessons",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewQB:"MCQ Practice",viewMembers:"Premium Members",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class",viewBrowser:"Safe Browser"};
   $("topbarTitle").textContent=titles[id]||"Rajib Tutorial";
   try{if(id!=="viewDisc")dLeave();if(id==="viewInbox")inboxLoad();if(id==="viewOffline")offRender()}catch(e){}
 
@@ -5332,6 +5397,125 @@ window.mBrowserOpenExternal = function() {
     else window.open(cur.url,"_blank","noopener");
   };
   window.extClose=function(){goView(prev&&prev!=="viewExt"?prev:"viewManage")};
+})();
+
+// ─── Safe Browser: Chrome-style tabs (own <webview> per tab, shared ad-blocked session) ───
+(function(){
+  const HOME="https://www.google.com/";
+  const tabs=[];let cur=null,seq=0,prev="viewHome";
+  const web=()=>!!(window.ElectronShell&&window.ElectronShell.isElectron&&window.ElectronShell.embed);
+  const X='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+  const GLOBE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
+  const isActive=()=>$("viewBrowser")&&$("viewBrowser").classList.contains("active");
+  function norm(v){
+    v=String(v||"").trim();if(!v)return"";
+    if(/^https?:\/\//i.test(v))return v.replace(/^http:\/\//i,"https://");
+    if(/^[a-z][a-z0-9+.-]*:/i.test(v)&&!/^[\w.-]+:\d+/.test(v))return"https://www.google.com/search?q="+encodeURIComponent(v);
+    if(!/\s/.test(v)&&/^[\w-]+(\.[\w-]+)+(:\d+)?([\/?#].*)?$/.test(v))return"https://"+v;
+    return"https://www.google.com/search?q="+encodeURIComponent(v);
+  }
+  const host=u=>{try{return new URL(u).hostname.replace(/^www\./,"")}catch(e){return u}};
+  function renderTabs(){
+    const box=$("btTabs");box.innerHTML="";
+    tabs.forEach(t=>{
+      const d=document.createElement("div");d.className="bt"+(t===cur?" on":"");d.title=t.title||t.url;
+      const ico=document.createElement(t.loading?"span":(t.fav?"img":"span"));
+      if(t.loading){ico.className="bt-spin"}
+      else if(t.fav){ico.className="bt-ico";ico.src=t.fav;ico.onerror=()=>{ico.replaceWith(Object.assign(document.createElement("span"),{className:"bt-ico",innerHTML:GLOBE}))}}
+      else{ico.className="bt-ico";ico.innerHTML=GLOBE}
+      const tt=document.createElement("span");tt.className="bt-t";tt.textContent=t.title||"New tab";
+      const x=document.createElement("button");x.className="bt-x";x.title="Close tab (Ctrl+W)";x.innerHTML=X;
+      x.onclick=e=>{e.stopPropagation();closeTab(t)};
+      d.append(ico,tt,x);d.onclick=()=>activate(t);
+      d.onauxclick=e=>{if(e.button===1){e.preventDefault();closeTab(t)}};
+      box.appendChild(d);
+    });
+  }
+  function sync(t){
+    if(t!==cur)return;
+    const u=$("btUrl");
+    if(document.activeElement!==u)u.value=t.url||"";
+    $("btLock").style.visibility=/^https:/.test(t.url||"")?"visible":"hidden";
+    try{$("btBack").disabled=!(t.web?t.el.canGoBack():false);$("btFwd").disabled=!(t.web?t.el.canGoForward():false)}catch(e){}
+    $("btProg").classList.toggle("on",!!t.loading);
+  }
+  function err(t,a,b){if(t!==cur)return;$("btErrT").textContent=a;$("btErrM").textContent=b||"";$("btErr").style.display="flex"}
+  function make(url){
+    const t={id:++seq,url,title:"",fav:"",loading:true,web:web(),el:null};
+    if(t.web){
+      const el=document.createElement("webview");
+      el.setAttribute("partition","persist:rtext");
+      el.setAttribute("allowpopups","");
+      el.setAttribute("src",url);
+      el.addEventListener("did-start-loading",()=>{t.loading=true;if(t===cur)$("btErr").style.display="none";renderTabs();sync(t)});
+      el.addEventListener("did-stop-loading",()=>{t.loading=false;try{t.url=el.getURL()||t.url}catch(e){}renderTabs();sync(t)});
+      const nav=e=>{if(e.url&&e.isMainFrame!==false){t.url=e.url;sync(t)}};
+      el.addEventListener("did-navigate",nav);el.addEventListener("did-navigate-in-page",nav);
+      el.addEventListener("page-title-updated",e=>{t.title=e.title||host(t.url);renderTabs()});
+      el.addEventListener("page-favicon-updated",e=>{if(e.favicons&&e.favicons[0]){t.fav=e.favicons[0];renderTabs()}});
+      el.addEventListener("did-fail-load",e=>{if(e.isMainFrame&&e.errorCode!==-3){t.loading=false;renderTabs();err(t,"Can't reach this page",host(e.validatedURL||t.url)+" could not be loaded. Check the address or your internet connection.")}});
+      t.el=el;
+    }else{
+      const el=document.createElement("iframe");
+      el.setAttribute("allow","autoplay; fullscreen; clipboard-write");
+      el.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-popups");
+      el.addEventListener("load",()=>{t.loading=false;t.title=host(t.url);renderTabs();sync(t)});
+      el.setAttribute("src",url);
+      t.el=el;t.title=host(url);
+    }
+    return t;
+  }
+  function activate(t){
+    cur=t;tabs.forEach(x=>{x.el.style.display=x===t?"flex":"none"});
+    $("btErr").style.display="none";renderTabs();sync(t);
+  }
+  window.btNewTab=function(url){
+    const t=make(norm(url)||HOME);tabs.push(t);$("btHost").appendChild(t.el);activate(t);
+    if(!url){const u=$("btUrl");u.value="";setTimeout(()=>{u.focus()},50)}
+    return t;
+  };
+  function closeTab(t){
+    const i=tabs.indexOf(t);if(i<0)return;
+    tabs.splice(i,1);try{t.el.remove()}catch(e){}
+    if(!tabs.length){cur=null;renderTabs();goView(prev&&prev!=="viewBrowser"?prev:"viewHome");return}
+    if(cur===t)activate(tabs[Math.min(i,tabs.length-1)]);else renderTabs();
+  }
+  window.btGo=function(v){
+    const u=norm(v);if(!u)return;
+    if(!cur){btNewTab(u);return}
+    cur.url=u;cur.title="";cur.fav="";cur.loading=true;$("btErr").style.display="none";
+    try{if(cur.web)cur.el.loadURL(u);else cur.el.src=u}catch(e){}
+    renderTabs();sync(cur);$("btUrl").blur();
+  };
+  window.btNav=function(act){
+    const t=cur;if(!t)return;
+    try{
+      if(act==="home"){btGo(HOME);return}
+      $("btErr").style.display="none";
+      if(t.web){if(act==="back")t.el.goBack();else if(act==="forward")t.el.goForward();else t.el.reload()}
+      else if(act==="reload"){t.loading=true;t.el.src=t.url;renderTabs()}
+      else if(act==="back")t.el.contentWindow.history.back();else if(act==="forward")t.el.contentWindow.history.forward();
+    }catch(e){}
+  };
+  window.btPopOut=function(){
+    if(!cur)return;
+    if(window.ElectronShell&&window.ElectronShell.isElectron)window.ElectronShell.openUrl(cur.url);
+    else window.open(cur.url,"_blank","noopener");
+  };
+  window.openBrowser=function(url){
+    const a=document.querySelector(".view.active");if(a&&a.id!=="viewBrowser")prev=a.id;
+    goView("viewBrowser");try{closeSidebar()}catch(e){}
+    if(!tabs.length)btNewTab(url||HOME);else if(url)btNewTab(url);
+  };
+  document.addEventListener("keydown",e=>{
+    if(!isActive()||!(e.ctrlKey||e.metaKey))return;
+    const k=e.key.toLowerCase();
+    if(k==="t"){e.preventDefault();btNewTab()}
+    else if(k==="w"){e.preventDefault();if(cur)closeTab(cur)}
+    else if(k==="l"){e.preventDefault();const u=$("btUrl");u.focus();u.select()}
+    else if(k==="r"){e.preventDefault();btNav("reload")}
+    else if(e.key==="Tab"&&tabs.length>1){e.preventDefault();const i=tabs.indexOf(cur);activate(tabs[(i+(e.shiftKey?-1:1)+tabs.length)%tabs.length])}
+  });
 })();
 
 // ─── Boot ────────────────────────────────────────────────
