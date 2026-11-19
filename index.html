@@ -1889,6 +1889,7 @@ body:has(#viewExt.active) #__rt_nav,body:has(#viewExt.active) #__rt_updcheck,bod
 .bt-ai:hover{background:var(--c-bar2)}.bt-ai svg{width:16px;height:16px}
 .bt-fsb.on{color:var(--c-blue)}
 .bt-avatar{width:28px;height:28px;margin:0 4px 0 2px;border-radius:50%;background:linear-gradient(135deg,#4285f4,#34a853);color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none;user-select:none;cursor:default}
+#viewBrowser.bt-nobm .bt-bmbar{display:none}
 .bt-bmbar{display:flex;align-items:center;height:36px;padding:0 8px;background:var(--c-bar);border-bottom:1px solid var(--c-line);flex:none;box-sizing:border-box}
 .bt-bmapps{width:30px;height:28px;border:0;border-radius:8px;background:transparent;color:var(--c-icon);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
 .bt-bmapps:hover,.bt-bmore:hover{background:var(--c-hover)}
@@ -5852,6 +5853,9 @@ window.mBrowserOpenExternal = function() {
   // omnibox icons: Google "G" + AI Mode on the Google home page, otherwise site-info icon + bookmark star
   function omniUi(t){
     if(!t)return;
+    // like Chrome ("only on the New Tab page"): bookmarks bar is hidden once a page is opened
+    const vb=$("viewBrowser"),hide=!t.ntp,was=vb.classList.contains("bt-nobm");
+    vb.classList.toggle("bt-nobm",hide);if(was&&!hide)setTimeout(renderBm,0);
     const u=t.url||"",lk=$("btLock");
     const home=!u||/^about:/.test(u)||/^https:\/\/www\.google\.[a-z.]+\/?(\?.*)?$/.test(u);
     lk.innerHTML=home?IC.g:IC.tune;
