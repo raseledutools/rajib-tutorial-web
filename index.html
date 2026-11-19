@@ -2016,7 +2016,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     <div class="nav-item" id="navQB" onclick="openQB()"><span class="nav-ico">📝</span><span>MCQ Practice</span></div>
     <div class="nav-item" id="navBrowser" onclick="openBrowser()"><span class="nav-ico">🌐</span><span>Safe Browser</span></div>
     <div class="nav-item" id="navStudy" onclick="openStudyTools()"><span class="nav-ico">🧰</span><span>Study Tools</span></div>
-    <div class="nav-item" id="navSettings" style="display:none"><span class="nav-ico">⚙️</span><span>Settings</span></div>
+    <div class="nav-item" id="navSettings"><span class="nav-ico">⚙️</span><span>Settings</span></div>
     <div class="nav-label">Courses</div>
     <div id="sidebarCourses"><div style="padding:6px 12px;font-size:12px;color:var(--sub)">Loading…</div></div>
   </nav>
@@ -6904,7 +6904,12 @@ async function toggleFlashlight() {
 /* Desktop exe only: sidebar Settings button + panel (notifications, screenshot protection, startup, tray, update, cache). */
 (function(){
   const SH=window.ElectronShell;
-  if(!(SH&&SH.isElectron))return;
+  if(!(SH&&SH.isElectron)){
+    /* Not running inside the exe (browser / very old exe): keep the button visible and explain instead of hiding it */
+    const n0=document.getElementById('navSettings');
+    if(n0)n0.onclick=()=>{try{closeSidebar()}catch(e){}alert('Settings শুধু Windows exe অ্যাপে চলে। নতুন installer ডাউনলোড করে চালান।')};
+    return;
+  }
   const S=SH.settings||null; // null = old exe build without the settings bridge
   const css=document.createElement('style');
   css.textContent=
