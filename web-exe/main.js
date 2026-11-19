@@ -110,14 +110,16 @@ function setOfflineHandling(on) {
 let vids = null;
 function trusted(e) { return !!win && !win.isDestroyed() && e.sender === win.webContents; }
 // Random 32-byte key, stored sealed with Windows DPAPI (safeStorage): only this Windows user on this PC can unseal it.
-function vidKey() {
-  const f = path.join(app.getPath('userData'), 'Cache', 'rt-k.bin');
+function vidKey(keyFile) {
+  const legacy = path.join(app.getPath('userData'), 'Cache', 'rt-k.bin');   // old location (inside Chromium's Cache dir)
   try {
     if (safeStorage && safeStorage.isEncryptionAvailable()) {
-      if (fs.existsSync(f)) return Buffer.from(safeStorage.decryptString(fs.readFileSync(f)), 'hex');
+      // move the key out of Chromium's Cache folder (cleaners / Storage Sense can wipe it)
+      if (!fs.existsSync(keyFile) && fs.existsSync(legacy)) { try { fs.mkdirSync(path.dirname(keyFile), { recursive: true }); fs.copyFileSync(legacy, keyFile); } catch (_) {} }
+      if (fs.existsSync(keyFile)) return Buffer.from(safeStorage.decryptString(fs.readFileSync(keyFile)), 'hex');
       const k = require('crypto').randomBytes(32);
-      fs.mkdirSync(path.dirname(f), { recursive: true });
-      fs.writeFileSync(f, safeStorage.encryptString(k.toString('hex')));
+      fs.mkdirSync(path.dirname(keyFile), { recursive: true });
+      fs.writeFileSync(keyFile, safeStorage.encryptString(k.toString('hex')));
       return k;
     }
   } catch (_) {}
@@ -125,11 +127,19 @@ function vidKey() {
 }
 function initVideos() {
   const ud = app.getPath('userData');
-  const oldDir = path.join(ud, 'offline-videos'), newDir = path.join(ud, 'Cache', 'rt-vd');   // hidden, non-obvious place
-  try { fs.mkdirSync(path.join(ud, 'Cache'), { recursive: true }); if (fs.existsSync(oldDir) && !fs.existsSync(newDir)) fs.renameSync(oldDir, newDir); } catch (_) {}
+  // Permanent home: userData/offline-store (NOT inside Chromium's "Cache" folder, which can be cleared).
+  const store = path.join(ud, 'offline-store');
+  const newDir = path.join(store, 'vd'), keyFile = path.join(store, 'k.bin');
+  const oldDirs = [path.join(ud, 'Cache', 'rt-vd'), path.join(ud, 'offline-videos')];
+  try {
+    fs.mkdirSync(store, { recursive: true });
+    if (!fs.existsSync(newDir)) {
+      for (const od of oldDirs) { if (fs.existsSync(od)) { try { fs.renameSync(od, newDir); break; } catch (_) {} } }
+    }
+  } catch (_) {}
   vids = vidstore.create(newDir, (ev) => {
     if (win && !win.isDestroyed()) win.webContents.send('vid:event', ev);
-  }, vidKey());
+  }, vidKey(keyFile));
   protocol.handle('rtvid', (request) => {
     try {
       const id = decodeURIComponent(new URL(request.url).pathname.slice(1));
