@@ -18,7 +18,10 @@ let startHidden = process.argv.includes('--hidden'); // started by Windows at lo
 // rtvid://  — plays saved lesson videos from disk (with Range support so seeking works)
 protocol.registerSchemesAsPrivileged([
   { scheme: 'rtvid', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: true } },
+  { scheme: 'rtfocus', privileges: { standard: true, secure: true } },   // Focus Mode page, shown inside the app layout (<webview> in index.html)
 ]);
+const FOCUS_SRC = 'rtfocus://app/focus.html';
+const FOCUS_PARTITION = 'rtfocus';
 
 // Smooth video: keep GPU decoding / rasterization on and never let the renderer be throttled.
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
@@ -316,6 +319,9 @@ function create() {
     if (!siteStarted) { siteStarted = true; freshCacheOnce().finally(() => { if (win) win.loadURL(SITE); }); return; }
     if (!offlineHandling && !warmedOnce && wc.getURL().startsWith(SITE_ORIGIN)) setTimeout(warmCache, 3000);
   });
+  wc.on('did-finish-load', () => {
+    if (pendingFocusView && wc.getURL().startsWith(SITE_ORIGIN)) { pendingFocusView = false; setTimeout(sendFocusShow, 600); }
+  });
   wc.on('did-fail-load', (_e, code, _d, url, isMain) => {
     if (!isMain || code === -3 || !url.startsWith('http')) return;
     // network failed: if a saved copy of the site exists, serve it; otherwise show the offline page
@@ -379,6 +385,14 @@ function initTray() {
     tray.setContextMenu(trayMenu());
     tray.on('click', showMain);
   } catch (_) { tray = null; }
+}
+// Focus Mode now opens INSIDE the app (a view of the website: sidebar + title bar stay) instead of replacing the window.
+let pendingFocusView = false;
+function sendFocusShow() { if (win && !win.isDestroyed()) win.webContents.send('focus:show'); }
+function openFocusView() {
+  showMain();
+  if (win && !win.isDestroyed() && win.webContents.getURL().startsWith(SITE_ORIGIN)) sendFocusShow();
+  else pendingFocusView = true; // site not loaded yet (splash / offline page): open the view as soon as it is
 }
 function refreshTrayMenu() { if (tray) tray.setContextMenu(trayMenu()); }
 
@@ -511,6 +525,8 @@ const EXT_PARTITION = 'persist:rtext';
 function isLessonPage(wc) {
   try { const u = new URL(wc.getURL()); return u.hostname === 'www.youtube.com' && /(^|[#&])rtlesson/.test(u.hash); } catch (_) { return false; }
 }
+// the local Focus Mode page shown in a <webview> inside the app layout (see index.html openFocus)
+function isFocusGuest(wc) { try { return wc.getURL().startsWith('rtfocus://'); } catch (_) { return false; } }
 // Ad / ad-tracking networks: blocked for every site opened in the embedded view (these domains serve ads only).
 const AD_DOMAINS = [
   'doubleclick.net', 'googlesyndication.com', 'googleadservices.com', 'googletagservices.com', 'adservice.google.com', '2mdn.net',
@@ -528,10 +544,12 @@ app.on('web-contents-created', (_e, wc) => {
   // The main window may embed external sites in a <webview>; lock those guests down.
   wc.on('will-attach-webview', (e, webPreferences, params) => {
     let ok = false;
+    const isFocus = params.src === FOCUS_SRC && params.partition === FOCUS_PARTITION;
     try { ok = new URL(params.src).protocol === 'https:' && params.partition === EXT_PARTITION; } catch (_) {}
-    if (!ok) { e.preventDefault(); return; }
+    if (!ok && !isFocus) { e.preventDefault(); return; }
     delete webPreferences.preloadURL;
-    webPreferences.preload = path.join(__dirname, 'ext-preload.js'); // makes the page look like normal Chrome (Google sign-in)
+    // external sites: ext-preload.js makes the page look like normal Chrome (Google sign-in); Focus page: its own small API bridge
+    webPreferences.preload = path.join(__dirname, isFocus ? 'focus-preload.js' : 'ext-preload.js');
     webPreferences.nodeIntegration = false;
     webPreferences.contextIsolation = true;
     webPreferences.sandbox = true;
@@ -544,7 +562,7 @@ app.on('web-contents-created', (_e, wc) => {
     // links that want a new window just navigate the embedded page
     wc.setWindowOpenHandler(({ url: u }) => {
       try {
-        if (isLessonPage(wc)) return { action: 'deny' };                    // course video: nothing may open from it
+        if (isLessonPage(wc) || isFocusGuest(wc)) return { action: 'deny' };                    // course video: nothing may open from it
         const parsed = new URL(u);
         if (AD_HOST_RE.test(parsed.hostname)) return { action: 'deny' };   // ad pop-up / pop-under
         if (parsed.protocol === 'https:') wc.loadURL(u);
@@ -558,13 +576,13 @@ app.on('web-contents-created', (_e, wc) => {
     // right-click inside the page → Chrome-style menu drawn by index.html (Safe Browser tabs only, never the course video)
     wc.on('context-menu', (_ev, params) => {
       try {
-        if (isLessonPage(wc) || !wc.hostWebContents || wc.hostWebContents.isDestroyed()) return;
+        if (isLessonPage(wc) || isFocusGuest(wc) || !wc.hostWebContents || wc.hostWebContents.isDestroyed()) return;
         wc.hostWebContents.send('bt:ctx', JSON.stringify({ x: params.x, y: params.y, linkURL: params.linkURL || '', srcURL: params.srcURL || '', mediaType: params.mediaType || '', selectionText: (params.selectionText || '').slice(0, 300), isEditable: !!params.isEditable }));
       } catch (_) {}
     });
     wc.on('before-input-event', (_ev, input) => {
       try {
-        if (input.type !== 'keyDown' || isLessonPage(wc)) return;
+        if (input.type !== 'keyDown' || isLessonPage(wc) || isFocusGuest(wc)) return;
         const k = input.key, ctrl = !!(input.control || input.meta);
         const fwd = k === 'F11' || k === 'F5' || k === 'Escape' || (ctrl && (/^[twlrdfhp0-9=+\-_]$/i.test(k) || k === 'Tab')) || (input.alt && (k === 'ArrowLeft' || k === 'ArrowRight'));
         if (fwd && wc.hostWebContents && !wc.hostWebContents.isDestroyed()) {
@@ -619,9 +637,18 @@ app.whenReady().then(() => {
   ['https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://i.ytimg.com', 'https://s.ytimg.com']
     .forEach(u => { try { session.defaultSession.preconnect({ url: u, numSockets: 2 }); } catch (_) {} });
   try { initVideos(); } catch (_) {}
+  // rtfocus://app/focus.html  -> the local Focus Mode page (only this one file is ever served)
+  try {
+    protocol.handle('rtfocus', (request) => {
+      try {
+        if (new URL(request.url).pathname !== '/focus.html') return new Response('not found', { status: 404 });
+        return new Response(fs.readFileSync(path.join(__dirname, 'focus.html')), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+      } catch (_) { return new Response('error', { status: 500 }); }
+    });
+  } catch (_) {}
   create();
   initTray();
-  focus.init({ getMainWin: () => win, onStart: () => applyAutostart(true), onActiveChange: refreshTrayMenu });
+  focus.init({ getMainWin: () => win, onStart: () => applyAutostart(true), onActiveChange: refreshTrayMenu, openView: openFocusView });
   applyAutostart(autostartOn() || focus.isActive());
   setTimeout(initUpdater, 1500);
   try { globalShortcut.register('PrintScreen', () => { try { clipboard.clear(); } catch (_) {} }); } catch (_) {}

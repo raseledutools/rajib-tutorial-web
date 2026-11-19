@@ -74,6 +74,8 @@ window.addEventListener('load', renderUpdateBtn);
 // Focus Mode: opened from the website's sidebar item (no floating button any more)
 let focusOn = false;
 const focusListeners = [];
+const focusShowListeners = [];
+ipcRenderer.on('focus:show', () => focusShowListeners.forEach((fn) => { try { fn(); } catch (_) {} }));
 function setFocusOn(on) { focusOn = !!on; focusListeners.forEach((fn) => { try { fn(focusOn); } catch (_) {} }); }
 ipcRenderer.on('focus:badge', (_e, on) => setFocusOn(on));
 window.addEventListener('DOMContentLoaded', () => { ipcRenderer.invoke('focus:isActive').then(setFocusOn).catch(() => {}); });
@@ -99,6 +101,8 @@ contextBridge.exposeInMainWorld('ElectronShell', {
     open: () => ipcRenderer.send('focus:open'),
     isOn: () => focusOn,
     onChange: (fn) => { focusListeners.push(fn); },
+    embed: true,                                   // Focus page opens inside the app layout (index.html openFocus)
+    onShow: (fn) => { focusShowListeners.push(fn); }, // tray → Focus Mode asks the website to show its Focus view
   },
   embed: true, // this build can show YouTube / Studio / Google inside the app layout (<webview>)
   // offline lesson videos (saved to disk by the main process)
@@ -113,16 +117,3 @@ contextBridge.exposeInMainWorld('ElectronShell', {
     onEvent: (fn) => { ipcRenderer.on('vid:event', (_e, ev) => { try { fn(ev); } catch (_) {} }); },
   },
 });
-
-// Focus Mode API — only on the local focus.html page (never exposed to the website)
-if (location.protocol === 'file:' && location.pathname.endsWith('focus.html')) {
-  contextBridge.exposeInMainWorld('FocusAPI', {
-    get: () => ipcRenderer.invoke('focus:get'),
-    update: (patch) => ipcRenderer.invoke('focus:update', patch),
-    start: (o) => ipcRenderer.invoke('focus:start', o || {}),
-    stop: (o) => ipcRenderer.invoke('focus:stop', o || {}),
-    pickExe: () => ipcRenderer.invoke('focus:pickExe'),
-    running: () => ipcRenderer.invoke('focus:running'),
-    onState: (fn) => { ipcRenderer.on('focus:state', (_e, st) => { try { fn(st); } catch (_) {} }); },
-  });
-}

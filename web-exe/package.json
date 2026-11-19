@@ -30,6 +30,7 @@
       "package.json",
       "focus.js",
       "focus-core.js",
+      "focus-preload.js",
       "focus.html",
       "build/icon.png"
     ],

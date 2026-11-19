@@ -132,14 +132,36 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--c2)}
 .unsupported{border-radius:12px}
 @media(max-width:760px){.hero{flex-wrap:wrap}.card{padding:18px}}
 </style>
+<style id="fxFit">
+/* ── Fit the page into the app view (no scrolling): whole page = 100% of the view, the two lists scroll inside themselves ── */
+html,body{height:100%;margin:0;overflow:hidden}
+body{min-height:0}
+.wrap{height:100%;max-width:1100px;margin:0 auto;padding:10px 14px;display:flex;flex-direction:column}
+.unsupported{flex:none;margin-bottom:8px;padding:8px 12px;font-size:13px}
+.card{flex:1;min-height:0;display:flex;flex-direction:column;padding:14px 18px;border-radius:14px}
+.row{gap:10px}
+hr{margin:10px 0}
+#settings{flex:1;min-height:0;display:flex;flex-direction:column}
+.cols{flex:1;min-height:0;margin-top:8px;gap:18px;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr)}
+.cols section{display:flex;flex-direction:column;min-height:0;min-width:0}
+h2{font-size:15px;margin:0 0 8px}
+h2::before{width:26px;height:26px;font-size:14px}
+.add{margin-bottom:6px}
+.tools{margin-bottom:6px}
+.list{flex:1;height:auto;min-height:48px;overflow:auto}
+.item{min-height:30px;margin:3px 2px;padding:4px 10px}
+select,input[type=text],input[type=password]{padding:6px 10px}
+button{padding:7px 13px}
+#startBtn{padding:9px 18px;min-width:150px;font-size:14px}
+.info{padding:4px 12px;font-size:12px}
+.modal{padding:0 22px 18px;max-height:92vh}
+.modal h3{margin:0 -22px 12px;padding:12px 16px}
+.modal textarea{height:130px}
+@media(max-width:520px){.cols{grid-template-columns:1fr;grid-template-rows:none;overflow:auto}.cols section{min-height:200px}}
+</style>
 </head>
 <body>
 <div class="wrap">
-  <header class="hero">
-    <button class="ghost" id="backBtn">← Back</button>
-    <div class="hero-t"><h1>🎯 Focus Mode</h1>
-    <p class="sub">Block distracting websites &amp; apps for a fixed time. Task Manager and uninstall windows are restricted while Focus is active.</p></div>
-  </header>
   <div id="unsupported" class="unsupported">Focus Mode works on Windows only. It cannot be started on this computer.</div>
 
   <div class="card">
@@ -409,7 +431,6 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--c2)}
     ['ovTime', 'ovPass', 'ovLong', 'ovRun', 'ovTitle'].forEach((id) => show(id, false));
   });
 
-  $('backBtn').onclick = () => { if (history.length > 1) history.back(); else location.href = 'app://retry'; };
   FocusAPI.onState(setState);
   FocusAPI.get().then((s) => { if (s) setState(s); });
 })();

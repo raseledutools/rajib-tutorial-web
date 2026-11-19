@@ -1836,6 +1836,12 @@ body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 /* floating exe buttons would sit on top of the page — the toolbar already has back / forward / reload */
 body:has(#viewExt.active) #__rt_nav,body:has(#viewExt.active) #__rt_updcheck,body:has(#viewExt.active) #__rt_focus{display:none!important}
 @media(max-width:900px){#viewExt.active{height:calc(100vh - var(--tb,0px) - 56px)}}
+/* Focus Mode view (exe): the local Focus page sits inside the app layout — sidebar, header and title bar stay fixed */
+#viewFocus{background:#f5f7fb}
+#viewFocus.active{display:block;height:calc(100vh - var(--tb,0px) - 64px)}
+#focusHost,#focusHost>webview{width:100%;height:100%;border:0;display:flex}
+body:has(#viewFocus.active) #__rt_nav,body:has(#viewFocus.active) #__rt_updcheck,body:has(#viewFocus.active) #__rt_focus{display:none!important}
+@media(max-width:900px){#viewFocus.active{height:calc(100vh - var(--tb,0px) - 56px)}}
 </style>
 
 <style id="rasBrowser">
@@ -2002,7 +2008,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     </div>
     <div class="nav-item" id="navDisc" onclick="openDiscussion()"><span class="nav-ico">💬</span><span>Discussion</span></div>
     <div class="nav-item" id="navInbox" onclick="openInbox()"><span class="nav-ico">🔔</span><span>Notifications</span></div>
-    <div class="nav-item" id="navFocus" style="display:none" onclick="ElectronShell.focus.open();closeSidebar()"><span class="nav-ico">🎯</span><span id="navFocusT">Focus Mode</span></div>
+    <div class="nav-item" id="navFocus" style="display:none" onclick="openFocus()"><span class="nav-ico">🎯</span><span id="navFocusT">Focus Mode</span></div>
     <div class="nav-item" id="navPush" style="display:none" onclick="pushEnableClick();closeSidebar()"><span class="nav-ico">✅</span><span>Enable Notifications</span></div>
     <div class="nav-item" id="navResCircular" onclick="openRes('circular')"><span class="nav-ico">📢</span><span>Current Circular</span></div>
     <div class="nav-item" id="navResQbank" onclick="openRes('qbank')"><span class="nav-ico">📚</span><span>Question Bank</span></div>
@@ -2239,6 +2245,8 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     <div id="extHost"></div>
     <div id="extErr" style="display:none"><p id="extErrT">This page could not be loaded here</p><small id="extErrM"></small><button id="extErrBtn" onclick="extNav('reload')">Try again</button></div>
   </div>
+
+  <div class="view" id="viewFocus"><div id="focusHost"></div></div>
 
   <div class="view" id="viewBrowser">
     <div class="bt-strip" id="btStrip">
@@ -3393,7 +3401,8 @@ window.goView=function(id, _fromPop){
   window.scrollTo(0,0);
   document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
   if(id==="viewHome") $("navHome").classList.add("active");
-  const titles={viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewOffline:"Offline Lessons",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewQB:"MCQ Practice",viewMembers:"Premium Members",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class",viewBrowser:"Safe Browser"};
+  if(id==="viewFocus"){try{focusEnsure();$("navFocus").classList.add("active")}catch(e){}}
+  const titles={viewFocus:"Focus Mode",viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewOffline:"Offline Lessons",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewQB:"MCQ Practice",viewMembers:"Premium Members",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class",viewBrowser:"Safe Browser"};
   $("topbarTitle").textContent=titles[id]||"Rajib Tutorial";
   try{if(id!=="viewDisc")dLeave();if(id==="viewInbox")inboxLoad();if(id==="viewOffline")offRender()}catch(e){}
 
@@ -6486,6 +6495,19 @@ window.openOffline=function(){goView("viewOffline");closeSidebar()};
   nav.style.display="";
   const ui=on=>{t.textContent=on?"Focus চলছে":"Focus Mode";nav.style.color=on?"#16a34a":""};
   ui(sh.focus.isOn());sh.focus.onChange(ui);
+  // new exe: the Focus page opens inside this layout (webview of the local rtfocus:// page); older exe: separate page as before
+  window.focusEnsure=function(){
+    const host=$("focusHost");if(!host||host.firstChild)return;
+    const el=document.createElement("webview");
+    el.setAttribute("partition","rtfocus");
+    el.setAttribute("src","rtfocus://app/focus.html");
+    host.appendChild(el);
+  };
+  window.openFocus=function(){
+    if(sh.focus.embed){goView("viewFocus");closeSidebar()}
+    else{sh.focus.open();closeSidebar()}
+  };
+  if(sh.focus.onShow)sh.focus.onShow(()=>window.openFocus());   // tray → Focus Mode
 })();
 window.offRender=async function(){
   const box=$("offList"),pl=$("offPlayer");if(!box)return;
