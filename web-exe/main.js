@@ -161,15 +161,27 @@ ipcMain.handle('vid:remove', (e, id) => (trusted(e) && vids ? vids.remove(String
 ipcMain.on('vid:cancel', (e, id) => { if (trusted(e) && vids) vids.cancel(String(id)); });
 
 /* Screenshot / screen-record protection. */
+// Applied to EVERY window (main, child, sign-in pop-ups). A single call before the window is shown is not enough on
+// Windows: the display affinity can be lost when the window is shown / maximised / restored / full-screened, so it is
+// re-applied on those events (debounced) and by a slow heartbeat. A fast 2 s timer caused video stutter, so none of this
+// runs often: only on state changes and once a minute while the window is visible.
+const protectedWins = new WeakSet();
 function protect(w) {
-  // Re-calling setContentProtection (the old 2s timer + focus/maximize hooks) forces DWM to recompose
-  // the window, which showed up as video stutter / endless buffering. The affinity sticks, so set it once
-  // and again only after the window is shown.
-  let on = false;
-  const apply = () => { if (on) return; try { w.setContentProtection(true); on = true; } catch (_) {} };
+  if (!w || protectedWins.has(w)) return;
+  protectedWins.add(w);
+  const apply = () => { try { if (!w.isDestroyed()) w.setContentProtection(true); } catch (_) {} };
+  let t = null;
+  const soon = () => { clearTimeout(t); t = setTimeout(apply, 250); };
   apply();
-  w.once('show', apply);
+  ['show', 'restore', 'maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen', 'ready-to-show'].forEach((ev) => { try { w.on(ev, soon); } catch (_) {} });
+  w.on('show', () => { setTimeout(apply, 800); setTimeout(apply, 3000); });
+  const hb = setInterval(() => {
+    try { if (w.isDestroyed()) { clearInterval(hb); return; } if (w.isVisible() && !w.isMinimized()) apply(); } catch (_) {}
+  }, 60000);
+  hb.unref();
+  w.on('closed', () => { clearInterval(hb); clearTimeout(t); });
 }
+app.on('browser-window-created', (_e, w) => protect(w));
 
 function guard(wc) {
   wc.on('before-input-event', (e, input) => {
@@ -281,7 +293,7 @@ async function freshCacheOnce() {
 function create() {
   win = new BrowserWindow({
     width: 1280, height: 820, minWidth: 900, minHeight: 600, show: false,
-    backgroundColor: '#0f172a', title: 'Rajib Tutorial', autoHideMenuBar: true,
+    backgroundColor: '#ffffff', title: 'Rajib Tutorial', autoHideMenuBar: true,
     // custom title bar (drawn by preload.js); Windows draws only the min / max / close buttons
     titleBarStyle: 'hidden',
     titleBarOverlay: { color: '#ffffff', symbolColor: '#1f2937', height: 36 },
@@ -538,6 +550,7 @@ const AD_DOMAINS = [
   'bidswitch.net', 'contextweb.com', 'lijit.com', 'sovrn.com', 'indexww.com', 'triplelift.com', 'smaato.net', 'inmobi.com',
   'adroll.com', 'adthrive.com', 'adskeeper.com', 'adcolony.com', 'applovin.com', 'unity3d.com/ads',
 ].filter((d) => !d.includes('/'));
+const AUTH_HOST_RE = /(^|\.)(accounts\.google\.com|appleid\.apple\.com|login\.microsoftonline\.com|login\.live\.com|www\.facebook\.com)$/i;
 const AD_HOST_RE = new RegExp('(^|\\.)(' + AD_DOMAINS.map((d) => d.replace(/\./g, '\\.')).join('|') + ')$', 'i');
 app.on('web-contents-created', (_e, wc) => {
   guard(wc);
@@ -558,15 +571,39 @@ app.on('web-contents-created', (_e, wc) => {
     // course video page ("#rtlesson", see ext-preload.js): start playing without a click on the page itself
     if (/#rtlesson/.test(String(params.src))) webPreferences.autoplayPolicy = 'no-user-gesture-required';
   });
+  if (wc.getType() === 'window') {
+    try {
+      if (wc.session === session.fromPartition(EXT_PARTITION)) {
+        wc.setWindowOpenHandler(({ url: u }) => {
+          try { const p = new URL(u); if (p.protocol === 'https:' && !AD_HOST_RE.test(p.hostname)) wc.loadURL(u); } catch (_) {}
+          return { action: 'deny' };
+        });
+      }
+    } catch (_) {}
+  }
   if (wc.getType() === 'webview') {
     // links that want a new window just navigate the embedded page
-    wc.setWindowOpenHandler(({ url: u }) => {
+    wc.setWindowOpenHandler(({ url: u, disposition }) => {
       try {
         if (isLessonPage(wc) || isFocusGuest(wc)) return { action: 'deny' };                    // course video: nothing may open from it
         const parsed = new URL(u);
         if (AD_HOST_RE.test(parsed.hostname)) return { action: 'deny' };   // ad pop-up / pop-under
-        if (parsed.protocol === 'https:') wc.loadURL(u);
-        else if (parsed.protocol === 'mailto:' || parsed.protocol === 'tel:') shell.openExternal(u);
+        if (parsed.protocol === 'https:') {
+          // Sign-in flows ("Continue with Google" etc.) open a pop-up and talk to it through window.opener / postMessage.
+          // Loading it inside the same tab breaks the login, so real pop-ups are kept as pop-up windows (same session).
+          const isPopup = disposition === 'new-window' || AUTH_HOST_RE.test(parsed.hostname);
+          if (isPopup) {
+            const parent = wc.hostWebContents && !wc.hostWebContents.isDestroyed() ? BrowserWindow.fromWebContents(wc.hostWebContents) : null;
+            return {
+              action: 'allow',
+              overrideBrowserWindowOptions: {
+                width: 520, height: 720, autoHideMenuBar: true, title: 'Sign in', parent: parent || undefined,
+                webPreferences: { preload: path.join(__dirname, 'ext-preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false, devTools: !PACKAGED },
+              },
+            };
+          }
+          wc.loadURL(u);
+        } else if (parsed.protocol === 'mailto:' || parsed.protocol === 'tel:') shell.openExternal(u);
       } catch (_) {}
       return { action: 'deny' };
     });
