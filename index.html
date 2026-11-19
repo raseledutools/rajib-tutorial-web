@@ -3009,7 +3009,9 @@ const WV_CSS='html,body{margin:0!important;padding:0!important;background:#000!i
   'ytd-watch-flexy #primary,ytd-watch-flexy #primary-inner,ytd-watch-flexy #columns{margin:0!important;padding:0!important;max-width:none!important}'+
   'body.rt-watch #movie_player,body.rt-watch #player-container-outer,body.rt-watch #player-container-inner,body.rt-watch #player-container,body.rt-watch #player,body.rt-watch #ytd-player,body.rt-watch .html5-video-container{position:fixed!important;left:0!important;top:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:2147483000!important;background:#000!important}'+
   'body.rt-watch .html5-main-video{width:100%!important;height:100%!important;left:0!important;top:0!important;object-fit:contain!important}'+
-  WV_HIDE.join(',')+'{display:none!important}';
+  WV_HIDE.join(',')+'{display:none!important}'+
+  // whatever else YouTube draws (new class names, title, channel, share, "More videos", logo, captions): invisible; only the <video> picture stays
+  'body *{visibility:hidden!important}body video{visibility:visible!important}';
 const WV_GUEST='(function(){if(window.__rtWv)return;window.__rtWv=1;var css='+JSON.stringify(WV_CSS)+';'+
   'function put(){try{if(document.body&&location.pathname==="/watch")document.body.classList.add("rt-watch");'+
   'if(!document.getElementById("__rt_wvcss")){var r=document.head||document.documentElement;if(!r)return;var st=document.createElement("style");st.id="__rt_wvcss";st.textContent=css;r.appendChild(st)}'+
