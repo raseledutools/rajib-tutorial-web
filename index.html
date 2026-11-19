@@ -4228,7 +4228,7 @@ function vWatch(area,v){
     vid.addEventListener("playing",()=>{
       if(!alive())return;vSet("playing",area);
       // exe: save a copy only after playback has started, so the download never delays the video
-      if(!saved&&IS_EXE&&offDirect(v)&&navigator.onLine!==false){saved=true;setTimeout(()=>alive()&&offAuto(v),4000)}
+      if(!saved&&IS_EXE&&offCanSave(v)&&navigator.onLine!==false){saved=true;setTimeout(()=>alive()&&offAuto(v),4000)}
     });
     vid.addEventListener("pause",()=>{if(alive()&&!vid.ended)vSet("paused",area)});
     vid.addEventListener("error",()=>{if(!alive())return;_loadingVid=null;vState="idle";area.innerHTML=placeholder(I.warn,"Video load kora jayni — internet check kore abar click korun");renderVlist()});
@@ -4252,7 +4252,7 @@ function renderVlist(){
   if(!vids.length){wrap.innerHTML=`<div class="empty" style="padding:30px 10px">${I.video}<p>No lessons yet</p></div>`;return}
   const _offline=IS_EXE&&navigator.onLine===false;
   wrap.innerHTML=vids.map((v,i)=>`
-    <div class="vlist-item ${curVideo?.id===v.id||_loadingVid===v.id?"playing":""} ${_offline&&!(offDirect(v)&&offSet.has(v.id))?"off-dim":""}" onclick="playVideo('${v.id}')">
+    <div class="vlist-item ${curVideo?.id===v.id||_loadingVid===v.id?"playing":""} ${_offline&&!(offCanSave(v)&&offSet.has(v.id))?"off-dim":""}" onclick="playVideo('${v.id}')">
       <div class="vnum">${_loadingVid===v.id?'<span class="vspin"></span>':curVideo?.id===v.id?(vState==="paused"?"⏸":"▶"):i+1}</div>
       <div class="vinfo"><div class="vtitle">${esc(v.title)}</div>${v.durationMinutes?`<div class="vdur">${v.durationMinutes} min</div>`:""}</div>
       ${canWatch()?offIcon(v):""}
@@ -4297,31 +4297,43 @@ async function _playVideo(vid){
   curVideo=want;
   renderVlist();
   const area=$("playerArea"),embed=ytEmbed(curVideo.url||"");
-  if(!(embed&&area._yt&&area._ytLoad&&area.querySelector(".ytp")))unmountYT(area);
-  if(embed&&IS_EXE&&navigator.onLine===false){
-    area.innerHTML=placeholder(I.warn,"YouTube video চালাতে internet লাগবে");
-  }else if(embed){
-    if(area._yt&&area._ytLoad&&area.querySelector(".ytp")){area._ytLoad(ytId(curVideo.url))}
-    else{area.innerHTML="";mountYT(area,ytId(curVideo.url),{autoplay:1})}
-  }else if(curVideo.url){
-    let src=curVideo.url,_ob=null,_nat=false;
-    if(NV){try{if(await NV.has(curVideo.id,curVideo.url)){src=NV.src(curVideo.id);_nat=true}}catch(e){}}
-    if(!_nat){try{_ob=await offLegacyBlob(curVideo);if(_ob){if(window._offUrl)URL.revokeObjectURL(window._offUrl);src=window._offUrl=URL.createObjectURL(_ob)}}catch(e){}}
-    if(curVideo.id!==want.id)return;
-    if(!_ob&&!_nat&&IS_EXE&&navigator.onLine===false){
-      area.innerHTML=placeholder(I.warn,"এই lesson offline save করা নেই — internet লাগবে");
-      $("playerTitle").textContent=curVideo.title;$("playerMeta").textContent=curVideo.durationMinutes?`${curVideo.durationMinutes} min`:"";
-      _loadingVid=null;vState="idle";bufHide(area);renderVlist();offBarRender(curVideo);return;
-    }
-    area.innerHTML=`<video controls autoplay playsinline preload="auto" controlsList="nodownload" src="${esc(src)}" style="width:100%;height:100%;background:#000"></video>`;
+  // আগে চেক করবে ভিডিওটি (YouTube বা Direct) লোকাল ক্যাশে সেভ করা আছে কি না
+  let cachedSrc=null,_ob=null;
+  if(NV){try{if(await NV.has(curVideo.id,curVideo.url))cachedSrc=NV.src(curVideo.id)}catch(e){}}
+  if(!cachedSrc&&!embed){
+    try{_ob=await offLegacyBlob(curVideo);if(_ob){if(window._offUrl)URL.revokeObjectURL(window._offUrl);cachedSrc=window._offUrl=URL.createObjectURL(_ob)}}catch(e){}
+  }
+  if(curVideo.id!==want.id)return;
+
+  let playedLocal=false;
+  if(cachedSrc){
+    unmountYT(area);
+    playedLocal=true;
+    area.innerHTML=`<video controls autoplay playsinline preload="auto" controlsList="nodownload" src="${esc(cachedSrc)}" style="width:100%;height:100%;background:#000"></video>`;
   }else{
-    area.innerHTML=placeholder(I.warn,"No video link set for this lesson");
+    if(!(embed&&area._yt&&area._ytLoad&&area.querySelector(".ytp")))unmountYT(area);
+    if(embed&&IS_EXE&&navigator.onLine===false){
+      area.innerHTML=placeholder(I.warn,"এই lesson offline save করা নেই — internet লাগবে");
+    }else if(embed){
+      if(area._yt&&area._ytLoad&&area.querySelector(".ytp")){area._ytLoad(ytId(curVideo.url))}
+      else{area.innerHTML="";mountYT(area,ytId(curVideo.url),{autoplay:1})}
+    }else if(curVideo.url){
+      if(IS_EXE&&navigator.onLine===false){
+        area.innerHTML=placeholder(I.warn,"এই lesson offline save করা নেই — internet লাগবে");
+        $("playerTitle").textContent=curVideo.title;$("playerMeta").textContent=curVideo.durationMinutes?`${curVideo.durationMinutes} min`:"";
+        _loadingVid=null;vState="idle";bufHide(area);renderVlist();offBarRender(curVideo);return;
+      }
+      area.innerHTML=`<video controls autoplay playsinline preload="auto" controlsList="nodownload" src="${esc(curVideo.url)}" style="width:100%;height:100%;background:#000"></video>`;
+    }else{
+      area.innerHTML=placeholder(I.warn,"No video link set for this lesson");
+    }
   }
   $("playerTitle").textContent=curVideo.title;
   offBarRender(curVideo);
   $("playerMeta").textContent=curVideo.durationMinutes?`${curVideo.durationMinutes} min`:"";
   area.scrollIntoView({behavior:"smooth",block:"nearest"});
-  if(embed&&!(IS_EXE&&navigator.onLine===false)){bufShow(area,"Loading…");vWatch(area,curVideo)}
+  if(playedLocal){vWatch(area,curVideo)}
+  else if(embed&&!(IS_EXE&&navigator.onLine===false)){bufShow(area,"Loading…");vWatch(area,curVideo)}
   else if(curVideo.url&&!embed)vWatch(area,curVideo);
   else{_loadingVid=null;vState="idle";renderVlist()}
 }
@@ -4550,27 +4562,24 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"){document.querySelec
 
 window.toggleFullscreen=function(){
   if(!curVideo?.url) return;
-  const id=ytId(curVideo.url);
-  if(!id) return;
   const area=$("playerArea");
   const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
-  // already fullscreen on the real player -> exit (same player keeps playing, no reload)
   if(fsEl===area){
     try{const ef=document.exitFullscreen||document.webkitExitFullscreen;const r=ef.call(document);if(r&&r.catch)r.catch(()=>{})}catch(e){}
     return;
   }
-  // Fullscreen the SAME player element (no destroy / re-create) so the already
-  // buffered video keeps playing smoothly instead of starting to buffer again.
   const rf=area.requestFullscreen||area.webkitRequestFullscreen;
-  if(rf&&area._yt){
+  const hasVid=!!area.querySelector("video");
+  if(rf&&(area._yt||hasVid)){
     const ok=()=>{$("fsLabel").textContent="Exit";try{location.href="rtapp://fullscreen"}catch(e){}};
     try{
       const r=rf.call(area);
-      if(r&&r.then)r.then(ok).catch(()=>legacyFs(id));else ok();
+      if(r&&r.then)r.then(ok).catch(()=>{const id=ytId(curVideo.url);if(id)legacyFs(id)});else ok();
       return;
     }catch(e){}
   }
-  legacyFs(id);
+  const id=ytId(curVideo.url);
+  if(id)legacyFs(id);
 };
 function legacyFs(id){
   const main=$("playerArea")._yt;
@@ -5856,6 +5865,7 @@ async function offRemoveAny(id){
   try{await OFF.remove(id)}catch(e){}
 }
 const offDirect=v=>!!(v&&v.url&&/^https?:\/\//i.test(v.url)&&!ytEmbed(v.url));
+const offCanSave=v=>!!(v&&v.url&&/^https?:\/\//i.test(v.url));  // direct mp4 AND YouTube both saveable
 const offMB=n=>(n/1048576).toFixed(1)+" MB";
 const offBusy={};
 const OFF_DAYS=7;   // an offline copy stays this many days, then it is removed automatically
@@ -5864,7 +5874,7 @@ async function offBarRender(v,pct,got){
   const bar=$("offBar"),btn=$("offBtn");if(!v||!curVideo||curVideo.id!==v.id)return;
   const set=(ic,tx,dim)=>{if(!btn)return;$("offBtnIc").textContent=ic;$("offBtnTx").textContent=tx;btn.style.opacity=dim?".55":""};
   const note=t=>{if(bar)bar.innerHTML=t?`<span style="font-size:12.5px">${t}</span>`:""};
-  if(!offDirect(v)){note("");set("📥","Offline",true);return}
+  if(!offCanSave(v)){note("");set("📥","Offline",true);return}
   if(offBusy[v.id]){set("⏳",pct>=0?pct+"%":offMB(got||0));note("Downloading… button e click korle cancel hobe");return}
   const m=await offMeta(v);
   if(!curVideo||curVideo.id!==v.id)return;
@@ -5873,7 +5883,7 @@ async function offBarRender(v,pct,got){
 }
 window.offBtnClick=async function(){
   const v=curVideo;if(!v){showToast("Age ekta lesson chalu korun");return}
-  if(!offDirect(v)){showToast("YouTube lesson offline save kora jay na (YouTube er niyom). Offline er jonno direct video link (mp4) lagbe.");return}
+  if(!offCanSave(v)){showToast("Ei lesson offline save kora jay na.");return}
   if(offBusy[v.id]){if(NV){NV.cancel(v.id)}else{try{offCtl[v.id]&&offCtl[v.id].abort()}catch(e){}}return}
   const m=await offMeta(v);
   if(m){if(!confirm("Ei offline video ti remove korben?"))return;await offRemoveCur();return}
@@ -5899,7 +5909,7 @@ async function offRefresh(){
   renderVlist();
 }
 function offIcon(v){
-  if(!IS_EXE||!offDirect(v))return"";
+  if(!IS_EXE||!offCanSave(v))return"";
   const id=esc(v.id),a=`class="voff %C" data-off="${id}" onclick="event.stopPropagation();offToggle('${id}')"`;
   if(offBusy[v.id]){
     const p=offProg[v.id],unk=!(p>=0),C=69.1,off=unk?C*0.75:C*(1-Math.min(100,p)/100);
@@ -5925,14 +5935,13 @@ window.offToggle=function(id){
   offDownload(v);
 };
 async function offDownload(v){
-  if(!v||!offDirect(v)||offBusy[v.id])return;
+  if(!v||!offCanSave(v)||offBusy[v.id])return;
   if(navigator.onLine===false){showToast("Internet nei — download kora jabe na");return}
   const id=v.id,ctl=new AbortController();
   offBusy[id]=1;offProg[id]=0;offCtl[id]=ctl;offTick(id);offBarRender(v,0,0);
   if(NV){
-    // the app downloads straight to disk (resumes after a dropped connection / restart); progress comes via vid events
     try{
-      const r=await NV.start({id,url:v.url,title:v.title||"",course:(curCourse&&curCourse.title)||""});
+      const r=await NV.start({id,url:v.url,title:v.title||"",course:(curCourse&&curCourse.title)||"",isYoutube:!!ytEmbed(v.url),expireDays:OFF_DAYS});
       if(r&&(r.error||r.status==="saved")){
         delete offBusy[id];delete offProg[id];delete offCtl[id];
         if(r.status==="saved")offSet.add(id);else showToast("❌ Save hoyni: "+r.error);
@@ -6002,7 +6011,7 @@ window.offRender=async function(){
   list.sort((a,b)=>(b.at||0)-(a.at||0));
   box.innerHTML=list.length?list.map(m=>`
     <div style="display:flex;align-items:center;gap:10px;padding:12px;margin-bottom:8px;background:#fff;border:1px solid var(--border);border-radius:12px">
-      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${esc(m.title)}</div><div style="font-size:12px;color:var(--sub)">${esc(m.course)} · ${offMB(m.size||0)}</div></div>
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${esc(m.title)}</div><div style="font-size:12px;color:var(--sub)">${esc(m.course)} · ${offMB(m.size||0)} · ${offLeft(m)} din baki</div></div>
       <button style="padding:8px 14px;border:0;border-radius:10px;background:var(--accent,#e8365d);color:#fff;font-weight:700;cursor:pointer" onclick="offPlay('${esc(m.id)}')">▶ Play</button>
       <button style="padding:8px 12px;border:0;border-radius:10px;background:#64748b;color:#fff;cursor:pointer" onclick="offDel('${esc(m.id)}')">🗑</button>
     </div>`).join(""):'<div class="empty" style="padding:30px 10px"><p>Kono lesson offline save kora nai.<br>Lesson er niche "Offline e save koren" chapen (shudhu direct video, YouTube na).</p></div>';
