@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: npm ci
       # ffmpeg.exe: lets yt-dlp merge YouTube video+audio (720p) so offline save works for every YouTube lesson.
       - name: Get ffmpeg.exe
