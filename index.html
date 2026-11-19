@@ -2096,10 +2096,13 @@ body:has(#viewBrowser.active) #__rt_nav,body:has(#viewBrowser.active) #__rt_updc
             <div class="player-title" id="playerTitle">–</div>
             <div class="player-meta" id="playerMeta"></div><div id="offBar" style="margin-top:8px"></div>
           </div>
+          <div class="player-btns" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn-fullscreen" id="offBtn" onclick="offBtnClick()" style="opacity:.55"><span id="offBtnIc">📥</span><span id="offBtnTx">Offline</span></button>
           <button class="btn-fullscreen" onclick="toggleFullscreen()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="fsSvg"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
             <span id="fsLabel">Fullscreen</span>
           </button>
+          </div>
         </div>
       </div>
     </div>
@@ -2974,8 +2977,21 @@ const WV_OK=(()=>{try{return !!(window.ElectronShell&&window.ElectronShell.isEle
 // warm up: fetch the YouTube player API once the page is idle so the first lesson starts faster
 if(!WV_OK){try{loadYTApi()}catch(e){}}
 let _ytWarmed=false;
+// exe: load the first lesson's player page in a hidden, muted webview as soon as a course opens, so YouTube's scripts are
+// already cached and the first lesson starts much sooner
+function wvWarm(id){
+  try{
+    const w=document.createElement("webview");w.setAttribute("partition","persist:rtext");
+    w.setAttribute("src","https://www.youtube.com/embed/"+id+"?autoplay=0&controls=0&playsinline=1#rtwarm");
+    w.style.cssText="position:fixed;left:-9999px;top:0;width:320px;height:180px;opacity:0;pointer-events:none";
+    w.addEventListener("dom-ready",()=>{try{w.setAudioMuted(true)}catch(e){}});
+    document.body.appendChild(w);setTimeout(()=>{try{w.remove()}catch(e){}},25000);
+  }catch(e){}
+}
 function ytWarm(v){
-  if(WV_OK||_ytWarmed||!v)return;const id=ytId(v.url);if(!id)return;_ytWarmed=true;
+  if(_ytWarmed||!v)return;const id=ytId(v.url);if(!id)return;
+  if(WV_OK){_ytWarmed=true;wvWarm(id);return}
+  _ytWarmed=true;
   loadYTApi().then(()=>{
     const h=document.createElement("div");h.style.cssText="position:fixed;left:-9999px;top:0;width:320px;height:180px;opacity:0;pointer-events:none";
     const d=document.createElement("div");h.appendChild(d);document.body.appendChild(h);
@@ -2992,7 +3008,7 @@ const WV_PROBE='(function(){try{var p=document.getElementById("movie_player")||d
   'var d=f("getDuration");if(!(d>0))d=isFinite(v.duration)?v.duration:0;'+
   'var t=f("getCurrentTime");if(typeof t!=="number")t=v.currentTime;'+
   'var lf=f("getVideoLoadedFraction");if(typeof lf!=="number"){lf=0;try{if(v.buffered.length&&d>0)lf=v.buffered.end(v.buffered.length-1)/d}catch(e){}}'+
-  'return{st:st,d:d||0,t:t||0,lf:lf||0,q:f("getPlaybackQuality")||"",lv:f("getAvailableQualityLevels")||[]}}catch(e){return null}})()';
+  'var vd=f("getVideoData");return{st:st,d:d||0,t:t||0,lf:lf||0,q:f("getPlaybackQuality")||"",lv:f("getAvailableQualityLevels")||[],vid:(vd&&vd.video_id)||""}}catch(e){return null}})()';
 // CSS + JS pushed into the webview page by the app itself (works even if the installed exe is older than ext-preload.js):
 // hides title / channel / logo / share / watch-later / "More videos" / captions, and keeps captions switched off
 const WV_HIDE=['.ytp-chrome-top','.ytp-chrome-bottom','.ytp-gradient-top','.ytp-gradient-bottom','.ytp-title','.ytp-title-channel','.ytp-title-beacon',
@@ -3056,6 +3072,7 @@ function wvPlayer(slot,id,o,evs,onFail){
     let r;try{r=wv.executeJavaScript(WV_PROBE,false)}catch(e){return}
     r.then(x=>{
       if(dead||halted||!x)return;
+      if(x.vid&&x.vid!==cur)return;   // still the previous lesson while the new one is loading in the same page
       S.t=x.t;S.d=x.d;S.lf=x.lf;S.lv=x.lv||[];
       if(x.q!==S.q){S.q=x.q;if(evs.onPlaybackQualityChange)evs.onPlaybackQualityChange({data:x.q})}
       if(!got&&x.d>0){got=true;clearTimeout(armT);if(!rdy){rdy=true;if(evs.onReady)evs.onReady({target:pl})}}
@@ -3071,7 +3088,15 @@ function wvPlayer(slot,id,o,evs,onFail){
     setPlaybackQuality:q=>call("setPlaybackQuality",[q]),
     getPlayerState:()=>S.st,getCurrentTime:()=>S.t,getDuration:()=>S.d,getVideoLoadedFraction:()=>S.lf,
     getPlaybackQuality:()=>S.q,getAvailableQualityLevels:()=>S.lv,
-    loadVideoById:a=>{const x=(a&&typeof a==="object")?a:{videoId:a};cur=x.videoId;start=Math.floor(x.startSeconds||0);ap=1;mode="embed";go()},
+    loadVideoById:a=>{
+      const x=(a&&typeof a==="object")?a:{videoId:a};cur=x.videoId;start=Math.floor(x.startSeconds||0);ap=1;
+      if(mode==="embed"&&rdy&&dom&&!halted){
+        // next lesson: switch inside the already loaded player page (much faster than loading a new page)
+        got=false;lastSt=-99;S.st=-1;
+        run('(function(){'+P+'try{p.loadVideoById({videoId:'+JSON.stringify(cur)+',startSeconds:'+start+'})}catch(e){}})()');
+        clearTimeout(armT);armT=setTimeout(()=>{if(!dead&&!got){mode="embed";go()}},8000);   // did not switch -> normal page load
+      }else{mode="embed";go()}
+    },
     destroy:()=>{dead=true;clean();try{wv.remove()}catch(e){}}
   };
   go();
@@ -5833,19 +5858,36 @@ async function offRemoveAny(id){
 const offDirect=v=>!!(v&&v.url&&/^https?:\/\//i.test(v.url)&&!ytEmbed(v.url));
 const offMB=n=>(n/1048576).toFixed(1)+" MB";
 const offBusy={};
+const OFF_DAYS=7;   // an offline copy stays this many days, then it is removed automatically
+const offLeft=m=>Math.max(1,Math.ceil(((m.at||Date.now())+OFF_DAYS*864e5-Date.now())/864e5));
 async function offBarRender(v,pct,got){
-  const bar=$("offBar");if(!bar||!v||!curVideo||curVideo.id!==v.id)return;
-  if(!offDirect(v)){bar.innerHTML="";return}
-  const bs="padding:8px 14px;border:0;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;color:#fff;background:var(--accent,#e8365d)";
-  if(offBusy[v.id]){
-    bar.innerHTML=`<span style="font-size:13px">⬇ Downloading… ${pct>=0?pct+"%":offMB(got||0)}</span>`;return;
-  }
+  const bar=$("offBar"),btn=$("offBtn");if(!v||!curVideo||curVideo.id!==v.id)return;
+  const set=(ic,tx,dim)=>{if(!btn)return;$("offBtnIc").textContent=ic;$("offBtnTx").textContent=tx;btn.style.opacity=dim?".55":""};
+  const note=t=>{if(bar)bar.innerHTML=t?`<span style="font-size:12.5px">${t}</span>`:""};
+  if(!offDirect(v)){note("");set("📥","Offline",true);return}
+  if(offBusy[v.id]){set("⏳",pct>=0?pct+"%":offMB(got||0));note("Downloading… button e click korle cancel hobe");return}
   const m=await offMeta(v);
   if(!curVideo||curVideo.id!==v.id)return;
-  bar.innerHTML=m
-    ?`<span style="font-size:13px;margin-right:10px">✅ Offline saved (${offMB(m.size||0)})</span><button style="${bs};background:#64748b" onclick="offRemoveCur()">Remove</button>`
-    :`<button style="${bs}" onclick="offDownloadCur()">📥 Offline e save koren</button>`;
+  if(m){set("✅","Saved · "+offLeft(m)+" din");note("Offline saved ("+offMB(m.size||0)+") — "+offLeft(m)+" din por nijei remove hoye jabe")}
+  else{set("📥","Offline");note("")}
 }
+window.offBtnClick=async function(){
+  const v=curVideo;if(!v){showToast("Age ekta lesson chalu korun");return}
+  if(!offDirect(v)){showToast("YouTube lesson offline save kora jay na (YouTube er niyom). Offline er jonno direct video link (mp4) lagbe.");return}
+  if(offBusy[v.id]){if(NV){NV.cancel(v.id)}else{try{offCtl[v.id]&&offCtl[v.id].abort()}catch(e){}}return}
+  const m=await offMeta(v);
+  if(m){if(!confirm("Ei offline video ti remove korben?"))return;await offRemoveCur();return}
+  offDownload(v);
+};
+// remove offline copies older than OFF_DAYS
+async function offPurge(){
+  try{
+    const lim=Date.now()-OFF_DAYS*864e5,l=await offListAll();let n=0;
+    for(const m of l){if(m.at&&m.at<lim&&!offBusy[m.id]){await offRemoveAny(m.id);offSet.delete(m.id);n++}}
+    if(n){renderVlist();if(curVideo)offBarRender(curVideo)}
+  }catch(e){}
+}
+setTimeout(offPurge,4000);setInterval(offPurge,6*3600e3);
 // ── per-lesson state shown in the lesson list ──
 let offSet=new Set();           // ids saved offline
 const offProg={};               // id -> 0..100 (or -1 unknown) while downloading
