@@ -6501,6 +6501,7 @@ window.openOffline=function(){goView("viewOffline");closeSidebar()};
     const el=document.createElement("webview");
     el.setAttribute("partition","rtfocus");
     el.setAttribute("src","rtfocus://app/focus.html");
+    el.addEventListener("did-fail-load",e=>{if(e.isMainFrame&&e.errorCode!==-3){host.innerHTML='<div class="empty" style="padding:40px 16px;text-align:center"><p>Focus Mode load hoyni. App ta ekbar tray theke Quit kore abar chalan.</p></div>'}});
     host.appendChild(el);
   };
   window.openFocus=function(){

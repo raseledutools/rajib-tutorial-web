@@ -678,15 +678,17 @@ app.whenReady().then(() => {
   ['https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://i.ytimg.com', 'https://s.ytimg.com']
     .forEach(u => { try { session.defaultSession.preconnect({ url: u, numSockets: 2 }); } catch (_) {} });
   try { initVideos(); } catch (_) {}
-  // rtfocus://app/focus.html  -> the local Focus Mode page (only this one file is ever served)
-  try {
-    protocol.handle('rtfocus', (request) => {
-      try {
-        if (new URL(request.url).pathname !== '/focus.html') return new Response('not found', { status: 404 });
-        return new Response(fs.readFileSync(path.join(__dirname, 'focus.html')), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
-      } catch (_) { return new Response('error', { status: 500 }); }
-    });
-  } catch (_) {}
+  // rtfocus://app/focus.html  -> the local Focus Mode page (only this one file is ever served).
+  // The Focus <webview> uses its own partition ("rtfocus"), and custom protocols are per session: the handler has to be
+  // registered on THAT session (before, only the default session had it, so the Focus page stayed blank).
+  const focusHandler = (request) => {
+    try {
+      if (new URL(request.url).pathname !== '/focus.html') return new Response('not found', { status: 404 });
+      return new Response(fs.readFileSync(path.join(__dirname, 'focus.html')), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+    } catch (_) { return new Response('error', { status: 500 }); }
+  };
+  try { session.fromPartition(FOCUS_PARTITION).protocol.handle('rtfocus', focusHandler); } catch (_) {}
+  try { protocol.handle('rtfocus', focusHandler); } catch (_) {}
   create();
   initTray();
   focus.init({ getMainWin: () => win, onStart: () => applyAutostart(true), onActiveChange: refreshTrayMenu, openView: openFocusView });
