@@ -641,11 +641,16 @@ app.whenReady().then(() => {
     // Embedded sites (YouTube, Studio, Google): own persistent session so logins are kept, and a normal
     // Chrome user-agent (Google refuses sign-in from browsers that announce "Electron").
     const ext = session.fromPartition(EXT_PARTITION);
-    ext.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/' + process.versions.chrome + ' Safari/537.36');
+    // Reported Chrome version never below MIN_CHROME_MAJOR (Electron's own Chrome gets old -> "out of date browser")
+    const MIN_CHROME_MAJOR = 146;
+    const realMajor = parseInt(String(process.versions.chrome).split('.')[0], 10);
+    const spoofMajor = Math.max(realMajor, MIN_CHROME_MAJOR);
+    const spoofFull = spoofMajor + '.0.0.0';
+    ext.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/' + spoofFull + ' Safari/537.36');
     // Client-hint headers: send the same "Google Chrome" brands as the user-agent (no "Electron" anywhere).
-    const major = String(process.versions.chrome).split('.')[0];
+    const major = String(spoofMajor);
     const brands = '"Chromium";v="' + major + '", "Google Chrome";v="' + major + '", "Not_A Brand";v="24"';
-    const fullList = '"Chromium";v="' + process.versions.chrome + '", "Google Chrome";v="' + process.versions.chrome + '", "Not_A Brand";v="24.0.0.0"';
+    const fullList = '"Chromium";v="' + spoofFull + '", "Google Chrome";v="' + spoofFull + '", "Not_A Brand";v="24.0.0.0"';
     // YouTube ads: cancel the ad / tracking requests (only in this embedded session; ext-preload.js handles the rest)
     ext.webRequest.onBeforeRequest({ urls: [
       '*://*.doubleclick.net/*', '*://*.googlesyndication.com/*', '*://*.googleadservices.com/*', '*://adservice.google.com/*',

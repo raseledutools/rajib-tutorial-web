@@ -4,8 +4,10 @@
    same client-hints brands as the user-agent and the window.chrome object a real Chrome has. */
 const { webFrame } = require('electron');
 try {
-  const full = process.versions.chrome || '130.0.0.0';
-  const major = full.split('.')[0];
+  const MIN_CHROME_MAJOR = 146; // keep in sync with main.js
+  const realMajor = parseInt(String(process.versions.chrome || '130').split('.')[0], 10);
+  const major = String(Math.max(realMajor, MIN_CHROME_MAJOR));
+  const full = major + '.0.0.0';
   webFrame.executeJavaScript('(' + function (FULL, MAJOR) {
     var brands = [
       { brand: 'Chromium', version: MAJOR },
