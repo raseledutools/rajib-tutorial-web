@@ -161,15 +161,24 @@ ipcMain.handle('vid:remove', (e, id) => (trusted(e) && vids ? vids.remove(String
 ipcMain.on('vid:cancel', (e, id) => { if (trusted(e) && vids) vids.cancel(String(id)); });
 
 /* Screenshot / screen-record protection. */
+// Applied to EVERY window (main, child, sign-in pop-ups). A single call before the window is shown is not enough on
+// Windows: the display affinity can be lost when the window is shown / maximised / restored / full-screened, so it is
+// re-applied on those events (debounced) and by a slow heartbeat. A fast 2 s timer caused video stutter, so none of this
+// runs often: only on state changes and once a minute while the window is visible.
+const protectedWins = new WeakSet();
 function protect(w) {
-  // Re-calling setContentProtection (the old 2s timer + focus/maximize hooks) forces DWM to recompose
-  // the window, which showed up as video stutter / endless buffering. The affinity sticks, so set it once
-  // and again only after the window is shown.
-  let on = false;
-  const apply = () => { if (on) return; try { w.setContentProtection(true); on = true; } catch (_) {} };
+  if (!w || protectedWins.has(w)) return;
+  protectedWins.add(w);
+  const apply = () => { try { if (!w.isDestroyed()) w.setContentProtection(true); } catch (_) {} };
+  let t = null;
+  const soon = () => { clearTimeout(t); t = setTimeout(apply, 300); };
   apply();
-  w.once('show', apply);
+  // only on real window-state changes. No timer / heartbeat: re-calling SetWindowDisplayAffinity while the window is
+  // idle made the custom title bar flicker every now and then (esp. when a page / webview was opened).
+  ['show', 'restore', 'maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen'].forEach((ev) => { try { w.on(ev, soon); } catch (_) {} });
+  w.on('closed', () => { clearTimeout(t); });
 }
+app.on('browser-window-created', (_e, w) => protect(w));
 
 function guard(wc) {
   wc.on('before-input-event', (e, input) => {
@@ -213,6 +222,8 @@ function openChild(url, title) {
     title: title || 'Rajib Tutorial',
     parent: win || undefined,
     webPreferences: {
+      partition: EXT_PARTITION,   // same session as the Safe Browser tabs: logins are kept + Chrome user-agent
+      preload: path.join(__dirname, 'ext-preload.js'),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
@@ -281,7 +292,7 @@ async function freshCacheOnce() {
 function create() {
   win = new BrowserWindow({
     width: 1280, height: 820, minWidth: 900, minHeight: 600, show: false,
-    backgroundColor: '#0f172a', title: 'Rajib Tutorial', autoHideMenuBar: true,
+    backgroundColor: '#ffffff', title: 'Rajib Tutorial', autoHideMenuBar: true,
     // custom title bar (drawn by preload.js); Windows draws only the min / max / close buttons
     titleBarStyle: 'hidden',
     titleBarOverlay: { color: '#ffffff', symbolColor: '#1f2937', height: 36 },
@@ -538,6 +549,7 @@ const AD_DOMAINS = [
   'bidswitch.net', 'contextweb.com', 'lijit.com', 'sovrn.com', 'indexww.com', 'triplelift.com', 'smaato.net', 'inmobi.com',
   'adroll.com', 'adthrive.com', 'adskeeper.com', 'adcolony.com', 'applovin.com', 'unity3d.com/ads',
 ].filter((d) => !d.includes('/'));
+const AUTH_HOST_RE = /(^|\.)(accounts\.google\.com|appleid\.apple\.com|login\.microsoftonline\.com|login\.live\.com|www\.facebook\.com)$/i;
 const AD_HOST_RE = new RegExp('(^|\\.)(' + AD_DOMAINS.map((d) => d.replace(/\./g, '\\.')).join('|') + ')$', 'i');
 app.on('web-contents-created', (_e, wc) => {
   guard(wc);
@@ -558,13 +570,42 @@ app.on('web-contents-created', (_e, wc) => {
     // course video page ("#rtlesson", see ext-preload.js): start playing without a click on the page itself
     if (/#rtlesson/.test(String(params.src))) webPreferences.autoplayPolicy = 'no-user-gesture-required';
   });
+  if (wc.getType() === 'window') {
+    try {
+      if (wc.session === session.fromPartition(EXT_PARTITION)) {
+        wc.setWindowOpenHandler(({ url: u }) => {
+          try { const p = new URL(u); if (p.protocol === 'https:' && !AD_HOST_RE.test(p.hostname)) wc.loadURL(u); } catch (_) {}
+          return { action: 'deny' };
+        });
+      }
+    } catch (_) {}
+  }
   if (wc.getType() === 'webview') {
     // links that want a new window just navigate the embedded page
-    wc.setWindowOpenHandler(({ url: u }) => {
+    wc.setWindowOpenHandler(({ url: u, disposition, features }) => {
       try {
         if (isLessonPage(wc) || isFocusGuest(wc)) return { action: 'deny' };                    // course video: nothing may open from it
-        const parsed = new URL(u);
+        const parsed = new URL(u || 'about:blank');
         if (AD_HOST_RE.test(parsed.hostname)) return { action: 'deny' };   // ad pop-up / pop-under
+        // Sign-in flows ("Continue with Google" etc.) open a pop-up and talk to it through window.opener / postMessage.
+        // Loading it inside the same tab breaks the login, so real pop-ups are kept as pop-up windows.
+        const feat = String(features || '');
+        const wantsPopup = disposition === 'new-window' || /(^|,)\s*(width|height|popup)\b/i.test(feat) || AUTH_HOST_RE.test(parsed.hostname);
+        const isBlank = parsed.protocol === 'about:';   // window.open('') first, navigated afterwards (very common in OAuth libraries)
+        if ((parsed.protocol === 'https:' && wantsPopup) || (isBlank && wantsPopup)) {
+          const parent = wc.hostWebContents && !wc.hostWebContents.isDestroyed() ? BrowserWindow.fromWebContents(wc.hostWebContents) : null;
+          return {
+            action: 'allow',
+            overrideBrowserWindowOptions: {
+              width: 520, height: 720, autoHideMenuBar: true, title: 'Sign in', parent: parent || undefined,
+              backgroundColor: '#ffffff',
+              webPreferences: {
+                partition: EXT_PARTITION,   // SAME session as the tab: shared cookies + Chrome user-agent (Google refuses an Electron browser)
+                preload: path.join(__dirname, 'ext-preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false, devTools: !PACKAGED,
+              },
+            },
+          };
+        }
         if (parsed.protocol === 'https:') wc.loadURL(u);
         else if (parsed.protocol === 'mailto:' || parsed.protocol === 'tel:') shell.openExternal(u);
       } catch (_) {}
@@ -637,15 +678,17 @@ app.whenReady().then(() => {
   ['https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://i.ytimg.com', 'https://s.ytimg.com']
     .forEach(u => { try { session.defaultSession.preconnect({ url: u, numSockets: 2 }); } catch (_) {} });
   try { initVideos(); } catch (_) {}
-  // rtfocus://app/focus.html  -> the local Focus Mode page (only this one file is ever served)
-  try {
-    protocol.handle('rtfocus', (request) => {
-      try {
-        if (new URL(request.url).pathname !== '/focus.html') return new Response('not found', { status: 404 });
-        return new Response(fs.readFileSync(path.join(__dirname, 'focus.html')), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
-      } catch (_) { return new Response('error', { status: 500 }); }
-    });
-  } catch (_) {}
+  // rtfocus://app/focus.html  -> the local Focus Mode page (only this one file is ever served).
+  // The Focus <webview> uses its own partition ("rtfocus"), and custom protocols are per session: the handler has to be
+  // registered on THAT session (before, only the default session had it, so the Focus page stayed blank).
+  const focusHandler = (request) => {
+    try {
+      if (new URL(request.url).pathname !== '/focus.html') return new Response('not found', { status: 404 });
+      return new Response(fs.readFileSync(path.join(__dirname, 'focus.html')), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+    } catch (_) { return new Response('error', { status: 500 }); }
+  };
+  try { session.fromPartition(FOCUS_PARTITION).protocol.handle('rtfocus', focusHandler); } catch (_) {}
+  try { protocol.handle('rtfocus', focusHandler); } catch (_) {}
   create();
   initTray();
   focus.init({ getMainWin: () => win, onStart: () => applyAutostart(true), onActiveChange: refreshTrayMenu, openView: openFocusView });

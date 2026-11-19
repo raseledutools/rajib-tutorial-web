@@ -7,7 +7,7 @@ function buildTitleBar() {
   const isFile = location.protocol === 'file:';
   const bar = document.createElement('div');
   bar.id = '__rt_titlebar';
-  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:36px;z-index:2147483646;display:flex;align-items:center;gap:8px;padding:0 150px 0 12px;background:#fff;border-bottom:1px solid #E3E6EA;font:600 13px "Segoe UI",system-ui,sans-serif;color:#1f2937;-webkit-app-region:drag;user-select:none';
+  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:36px;z-index:2147483646;display:flex;align-items:center;gap:8px;padding:0 150px 0 12px;background:#fff;border-bottom:1px solid #E3E6EA;font:600 13px "Segoe UI",system-ui,sans-serif;color:#1f2937;-webkit-app-region:drag;user-select:none;transform:translateZ(0);will-change:transform';
   bar.innerHTML = '<svg width="18" height="18" viewBox="0 0 100 100" fill="none" stroke="#00959c" stroke-width="9" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg><span>Rajib Tutorial</span>';
   document.body.appendChild(bar);
   // Local pages (focus / offline) have no layout that knows about the bar: push their content down.
@@ -15,6 +15,31 @@ function buildTitleBar() {
 }
 window.addEventListener('DOMContentLoaded', buildTitleBar);
 window.addEventListener('load', buildTitleBar);
+
+// No flicker: the white bar is painted by CSS from the very first frame of every page (before <body> exists), and the real
+// bar is (re)added the moment <body> appears or if a page ever removes it. Before this, the bar only appeared at
+// DOMContentLoaded, so every page change showed a blank strip + the bar popping in.
+function injectBarStyle() {
+  const root = document.documentElement;
+  if (!root || document.getElementById('__rt_tbstyle')) return;
+  const st = document.createElement('style');
+  st.id = '__rt_tbstyle';
+  st.textContent = 'html::before{content:"";position:fixed;top:0;left:0;right:0;height:36px;background:#fff;border-bottom:1px solid #E3E6EA;z-index:2147483645;pointer-events:none}'
+    + 'html.bt-fs::before{display:none}';
+  root.appendChild(st);
+}
+injectBarStyle();
+try {
+  const early = new MutationObserver(() => { injectBarStyle(); if (document.body) buildTitleBar(); });
+  early.observe(document, { childList: true, subtree: true });
+  window.addEventListener('DOMContentLoaded', () => {
+    early.disconnect();
+    buildTitleBar();
+    const keep = new MutationObserver(() => { if (document.body && !document.getElementById('__rt_titlebar')) buildTitleBar(); if (!document.getElementById('__rt_tbstyle')) injectBarStyle(); });
+    keep.observe(document.documentElement, { childList: true });
+    if (document.body) keep.observe(document.body, { childList: true });
+  });
+} catch (_) {}
 
 // Update UI: a banner at the top when an update exists + a fixed check button (bottom-right)
 let lastUpdate = { status: 'idle' };
