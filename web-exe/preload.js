@@ -126,6 +126,7 @@ contextBridge.exposeInMainWorld('ElectronShell', {
     get: () => ipcRenderer.invoke('settings:get'),
     set: (k, v) => ipcRenderer.invoke('settings:set', String(k), !!v),
     clearCache: () => ipcRenderer.invoke('settings:clearCache'),
+    testNotify: () => ipcRenderer.invoke('settings:testNotify'),
     checkUpdate: () => ipcRenderer.send('update:check'),
   },
   focus: {

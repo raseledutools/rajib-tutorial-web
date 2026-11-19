@@ -6929,12 +6929,15 @@ async function toggleFlashlight() {
 
   const rows=[
     {k:'notifications',t:'🔔 Notifications',d:'Admin-এর পাঠানো নোটিফিকেশন Windows-এ দেখাবে।'},
-    {k:'screenProtect',t:'🛡️ Screenshot Protection',d:'চালু থাকলে স্ক্রিনশট / স্ক্রিন রেকর্ডে অ্যাপের উইন্ডো কালো আসবে।'},
+    {k:'notifySound',t:'🔊 Notification Sound',d:'বন্ধ থাকলে নোটিফিকেশন নিঃশব্দে আসবে।'},
+    {k:'screenProtect',t:'🛡️ Screenshot / Screen-Record Protection',d:'চালু থাকলে স্ক্রিনশট ও স্ক্রিন রেকর্ডে অ্যাপের উইন্ডো কালো আসবে। বন্ধ করলে সব ক্যাপচারে দেখা যাবে।'},
+    {k:'alwaysOnTop',t:'📌 Always on Top',d:'অ্যাপের উইন্ডো সবসময় অন্য উইন্ডোর উপরে থাকবে।'},
     {k:'autostart',t:'🚀 Start with Windows',d:'কম্পিউটার চালু হলে অ্যাপ ব্যাকগ্রাউন্ডে চালু হবে।'},
     {k:'closeToTray',t:'📥 Close → System Tray',d:'বন্ধ (X) করলে ব্যাকগ্রাউন্ডে চলবে। বন্ধ থাকলে অ্যাপ পুরোপুরি বন্ধ হবে।'}
   ];
   const ov=document.createElement('div');ov.id='rtSetOv';
   ov.innerHTML='<div id="rtSet" role="dialog" aria-label="Settings"><h3>⚙️ Settings</h3><div class="rs-sub">অ্যাপের সেটিং (এই কম্পিউটারে সেভ থাকে)</div><div id="rtSetRows"></div>'
+    +'<div class="rs-row"><div class="rs-txt"><div class="rs-t">🔔 Test Notification</div><div class="rs-d">একটা টেস্ট নোটিফিকেশন পাঠিয়ে দেখুন।</div></div><button class="rs-btn" id="rtSetTst">Test</button></div>'
     +'<div class="rs-row"><div class="rs-txt"><div class="rs-t">⟳ Update</div><div class="rs-d">নতুন ভার্সন আছে কিনা দেখুন।</div></div><button class="rs-btn" id="rtSetUpd">Check</button></div>'
     +'<div class="rs-row"><div class="rs-txt"><div class="rs-t">🧹 Clear Cache</div><div class="rs-d">ব্রাউজারের টেম্প ক্যাশ মুছবে। লগইন ও অফলাইন ভিডিও মুছবে না।</div></div><button class="rs-btn" id="rtSetClr">Clear</button></div>'
     +'<div class="rs-foot"><span id="rtSetVer"></span><button class="rs-btn" id="rtSetClose">Close</button></div></div>';
@@ -6963,6 +6966,7 @@ async function toggleFlashlight() {
   ov.querySelector('#rtSetClose').onclick=close;
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ov.classList.contains('on'))close()});
   ov.querySelector('#rtSetUpd').onclick=function(){S.checkUpdate();this.textContent='চেক হচ্ছে…';setTimeout(()=>{this.textContent='Check'},2500)};
+  ov.querySelector('#rtSetTst').onclick=function(){const b=this;S.testNotify().then(r=>{b.textContent=r==='off'?'Notifications বন্ধ':(r?'✓ Sent':'Failed')}).catch(()=>{b.textContent='Failed'}).finally(()=>setTimeout(()=>{b.textContent='Test'},2000))};
   ov.querySelector('#rtSetClr').onclick=function(){const b=this;b.disabled=true;S.clearCache().then(()=>{b.textContent='✓ Done'}).catch(()=>{b.textContent='Failed'}).finally(()=>setTimeout(()=>{b.disabled=false;b.textContent='Clear'},1800))};
 
   const btn=document.createElement('button');
