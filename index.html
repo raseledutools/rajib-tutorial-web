@@ -2993,6 +2993,28 @@ const WV_PROBE='(function(){try{var p=document.getElementById("movie_player")||d
   'var t=f("getCurrentTime");if(typeof t!=="number")t=v.currentTime;'+
   'var lf=f("getVideoLoadedFraction");if(typeof lf!=="number"){lf=0;try{if(v.buffered.length&&d>0)lf=v.buffered.end(v.buffered.length-1)/d}catch(e){}}'+
   'return{st:st,d:d||0,t:t||0,lf:lf||0,q:f("getPlaybackQuality")||"",lv:f("getAvailableQualityLevels")||[]}}catch(e){return null}})()';
+// CSS + JS pushed into the webview page by the app itself (works even if the installed exe is older than ext-preload.js):
+// hides title / channel / logo / share / watch-later / "More videos" / captions, and keeps captions switched off
+const WV_HIDE=['.ytp-chrome-top','.ytp-chrome-bottom','.ytp-gradient-top','.ytp-gradient-bottom','.ytp-title','.ytp-title-channel','.ytp-title-beacon',
+  '.ytp-watermark','.ytp-youtube-button','.ytp-share-button','.ytp-watch-later-button','.ytp-copylink-button','.ytp-pause-overlay','.ytp-pause-overlay-container',
+  '.ytp-endscreen-content','.html5-endscreen','.ytp-ce-element','.ytp-ce-covering-overlay','.ytp-cards-teaser','.ytp-cards-button','.ytp-large-play-button',
+  '.ytp-spinner','.ytp-popup','.ytp-contextmenu','.ytp-iv-video-content','.annotation','.ytp-suggested-action','.ytp-paid-content-overlay','.ytp-videowall-still',
+  '.ytp-impression-link','.ytp-player-content','.ytp-tooltip','.ytp-bezel','.ytp-bezel-text-wrapper','.ytp-expand-pause-overlay','.ytp-suggestion-set',
+  '[class*="ytp-pause-overlay"]','[class*="ytp-ce-"]','[class*="ytp-endscreen"]','[class*="ytp-chrome-"]','[class*="ytp-cards"]','[class*="ytp-gradient"]',
+  '.ytp-caption-window-container','.caption-window','.ytp-caption-segment','.captions-text','.ytp-subtitles-button',
+  'ytd-masthead','#masthead-container','#secondary','#below','#related','#comments','#chat','ytd-watch-metadata','ytd-miniplayer','tp-yt-app-drawer',
+  'ytd-mini-guide-renderer','#guide','#guide-wrapper','ytd-popup-container','ytd-consent-bump-v2-lightbox','tp-yt-iron-overlay-backdrop'];
+const WV_CSS='html,body{margin:0!important;padding:0!important;background:#000!important;overflow:hidden!important;cursor:default!important}'+
+  '.html5-video-player{background:#000!important;cursor:default!important}ytd-app,#page-manager{background:#000!important;margin:0!important}'+
+  'ytd-watch-flexy #primary,ytd-watch-flexy #primary-inner,ytd-watch-flexy #columns{margin:0!important;padding:0!important;max-width:none!important}'+
+  'body.rt-watch #movie_player,body.rt-watch #player-container-outer,body.rt-watch #player-container-inner,body.rt-watch #player-container,body.rt-watch #player,body.rt-watch #ytd-player,body.rt-watch .html5-video-container{position:fixed!important;left:0!important;top:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:2147483000!important;background:#000!important}'+
+  'body.rt-watch .html5-main-video{width:100%!important;height:100%!important;left:0!important;top:0!important;object-fit:contain!important}'+
+  WV_HIDE.join(',')+'{display:none!important}';
+const WV_GUEST='(function(){if(window.__rtWv)return;window.__rtWv=1;var css='+JSON.stringify(WV_CSS)+';'+
+  'function put(){try{if(document.body&&location.pathname==="/watch")document.body.classList.add("rt-watch");'+
+  'if(!document.getElementById("__rt_wvcss")){var r=document.head||document.documentElement;if(!r)return;var st=document.createElement("style");st.id="__rt_wvcss";st.textContent=css;r.appendChild(st)}'+
+  'var p=document.getElementById("movie_player");if(p){if(p.unloadModule)p.unloadModule("captions");if(p.setOption)p.setOption("captions","track",{})}}catch(e){}}'+
+  'put();setInterval(put,700);window.addEventListener("keydown",function(e){e.stopImmediatePropagation();e.preventDefault()},true);window.addEventListener("contextmenu",function(e){e.preventDefault()},true)})()';
 function wvPlayer(slot,id,o,evs,onFail){
   const wv=document.createElement("webview");
   wv.setAttribute("partition","persist:rtext");
@@ -3020,7 +3042,7 @@ function wvPlayer(slot,id,o,evs,onFail){
   const call=(n,a)=>run('(function(){'+P+'try{if(p&&typeof p.'+n+'==="function")p.'+n+'.apply(p,'+JSON.stringify(a||[])+')}catch(e){}})()');
   // watch-page fallback: YouTube's "up next" must never leave the lesson video
   const halt=()=>{halted=true;clearTimeout(armT);S.st=0;emit(0);try{wv.loadURL("about:blank")}catch(e){}};
-  wv.addEventListener("dom-ready",()=>{dom=true});
+  wv.addEventListener("dom-ready",()=>{dom=true;try{wv.executeJavaScript(WV_GUEST,false).catch(()=>{})}catch(e){}});
   wv.addEventListener("console-message",e=>{if(e&&e.message==="__rt_lesson_error__")escalate()});
   wv.addEventListener("did-fail-load",e=>{if(e&&e.isMainFrame&&e.errorCode!==-3&&!halted)escalate()});
   wv.addEventListener("did-navigate-in-page",e=>{
