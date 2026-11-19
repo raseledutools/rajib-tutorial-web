@@ -2002,7 +2002,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     </div>
     <div class="nav-item" id="navDisc" onclick="openDiscussion()"><span class="nav-ico">💬</span><span>Discussion</span></div>
     <div class="nav-item" id="navInbox" onclick="openInbox()"><span class="nav-ico">🔔</span><span>Notifications</span></div>
-    <div class="nav-item" id="navOffline" onclick="openOffline()"><span class="nav-ico">📥</span><span>Offline Lessons</span></div>
+    <div class="nav-item" id="navFocus" style="display:none" onclick="ElectronShell.focus.open();closeSidebar()"><span class="nav-ico">🎯</span><span id="navFocusT">Focus Mode</span></div>
     <div class="nav-item" id="navPush" style="display:none" onclick="pushEnableClick();closeSidebar()"><span class="nav-ico">✅</span><span>Enable Notifications</span></div>
     <div class="nav-item" id="navResCircular" onclick="openRes('circular')"><span class="nav-ico">📢</span><span>Current Circular</span></div>
     <div class="nav-item" id="navResQbank" onclick="openRes('qbank')"><span class="nav-ico">📚</span><span>Question Bank</span></div>
@@ -6481,6 +6481,14 @@ if(NV){
   });
 }
 window.openOffline=function(){goView("viewOffline");closeSidebar()};
+// Focus Mode sidebar item (Windows exe only) — shows "চলছে" while a session is running
+(function(){
+  const sh=window.ElectronShell;if(!(sh&&sh.isElectron&&sh.focus))return;
+  const nav=document.getElementById("navFocus"),t=document.getElementById("navFocusT");if(!nav)return;
+  nav.style.display="";
+  const ui=on=>{t.textContent=on?"Focus চলছে":"Focus Mode";nav.style.color=on?"#16a34a":""};
+  ui(sh.focus.isOn());sh.focus.onChange(ui);
+})();
 window.offRender=async function(){
   const box=$("offList"),pl=$("offPlayer");if(!box)return;
   if(window._offUrl2){try{URL.revokeObjectURL(window._offUrl2)}catch(e){}window._offUrl2=null}
