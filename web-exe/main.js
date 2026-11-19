@@ -475,7 +475,8 @@ app.on('web-contents-created', (_e, wc) => {
     let ok = false;
     try { ok = new URL(params.src).protocol === 'https:' && params.partition === EXT_PARTITION; } catch (_) {}
     if (!ok) { e.preventDefault(); return; }
-    delete webPreferences.preload; delete webPreferences.preloadURL;
+    delete webPreferences.preloadURL;
+    webPreferences.preload = path.join(__dirname, 'ext-preload.js'); // makes the page look like normal Chrome (Google sign-in)
     webPreferences.nodeIntegration = false;
     webPreferences.contextIsolation = true;
     webPreferences.sandbox = true;
@@ -504,6 +505,21 @@ app.whenReady().then(() => {
     // Chrome user-agent (Google refuses sign-in from browsers that announce "Electron").
     const ext = session.fromPartition(EXT_PARTITION);
     ext.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/' + process.versions.chrome + ' Safari/537.36');
+    // Client-hint headers: send the same "Google Chrome" brands as the user-agent (no "Electron" anywhere).
+    const major = String(process.versions.chrome).split('.')[0];
+    const brands = '"Chromium";v="' + major + '", "Google Chrome";v="' + major + '", "Not_A Brand";v="24"';
+    const fullList = '"Chromium";v="' + process.versions.chrome + '", "Google Chrome";v="' + process.versions.chrome + '", "Not_A Brand";v="24.0.0.0"';
+    ext.webRequest.onBeforeSendHeaders((details, cb) => {
+      const h = details.requestHeaders;
+      for (const k of Object.keys(h)) {
+        const l = k.toLowerCase();
+        if (l === 'sec-ch-ua') h[k] = brands;
+        else if (l === 'sec-ch-ua-full-version-list') h[k] = fullList;
+        else if (l === 'sec-ch-ua-mobile') h[k] = '?0';
+        else if (l === 'sec-ch-ua-platform') h[k] = '"Windows"';
+      }
+      cb({ requestHeaders: h });
+    });
     ext.setPermissionRequestHandler((_wc, perm, cb) =>
       cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));
   }
