@@ -98,3 +98,28 @@ try {
     }.toString() + ')()');
   }
 } catch (_) {}
+
+/* ---- Every site: hide the common ad boxes (Google ads, ad slots, Google Search sponsored results) ---- */
+try {
+  const h = location.hostname;
+  if (h !== 'accounts.google.com' && h !== 'studio.youtube.com') {
+    const CSS = [
+      'ins.adsbygoogle', '.adsbygoogle', '.google-auto-placed', '[id^="google_ads_iframe"]', '[id^="google_ads_"]', '[id^="div-gpt-ad"]',
+      'iframe[id^="google_ads"]', 'iframe[src*="doubleclick.net"]', 'iframe[src*="googlesyndication.com"]', 'iframe[src*="adnxs.com"]',
+      '[data-ad-slot]', '[data-ad-client]', '[data-google-query-id]', '[aria-label="Advertisement" i]', '[aria-label="Ads" i]',
+      '.advertisement', '.ad-slot', '.adslot', '.ad-unit', '.ad-banner', '.adbox', '#ad-banner', '.sponsored-ad',
+      '[id^="taboola-"]', '.trc_related_container', '[id^="outbrain"]', '.OUTBRAIN', '.ob-widget',
+      /* Google Search: sponsored results */
+      '#tads', '#tadsb', '#bottomads', '.commercial-unit-desktop-top', '.commercial-unit-desktop-rhs', '.pla-unit-container', '.cu-container', '[data-text-ad]',
+    ].join(',') + '{display:none!important}';
+    const put = () => {
+      if (document.getElementById('__rt_adcss')) return true;
+      const root = document.head || document.documentElement;
+      if (!root) return false;
+      const st = document.createElement('style'); st.id = '__rt_adcss'; st.textContent = CSS; root.appendChild(st);
+      return true;
+    };
+    if (!put()) { const mo = new MutationObserver(() => { if (put()) mo.disconnect(); }); mo.observe(document, { childList: true, subtree: true }); }
+    document.addEventListener('DOMContentLoaded', put);
+  }
+} catch (_) {}

@@ -468,6 +468,18 @@ ipcMain.on('nav', (e, act) => {
 });
 
 const EXT_PARTITION = 'persist:rtext';
+// Ad / ad-tracking networks: blocked for every site opened in the embedded view (these domains serve ads only).
+const AD_DOMAINS = [
+  'doubleclick.net', 'googlesyndication.com', 'googleadservices.com', 'googletagservices.com', 'adservice.google.com', '2mdn.net',
+  'moatads.com', 'adnxs.com', 'adsrvr.org', 'advertising.com', 'adform.net', 'rubiconproject.com', 'pubmatic.com', 'openx.net',
+  'criteo.com', 'criteo.net', 'taboola.com', 'outbrain.com', 'amazon-adsystem.com', 'casalemedia.com', '33across.com',
+  'smartadserver.com', 'mgid.com', 'revcontent.com', 'popads.net', 'popcash.net', 'propellerads.com', 'exoclick.com', 'exosrv.com',
+  'juicyads.com', 'trafficjunky.net', 'adsterra.com', 'highperformanceformat.com', 'effectivegatecpm.com', 'onclickads.net',
+  'adcash.com', 'a-ads.com', 'ad-maven.com', 'admaven.com', 'yieldmo.com', 'sharethrough.com', 'teads.tv', 'zedo.com', 'adtng.com',
+  'bidswitch.net', 'contextweb.com', 'lijit.com', 'sovrn.com', 'indexww.com', 'triplelift.com', 'smaato.net', 'inmobi.com',
+  'adroll.com', 'adthrive.com', 'adskeeper.com', 'adcolony.com', 'applovin.com', 'unity3d.com/ads',
+].filter((d) => !d.includes('/'));
+const AD_HOST_RE = new RegExp('(^|\\.)(' + AD_DOMAINS.map((d) => d.replace(/\./g, '\\.')).join('|') + ')$', 'i');
 app.on('web-contents-created', (_e, wc) => {
   guard(wc);
   // The main window may embed external sites in a <webview>; lock those guests down.
@@ -488,6 +500,7 @@ app.on('web-contents-created', (_e, wc) => {
     wc.setWindowOpenHandler(({ url: u }) => {
       try {
         const parsed = new URL(u);
+        if (AD_HOST_RE.test(parsed.hostname)) return { action: 'deny' };   // ad pop-up / pop-under
         if (parsed.protocol === 'https:') wc.loadURL(u);
         else if (parsed.protocol === 'mailto:' || parsed.protocol === 'tel:') shell.openExternal(u);
       } catch (_) {}
@@ -514,6 +527,7 @@ app.whenReady().then(() => {
       '*://*.doubleclick.net/*', '*://*.googlesyndication.com/*', '*://*.googleadservices.com/*', '*://adservice.google.com/*',
       '*://*.youtube.com/pagead/*', '*://*.youtube.com/api/stats/ads*', '*://*.youtube.com/ptracking*',
       '*://*.youtube.com/get_midroll_info*', '*://*.youtube.com/youtubei/v1/player/ad_break*',
+      ...AD_DOMAINS.map((d) => '*://*.' + d + '/*'),
     ] }, (_d, cb) => cb({ cancel: true }));
     ext.webRequest.onBeforeSendHeaders((details, cb) => {
       const h = details.requestHeaders;
