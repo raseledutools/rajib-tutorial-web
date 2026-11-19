@@ -5,7 +5,7 @@
      a visible window (every ~2 s); the decisions are made in focus-core.js
    - blocked app  -> process killed; blocked site -> Ctrl+W on the browser tab + minimise;
      Task Manager / uninstall windows -> closed; a quote popup is shown each time */
-const { app, BrowserWindow, ipcMain, dialog, Notification, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification, screen, webContents } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn, execFile } = require('child_process');
@@ -61,10 +61,15 @@ function publicState() {
     common: { sites: core.COMMON_SITES, apps: core.COMMON_APPS },
   };
 }
+// the Focus page lives in a <webview> (rtfocus://app/focus.html) inside the main window
+function focusGuests() {
+  try { return webContents.getAllWebContents().filter((w) => !w.isDestroyed() && w.getType() === 'webview' && w.getURL().startsWith('rtfocus://app/focus.html')); } catch (_) { return []; }
+}
 function broadcast() {
   const ps = publicState();
   const mw = getMainWin();
-  if (mw && !mw.isDestroyed()) { mw.webContents.send('focus:state', ps); mw.webContents.send('focus:badge', st.active); }
+  focusGuests().forEach((g) => { try { g.send('focus:state', ps); } catch (_) {} });
+  if (mw && !mw.isDestroyed()) mw.webContents.send('focus:badge', st.active);
   if (hooks.onActiveChange) hooks.onActiveChange(st.active);
 }
 
@@ -286,23 +291,19 @@ function armExpiry() {
   expiryTimer.unref();
 }
 
-/* ---------- page (opens inside the main app window; Back returns to the site) ---------- */
+/* ---------- page (a view inside the website layout: sidebar + title bar stay; see main.js openFocusView) ---------- */
 function openWindow() {
-  const mw = getMainWin();
-  if (!mw || mw.isDestroyed()) return;
-  if (mw.isMinimized()) mw.restore();
-  mw.show(); mw.focus();
-  mw.loadFile(path.join(__dirname, 'focus.html'));
+  if (hooks.openView) hooks.openView();
 }
 
 /* ---------- IPC ---------- */
-// only the local focus.html page (never the website) may use the Focus API
+// only the local Focus page (the <webview> showing rtfocus://app/focus.html inside the main window; never the website) may use the Focus API
 function fromFocusWin(e) {
   const mw = getMainWin();
-  if (!mw || mw.isDestroyed() || e.sender !== mw.webContents) return false;
+  if (!mw || mw.isDestroyed()) return false;
   try {
-    const u = new URL(e.senderFrame && e.senderFrame.url ? e.senderFrame.url : mw.webContents.getURL());
-    return u.protocol === 'file:' && /\/focus\.html$/.test(u.pathname);
+    const s = e.sender;
+    return s.getType() === 'webview' && s.hostWebContents === mw.webContents && s.getURL().startsWith('rtfocus://app/focus.html');
   } catch (_) { return false; }
 }
 
