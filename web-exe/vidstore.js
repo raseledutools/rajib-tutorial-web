@@ -13,6 +13,7 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
+const { Transform } = require('stream');
 const { spawn } = require('child_process');
 const { app } = (() => { try { return require('electron'); } catch (_) { return {}; } })();
 
@@ -149,9 +150,21 @@ async function downloadYT(item, outFile, onProgress, onDone, onError) {
   onError('YouTube: ' + (lastErrLine(r.err) || ('yt-dlp exit ' + r.code)));
 }
 
-function create(dir, emit) {
+// ── At-rest protection: files are AES-256-CTR encrypted (random IV in the first 16 bytes) with a key that
+// main.js keeps sealed by Windows DPAPI (per Windows user). A copied file is useless outside the app / on another PC.
+const HDR = 16;
+function ctrIv(iv, block) {
+  let n = BigInt('0x' + iv.toString('hex')) + BigInt(block);
+  n &= (1n << 128n) - 1n;
+  return Buffer.from(n.toString(16).padStart(32, '0'), 'hex');
+}
+
+function create(dir, emit, key) {
   emit = emit || (() => {});
   fs.mkdirSync(dir, { recursive: true });
+  // hide the folder from Explorer (Hidden + System)
+  if (process.platform === 'win32') { try { require('child_process').execFile('attrib', ['+h', '+s', dir], { windowsHide: true }, () => {}); } catch (_) {} }
+  const KEY = Buffer.isBuffer(key) && key.length === 32 ? key : null;
   const indexFile = path.join(dir, 'index.json');
   const active = new Map();   // id -> { req, cancelled, pct, got, total }
 
@@ -165,14 +178,47 @@ function create(dir, emit) {
     } catch (_) {}
   };
 
-  const fileOf = (id) => path.join(dir, sha1(id) + '.mp4');
+  const fileOf = (id) => path.join(dir, sha1(id) + '.dat');
+  const legacyOf = (id) => path.join(dir, sha1(id) + '.mp4');          // old plain files (migrated below)
+  const plainOf = (id) => path.join(dir, sha1(id) + '.tmp.mp4');       // finished download, about to be encrypted
+
+  /** plain file -> encrypted fileOf(id) (plain file is deleted). Sync + chunked: runs once per lesson. */
+  function seal(plain, id) {
+    const dst = fileOf(id), tmp = dst + '.w';
+    const iv = crypto.randomBytes(16);
+    const ci = KEY ? crypto.createCipheriv('aes-256-ctr', KEY, iv) : null;
+    const fi = fs.openSync(plain, 'r'), fo = fs.openSync(tmp, 'w');
+    try {
+      if (ci) fs.writeSync(fo, iv); else fs.writeSync(fo, Buffer.alloc(HDR));
+      const buf = Buffer.allocUnsafe(4 * 1024 * 1024);
+      let n;
+      while ((n = fs.readSync(fi, buf, 0, buf.length, null)) > 0) {
+        const out = ci ? ci.update(buf.subarray(0, n)) : buf.subarray(0, n);
+        fs.writeSync(fo, out);
+      }
+      if (ci) { const f = ci.final(); if (f.length) fs.writeSync(fo, f); }
+    } finally { try { fs.closeSync(fi); } catch (_) {} try { fs.closeSync(fo); } catch (_) {} }
+    rm(dst); fs.renameSync(tmp, dst); rm(plain);
+    return fs.statSync(dst).size - HDR;
+  }
+
+  // migrate plain .mp4 files left by older versions
+  setTimeout(() => {
+    try {
+      for (const k of Object.keys(index)) {
+        const e = index[k]; if (!e || !e.id) continue;
+        if (!fs.existsSync(fileOf(e.id)) && fs.existsSync(legacyOf(e.id))) { try { e.size = seal(legacyOf(e.id), e.id); } catch (_) {} }
+      }
+      saveIndex();
+    } catch (_) {}
+  }, 3000);
   const partOf = (id, url) => path.join(dir, sha1(id) + '.' + sha1(url).slice(0, 8) + '.part');
   const rm = (f) => { try { fs.unlinkSync(f); } catch (_) {} };
 
   function clearParts(id) {
     const k = sha1(id);
     try {
-      for (const f of fs.readdirSync(dir)) if (f.startsWith(k + '.') && f.endsWith('.part')) rm(path.join(dir, f));
+      for (const f of fs.readdirSync(dir)) if (f.startsWith(k + '.') && (f.endsWith('.part') || f.endsWith('.tmp.mp4') || f.endsWith('.w'))) rm(path.join(dir, f));
     } catch (_) {}
   }
 
@@ -182,7 +228,7 @@ function create(dir, emit) {
     if (!e || !fs.existsSync(fileOf(id))) return null;
     if (url && e.url && e.url !== url) return null;
     let size = e.size;
-    try { size = fs.statSync(fileOf(id)).size; } catch (_) {}
+    try { size = fs.statSync(fileOf(id)).size - HDR; } catch (_) {}
     return Object.assign({}, e, { size });
   }
 
@@ -190,7 +236,7 @@ function create(dir, emit) {
     const out = [];
     for (const k of Object.keys(index)) {
       const e = index[k];
-      if (e && e.id && fs.existsSync(fileOf(e.id))) out.push(Object.assign({}, e, { size: fs.statSync(fileOf(e.id)).size }));
+      if (e && e.id && fs.existsSync(fileOf(e.id))) out.push(Object.assign({}, e, { size: fs.statSync(fileOf(e.id)).size - HDR }));
     }
     return out.sort((a, b) => (b.at || 0) - (a.at || 0));
   }
@@ -206,7 +252,7 @@ function create(dir, emit) {
   function remove(id) {
     const a = active.get(id);
     if (a) { a.cancelled = true; try { a.req && a.req.destroy(); } catch (_) {} }
-    rm(fileOf(id));
+    rm(fileOf(id)); rm(legacyOf(id));
     clearParts(id);
     delete index[sha1(id)];
     saveIndex();
@@ -254,7 +300,7 @@ function create(dir, emit) {
     if (active.has(id)) return { status: 'busy' };
     // the admin replaced the video: drop the old copy first
     const old = index[sha1(id)];
-    if (old && old.url && old.url !== url) { rm(fileOf(id)); clearParts(id); delete index[sha1(id)]; saveIndex(); }
+    if (old && old.url && old.url !== url) { rm(fileOf(id)); rm(legacyOf(id)); clearParts(id); delete index[sha1(id)]; saveIndex(); }
 
     const title = String(o.title || ''), course = String(o.course || '');
     const expireDays = Number(o.expireDays) || 7;
@@ -266,9 +312,11 @@ function create(dir, emit) {
       emit({ type: 'progress', id, pct: 0, got: 0, total: 0 });
       downloadYT(
         { id, url, title, course },
-        fileOf(id),
+        plainOf(id),
         (pct) => { st.pct = pct; emit({ type: 'progress', id, pct, got: 0, total: 0 }); },
-        (size) => {
+        (plainSize) => {
+          let size = plainSize;
+          try { size = seal(plainOf(id), id); } catch (e) { active.delete(id); rm(plainOf(id)); emit({ type: 'error', id, error: 'encrypt: ' + e.message }); return; }
           active.delete(id);
           index[sha1(id)] = { id, url, title, course, size, at: Date.now(), expireDays };
           saveIndex();
@@ -351,9 +399,9 @@ function create(dir, emit) {
     if (result === 'write') return 'write error';
     if (result === 'aborted' || (total && st.got < total)) return 'connection lost (will resume next time)';
 
-    rm(fileOf(id));
-    fs.renameSync(part, fileOf(id));
-    index[sha1(id)] = { id, url, title, course, size: st.got, at: Date.now(), expireDays: 7 };
+    let size = st.got;
+    try { size = seal(part, id); } catch (e) { rm(part); return 'encrypt: ' + e.message; }
+    index[sha1(id)] = { id, url, title, course, size, at: Date.now(), expireDays: 7 };
     saveIndex();
     return 'done';
   }
@@ -363,7 +411,8 @@ function create(dir, emit) {
     const f = fileOf(id);
     if (!info(id)) return null;
     let size;
-    try { size = fs.statSync(f).size; } catch (_) { return null; }
+    try { size = fs.statSync(f).size - HDR; } catch (_) { return null; }
+    if (size <= 0) return null;
     const headers = { 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes' };
     let start = 0, end = size - 1, status = 200;
     const m = /^bytes=(\d*)-(\d*)$/.exec(String(rangeHeader || '').trim());
@@ -377,7 +426,20 @@ function create(dir, emit) {
       headers['Content-Range'] = 'bytes ' + start + '-' + end + '/' + size;
     }
     headers['Content-Length'] = String(end - start + 1);
-    return { status, headers, stream: fs.createReadStream(f, { start, end }) };
+    const blockStart = start - (start % 16);
+    const src = fs.createReadStream(f, { start: HDR + blockStart, end: HDR + end });
+    if (!KEY) return { status, headers, stream: src };
+    let iv;
+    try { const fd = fs.openSync(f, 'r'); iv = Buffer.alloc(16); fs.readSync(fd, iv, 0, 16, 0); fs.closeSync(fd); } catch (_) { return null; }
+    const dec = crypto.createDecipheriv('aes-256-ctr', KEY, ctrIv(iv, blockStart / 16));
+    let skip = start - blockStart;
+    const trim = new Transform({ transform(chunk, _e, cb) {
+      if (skip > 0) { if (chunk.length <= skip) { skip -= chunk.length; return cb(); } chunk = chunk.subarray(skip); skip = 0; }
+      cb(null, chunk);
+    } });
+    const out = src.pipe(dec).pipe(trim);
+    out.on('close', () => { try { src.destroy(); } catch (_) {} });
+    return { status, headers, stream: out };
   }
 
   return { start, cancel, remove, info, list, activeList, open };
