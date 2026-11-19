@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Menu, Tray, nativeImage, session, shell, clipboard, globalShortcut, ipcMain, Notification, protocol, net } = require('electron');
+const { app, BrowserWindow, Menu, Tray, nativeImage, session, shell, clipboard, globalShortcut, ipcMain, Notification, protocol, net, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -109,10 +109,27 @@ function setOfflineHandling(on) {
    not held in RAM, served back through rtvid:// . YouTube lessons can't be saved. */
 let vids = null;
 function trusted(e) { return !!win && !win.isDestroyed() && e.sender === win.webContents; }
+// Random 32-byte key, stored sealed with Windows DPAPI (safeStorage): only this Windows user on this PC can unseal it.
+function vidKey() {
+  const f = path.join(app.getPath('userData'), 'Cache', 'rt-k.bin');
+  try {
+    if (safeStorage && safeStorage.isEncryptionAvailable()) {
+      if (fs.existsSync(f)) return Buffer.from(safeStorage.decryptString(fs.readFileSync(f)), 'hex');
+      const k = require('crypto').randomBytes(32);
+      fs.mkdirSync(path.dirname(f), { recursive: true });
+      fs.writeFileSync(f, safeStorage.encryptString(k.toString('hex')));
+      return k;
+    }
+  } catch (_) {}
+  return null;   // no DPAPI: saved as plain (hidden) files
+}
 function initVideos() {
-  vids = vidstore.create(path.join(app.getPath('userData'), 'offline-videos'), (ev) => {
+  const ud = app.getPath('userData');
+  const oldDir = path.join(ud, 'offline-videos'), newDir = path.join(ud, 'Cache', 'rt-vd');   // hidden, non-obvious place
+  try { fs.mkdirSync(path.join(ud, 'Cache'), { recursive: true }); if (fs.existsSync(oldDir) && !fs.existsSync(newDir)) fs.renameSync(oldDir, newDir); } catch (_) {}
+  vids = vidstore.create(newDir, (ev) => {
     if (win && !win.isDestroyed()) win.webContents.send('vid:event', ev);
-  });
+  }, vidKey());
   protocol.handle('rtvid', (request) => {
     try {
       const id = decodeURIComponent(new URL(request.url).pathname.slice(1));
