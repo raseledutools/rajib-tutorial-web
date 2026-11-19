@@ -20,6 +20,13 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
+      # Download yt-dlp.exe so YouTube lessons can be saved offline
+      - name: Download yt-dlp.exe
+        shell: bash
+        run: |
+          mkdir -p bin
+          curl -L "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -o bin/yt-dlp.exe
+          echo "yt-dlp size: $(wc -c < bin/yt-dlp.exe) bytes"
       # Every build gets a new, higher version (1.0.<run number>) so installed apps see it as an update.
       - name: Set version
         shell: bash

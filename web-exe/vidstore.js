@@ -2,11 +2,9 @@
 /**
  * Offline lesson videos for the Windows exe.
  *
- * Direct video files (e.g. Cloudinary) are downloaded by the main process straight to disk
- * (userData/offline-videos) instead of being held in RAM, so even very long lectures work.
- * Downloads resume where they stopped (after a dropped connection or an app restart) and the
- * saved file is served back with HTTP Range support so seeking works.
- * YouTube lessons are never handled here (they can't be saved).
+ * Direct video files (e.g. Cloudinary) are downloaded straight to disk (userData/offline-videos):
+ * resumable, not held in RAM, served back via rtvid:// with Range support so seeking works.
+ * YouTube lessons are downloaded via yt-dlp.exe (bundled in resources/yt-dlp.exe).
  *
  * Pure Node (no Electron imports) so it can be unit-tested.
  */
@@ -15,11 +13,67 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
+const { app } = (() => { try { return require('electron'); } catch (_) { return {}; } })();
 
 const MIN_FREE_BYTES = 300 * 1024 * 1024;   // always leave 300 MB free on the disk
 const MAX_REDIRECTS = 5;
 
 const sha1 = (s) => crypto.createHash('sha1').update(String(s)).digest('hex');
+const isYtUrl = (u) => /(?:youtube\.com|youtu\.be)/i.test(String(u || ''));
+
+// yt-dlp.exe path: works both in dev and in packaged .exe
+function ytdlpBin() {
+  if (app && typeof app.isPackaged !== 'undefined') {
+    return app.isPackaged
+      ? path.join(process.resourcesPath, 'yt-dlp.exe')
+      : path.join(__dirname, 'bin', 'yt-dlp.exe');
+  }
+  return path.join(__dirname, 'bin', 'yt-dlp.exe');
+}
+
+// running yt-dlp processes (id -> child_process), for cancel support
+const ytProcs = new Map();
+
+/**
+ * Download a YouTube URL to outFile via yt-dlp.exe.
+ * onProgress(pct), onDone(sizeBytes), onError(msg)
+ */
+function downloadYT(item, outFile, onProgress, onDone, onError) {
+  const bin = ytdlpBin();
+  if (!fs.existsSync(bin)) { onError('yt-dlp.exe not found at ' + bin); return; }
+  const tmp = outFile + '.part';
+  const args = [
+    '-f', 'best[ext=mp4][height<=720]/best[ext=mp4]/best',
+    '--no-playlist', '--newline', '--continue',
+    '-o', tmp,
+    item.url,
+  ];
+  const proc = spawn(bin, args, { windowsHide: true });
+  ytProcs.set(item.id, proc);
+  let lastPct = -1;
+  proc.stdout.on('data', (chunk) => {
+    const m = chunk.toString().match(/\[download\]\s+(\d+(?:\.\d+)?)%/);
+    if (m) {
+      const pct = Math.min(99, Math.floor(parseFloat(m[1])));
+      if (pct !== lastPct) { lastPct = pct; onProgress(pct); }
+    }
+  });
+  proc.on('close', (code) => {
+    ytProcs.delete(item.id);
+    if (code === 0 && fs.existsSync(tmp)) {
+      try {
+        if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
+        fs.renameSync(tmp, outFile);
+        onDone(fs.statSync(outFile).size);
+      } catch (e) { onError(e.message); }
+    } else {
+      try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch (_) {}
+      onError(code === null ? 'cancelled' : 'yt-dlp exit ' + code);
+    }
+  });
+  proc.on('error', (err) => { ytProcs.delete(item.id); onError(err.message); });
+}
 
 function create(dir, emit) {
   emit = emit || (() => {});
@@ -86,6 +140,11 @@ function create(dir, emit) {
   }
 
   function cancel(id) {
+    // yt-dlp process cancel
+    if (ytProcs.has(id)) {
+      try { ytProcs.get(id).kill(); } catch (_) {}
+      ytProcs.delete(id);
+    }
     const a = active.get(id);
     if (!a) return;
     a.cancelled = true;
@@ -123,11 +182,37 @@ function create(dir, emit) {
     const old = index[sha1(id)];
     if (old && old.url && old.url !== url) { rm(fileOf(id)); clearParts(id); delete index[sha1(id)]; saveIndex(); }
 
+    const title = String(o.title || ''), course = String(o.course || '');
+    const expireDays = Number(o.expireDays) || 7;
+
+    // ── YouTube: download via yt-dlp ──
+    if (isYtUrl(url)) {
+      const st = { req: null, cancelled: false, pct: 0, got: 0, total: 0 };
+      active.set(id, st);
+      emit({ type: 'progress', id, pct: 0, got: 0, total: 0 });
+      downloadYT(
+        { id, url, title, course },
+        fileOf(id),
+        (pct) => { st.pct = pct; emit({ type: 'progress', id, pct, got: 0, total: 0 }); },
+        (size) => {
+          active.delete(id);
+          index[sha1(id)] = { id, url, title, course, size, at: Date.now(), expireDays };
+          saveIndex();
+          emit({ type: 'done', id });
+        },
+        (err) => {
+          active.delete(id);
+          emit({ type: err === 'cancelled' ? 'cancel' : 'error', id, error: err });
+        }
+      );
+      return { status: 'started' };
+    }
+
+    // ── Direct video: resumable HTTP download ──
     const st = { req: null, cancelled: false, pct: 0, got: 0, total: 0 };
     active.set(id, st);
     emit({ type: 'progress', id, pct: 0, got: 0, total: 0 });
 
-    const title = String(o.title || ''), course = String(o.course || '');
     run(id, url, title, course, st)
       .then((r) => (r === 'retry' ? run(id, url, title, course, st) : r))
       .then((r) => {
@@ -194,7 +279,7 @@ function create(dir, emit) {
 
     rm(fileOf(id));
     fs.renameSync(part, fileOf(id));
-    index[sha1(id)] = { id, url, title, course, size: st.got, at: Date.now() };
+    index[sha1(id)] = { id, url, title, course, size: st.got, at: Date.now(), expireDays: 7 };
     saveIndex();
     return 'done';
   }
