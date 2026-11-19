@@ -250,6 +250,7 @@ function create() {
       nodeIntegration: false,
       devTools: !PACKAGED,
       backgroundThrottling: false,
+      webviewTag: true, // embedded YouTube / Studio / Google view (index.html → openExtView)
       preload: path.join(__dirname, 'preload.js'),
     },
   });
@@ -466,11 +467,46 @@ ipcMain.on('nav', (e, act) => {
   }
 });
 
-app.on('web-contents-created', (_e, wc) => guard(wc));
+const EXT_PARTITION = 'persist:rtext';
+app.on('web-contents-created', (_e, wc) => {
+  guard(wc);
+  // The main window may embed external sites in a <webview>; lock those guests down.
+  wc.on('will-attach-webview', (e, webPreferences, params) => {
+    let ok = false;
+    try { ok = new URL(params.src).protocol === 'https:' && params.partition === EXT_PARTITION; } catch (_) {}
+    if (!ok) { e.preventDefault(); return; }
+    delete webPreferences.preload; delete webPreferences.preloadURL;
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
+    webPreferences.webSecurity = true;
+    webPreferences.devTools = !PACKAGED;
+  });
+  if (wc.getType() === 'webview') {
+    // links that want a new window just navigate the embedded page
+    wc.setWindowOpenHandler(({ url: u }) => {
+      try {
+        const parsed = new URL(u);
+        if (parsed.protocol === 'https:') wc.loadURL(u);
+        else if (parsed.protocol === 'mailto:' || parsed.protocol === 'tel:') shell.openExternal(u);
+      } catch (_) {}
+      return { action: 'deny' };
+    });
+    wc.on('will-navigate', (ev, u) => { if (!/^https:/i.test(u)) ev.preventDefault(); });
+  }
+});
 
 app.setAppUserModelId('com.rajibtutorial.webexe'); // needed for Windows notifications
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  {
+    // Embedded sites (YouTube, Studio, Google): own persistent session so logins are kept, and a normal
+    // Chrome user-agent (Google refuses sign-in from browsers that announce "Electron").
+    const ext = session.fromPartition(EXT_PARTITION);
+    ext.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/' + process.versions.chrome + ' Safari/537.36');
+    ext.setPermissionRequestHandler((_wc, perm, cb) =>
+      cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));
+  }
   session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) =>
     cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));
   session.defaultSession.webRequest.onBeforeSendHeaders(

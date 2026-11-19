@@ -118,6 +118,7 @@ contextBridge.exposeInMainWorld('ElectronShell', {
   openUrl: (url) => ipcRenderer.send('shell:openUrl', url),
   notify: (title, body) => ipcRenderer.send('notify:show', String(title || ''), String(body || '')),
   isElectron: true,
+  embed: true, // this build can show YouTube / Studio / Google inside the app layout (<webview>)
   // offline lesson videos (saved to disk by the main process)
   vid: {
     list: () => ipcRenderer.invoke('vid:list'),
