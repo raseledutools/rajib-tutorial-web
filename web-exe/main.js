@@ -169,7 +169,7 @@ const protectedWins = new WeakSet();
 function protect(w) {
   if (!w || protectedWins.has(w)) return;
   protectedWins.add(w);
-  const apply = () => { try { if (!w.isDestroyed()) w.setContentProtection(true); } catch (_) {} };
+  const apply = () => { try { if (!w.isDestroyed()) w.setContentProtection(!!pref('screenProtect', true)); } catch (_) {} };
   let t = null;
   const soon = () => { clearTimeout(t); t = setTimeout(apply, 300); };
   apply();
@@ -184,7 +184,7 @@ function guard(wc) {
   wc.on('before-input-event', (e, input) => {
     const k = (input.key || '').toLowerCase();
     const ctrl = input.control || input.meta;
-    if (k === 'printscreen') { e.preventDefault(); try { clipboard.clear(); } catch (_) {} return; }
+    if (k === 'printscreen') { if (!pref('screenProtect', true)) return; e.preventDefault(); try { clipboard.clear(); } catch (_) {} return; }
     if (input.type !== 'keyDown') return;
     if (input.alt && (k === 'arrowleft' || k === 'arrowright')) {
       e.preventDefault();
@@ -313,6 +313,7 @@ function create() {
   // Closing the window only hides it to the tray, so update / admin-panel notifications and Focus Mode keep working.
   win.on('close', (e) => {
     if (forceQuit || !tray) return;
+    if (!pref('closeToTray', true) && !focus.isActive()) { forceQuit = true; return; } // setting: close = quit
     e.preventDefault();
     win.hide();
     if (!hintedTray && Notification.isSupported()) {
@@ -363,6 +364,7 @@ let hintedTray = false;
 const PREFS = () => path.join(app.getPath('userData'), 'prefs.json');
 function readPrefs() { try { return JSON.parse(fs.readFileSync(PREFS(), 'utf8')) || {}; } catch (_) { return {}; } }
 function writePrefs(p) { try { fs.writeFileSync(PREFS(), JSON.stringify(p)); } catch (_) {} }
+function pref(k, d) { const p = readPrefs(); return p[k] === undefined ? d : p[k]; } // settings panel (sidebar): notifications, screenProtect, autostart, closeToTray
 function autostartOn() { const p = readPrefs(); return p.autostart !== false; } // default: on
 function applyAutostart(on) {
   if (!PACKAGED) return; // never register the dev electron.exe
@@ -500,7 +502,7 @@ ipcMain.on('update:get', () => sendUpdateState());
 
 // IPC: website → native Windows notification (admin panel push)
 ipcMain.on('notify:show', (_e, title, body) => {
-  if (!Notification.isSupported()) return;
+  if (!Notification.isSupported() || !pref('notifications', true)) return;
   const n = new Notification({
     title: String(title || 'Rajib Tutorial'),
     body: String(body || ''),
@@ -510,6 +512,28 @@ ipcMain.on('notify:show', (_e, title, body) => {
     if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
   });
   n.show();
+});
+
+// IPC: sidebar Settings panel (index.html). Only the main window may call these.
+function settingsState() {
+  return { notifications: !!pref('notifications', true), screenProtect: !!pref('screenProtect', true), autostart: autostartOn(),
+           closeToTray: !!pref('closeToTray', true), version: app.getVersion(), packaged: PACKAGED };
+}
+ipcMain.handle('settings:get', (e) => (trusted(e) ? settingsState() : null));
+ipcMain.handle('settings:set', (e, key, val) => {
+  if (!trusted(e) || !['notifications', 'screenProtect', 'autostart', 'closeToTray'].includes(key)) return null;
+  val = !!val;
+  if (key === 'autostart' && !val && focus.isActive()) return settingsState(); // Focus session running: keep Start-with-Windows on
+  const p = readPrefs(); p[key] = val; writePrefs(p);
+  if (key === 'screenProtect') BrowserWindow.getAllWindows().forEach((w) => { try { if (!w.isDestroyed()) w.setContentProtection(val); } catch (_) {} });
+  if (key === 'autostart') applyAutostart(val);
+  refreshTrayMenu();
+  return settingsState();
+});
+ipcMain.handle('settings:clearCache', async (e) => {
+  if (!trusted(e)) return false;
+  try { await session.defaultSession.clearCache(); await session.fromPartition(EXT_PARTITION).clearCache(); } catch (_) { return false; }
+  return true;
 });
 
 // IPC: website calls window.ElectronShell.openUrl(url) → openChild()

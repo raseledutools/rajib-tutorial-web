@@ -6895,5 +6895,79 @@ async function toggleFlashlight() {
   }
 }
 </script>
+<script>
+/* Desktop exe only: sidebar Settings button + panel (notifications, screenshot protection, startup, tray, update, cache). */
+(function(){
+  const SH=window.ElectronShell;
+  if(!(SH&&SH.isElectron&&SH.settings))return;
+  const S=SH.settings;
+  const css=document.createElement('style');
+  css.textContent=
+    '#rtSetOv{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:16px}'
+   +'#rtSetOv.on{display:flex}'
+   +'#rtSet{width:min(440px,100%);max-height:88vh;overflow:auto;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:18px}'
+   +'#rtSet h3{margin:0 0 4px;font-size:17px}'
+   +'#rtSet .rs-sub{font-size:12px;color:var(--sub);margin-bottom:12px}'
+   +'#rtSet .rs-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--border)}'
+   +'#rtSet .rs-txt{flex:1;min-width:0}'
+   +'#rtSet .rs-t{font-size:14px;font-weight:600}'
+   +'#rtSet .rs-d{font-size:12px;color:var(--sub);margin-top:2px;line-height:1.4}'
+   +'#rtSet .rs-sw{position:relative;width:42px;height:24px;flex-shrink:0}'
+   +'#rtSet .rs-sw input{opacity:0;width:100%;height:100%;margin:0;position:absolute;inset:0;cursor:pointer;z-index:2}'
+   +'#rtSet .rs-sw i{position:absolute;inset:0;border-radius:999px;background:#c4c0bb;transition:.15s}'
+   +'#rtSet .rs-sw i::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.3)}'
+   +'#rtSet .rs-sw input:checked+i{background:#00959c}'
+   +'#rtSet .rs-sw input:checked+i::after{transform:translateX(18px)}'
+   +'#rtSet .rs-btn{border:1px solid var(--border);background:var(--card2);color:var(--text);border-radius:9px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;flex-shrink:0}'
+   +'#rtSet .rs-btn:hover{border-color:#00959c}'
+   +'#rtSet .rs-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;font-size:12px;color:var(--sub)}';
+  document.head.appendChild(css);
+
+  const rows=[
+    {k:'notifications',t:'🔔 Notifications',d:'Admin-এর পাঠানো নোটিফিকেশন Windows-এ দেখাবে।'},
+    {k:'screenProtect',t:'🛡️ Screenshot Protection',d:'চালু থাকলে স্ক্রিনশট / স্ক্রিন রেকর্ডে অ্যাপের উইন্ডো কালো আসবে।'},
+    {k:'autostart',t:'🚀 Start with Windows',d:'কম্পিউটার চালু হলে অ্যাপ ব্যাকগ্রাউন্ডে চালু হবে।'},
+    {k:'closeToTray',t:'📥 Close → System Tray',d:'বন্ধ (X) করলে ব্যাকগ্রাউন্ডে চলবে। বন্ধ থাকলে অ্যাপ পুরোপুরি বন্ধ হবে।'}
+  ];
+  const ov=document.createElement('div');ov.id='rtSetOv';
+  ov.innerHTML='<div id="rtSet" role="dialog" aria-label="Settings"><h3>⚙️ Settings</h3><div class="rs-sub">অ্যাপের সেটিং (এই কম্পিউটারে সেভ থাকে)</div><div id="rtSetRows"></div>'
+    +'<div class="rs-row"><div class="rs-txt"><div class="rs-t">⟳ Update</div><div class="rs-d">নতুন ভার্সন আছে কিনা দেখুন।</div></div><button class="rs-btn" id="rtSetUpd">Check</button></div>'
+    +'<div class="rs-row"><div class="rs-txt"><div class="rs-t">🧹 Clear Cache</div><div class="rs-d">ব্রাউজারের টেম্প ক্যাশ মুছবে। লগইন ও অফলাইন ভিডিও মুছবে না।</div></div><button class="rs-btn" id="rtSetClr">Clear</button></div>'
+    +'<div class="rs-foot"><span id="rtSetVer"></span><button class="rs-btn" id="rtSetClose">Close</button></div></div>';
+  document.body.appendChild(ov);
+  const box=ov.querySelector('#rtSetRows');
+  const inputs={};
+  rows.forEach(r=>{
+    const row=document.createElement('div');row.className='rs-row';
+    row.innerHTML='<div class="rs-txt"><div class="rs-t"></div><div class="rs-d"></div></div><label class="rs-sw"><input type="checkbox"><i></i></label>';
+    row.querySelector('.rs-t').textContent=r.t;row.querySelector('.rs-d').textContent=r.d;
+    const inp=row.querySelector('input');inputs[r.k]=inp;
+    inp.onchange=()=>{
+      const want=inp.checked;
+      S.set(r.k,want).then(s=>{if(s)apply(s);else inp.checked=!want}).catch(()=>{inp.checked=!want});
+    };
+    box.appendChild(row);
+  });
+  function apply(s){
+    rows.forEach(r=>{inputs[r.k].checked=!!s[r.k]});
+    ov.querySelector('#rtSetVer').textContent='Version '+(s.version||'');
+    if(!s.packaged)inputs.autostart.disabled=true;
+  }
+  function open(){S.get().then(s=>{if(s)apply(s);ov.classList.add('on')}).catch(()=>ov.classList.add('on'))}
+  function close(){ov.classList.remove('on')}
+  ov.addEventListener('mousedown',e=>{if(e.target===ov)close()});
+  ov.querySelector('#rtSetClose').onclick=close;
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ov.classList.contains('on'))close()});
+  ov.querySelector('#rtSetUpd').onclick=function(){S.checkUpdate();this.textContent='চেক হচ্ছে…';setTimeout(()=>{this.textContent='Check'},2500)};
+  ov.querySelector('#rtSetClr').onclick=function(){const b=this;b.disabled=true;S.clearCache().then(()=>{b.textContent='✓ Done'}).catch(()=>{b.textContent='Failed'}).finally(()=>setTimeout(()=>{b.disabled=false;b.textContent='Clear'},1800))};
+
+  const btn=document.createElement('button');
+  btn.className='btn-admin-login';btn.id='btnRtSettings';btn.style.marginBottom='8px';
+  btn.innerHTML='⚙️ Settings';
+  btn.onclick=()=>{try{closeSidebar()}catch(e){}open()};
+  const bottom=document.querySelector('.sidebar-bottom');
+  if(bottom)bottom.insertBefore(btn,bottom.firstChild);
+})();
+</script>
 </body>
 </html>

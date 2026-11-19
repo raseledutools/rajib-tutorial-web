@@ -122,6 +122,12 @@ contextBridge.exposeInMainWorld('ElectronShell', {
   openUrl: (url) => ipcRenderer.send('shell:openUrl', url),
   notify: (title, body) => ipcRenderer.send('notify:show', String(title || ''), String(body || '')),
   isElectron: true,
+  settings: {
+    get: () => ipcRenderer.invoke('settings:get'),
+    set: (k, v) => ipcRenderer.invoke('settings:set', String(k), !!v),
+    clearCache: () => ipcRenderer.invoke('settings:clearCache'),
+    checkUpdate: () => ipcRenderer.send('update:check'),
+  },
   focus: {
     open: () => ipcRenderer.send('focus:open'),
     isOn: () => focusOn,
