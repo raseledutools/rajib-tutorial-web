@@ -112,6 +112,13 @@ ipcRenderer.on('focus:badge', (_e, on) => { focusOn = !!on; renderFocusBtn(); })
 window.addEventListener('DOMContentLoaded', renderFocusBtn);
 window.addEventListener('load', renderFocusBtn);
 
+// Keys forwarded by main.js from the page inside the Safe Browser <webview> (F11, Esc, Ctrl+T …) → handled by index.html like normal key presses
+ipcRenderer.on('bt:key', (_e, k) => {
+  try {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: String((k && k.key) || ''), ctrlKey: !!(k && k.ctrlKey), shiftKey: !!(k && k.shiftKey), altKey: !!(k && k.altKey), bubbles: true, cancelable: true }));
+  } catch (_) {}
+});
+
 // Expose a safe bridge so the website can open URLs inside the Electron app
 // (used by openInAppBrowser for YouTube, Google, YouTube Studio etc.)
 contextBridge.exposeInMainWorld('ElectronShell', {
