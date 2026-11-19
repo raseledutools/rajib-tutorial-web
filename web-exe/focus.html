@@ -51,12 +51,96 @@
   #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:#222; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; display:none; z-index:20; max-width:80vw; }
   .unsupported { background:#fff7e0; border:1.5px solid #ffc107; color:#7a5a00; padding:12px 16px; border-radius:8px; margin-bottom:14px; display:none; }
 </style>
+<style id="fxTheme">
+/* ── Colourful Focus theme ── */
+:root{--c1:#0ca8b0;--c2:#5b5bf0;--c3:#c24bd6;--ok:#16a34a;--ok2:#22c55e;--bad:#e5484d;--bad2:#ff6b6b;--ink:#1f2937;--mut:#6b7280;--line:#e3e8f0}
+body{font:14px/1.45 'Segoe UI Variable','Segoe UI',system-ui,-apple-system,Roboto,sans-serif;color:var(--ink);
+  background:radial-gradient(900px 420px at 0% -10%,#d9f4f6 0%,transparent 60%),radial-gradient(800px 400px at 100% 0%,#eadfff 0%,transparent 55%),#f5f7fb;min-height:100vh}
+.wrap{max-width:980px;padding:20px 22px 44px}
+
+/* hero banner */
+.hero{display:flex;align-items:center;gap:16px;padding:20px 24px;border-radius:18px;color:#fff;margin-bottom:18px;position:relative;overflow:hidden;
+  background:linear-gradient(120deg,var(--c1) 0%,var(--c2) 55%,var(--c3) 100%);box-shadow:0 14px 34px rgba(91,91,240,.28)}
+.hero::after{content:"";position:absolute;right:-60px;top:-70px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.14)}
+.hero::before{content:"";position:absolute;right:120px;bottom:-90px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.10)}
+.hero-t{position:relative;z-index:1}
+.hero h1{margin:0;font-size:24px;font-weight:700;letter-spacing:-.01em}
+.hero .sub{color:rgba(255,255,255,.88);margin:4px 0 0;font-size:12.5px;max-width:640px}
+.hero button.ghost{position:relative;z-index:1;background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.45);border-radius:999px;padding:8px 16px;backdrop-filter:blur(4px)}
+.hero button.ghost:hover:not(:disabled){background:rgba(255,255,255,.32)}
+
+/* main card */
+.card{background:#fff;border:0;border-radius:18px;padding:24px 26px;box-shadow:0 10px 30px rgba(31,41,55,.08);position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,var(--c1),var(--c2),var(--c3))}
+hr{border-top:1.5px dashed var(--line);margin:20px 0}
+
+/* controls */
+select,input[type=text],input[type=password],textarea{border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;background:#fbfcfe;transition:border-color .15s,box-shadow .15s,background .15s}
+input[type=text]:focus,input[type=password]:focus,textarea:focus,select:focus{border-color:var(--c2);background:#fff;box-shadow:0 0 0 4px rgba(91,91,240,.14)}
+#control{font-weight:600;color:var(--c2);border-color:#cfd3fb;background:#f3f4ff}
+#mode{font-weight:600}
+button{font:600 13.5px 'Segoe UI Variable','Segoe UI',system-ui,sans-serif;border-radius:10px;padding:9px 16px;background:linear-gradient(135deg,var(--c1),var(--c2));
+  box-shadow:0 4px 12px rgba(91,91,240,.22);transition:transform .12s,box-shadow .12s,filter .12s}
+button:hover:not(:disabled){background:linear-gradient(135deg,#14bcc5,#6b6bff);transform:translateY(-1px);box-shadow:0 8px 18px rgba(91,91,240,.3)}
+button:active:not(:disabled){transform:none}
+button:disabled{background:#d6dae1;box-shadow:none}
+button.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line);box-shadow:none}
+button.ghost:hover:not(:disabled){background:#f3f4ff;border-color:#cfd3fb;box-shadow:none}
+.tools button.ghost:nth-child(1){color:#7c3aed;border-color:#ddd0fb;background:#f7f3ff}
+.tools button.ghost:nth-child(2){color:#d97706;border-color:#fde1b0;background:#fff8ec}
+.tools button.ghost:nth-child(3){color:#db2777;border-color:#fbcfe3;background:#fff1f7}
+.tools button.ghost:hover:not(:disabled){filter:brightness(.97);transform:translateY(-1px)}
+
+/* start button */
+#startBtn{background:linear-gradient(135deg,var(--ok),var(--ok2));min-width:170px;padding:12px 22px;font-size:15px;border-radius:999px;box-shadow:0 8px 20px rgba(34,197,94,.35)}
+#startBtn:hover:not(:disabled){background:linear-gradient(135deg,#1db954,#34d673);box-shadow:0 12px 26px rgba(34,197,94,.42)}
+#startBtn.on{background:linear-gradient(135deg,var(--bad),var(--bad2));box-shadow:0 8px 20px rgba(229,72,77,.38);animation:fxPulse 1.8s infinite}
+#startBtn.on:hover{background:linear-gradient(135deg,#d33a3f,#ff5a5a)}
+@keyframes fxPulse{0%{box-shadow:0 0 0 0 rgba(229,72,77,.5)}70%{box-shadow:0 0 0 14px rgba(229,72,77,0)}100%{box-shadow:0 0 0 0 rgba(229,72,77,0)}}
+.info{font-style:normal;font-weight:600;color:#b42318;background:#fff1f0;border:1px solid #ffd0cc;border-radius:999px;padding:5px 14px;font-size:12.5px}
+
+/* lists */
+h2{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;margin:0 0 12px}
+h2::before{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;font-size:16px}
+.cols section:nth-child(1) h2::before{content:"🌐";background:linear-gradient(135deg,#d6f5f7,#cdeafe)}
+.cols section:nth-child(2) h2::before{content:"🧩";background:linear-gradient(135deg,#f1e4ff,#ffe0f0)}
+.list{border:1.5px solid var(--line);border-radius:12px;background:#fbfcfe;height:236px;padding:4px}
+.item{border:0;border-left:4px solid var(--ok2);border-radius:8px;background:#fff;margin:4px 2px;padding:6px 10px;box-shadow:0 1px 3px rgba(31,41,55,.06);transition:transform .1s,box-shadow .1s}
+.item:hover{transform:translateX(2px);box-shadow:0 3px 10px rgba(31,41,55,.1)}
+.item .tag{color:#7c3aed;background:#f1e8ff;border-radius:999px;padding:1px 8px;font-style:normal;font-size:10.5px;font-weight:600}
+.item button{box-shadow:none;border-radius:8px;color:var(--bad)}
+.item button:hover:not(:disabled){background:#ffe9e8;transform:none;box-shadow:none}
+.empty{color:var(--mut)}
+#settings:has(#mode option[value="block"]:checked) .item{border-left-color:var(--bad)}
+#settings:has(#mode option[value="block"]:checked) .list{background:#fff9f9}
+.locked{opacity:.55}
+label.chk{font-weight:500}
+input[type=checkbox]{width:17px;height:17px;accent-color:var(--c2)}
+
+/* modals */
+.overlay{background:rgba(24,22,54,.55);backdrop-filter:blur(3px)}
+.modal{border-radius:20px;padding:0 30px 26px;box-shadow:0 24px 60px rgba(20,20,60,.35);overflow:hidden}
+.modal h3{margin:0 -30px 18px;padding:16px 20px;color:#fff;font-size:15px;font-weight:700;letter-spacing:.08em;background:linear-gradient(120deg,var(--c1),var(--c2) 60%,var(--c3))}
+.spin b{font-size:26px;font-weight:700;color:var(--c2);border-color:#cfd3fb;background:#f6f7ff;min-width:84px;padding:4px 0}
+.spin button{background:#e8eafd;color:var(--c2);box-shadow:none;width:40px}
+.spin button:hover:not(:disabled){background:#d9dcfb;transform:none;box-shadow:none}
+.tl{color:var(--mut);font-weight:500}
+.cnt{font-size:15px}
+.cnt.ok{color:var(--ok)}.cnt.bad{color:var(--bad)}
+.pick{border-bottom:1px solid var(--line)}
+#toast{background:linear-gradient(120deg,#2b2d5b,#4a3a8a);border-radius:12px;box-shadow:0 10px 26px rgba(30,20,80,.35)}
+.unsupported{border-radius:12px}
+@media(max-width:760px){.hero{flex-wrap:wrap}.card{padding:18px}}
+</style>
 </head>
 <body>
 <div class="wrap">
-  <div class="row" style="margin-bottom:6px"><button class="ghost" id="backBtn">← Back</button><h1 style="margin:0">🎯 Focus Mode</h1></div>
-  <p class="sub">Block distracting websites &amp; apps for a fixed time. Task Manager and uninstall windows are restricted while Focus is active.</p>
-  <div id="unsupported" class="unsupported">Focus Mode শুধু Windows এ কাজ করে। এই কম্পিউটারে এটা চালু করা যাবে না।</div>
+  <header class="hero">
+    <button class="ghost" id="backBtn">← Back</button>
+    <div class="hero-t"><h1>🎯 Focus Mode</h1>
+    <p class="sub">Block distracting websites &amp; apps for a fixed time. Task Manager and uninstall windows are restricted while Focus is active.</p></div>
+  </header>
+  <div id="unsupported" class="unsupported">Focus Mode works on Windows only. It cannot be started on this computer.</div>
 
   <div class="card">
     <div class="row">
