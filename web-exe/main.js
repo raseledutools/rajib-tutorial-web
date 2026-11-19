@@ -171,15 +171,12 @@ function protect(w) {
   protectedWins.add(w);
   const apply = () => { try { if (!w.isDestroyed()) w.setContentProtection(true); } catch (_) {} };
   let t = null;
-  const soon = () => { clearTimeout(t); t = setTimeout(apply, 250); };
+  const soon = () => { clearTimeout(t); t = setTimeout(apply, 300); };
   apply();
-  ['show', 'restore', 'maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen', 'ready-to-show'].forEach((ev) => { try { w.on(ev, soon); } catch (_) {} });
-  w.on('show', () => { setTimeout(apply, 800); setTimeout(apply, 3000); });
-  const hb = setInterval(() => {
-    try { if (w.isDestroyed()) { clearInterval(hb); return; } if (w.isVisible() && !w.isMinimized()) apply(); } catch (_) {}
-  }, 60000);
-  hb.unref();
-  w.on('closed', () => { clearInterval(hb); clearTimeout(t); });
+  // only on real window-state changes. No timer / heartbeat: re-calling SetWindowDisplayAffinity while the window is
+  // idle made the custom title bar flicker every now and then (esp. when a page / webview was opened).
+  ['show', 'restore', 'maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen'].forEach((ev) => { try { w.on(ev, soon); } catch (_) {} });
+  w.on('closed', () => { clearTimeout(t); });
 }
 app.on('browser-window-created', (_e, w) => protect(w));
 
@@ -225,6 +222,8 @@ function openChild(url, title) {
     title: title || 'Rajib Tutorial',
     parent: win || undefined,
     webPreferences: {
+      partition: EXT_PARTITION,   // same session as the Safe Browser tabs: logins are kept + Chrome user-agent
+      preload: path.join(__dirname, 'ext-preload.js'),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
@@ -583,27 +582,32 @@ app.on('web-contents-created', (_e, wc) => {
   }
   if (wc.getType() === 'webview') {
     // links that want a new window just navigate the embedded page
-    wc.setWindowOpenHandler(({ url: u, disposition }) => {
+    wc.setWindowOpenHandler(({ url: u, disposition, features }) => {
       try {
         if (isLessonPage(wc) || isFocusGuest(wc)) return { action: 'deny' };                    // course video: nothing may open from it
-        const parsed = new URL(u);
+        const parsed = new URL(u || 'about:blank');
         if (AD_HOST_RE.test(parsed.hostname)) return { action: 'deny' };   // ad pop-up / pop-under
-        if (parsed.protocol === 'https:') {
-          // Sign-in flows ("Continue with Google" etc.) open a pop-up and talk to it through window.opener / postMessage.
-          // Loading it inside the same tab breaks the login, so real pop-ups are kept as pop-up windows (same session).
-          const isPopup = disposition === 'new-window' || AUTH_HOST_RE.test(parsed.hostname);
-          if (isPopup) {
-            const parent = wc.hostWebContents && !wc.hostWebContents.isDestroyed() ? BrowserWindow.fromWebContents(wc.hostWebContents) : null;
-            return {
-              action: 'allow',
-              overrideBrowserWindowOptions: {
-                width: 520, height: 720, autoHideMenuBar: true, title: 'Sign in', parent: parent || undefined,
-                webPreferences: { preload: path.join(__dirname, 'ext-preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false, devTools: !PACKAGED },
+        // Sign-in flows ("Continue with Google" etc.) open a pop-up and talk to it through window.opener / postMessage.
+        // Loading it inside the same tab breaks the login, so real pop-ups are kept as pop-up windows.
+        const feat = String(features || '');
+        const wantsPopup = disposition === 'new-window' || /(^|,)\s*(width|height|popup)\b/i.test(feat) || AUTH_HOST_RE.test(parsed.hostname);
+        const isBlank = parsed.protocol === 'about:';   // window.open('') first, navigated afterwards (very common in OAuth libraries)
+        if ((parsed.protocol === 'https:' && wantsPopup) || (isBlank && wantsPopup)) {
+          const parent = wc.hostWebContents && !wc.hostWebContents.isDestroyed() ? BrowserWindow.fromWebContents(wc.hostWebContents) : null;
+          return {
+            action: 'allow',
+            overrideBrowserWindowOptions: {
+              width: 520, height: 720, autoHideMenuBar: true, title: 'Sign in', parent: parent || undefined,
+              backgroundColor: '#ffffff',
+              webPreferences: {
+                partition: EXT_PARTITION,   // SAME session as the tab: shared cookies + Chrome user-agent (Google refuses an Electron browser)
+                preload: path.join(__dirname, 'ext-preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false, devTools: !PACKAGED,
               },
-            };
-          }
-          wc.loadURL(u);
-        } else if (parsed.protocol === 'mailto:' || parsed.protocol === 'tel:') shell.openExternal(u);
+            },
+          };
+        }
+        if (parsed.protocol === 'https:') wc.loadURL(u);
+        else if (parsed.protocol === 'mailto:' || parsed.protocol === 'tel:') shell.openExternal(u);
       } catch (_) {}
       return { action: 'deny' };
     });
