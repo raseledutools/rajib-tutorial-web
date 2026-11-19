@@ -2016,6 +2016,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     <div class="nav-item" id="navQB" onclick="openQB()"><span class="nav-ico">📝</span><span>MCQ Practice</span></div>
     <div class="nav-item" id="navBrowser" onclick="openBrowser()"><span class="nav-ico">🌐</span><span>Safe Browser</span></div>
     <div class="nav-item" id="navStudy" onclick="openStudyTools()"><span class="nav-ico">🧰</span><span>Study Tools</span></div>
+    <div class="nav-item" id="navSettings" style="display:none"><span class="nav-ico">⚙️</span><span>Settings</span></div>
     <div class="nav-label">Courses</div>
     <div id="sidebarCourses"><div style="padding:6px 12px;font-size:12px;color:var(--sub)">Loading…</div></div>
   </nav>
@@ -6903,8 +6904,8 @@ async function toggleFlashlight() {
 /* Desktop exe only: sidebar Settings button + panel (notifications, screenshot protection, startup, tray, update, cache). */
 (function(){
   const SH=window.ElectronShell;
-  if(!(SH&&SH.isElectron&&SH.settings))return;
-  const S=SH.settings;
+  if(!(SH&&SH.isElectron))return;
+  const S=SH.settings||null; // null = old exe build without the settings bridge
   const css=document.createElement('style');
   css.textContent=
     '#rtSetOv{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:16px}'
@@ -6960,7 +6961,7 @@ async function toggleFlashlight() {
     ov.querySelector('#rtSetVer').textContent='Version '+(s.version||'');
     if(!s.packaged)inputs.autostart.disabled=true;
   }
-  function open(){S.get().then(s=>{if(s)apply(s);ov.classList.add('on')}).catch(()=>ov.classList.add('on'))}
+  function open(){if(!S){alert('Settings চালু করতে অ্যাপটি নতুন ভার্সনে আপডেট করুন (নতুন installer চালান)।');return}S.get().then(s=>{if(s)apply(s);ov.classList.add('on')}).catch(()=>ov.classList.add('on'))}
   function close(){ov.classList.remove('on')}
   ov.addEventListener('mousedown',e=>{if(e.target===ov)close()});
   ov.querySelector('#rtSetClose').onclick=close;
@@ -6969,12 +6970,11 @@ async function toggleFlashlight() {
   ov.querySelector('#rtSetTst').onclick=function(){const b=this;S.testNotify().then(r=>{b.textContent=r==='off'?'Notifications বন্ধ':(r?'✓ Sent':'Failed')}).catch(()=>{b.textContent='Failed'}).finally(()=>setTimeout(()=>{b.textContent='Test'},2000))};
   ov.querySelector('#rtSetClr').onclick=function(){const b=this;b.disabled=true;S.clearCache().then(()=>{b.textContent='✓ Done'}).catch(()=>{b.textContent='Failed'}).finally(()=>setTimeout(()=>{b.disabled=false;b.textContent='Clear'},1800))};
 
-  const btn=document.createElement('button');
-  btn.className='btn-admin-login';btn.id='btnRtSettings';btn.style.marginBottom='8px';
-  btn.innerHTML='⚙️ Settings';
-  btn.onclick=()=>{try{closeSidebar()}catch(e){}open()};
-  const bottom=document.querySelector('.sidebar-bottom');
-  if(bottom)bottom.insertBefore(btn,bottom.firstChild);
+  const nav=document.getElementById('navSettings');
+  if(nav){
+    nav.style.display='';
+    nav.onclick=()=>{try{closeSidebar()}catch(e){}open()};
+  }
 })();
 </script>
 <script src="study-tools.js"></script>
