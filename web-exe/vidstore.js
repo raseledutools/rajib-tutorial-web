@@ -4,7 +4,7 @@
  *
  * Direct video files (e.g. Cloudinary) are downloaded straight to disk (userData/offline-videos):
  * resumable, not held in RAM, served back via rtvid:// with Range support so seeking works.
- * YouTube lessons are downloaded via yt-dlp.exe (bundled in resources/yt-dlp.exe).
+ * YouTube lessons are downloaded via yt-dlp.exe (+ ffmpeg.exe when bundled) from resources/.
  *
  * Pure Node (no Electron imports) so it can be unit-tested.
  */
@@ -22,57 +22,131 @@ const MAX_REDIRECTS = 5;
 const sha1 = (s) => crypto.createHash('sha1').update(String(s)).digest('hex');
 const isYtUrl = (u) => /(?:youtube\.com|youtu\.be)/i.test(String(u || ''));
 
-// yt-dlp.exe path: works both in dev and in packaged .exe
-function ytdlpBin() {
-  if (app && typeof app.isPackaged !== 'undefined') {
-    return app.isPackaged
-      ? path.join(process.resourcesPath, 'yt-dlp.exe')
-      : path.join(__dirname, 'bin', 'yt-dlp.exe');
-  }
-  return path.join(__dirname, 'bin', 'yt-dlp.exe');
+// yt-dlp.exe / ffmpeg.exe paths: work both in dev and in the packaged .exe
+function resBin(name) {
+  if (app && typeof app.isPackaged !== 'undefined' && app.isPackaged) return path.join(process.resourcesPath, name);
+  return path.join(__dirname, 'bin', name);
+}
+const ytdlpBin = () => resBin('yt-dlp.exe');
+const ffmpegBin = () => resBin('ffmpeg.exe');
+
+// A writable copy of yt-dlp lives in userData so it can update itself (YouTube breaks yt-dlp every few weeks).
+function ytdlpWritable() {
+  const src = ytdlpBin();
+  try {
+    const base = (app && app.getPath) ? app.getPath('userData') : path.join(__dirname, 'bin');
+    const dst = path.join(base, 'bin', 'yt-dlp.exe');
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
+    if (!fs.existsSync(dst) || (fs.existsSync(src) && fs.statSync(src).mtimeMs > fs.statSync(dst).mtimeMs && fs.statSync(src).size !== fs.statSync(dst).size)) {
+      if (fs.existsSync(src)) fs.copyFileSync(src, dst);
+    }
+    if (fs.existsSync(dst)) return dst;
+  } catch (_) {}
+  return src;
 }
 
 // running yt-dlp processes (id -> child_process), for cancel support
 const ytProcs = new Map();
+let ytUpdatedAt = 0;   // last time `yt-dlp -U` was tried this session
+
+function updateYtdlp(bin) {
+  return new Promise((resolve) => {
+    ytUpdatedAt = Date.now();
+    let p;
+    try { p = spawn(bin, ['-U'], { windowsHide: true }); } catch (_) { return resolve(false); }
+    const t = setTimeout(() => { try { p.kill(); } catch (_) {} }, 60000);
+    p.on('close', () => { clearTimeout(t); resolve(true); });
+    p.on('error', () => { clearTimeout(t); resolve(false); });
+  });
+}
+
+function lastErrLine(err) {
+  const lines = String(err || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  const e = lines.filter((x) => /^ERROR:/i.test(x));
+  const m = (e.length ? e[e.length - 1] : lines[lines.length - 1]) || '';
+  return m.replace(/^ERROR:\s*/i, '').replace(/\[[a-z:]+\]\s*/i, '').slice(0, 160);
+}
+
+/** One yt-dlp run. Resolves { code, err, file }. */
+function runYT(bin, item, workDir, onProgress, useRuntime) {
+  return new Promise((resolve) => {
+    const hasFF = fs.existsSync(ffmpegBin());
+    const args = ['--no-playlist', '--newline', '--continue', '--no-colors', '--retries', '5', '--fragment-retries', '5', '--socket-timeout', '30'];
+    if (hasFF) {
+      args.push('-f', 'bv*[ext=mp4][height<=720]+ba[ext=m4a]/bv*[height<=720]+ba/b[height<=720]/b',
+        '--merge-output-format', 'mp4', '--ffmpeg-location', ffmpegBin());
+    } else {
+      args.push('-f', 'b[ext=mp4][height<=720]/b[ext=mp4]/b');
+    }
+    // YouTube needs a JS runtime to solve its signature challenge: reuse the app's own Node (Electron in node mode).
+    if (useRuntime) args.push('--js-runtimes', 'node:' + process.execPath);
+    args.push('-o', path.join(workDir, 'video.%(ext)s'), item.url);
+
+    const env = Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1', PYTHONIOENCODING: 'utf-8' });
+    let proc;
+    try { proc = spawn(bin, args, { windowsHide: true, env }); } catch (e) { return resolve({ code: -1, err: e.message }); }
+    ytProcs.set(item.id, proc);
+    let err = '', lastPct = -1, streamIdx = -1;
+    const streams = hasFF ? 2 : 1;
+    proc.stdout.on('data', (chunk) => {
+      const txt = chunk.toString();
+      if (/\[download\]\s+Destination:/.test(txt)) streamIdx = Math.min(streams - 1, streamIdx + 1);
+      const m = txt.match(/\[download\]\s+(\d+(?:\.\d+)?)%/g);
+      if (m) {
+        const v = parseFloat(m[m.length - 1].replace(/[^\d.]/g, ''));
+        const base = Math.max(0, streamIdx);
+        const w = streams === 2 ? (base === 0 ? v * 0.9 : 90 + v * 0.1) : v;
+        const pct = Math.min(99, Math.floor(w));
+        if (pct > lastPct) { lastPct = pct; onProgress(pct); }
+      }
+    });
+    proc.stderr.on('data', (c) => { err += c.toString(); if (err.length > 20000) err = err.slice(-10000); });
+    proc.on('close', (code, signal) => {
+      ytProcs.delete(item.id);
+      if (signal || code === null) return resolve({ code: null, err });
+      let file = null;
+      try { file = fs.readdirSync(workDir).find((f) => /^video\.mp4$/i.test(f)) || fs.readdirSync(workDir).find((f) => /^video\.(mkv|webm|m4v)$/i.test(f)); } catch (_) {}
+      resolve({ code, err, file: file ? path.join(workDir, file) : null });
+    });
+    proc.on('error', (e) => { ytProcs.delete(item.id); resolve({ code: -1, err: e.message }); });
+  });
+}
 
 /**
  * Download a YouTube URL to outFile via yt-dlp.exe.
  * onProgress(pct), onDone(sizeBytes), onError(msg)
  */
-function downloadYT(item, outFile, onProgress, onDone, onError) {
-  const bin = ytdlpBin();
+async function downloadYT(item, outFile, onProgress, onDone, onError) {
+  const bin = ytdlpWritable();
   if (!fs.existsSync(bin)) { onError('yt-dlp.exe not found at ' + bin); return; }
-  const tmp = outFile + '.part';
-  const args = [
-    '-f', 'best[ext=mp4][height<=720]/best[ext=mp4]/best',
-    '--no-playlist', '--newline', '--continue',
-    '-o', tmp,
-    item.url,
-  ];
-  const proc = spawn(bin, args, { windowsHide: true });
-  ytProcs.set(item.id, proc);
-  let lastPct = -1;
-  proc.stdout.on('data', (chunk) => {
-    const m = chunk.toString().match(/\[download\]\s+(\d+(?:\.\d+)?)%/);
-    if (m) {
-      const pct = Math.min(99, Math.floor(parseFloat(m[1])));
-      if (pct !== lastPct) { lastPct = pct; onProgress(pct); }
-    }
-  });
-  proc.on('close', (code) => {
-    ytProcs.delete(item.id);
-    if (code === 0 && fs.existsSync(tmp)) {
-      try {
-        if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
-        fs.renameSync(tmp, outFile);
-        onDone(fs.statSync(outFile).size);
-      } catch (e) { onError(e.message); }
-    } else {
-      try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch (_) {}
-      onError(code === null ? 'cancelled' : 'yt-dlp exit ' + code);
-    }
-  });
-  proc.on('error', (err) => { ytProcs.delete(item.id); onError(err.message); });
+  const workDir = outFile.replace(/\.mp4$/i, '') + '.ytdl';
+  try { fs.mkdirSync(workDir, { recursive: true }); } catch (e) { onError(e.message); return; }
+  const cleanup = () => { try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (_) {} };
+
+  let useRuntime = true;
+  let r = await runYT(bin, item, workDir, onProgress, useRuntime);
+  // old yt-dlp without --js-runtimes: retry without it
+  if (r.code && /no such option|unrecognized arguments|--js-runtimes/i.test(r.err)) { useRuntime = false; r = await runYT(bin, item, workDir, onProgress, useRuntime); }
+  // YouTube changed something: self-update yt-dlp once (at most every 30 min) and try again
+  if (r.code && r.code !== null && Date.now() - ytUpdatedAt > 30 * 60e3 &&
+      /sign in|403|nsig|signature|player response|unable to extract|requested format|no video formats|challenge|n function/i.test(r.err)) {
+    await updateYtdlp(bin);
+    r = await runYT(bin, item, workDir, onProgress, useRuntime);
+  }
+
+  if (r.code === null) { cleanup(); onError('cancelled'); return; }
+  if (r.code === 0 && r.file) {
+    try {
+      if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
+      fs.renameSync(r.file, outFile);
+      cleanup();
+      onDone(fs.statSync(outFile).size);
+    } catch (e) { cleanup(); onError(e.message); }
+    return;
+  }
+  cleanup();
+  try { fs.writeFileSync(path.join(path.dirname(outFile), 'ytdlp-last-error.log'), String(r.err || '')); } catch (_) {}
+  onError('YouTube: ' + (lastErrLine(r.err) || ('yt-dlp exit ' + r.code)));
 }
 
 function create(dir, emit) {

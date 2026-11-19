@@ -20,6 +20,13 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
+      # ffmpeg.exe: lets yt-dlp merge YouTube video+audio (720p) so offline save works for every YouTube lesson.
+      - name: Get ffmpeg.exe
+        shell: bash
+        run: |
+          curl -L --fail --retry 3 -o ff.zip https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip
+          7z e ff.zip "*/bin/ffmpeg.exe" -obin -y
+          ls -la bin
       # Every build gets a new, higher version (1.0.<run number>) so installed apps see it as an update.
       - name: Set version
         shell: bash

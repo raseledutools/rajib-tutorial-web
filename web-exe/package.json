@@ -37,7 +37,13 @@
       {
         "from": "bin/yt-dlp.exe",
         "to": "yt-dlp.exe",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "bin/ffmpeg.exe",
+        "to": "ffmpeg.exe"
       }
     ],
     "win": {
