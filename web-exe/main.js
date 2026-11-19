@@ -317,11 +317,9 @@ function create() {
     if (!pref('closeToTray', true) && !focus.isActive()) { forceQuit = true; return; } // setting: close = quit
     e.preventDefault();
     win.hide();
-    if (!hintedTray && Notification.isSupported()) {
-      hintedTray = true;
-      new Notification({ title: 'Rajib Tutorial', body: 'অ্যাপ background এ চলছে (system tray)। পুরোপুরি বন্ধ করতে tray আইকনে right-click → Quit।' }).show();
-    }
+    stopAllMedia(); // window is hidden → course / YouTube videos must not keep playing in the background
   });
+  win.on('show', unmuteAll);
   win.on('closed', () => { win = null; });
   win.setMenuBarVisibility(false);
 
@@ -371,9 +369,40 @@ function applyAutostart(on) {
   if (!PACKAGED) return; // never register the dev electron.exe
   try { app.setLoginItemSettings({ openAtLogin: !!on, args: ['--hidden'] }); } catch (_) {}
 }
+/* Pause every <video>/<audio> in the main page, its iframes (YouTube embeds) and the Safe Browser webviews, and mute them.
+   The page itself keeps running (backgroundThrottling:false) so notifications / update checks still work. */
+const PAUSE_JS = "(function(){try{document.querySelectorAll('video,audio').forEach(function(m){try{m.pause()}catch(e){}});" +
+  "var yt=document.querySelector('.html5-video-player');if(yt&&yt.pauseVideo)yt.pauseVideo();}catch(e){}})();";
+function stopAllMedia() {
+  try {
+    if (!win || win.isDestroyed()) return;
+    const host = win.webContents;
+    const all = [host].concat(require('electron').webContents.getAllWebContents().filter((w) => {
+      try { return w.hostWebContents === host; } catch (_) { return false; }
+    }));
+    all.forEach((w) => {
+      try {
+        if (w.isDestroyed()) return;
+        w.setAudioMuted(true);
+        const frames = (w.mainFrame && w.mainFrame.framesInSubtree) || [];
+        frames.forEach((f) => { try { f.executeJavaScript(PAUSE_JS).catch(() => {}); } catch (_) {} });
+        if (!frames.length) w.executeJavaScript(PAUSE_JS).catch(() => {});
+      } catch (_) {}
+    });
+  } catch (_) {}
+}
+function unmuteAll() {
+  try {
+    if (!win || win.isDestroyed()) return;
+    const host = win.webContents;
+    [host].concat(require('electron').webContents.getAllWebContents().filter((w) => { try { return w.hostWebContents === host; } catch (_) { return false; } }))
+      .forEach((w) => { try { if (!w.isDestroyed()) w.setAudioMuted(false); } catch (_) {} });
+  } catch (_) {}
+}
 function showMain() {
   if (!win || win.isDestroyed()) { startHidden = false; create(); return; }
   if (win.isMinimized()) win.restore();
+  unmuteAll();
   win.show(); win.focus();
 }
 function trayMenu() {
@@ -487,7 +516,7 @@ function initUpdater() {
   autoUpdater.on('update-downloaded', () => {
     setUpdate({ status: 'installing', percent: 100 });
     // silent install, then relaunch the new version
-    setTimeout(() => { forceQuit = true; autoUpdater.quitAndInstall(true, true); }, 800);
+    setTimeout(() => { forceQuit = true; autoUpdater.quitAndInstall(true, true); }, 150);
   });
   autoUpdater.on('error', () => {
     if (updateState.status === 'downloading') setUpdate({ status: 'available' });

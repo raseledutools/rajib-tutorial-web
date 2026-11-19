@@ -15,6 +15,7 @@
     "electron-builder": "25.1.8"
   },
   "build": {
+    "compression": "store",
     "appId": "com.rajibtutorial.webexe",
     "productName": "Rajib Tutorial",
     "directories": {
