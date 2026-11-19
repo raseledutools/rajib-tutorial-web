@@ -1,6 +1,4 @@
 node_modules/
 dist/
 
-# yt-dlp binary (CI downloads it at build time; don't commit)
-bin/yt-dlp.exe
-bin/*.exe
+# yt-dlp binary bundled in repo (web-exe/bin/yt-dlp.exe)
