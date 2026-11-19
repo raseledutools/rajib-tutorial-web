@@ -531,6 +531,7 @@ body{color:var(--text)}
 .ytp-frame{position:absolute;left:0;right:0;top:-72px;bottom:-72px;pointer-events:none}
 .ytp-frame.mask{visibility:hidden}
 .ytp-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+.ytp-frame webview{position:absolute;inset:0;width:100%;height:100%;border:0;display:flex;pointer-events:none;background:#000}
 .ytp-shield{position:absolute;inset:0;z-index:2}
 .ytp-cover{position:absolute;inset:0;z-index:3;background:#000 center/cover no-repeat;display:flex;align-items:center;justify-content:center;transition:opacity .2s}
 .ytp-cover.off{opacity:0;pointer-events:none}
@@ -2968,17 +2969,90 @@ function loadYTApi(){
   });
   return _ytApi;
 }
+// exe: lessons play inside a <webview> (no YouTube IFrame API); kill-switch: localStorage.rtNoWv="1"
+const WV_OK=(()=>{try{return !!(window.ElectronShell&&window.ElectronShell.isElectron&&window.ElectronShell.embed)&&localStorage.getItem("rtNoWv")!=="1"}catch(e){return false}})();
 // warm up: fetch the YouTube player API once the page is idle so the first lesson starts faster
-try{loadYTApi()}catch(e){}
+if(!WV_OK){try{loadYTApi()}catch(e){}}
 let _ytWarmed=false;
 function ytWarm(v){
-  if(_ytWarmed||!v)return;const id=ytId(v.url);if(!id)return;_ytWarmed=true;
+  if(WV_OK||_ytWarmed||!v)return;const id=ytId(v.url);if(!id)return;_ytWarmed=true;
   loadYTApi().then(()=>{
     const h=document.createElement("div");h.style.cssText="position:fixed;left:-9999px;top:0;width:320px;height:180px;opacity:0;pointer-events:none";
     const d=document.createElement("div");h.appendChild(d);document.body.appendChild(h);
     try{const p=new YT.Player(d,{host:"https://www.youtube-nocookie.com",videoId:id,playerVars:{autoplay:0,controls:0,playsinline:1},
       events:{onReady:()=>setTimeout(()=>{try{p.destroy()}catch(e){}h.remove()},1500)}});setTimeout(()=>h.isConnected&&h.remove(),15000)}catch(e){h.remove()}
   });
+}
+// ─── exe: lesson video in a <webview> — same methods the custom controls use on YT.Player, but no YouTube API ───
+// The page (ext-preload.js hides title / channel / logo / suggestions) is polled every 250ms for time, state, quality.
+// 1st try: youtube.com/embed/ID   2nd try (embed refused / error): youtube.com/watch?v=ID   else onFail() -> old IFrame player
+const WV_PROBE='(function(){try{var p=document.getElementById("movie_player")||document.querySelector(".html5-video-player"),v=document.querySelector("video");if(!v)return null;'+
+  'var f=function(n){try{return p&&typeof p[n]==="function"?p[n]():undefined}catch(e){}};'+
+  'var st=f("getPlayerState");if(typeof st!=="number")st=v.ended?0:v.paused?2:(v.readyState<3?3:1);'+
+  'var d=f("getDuration");if(!(d>0))d=isFinite(v.duration)?v.duration:0;'+
+  'var t=f("getCurrentTime");if(typeof t!=="number")t=v.currentTime;'+
+  'var lf=f("getVideoLoadedFraction");if(typeof lf!=="number"){lf=0;try{if(v.buffered.length&&d>0)lf=v.buffered.end(v.buffered.length-1)/d}catch(e){}}'+
+  'return{st:st,d:d||0,t:t||0,lf:lf||0,q:f("getPlaybackQuality")||"",lv:f("getAvailableQualityLevels")||[]}}catch(e){return null}})()';
+function wvPlayer(slot,id,o,evs,onFail){
+  const wv=document.createElement("webview");
+  wv.setAttribute("partition","persist:rtext");
+  let mode="embed",cur=id,start=Math.floor(o.start||0),ap=o.autoplay?1:0,dom=false,dead=false,halted=false,got=false,rdy=false,lastSt=-99,lastEsc=0,armT=null,pollT=null;
+  const S={t:0,d:0,st:-1,lf:0,q:"",lv:[]};
+  const url=()=>mode==="embed"
+    ?"https://www.youtube.com/embed/"+cur+"?autoplay="+ap+"&controls=0&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1&fs=0&disablekb=1&cc_load_policy=0&start="+start+"#rtlesson"
+    :"https://www.youtube.com/watch?v="+cur+(start?"&t="+start+"s":"")+"#rtlesson";
+  const clean=()=>{clearTimeout(armT);clearInterval(pollT)};
+  const fail=()=>{if(dead)return;dead=true;clean();try{wv.remove()}catch(e){}try{onFail(cur,S.t)}catch(e){}};
+  const arm=()=>{clearTimeout(armT);armT=setTimeout(()=>{if(!dead&&!got)escalate()},mode==="embed"?12000:15000)};
+  const escalate=()=>{
+    if(dead||halted||Date.now()-lastEsc<3000)return;lastEsc=Date.now();
+    if(mode==="embed"){mode="watch";go()}else fail();
+  };
+  const go=()=>{
+    got=false;dom=false;halted=false;S.st=-1;lastSt=-99;
+    if(!wv.isConnected){wv.setAttribute("src",url())}
+    else{try{wv.loadURL(url())}catch(e){wv.setAttribute("src",url())}}
+    arm();
+  };
+  const emit=st=>{if(st!==lastSt){lastSt=st;if(evs.onStateChange)evs.onStateChange({data:st})}};
+  const run=js=>{if(dead||!dom)return;try{wv.executeJavaScript(js,false).catch(()=>{})}catch(e){}};
+  const P='var p=document.getElementById("movie_player"),v=document.querySelector("video");';
+  const call=(n,a)=>run('(function(){'+P+'try{if(p&&typeof p.'+n+'==="function")p.'+n+'.apply(p,'+JSON.stringify(a||[])+')}catch(e){}})()');
+  // watch-page fallback: YouTube's "up next" must never leave the lesson video
+  const halt=()=>{halted=true;clearTimeout(armT);S.st=0;emit(0);try{wv.loadURL("about:blank")}catch(e){}};
+  wv.addEventListener("dom-ready",()=>{dom=true});
+  wv.addEventListener("console-message",e=>{if(e&&e.message==="__rt_lesson_error__")escalate()});
+  wv.addEventListener("did-fail-load",e=>{if(e&&e.isMainFrame&&e.errorCode!==-3&&!halted)escalate()});
+  wv.addEventListener("did-navigate-in-page",e=>{
+    if(mode!=="watch"||!e||e.isMainFrame===false)return;
+    const m=String(e.url||"").match(/[?&]v=([\w-]{11})/);if(m&&m[1]!==cur)halt();
+  });
+  pollT=setInterval(()=>{
+    if(dead||!dom||halted)return;
+    let r;try{r=wv.executeJavaScript(WV_PROBE,false)}catch(e){return}
+    r.then(x=>{
+      if(dead||halted||!x)return;
+      S.t=x.t;S.d=x.d;S.lf=x.lf;S.lv=x.lv||[];
+      if(x.q!==S.q){S.q=x.q;if(evs.onPlaybackQualityChange)evs.onPlaybackQualityChange({data:x.q})}
+      if(!got&&x.d>0){got=true;clearTimeout(armT);if(!rdy){rdy=true;if(evs.onReady)evs.onReady({target:pl})}}
+      S.st=x.st;emit(x.st);
+    }).catch(()=>{});
+  },250);
+  const pl={
+    playVideo:()=>run('(function(){'+P+'try{if(p&&p.playVideo)p.playVideo();else if(v)v.play()}catch(e){}})()'),
+    pauseVideo:()=>run('(function(){'+P+'try{if(p&&p.pauseVideo)p.pauseVideo();else if(v)v.pause()}catch(e){}})()'),
+    seekTo:s=>{s=Math.max(0,+s||0);S.t=s;run('(function(){'+P+'try{if(p&&p.seekTo)p.seekTo('+s+',true);else if(v)v.currentTime='+s+'}catch(e){}})()')},
+    setPlaybackRate:r=>run('(function(){'+P+'try{if(p&&p.setPlaybackRate)p.setPlaybackRate('+(+r||1)+');if(v)v.playbackRate='+(+r||1)+'}catch(e){}})()'),
+    setPlaybackQualityRange:(a,b)=>call("setPlaybackQualityRange",[a,b]),
+    setPlaybackQuality:q=>call("setPlaybackQuality",[q]),
+    getPlayerState:()=>S.st,getCurrentTime:()=>S.t,getDuration:()=>S.d,getVideoLoadedFraction:()=>S.lf,
+    getPlaybackQuality:()=>S.q,getAvailableQualityLevels:()=>S.lv,
+    loadVideoById:a=>{const x=(a&&typeof a==="object")?a:{videoId:a};cur=x.videoId;start=Math.floor(x.startSeconds||0);ap=1;mode="embed";go()},
+    destroy:()=>{dead=true;clean();try{wv.remove()}catch(e){}}
+  };
+  go();
+  slot.replaceWith(wv);
+  return pl;
 }
 const _fmtT=t=>{t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+":"+String(t%60).padStart(2,"0")};
 function unmountYT(box){
@@ -2990,6 +3064,7 @@ function unmountYT(box){
 }
 function mountYT(box,id,o={}){
   unmountYT(box);
+  const useWv=WV_OK&&!o.legacy&&!o.live;
   const uid="yt"+Math.random().toString(36).slice(2,9);
   const wrap=document.createElement("div");wrap.className="ytp";
   const PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>';
@@ -3087,12 +3162,12 @@ function mountYT(box,id,o={}){
   sk.addEventListener("input",()=>{drag=true;showBar()});
   sk.addEventListener("change",()=>{if(pl&&pl.getDuration)pl.seekTo(pl.getDuration()*sk.value/1000,true);drag=false});
   bar.addEventListener("click",e=>e.stopPropagation());
-  loadYTApi().then(()=>{
+  const begin=()=>{
     if(!wrap.isConnected) return;
     const pv={autoplay:o.autoplay?1:0,controls:0,rel:0,modestbranding:1,iv_load_policy:3,playsinline:1,
               fs:0,disablekb:1,cc_load_policy:0,start:Math.floor(o.start||0)};
     if(/^https?:$/.test(location.protocol)) pv.origin=location.origin;
-    pl=new YT.Player(uid,{host:"https://www.youtube-nocookie.com",videoId:id,playerVars:pv,events:{
+    const evs={
       onReady:()=>{box._yt=pl;ready=true;applyQ();
         // a different lesson was picked while the player was still starting up -> load that one now
         if(id!==startedId){try{pl.loadVideoById({videoId:id,startSeconds:0})}catch(_){}}
@@ -3108,7 +3183,14 @@ function mountYT(box,id,o={}){
         pp.innerHTML=playing?PAUSE:PLAY;
         if(e.data===1)showBar();else{bar.classList.remove("hide");clearTimeout(hideT)}
       }
-    }});
+    };
+    if(useWv){
+      // webview player; if neither embed nor watch page works, fall back to the old IFrame player at the same second
+      pl=wvPlayer(wrap.querySelector("#"+uid),id,o,evs,(vid,t)=>{
+        if(!box.isConnected)return;
+        unmountYT(box);mountYT(box,vid,Object.assign({},o,{legacy:true,autoplay:1,start:t||o.start||0}));
+      });
+    }else pl=new YT.Player(uid,{host:"https://www.youtube-nocookie.com",videoId:id,playerVars:pv,events:evs});
     box._yt=pl;
     box._ytLoad=nid=>{id=nid;qRestore=null;hasPlayed=false;endStall(false);cover.style.backgroundImage="url(https://i.ytimg.com/vi/"+nid+"/hqdefault.jpg)";cover.classList.remove("off");
       curQ="auto";qTries=0;qReloaded=false;qb.textContent="Auto";fitFrame();
@@ -3121,7 +3203,8 @@ function mountYT(box,id,o={}){
       tt.textContent=_fmtT(c);dd.textContent=d>0?_fmtT(d):"LIVE";
       if(!drag&&d>0)sk.value=Math.round(c/d*1000);
     },400);
-  });
+  };
+  if(useWv)begin();else loadYTApi().then(begin);
 }
 // Auto-mount live-page players
 new MutationObserver(()=>{

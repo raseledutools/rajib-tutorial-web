@@ -468,6 +468,10 @@ ipcMain.on('nav', (e, act) => {
 });
 
 const EXT_PARTITION = 'persist:rtext';
+// the course-video page shown by index.html (wvPlayer): youtube.com/embed/<id> or /watch?v=<id>, opened with "#rtlesson"
+function isLessonPage(wc) {
+  try { const u = new URL(wc.getURL()); return u.hostname === 'www.youtube.com' && /(^|[#&])rtlesson/.test(u.hash); } catch (_) { return false; }
+}
 // Ad / ad-tracking networks: blocked for every site opened in the embedded view (these domains serve ads only).
 const AD_DOMAINS = [
   'doubleclick.net', 'googlesyndication.com', 'googleadservices.com', 'googletagservices.com', 'adservice.google.com', '2mdn.net',
@@ -494,11 +498,14 @@ app.on('web-contents-created', (_e, wc) => {
     webPreferences.sandbox = true;
     webPreferences.webSecurity = true;
     webPreferences.devTools = !PACKAGED;
+    // course video page ("#rtlesson", see ext-preload.js): start playing without a click on the page itself
+    if (/#rtlesson/.test(String(params.src))) webPreferences.autoplayPolicy = 'no-user-gesture-required';
   });
   if (wc.getType() === 'webview') {
     // links that want a new window just navigate the embedded page
     wc.setWindowOpenHandler(({ url: u }) => {
       try {
+        if (isLessonPage(wc)) return { action: 'deny' };                    // course video: nothing may open from it
         const parsed = new URL(u);
         if (AD_HOST_RE.test(parsed.hostname)) return { action: 'deny' };   // ad pop-up / pop-under
         if (parsed.protocol === 'https:') wc.loadURL(u);
@@ -506,7 +513,7 @@ app.on('web-contents-created', (_e, wc) => {
       } catch (_) {}
       return { action: 'deny' };
     });
-    wc.on('will-navigate', (ev, u) => { if (!/^https:/i.test(u)) ev.preventDefault(); });
+    wc.on('will-navigate', (ev, u) => { if (!/^https:/i.test(u) || isLessonPage(wc)) ev.preventDefault(); });
   }
 });
 
@@ -531,6 +538,7 @@ app.whenReady().then(() => {
     ] }, (_d, cb) => cb({ cancel: true }));
     ext.webRequest.onBeforeSendHeaders((details, cb) => {
       const h = details.requestHeaders;
+      if (details.resourceType === 'mainFrame' && /^https:\/\/www\.youtube\.com\/embed\//.test(details.url)) h['Referer'] = SITE;
       for (const k of Object.keys(h)) {
         const l = k.toLowerCase();
         if (l === 'sec-ch-ua') h[k] = brands;

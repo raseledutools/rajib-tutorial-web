@@ -123,3 +123,58 @@ try {
     document.addEventListener('DOMContentLoaded', put);
   }
 } catch (_) {}
+
+/* ---- Lesson player (exe): the course video is a <webview> page opened with "#rtlesson" ----
+   index.html shows ONLY the picture of the video and drives it with its own controls, without the YouTube IFrame API.
+   Here: hide everything YouTube draws on top (title, channel name, logo, share / watch-later, end-screen, suggestions),
+   make the picture fill the whole view, and tell the app if the page shows a player error so it can try another way. */
+try {
+  const isLesson = location.hostname === 'www.youtube.com' && /(^|[#&])rtlesson/.test(location.hash);
+  const isEmbed = isLesson && location.pathname.indexOf('/embed/') === 0;
+  const isWatch = isLesson && location.pathname === '/watch';
+  if (isEmbed || isWatch) {
+    const HIDE = [
+      '.ytp-chrome-top', '.ytp-chrome-bottom', '.ytp-gradient-top', '.ytp-gradient-bottom', '.ytp-title', '.ytp-title-channel',
+      '.ytp-title-beacon', '.ytp-watermark', '.ytp-youtube-button', '.ytp-share-button', '.ytp-watch-later-button', '.ytp-copylink-button',
+      '.ytp-pause-overlay', '.ytp-pause-overlay-container', '.ytp-endscreen-content', '.html5-endscreen', '.ytp-ce-element',
+      '.ytp-ce-covering-overlay', '.ytp-cards-teaser', '.ytp-cards-button', '.ytp-large-play-button', '.ytp-spinner', '.ytp-popup',
+      '.ytp-contextmenu', '.ytp-iv-video-content', '.annotation', '.ytp-suggested-action', '.ytp-paid-content-overlay',
+      '.ytp-videowall-still', '.ytp-impression-link', '.ytp-player-content', '.ytp-tooltip', '.ytp-bezel', '.ytp-bezel-text-wrapper',
+    ];
+    let css = 'html,body{margin:0!important;padding:0!important;background:#000!important;overflow:hidden!important;cursor:default!important}' +
+      '.html5-video-player{background:#000!important;cursor:default!important}';
+    if (isWatch) {
+      HIDE.push('ytd-masthead', '#masthead-container', '#secondary', '#below', '#related', '#comments', '#chat', 'ytd-watch-metadata',
+        'ytd-miniplayer', 'tp-yt-app-drawer', 'ytd-mini-guide-renderer', '#guide', '#guide-wrapper', 'ytd-popup-container',
+        'ytd-consent-bump-v2-lightbox', 'tp-yt-iron-overlay-backdrop');
+      css += 'ytd-app,#page-manager{background:#000!important;margin:0!important}' +
+        'ytd-watch-flexy #primary,ytd-watch-flexy #primary-inner,ytd-watch-flexy #columns{margin:0!important;padding:0!important;max-width:none!important}' +
+        '#movie_player,#player-container-outer,#player-container-inner,#player-container,#player,#ytd-player,.html5-video-container{' +
+        'position:fixed!important;left:0!important;top:0!important;width:100vw!important;height:100vh!important;max-width:none!important;' +
+        'max-height:none!important;margin:0!important;z-index:2147483000!important;background:#000!important}' +
+        '.html5-main-video{width:100%!important;height:100%!important;left:0!important;top:0!important;object-fit:contain!important}';
+    }
+    css += HIDE.join(',') + '{display:none!important}';
+    const put = () => {
+      if (document.getElementById('__rt_lesson')) return true;
+      const root = document.head || document.documentElement;
+      if (!root) return false;
+      const st = document.createElement('style'); st.id = '__rt_lesson'; st.textContent = css; root.appendChild(st);
+      return true;
+    };
+    if (!put()) { const mo = new MutationObserver(() => { if (put()) mo.disconnect(); }); mo.observe(document, { childList: true, subtree: true }); }
+    document.addEventListener('DOMContentLoaded', put);
+    // no keyboard / right-click inside the lesson picture: the app's own controls are the only controls
+    window.addEventListener('keydown', (e) => { e.stopImmediatePropagation(); e.preventDefault(); }, true);
+    window.addEventListener('contextmenu', (e) => e.preventDefault(), true);
+    // player error (video not allowed to play here, removed, ...): tell the app once so it can switch to the next method
+    let reported = false;
+    setInterval(() => {
+      if (reported) return;
+      try {
+        const e = document.querySelector('.ytp-error,yt-player-error-message-renderer');
+        if (e && e.getClientRects().length) { reported = true; console.log('__rt_lesson_error__'); }
+      } catch (_) {}
+    }, 600);
+  }
+} catch (_) {}
