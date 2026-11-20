@@ -136,6 +136,15 @@ contextBridge.exposeInMainWorld('ElectronShell', {
     embed: true,                                   // Focus page opens inside the app layout (index.html openFocus)
     onShow: (fn) => { focusShowListeners.push(fn); }, // tray → Focus Mode asks the website to show its Focus view
   },
+  ext: {   // Safe Browser extensions (extensions.js)
+    list: () => ipcRenderer.invoke('ext:list'),
+    addFolder: () => ipcRenderer.invoke('ext:addFolder'),
+    addFile: () => ipcRenderer.invoke('ext:addFile'),
+    addStore: (s) => ipcRenderer.invoke('ext:addStore', String(s || '')),
+    remove: (k) => ipcRenderer.invoke('ext:remove', String(k)),
+    toggle: (k, on) => ipcRenderer.invoke('ext:toggle', String(k), !!on),
+    open: (k) => ipcRenderer.invoke('ext:open', String(k)),
+  },
   embed: true, // this build can show YouTube / Studio / Google inside the app layout (<webview>)
   // offline lesson videos (saved to disk by the main process)
   vid: {
