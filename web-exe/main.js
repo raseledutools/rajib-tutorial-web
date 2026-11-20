@@ -23,13 +23,27 @@ protocol.registerSchemesAsPrivileged([
 const FOCUS_SRC = 'rtfocus://app/focus.html';
 const FOCUS_PARTITION = 'rtfocus';
 
-// Smooth video: keep GPU decoding / rasterization on and never let the renderer be throttled.
-app.commandLine.appendSwitch('ignore-gpu-blocklist');
-app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('enable-zero-copy');
+// Black-screen safety: 'ignore-gpu-blocklist' and 'enable-zero-copy' forced the GPU path on machines whose driver Chromium
+// had deliberately blocked -> pages turned black / flickered. They are gone. If the GPU process still crashes twice
+// (see below), or the user turns on "compatibility mode", the app starts with hardware acceleration off.
+let GPU_OFF = false;
+try { GPU_OFF = !!(JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'prefs.json'), 'utf8')) || {}).gpuOff; } catch (_) {}
+if (GPU_OFF) app.disableHardwareAcceleration();
+else app.commandLine.appendSwitch('enable-gpu-rasterization');
+// keep the renderer from being throttled
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
-app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion,DirectCompositionVideoOverlays');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
+let gpuCrashes = 0;
+app.on('child-process-gone', (_e, d) => {
+  try {
+    if (!d || d.type !== 'GPU' || d.reason === 'clean-exit' || GPU_OFF) return;
+    if (++gpuCrashes < 2) return;
+    const p = readPrefs(); p.gpuOff = true; writePrefs(p);   // next start: no hardware acceleration
+    forceQuit = true; app.relaunch(); app.exit(0);
+  } catch (_) {}
+});
 
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => { showMain(); });
@@ -549,17 +563,18 @@ ipcMain.on('notify:show', (_e, title, body) => {
 function settingsState() {
   return { notifications: !!pref('notifications', true), screenProtect: !!pref('screenProtect', true), autostart: autostartOn(),
            closeToTray: !!pref('closeToTray', true), notifySound: !!pref('notifySound', true), alwaysOnTop: !!pref('alwaysOnTop', false),
-           version: app.getVersion(), packaged: PACKAGED };
+           gpuOff: !!pref('gpuOff', false), version: app.getVersion(), packaged: PACKAGED };
 }
 ipcMain.handle('settings:get', (e) => (trusted(e) ? settingsState() : null));
 ipcMain.handle('settings:set', (e, key, val) => {
-  if (!trusted(e) || !['notifications', 'screenProtect', 'autostart', 'closeToTray', 'notifySound', 'alwaysOnTop'].includes(key)) return null;
+  if (!trusted(e) || !['notifications', 'screenProtect', 'autostart', 'closeToTray', 'notifySound', 'alwaysOnTop', 'gpuOff'].includes(key)) return null;
   val = !!val;
   if (key === 'autostart' && !val && focus.isActive()) return settingsState(); // Focus session running: keep Start-with-Windows on
   const p = readPrefs(); p[key] = val; writePrefs(p);
   if (key === 'screenProtect') BrowserWindow.getAllWindows().forEach((w) => { try { if (!w.isDestroyed()) w.setContentProtection(val); } catch (_) {} });
   if (key === 'autostart') applyAutostart(val);
   if (key === 'alwaysOnTop' && win && !win.isDestroyed()) { try { win.setAlwaysOnTop(val); } catch (_) {} }
+  if (key === 'gpuOff') { setTimeout(() => { forceQuit = true; app.relaunch(); app.exit(0); }, 400); return settingsState(); }
   refreshTrayMenu();
   return settingsState();
 });
@@ -596,6 +611,14 @@ ipcMain.on('nav', (e, act) => {
 });
 
 const EXT_PARTITION = 'persist:rtext';
+const extMgr = require('./extensions')({ partition: EXT_PARTITION, getMainWin: () => win });
+ipcMain.handle('ext:list', (e) => (trusted(e) ? extMgr.list() : []));
+ipcMain.handle('ext:addFolder', (e) => (trusted(e) ? extMgr.addFolder() : null));
+ipcMain.handle('ext:addFile', (e) => (trusted(e) ? extMgr.addFile() : null));
+ipcMain.handle('ext:addStore', (e, s) => (trusted(e) ? extMgr.addStore(String(s || '')) : null));
+ipcMain.handle('ext:remove', (e, k) => (trusted(e) ? extMgr.remove(String(k)) : null));
+ipcMain.handle('ext:toggle', (e, k, on) => (trusted(e) ? extMgr.toggle(String(k), !!on) : null));
+ipcMain.handle('ext:open', (e, k) => (trusted(e) ? extMgr.open(String(k)) : null));
 // the course-video page shown by index.html (wvPlayer): youtube.com/embed/<id> or /watch?v=<id>, opened with "#rtlesson"
 function isLessonPage(wc) {
   try { const u = new URL(wc.getURL()); return u.hostname === 'www.youtube.com' && /(^|[#&])rtlesson/.test(u.hash); } catch (_) { return false; }
@@ -645,6 +668,14 @@ app.on('web-contents-created', (_e, wc) => {
     } catch (_) {}
   }
   if (wc.getType() === 'webview') {
+    // black-screen guards: white base colour, force a repaint after loads, and reload a page whose renderer crashed
+    try { wc.setBackgroundColor('#ffffff'); } catch (_) {}
+    const repaint = () => { try { if (!wc.isDestroyed()) wc.invalidate(); } catch (_) {} };
+    wc.on('did-finish-load', repaint); wc.on('did-navigate', repaint); wc.on('did-stop-loading', repaint);
+    wc.on('render-process-gone', (_ev, d) => {
+      if (!d || d.reason === 'clean-exit' || d.reason === 'killed') return;
+      setTimeout(() => { try { if (!wc.isDestroyed()) wc.reload(); } catch (_) {} }, 400);
+    });
     // links that want a new window just navigate the embedded page
     wc.setWindowOpenHandler(({ url: u, disposition, features }) => {
       try {
@@ -758,6 +789,7 @@ app.whenReady().then(() => {
   };
   try { session.fromPartition(FOCUS_PARTITION).protocol.handle('rtfocus', focusHandler); } catch (_) {}
   try { protocol.handle('rtfocus', focusHandler); } catch (_) {}
+  extMgr.init().catch(() => {});
   create();
   initTray();
   focus.init({ getMainWin: () => win, onStart: () => applyAutostart(true), onActiveChange: refreshTrayMenu, openView: openFocusView });

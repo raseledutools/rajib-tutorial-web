@@ -1921,7 +1921,23 @@ body:has(#viewFocus.active) #__rt_nav,body:has(#viewFocus.active) #__rt_updcheck
 .bt-note{display:flex;align-items:center;gap:10px;padding:7px 12px;background:#4a3f12;border-bottom:1px solid #6b5a1a;color:#f3e3a0;font-size:12.5px;flex:none}.bt-note span{flex:1}.bt-note button{border:0;border-radius:6px;padding:5px 10px;background:#8ab4f8;color:#202124;font-size:12px;cursor:pointer;flex:none}
 .bt-body{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;background:var(--c-page)}
 #btHost{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--c-page)}
+#btHost{position:relative}
 #btHost>webview,#btHost>iframe{flex:1;min-height:0;width:100%;border:0;display:flex}
+#btHost>webview{background:#fff}
+/* background tabs keep their size (no display:none -> no black frame when switching back) */
+#btHost>webview.bt-bg{position:absolute;left:0;top:0;width:100%;height:100%;visibility:hidden;pointer-events:none}
+.bt-toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:80;max-width:80%;padding:10px 18px;border-radius:8px;background:rgba(20,20,20,.96);color:#fff;font:13px 'Segoe UI',system-ui,sans-serif;opacity:0;pointer-events:none;transition:opacity .25s}
+.bt-toast.show{opacity:1}
+.bt-ask{position:absolute;inset:0;z-index:90;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5)}
+.bt-ask.show{display:flex}
+.bt-ask>div{width:min(460px,90%);padding:20px;border-radius:12px;background:#2b2b2b;border:1px solid #4a4a4a;color:var(--c-text);box-shadow:0 10px 30px rgba(0,0,0,.6)}
+.bt-ask h3{margin:0 0 6px;font-size:16px;font-weight:600}.bt-ask p{margin:0 0 12px;font-size:12.5px;color:var(--c-icon)}
+.bt-ask input{width:100%;box-sizing:border-box;height:38px;padding:0 12px;border-radius:8px;border:1px solid #4a4a4a;background:var(--c-omni);color:var(--c-text);font-size:14px;outline:0}
+.bt-ask input:focus{border-color:var(--c-blue)}
+.bt-ask .r{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.bt-ask button{border:0;border-radius:18px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--c-blue)}
+.bt-ask button.p{background:var(--c-blue);color:#202124}
+.bt-mi img.xi{width:18px;height:18px;border-radius:3px}.bt-mi.off .l{opacity:.55}
 #btErr{position:absolute;inset:0;background:var(--c-page);flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:var(--c-text)}
 #btErr p{margin:0;font-size:15px;font-weight:600}
 #btErr small{color:var(--c-icon);font-size:12.5px}
@@ -2291,6 +2307,8 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     <div class="bt-find" id="btFind"><input id="btFindIn" type="text" spellcheck="false" placeholder="Find in page" oninput="btFindGo(true)" onkeydown="if(event.key==='Enter'){btFindGo(false,!event.shiftKey)}else if(event.key==='Escape'){btFindClose()}"><span id="btFindN">0/0</span><i></i><button onclick="btFindGo(false,false)" title="Previous (Shift+Enter)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button><button onclick="btFindGo(false,true)" title="Next (Enter)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><button onclick="btFindClose()" title="Close (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="bt-sug" id="btSug"></div>
     <div class="bt-pop" id="btPop"></div>
+    <div class="bt-toast" id="btToast"></div>
+    <div class="bt-ask" id="btAsk"><div><h3 id="btAskT"></h3><p id="btAskP"></p><input id="btAskIn" type="text" spellcheck="false" autocomplete="off"><div class="r"><button id="btAskNo">Cancel</button><button class="p" id="btAskOk">Install</button></div></div></div>
     <div class="bt-fshint" id="btFsHint">Press F11 or Esc to exit full screen</div>
   </div>
 
@@ -5728,6 +5746,7 @@ window.mBrowserOpenExternal = function() {
       el.addEventListener("did-start-loading",()=>{t.loading=true;if(t===cur)$("btErr").style.display="none";renderTabs();sync(t)});
       el.addEventListener("did-stop-loading",()=>{t.loading=false;try{t.url=el.getURL()||t.url}catch(e){}histAdd(t);renderTabs();sync(t)});
       el.addEventListener("dom-ready",()=>{t.ready=true;zoomApply(t)});
+      el.addEventListener("crashed",()=>{try{el.reload()}catch(e){}});
       el.addEventListener("found-in-page",e=>{if(t===cur&&e.result)$("btFindN").textContent=(e.result.matches?e.result.activeMatchOrdinal:0)+"/"+e.result.matches});
       const nav=e=>{if(e.url&&e.isMainFrame!==false){t.url=e.url;sync(t)}};
       el.addEventListener("did-navigate",nav);el.addEventListener("did-navigate-in-page",nav);
@@ -5746,7 +5765,7 @@ window.mBrowserOpenExternal = function() {
     return t;
   }
   function activate(t){
-    btFindClose(true);cur=t;tabs.forEach(x=>{x.el.style.display=x===t?"flex":"none"});if(t.ntp)fillNtp(t.el);if(t.int)fillHist(t.el);
+    btFindClose(true);cur=t;tabs.forEach(x=>{if(x.web){x.el.style.display="flex";x.el.classList.toggle("bt-bg",x!==t)}else x.el.style.display=x===t?"flex":"none"});if(t.ntp)fillNtp(t.el);if(t.int)fillHist(t.el);
     $("btErr").style.display="none";renderTabs();sync(t);
   }
   window.btNewTab=function(url){
@@ -5858,6 +5877,7 @@ window.mBrowserOpenExternal = function() {
       {l:"Reopen closed tab",ic:IC.reload,k:"Ctrl+Shift+T",dis:!closed.length,f:()=>btReopen()},
       {sep:1},
       {l:"History",ic:IC.hist,k:"Ctrl+H",f:()=>btOpenHistory()},
+      {l:"Extensions",ic:PUZ(),f:()=>setTimeout(()=>extPanel($("btMenuBtn")),0)},
       {l:"Bookmark this tab",ic:IC.star0,k:"Ctrl+D",f:()=>btStar()},
       {sep:1},
       {zoom:1},
@@ -5867,14 +5887,67 @@ window.mBrowserOpenExternal = function() {
       {l:fsOn()?"Exit full screen":"Full screen",ic:IC.fs,k:"F11",f:()=>btFs()},
       {sep:1},
       {l:"Clear browsing history…",ic:IC.del,f:()=>btClearHist()},
+      {l:"Fix black screen (compatibility mode)",ic:IC.reload,f:()=>btGpuFix()},
       {l:"Open in separate window",ic:IC.out,f:()=>btPopOut()}
     ],true);
   };
   window.btTabSearch=function(e){
     popupBelow(e,e.currentTarget,tabs.map(t=>({l:t.title||host(t.url)||"New tab",fav:t.url,on:t===cur,f:()=>activate(t)})).concat([{sep:1},{l:"New tab",ic:IC.plus,k:"Ctrl+T",f:()=>btNewTab()}]),false);
   };
-  window.btExt=function(e){
-    popupBelow(e,$("btExt"),[{l:"Extensions are turned off in Safe Browser",dis:1}],true);
+  // ── Extensions (exe only): list · add (Web Store / .crx / .zip / folder) · turn on-off · remove ──
+  const EXT=()=>window.ElectronShell&&window.ElectronShell.ext;
+  const PUZ=()=>($("btExt")&&$("btExt").innerHTML)||"";
+  let toastT=null;
+  function toast(m){const b=$("btToast");if(!b)return;b.textContent=m;b.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>b.classList.remove("show"),4500)}
+  function ask(title,note,ph,okLabel,cb){
+    $("btAskT").textContent=title;$("btAskP").textContent=note;const i=$("btAskIn");i.value="";i.placeholder=ph;$("btAskOk").textContent=okLabel;
+    const box=$("btAsk"),close=()=>box.classList.remove("show");
+    const go=()=>{const v=i.value.trim();if(!v)return;close();cb(v)};
+    $("btAskOk").onclick=go;$("btAskNo").onclick=close;box.onclick=e=>{if(e.target===box)close()};
+    i.onkeydown=e=>{if(e.key==="Enter")go();else if(e.key==="Escape")close()};
+    box.classList.add("show");setTimeout(()=>i.focus(),30);
+  }
+  async function extDo(p,okMsg){
+    toast("Please wait…");
+    try{const r=await p;if(r&&r.canceled){$("btToast").classList.remove("show");return}
+      if(r&&r.ok)toast(okMsg(r)+" — reload open tabs to use it.");else toast((r&&r.error)||"Failed.")}
+    catch(e){toast("Failed: "+(e&&e.message||e))}
+  }
+  function extPanel(anchor){
+    const x=EXT();
+    if(!x){popupBelow(null,anchor,[{l:"Extensions work in the Windows exe only",dis:1}],true);return}
+    x.list().then(list=>{
+      const items=[];
+      if(list.length){
+        list.forEach(it=>{
+          items.push({l:it.name+(it.version?"  v"+it.version:"")+(it.enabled?"":"  (off)"),
+            ic:it.icon?'<img class="xi" src="'+it.icon+'">':PUZ(),f:()=>extActions(it,anchor)});
+        });
+      }else items.push({l:"No extensions installed",dis:1});
+      items.push({sep:1},
+        {l:"Add from Chrome Web Store link / ID…",ic:IC.plus,f:()=>ask("Install from Chrome Web Store","Paste the extension page link (chromewebstore.google.com/detail/…) or its 32-letter ID.","https://chromewebstore.google.com/detail/…","Install",v=>extDo(x.addStore(v),r=>"Installed "+r.name))},
+        {l:"Add from .crx / .zip file…",ic:IC.plus,f:()=>extDo(x.addFile(),r=>"Installed "+r.name)},
+        {l:"Load unpacked folder…",ic:IC.plus,f:()=>extDo(x.addFolder(),r=>"Installed "+r.name)},
+        {l:"Open Chrome Web Store",ic:IC.out,f:()=>btNewTab("https://chromewebstore.google.com/")});
+      popupBelow(null,anchor,items,true);
+    }).catch(()=>toast("Could not read the extension list."));
+  }
+  function extActions(it,anchor){
+    const x=EXT();
+    setTimeout(()=>popupBelow(null,anchor,[
+      {l:it.name,dis:1},
+      {sep:1},
+      {l:"Open popup / options",ic:IC.out,dis:!it.enabled||!it.canOpen,f:()=>x.open(it.key).then(r=>{if(r&&!r.ok)toast(r.error)})},
+      {l:it.enabled?"Turn off":"Turn on",ic:IC.reload,f:()=>extDo(x.toggle(it.key,!it.enabled),()=>it.name+(it.enabled?" turned off":" turned on"))},
+      {l:"Remove from Safe Browser",ic:IC.del,f:()=>{if(confirm('Remove "'+it.name+'"?'))extDo(x.remove(it.key),()=>it.name+" removed")}}
+    ],true),0);
+  }
+  window.btExt=function(e){if(e)e.stopPropagation();const p=pop();if(p.classList.contains("show")&&p._a===$("btExt")){p.classList.remove("show");p._a=null;return}extPanel($("btExt"))};
+  window.btGpuFix=async function(){
+    const s=window.ElectronShell&&window.ElectronShell.settings;if(!s){toast("Only in the Windows exe.");return}
+    const st=await s.get();const on=!(st&&st.gpuOff);
+    if(!confirm(on?"Compatibility mode turns off GPU acceleration to fix black / flickering screens. The app will restart. Continue?":"Turn compatibility mode off? The app will restart."))return;
+    s.set("gpuOff",on);toast("Restarting…");
   };
   window.btApps=function(e){
     const A=[["YouTube","https://www.youtube.com/"],["Gmail","https://mail.google.com/"],["Google Drive","https://drive.google.com/"],["Google Maps","https://www.google.com/maps"],["Google Translate","https://translate.google.com/"],["Google Scholar","https://scholar.google.com/"]];

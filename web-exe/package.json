@@ -25,6 +25,7 @@
       "main.js",
       "preload.js",
       "ext-preload.js",
+      "extensions.js",
       "vidstore.js",
       "offline.html",
       "splash.html",
