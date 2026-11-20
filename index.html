@@ -5920,8 +5920,6 @@ window.mBrowserOpenExternal = function() {
   // ── Extensions (exe only): list · add (Web Store / .crx / .zip / folder) · turn on-off · remove ──
   const EXT=()=>window.ElectronShell&&window.ElectronShell.ext;
   const PUZ=()=>($("btExt")&&$("btExt").innerHTML)||"";
-  let toastT=null;
-  function toast(m){const b=$("btToast");if(!b)return;b.textContent=m;b.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>b.classList.remove("show"),4500)}
   function ask(title,note,ph,okLabel,cb){
     $("btAskT").textContent=title;$("btAskP").textContent=note;const i=$("btAskIn");i.value="";i.placeholder=ph;$("btAskOk").textContent=okLabel;
     const box=$("btAsk"),close=()=>box.classList.remove("show");
@@ -5932,7 +5930,7 @@ window.mBrowserOpenExternal = function() {
   }
   async function extDo(p,okMsg){
     toast("Please wait…");
-    try{const r=await p;if(r&&r.canceled){$("btToast").classList.remove("show");return}
+    try{const r=await p;if(r&&r.canceled)return;
       if(r&&r.ok)toast(okMsg(r)+" — reload open tabs to use it.");else toast((r&&r.error)||"Failed.")}
     catch(e){toast("Failed: "+(e&&e.message||e))}
   }
