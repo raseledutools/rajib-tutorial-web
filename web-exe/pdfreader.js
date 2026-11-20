@@ -1,5 +1,5 @@
 'use strict';
-// PDF Reader: pdf.js viewer (Acrobat-style UI) shown inside the app layout (<webview>, partition PDF_PARTITION),
+// Office Reader: PDF (pdf.js) + Word / Excel / PowerPoint (./office, rendered locally). Shown inside the app layout. pdf.js viewer (Acrobat-style UI) shown inside the app layout (<webview>, partition PDF_PARTITION),
 // served from ./pdfjs through the rtpdf:// protocol. Also the "open with" target for .pdf files from Windows Explorer.
 //   rtpdf://app/pdfjs/...            viewer files (read-only, only inside ./pdfjs)
 //   rtpdf://app/f/<token>/<name>.pdf a PDF the user picked / Windows launched us with (token -> path, nothing else is readable)
@@ -10,7 +10,9 @@ const { pathToFileURL } = require('url');
 
 const PDF_PARTITION = 'persist:rtpdf';
 const PDF_SRC = 'rtpdf://app/pdfjs/web/viewer.html';
-const ROOT = path.join(__dirname, 'pdfjs');
+const OFFICE_SRC = 'rtpdf://app/office/viewer.html';
+const ROOTS = [path.join(__dirname, 'pdfjs'), path.join(__dirname, 'office')];
+const KINDS = { pdf: 'pdf', docx: 'docx', xlsx: 'xlsx', xls: 'xls', csv: 'csv', pptx: 'pptx', doc: 'doc', ppt: 'ppt' };
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png',
@@ -20,12 +22,13 @@ const MIME = {
 const tokens = new Map();   // token -> absolute path of a PDF
 let pendingUrl = null;       // a PDF Windows asked us to open before the site was ready
 
-function isPdfPath(p) { return typeof p === 'string' && /\.pdf$/i.test(p); }
-// the first .pdf argument of a command line (Explorer: "Rajib Tutorial.exe" "C:\x\file.pdf")
-function pdfFromArgv(argv) {
+function kindOf(p) { const m = /\.([a-z0-9]+)$/i.exec(String(p || '')); return m ? (KINDS[m[1].toLowerCase()] || null) : null; }
+function isDocPath(p) { return !!kindOf(p); }
+// the first supported file argument of a command line (Explorer: "Rajib Tutorial.exe" "C:\x\file.pdf")
+function fileFromArgv(argv) {
   for (const a of (argv || []).slice(1)) {
     const s = String(a || '').replace(/^"|"$/g, '');
-    if (isPdfPath(s)) { try { if (fs.statSync(s).isFile()) return path.resolve(s); } catch (_) {} }
+    if (isDocPath(s)) { try { if (fs.statSync(s).isFile()) return path.resolve(s); } catch (_) {} }
   }
   return null;
 }
@@ -45,9 +48,8 @@ function handler(request) {
       const { net } = require('electron');
       return net.fetch(pathToFileURL(file).toString(), { headers: request.headers });   // keeps Range support
     }
-    if (!p.startsWith('/pdfjs/')) return new Response('not found', { status: 404 });
     const full = path.normalize(path.join(__dirname, p));
-    if (!full.startsWith(ROOT + path.sep)) return new Response('forbidden', { status: 403 });
+    if (!ROOTS.some((r) => full.startsWith(r + path.sep))) return new Response('not found', { status: 404 });
     const data = fs.readFileSync(full);
     return new Response(data, { status: 200, headers: { 'content-type': MIME[path.extname(full).toLowerCase()] || 'application/octet-stream' } });
   } catch (_) { return new Response('not found', { status: 404 }); }
@@ -61,9 +63,12 @@ function init(ctx) {
   ctx.ipcMain.handle('pdf:pick', async (e) => {
     if (!ctx.trusted(e)) return null;
     const w = ctx.getWin();
-    const r = await ctx.dialog.showOpenDialog(w, { title: 'Open PDF', properties: ['openFile'], filters: [{ name: 'PDF', extensions: ['pdf'] }] });
-    if (r.canceled || !r.filePaths[0] || !isPdfPath(r.filePaths[0])) return null;
-    return { url: makeUrl(r.filePaths[0]), name: path.basename(r.filePaths[0]) };
+    const r = await ctx.dialog.showOpenDialog(w, { title: 'Open file', properties: ['openFile'], filters: [
+      { name: 'PDF / Word / Excel / PowerPoint', extensions: ['pdf', 'docx', 'xlsx', 'xls', 'csv', 'pptx'] },
+      { name: 'PDF', extensions: ['pdf'] }, { name: 'Word', extensions: ['docx'] }, { name: 'Excel', extensions: ['xlsx', 'xls', 'csv'] }, { name: 'PowerPoint', extensions: ['pptx'] },
+    ] });
+    if (r.canceled || !r.filePaths[0] || !isDocPath(r.filePaths[0])) return null;
+    return { url: makeUrl(r.filePaths[0]), name: path.basename(r.filePaths[0]), kind: kindOf(r.filePaths[0]) };
   });
   // Windows does not let an app make itself the default: open its "Default apps" page (user picks Rajib Tutorial for .pdf there)
   ctx.ipcMain.handle('pdf:setDefault', (e) => {
@@ -79,8 +84,8 @@ function openFile(ctx, file) {
   const url = makeUrl(file);
   ctx.showMain();
   const w = ctx.getWin();
-  if (w && !w.isDestroyed() && ctx.ready()) w.webContents.send('pdf:open', { url, name: path.basename(file) });
-  else pendingUrl = { url, name: path.basename(file) };   // site still loading: delivered by flush()
+  if (w && !w.isDestroyed() && ctx.ready()) w.webContents.send('pdf:open', { url, name: path.basename(file), kind: kindOf(file) });
+  else pendingUrl = { url, name: path.basename(file), kind: kindOf(file) };   // site still loading: delivered by flush()
 }
 function flush(ctx) {
   const w = ctx.getWin();
@@ -89,4 +94,4 @@ function flush(ctx) {
   w.webContents.send('pdf:open', p);
 }
 
-module.exports = { PDF_PARTITION, PDF_SRC, init, openFile, flush, pdfFromArgv };
+module.exports = { PDF_PARTITION, PDF_SRC, OFFICE_SRC, init, openFile, flush, fileFromArgv };

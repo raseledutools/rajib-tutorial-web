@@ -15,7 +15,7 @@
     "electron-builder": "25.1.8"
   },
   "build": {
-    "compression": "store",
+    "compression": "maximum",
     "appId": "com.rajibtutorial.webexe",
     "productName": "Rajib Tutorial",
     "directories": {
@@ -36,6 +36,7 @@
       "focus-core.js",
       "focus-preload.js",
       "pdfjs/**/*",
+      "office/**/*",
       "pdfreader.js",
       "focus.html",
       "build/icon.png"
@@ -74,6 +75,30 @@
         "name": "PDF Document",
         "description": "PDF Document",
         "mimeType": "application/pdf",
+        "role": "Viewer"
+      },
+      {
+        "ext": "docx",
+        "name": "Word Document",
+        "description": "Word Document",
+        "role": "Viewer"
+      },
+      {
+        "ext": "xlsx",
+        "name": "Excel Workbook",
+        "description": "Excel Workbook",
+        "role": "Viewer"
+      },
+      {
+        "ext": "xls",
+        "name": "Excel 97-2003 Workbook",
+        "description": "Excel Workbook",
+        "role": "Viewer"
+      },
+      {
+        "ext": "pptx",
+        "name": "PowerPoint Presentation",
+        "description": "PowerPoint Presentation",
         "role": "Viewer"
       }
     ]

@@ -1,0 +1,38 @@
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font:14px "Segoe UI",system-ui,sans-serif;color:#1f2937;background:#e5e7eb;overflow:hidden}
+body{display:flex;flex-direction:column}
+#bar{display:flex;align-items:center;gap:6px;height:42px;padding:0 10px;background:#2b579a;color:#fff;flex-shrink:0;user-select:none}
+#bar .sp{flex:1}
+#badge{width:26px;height:26px;border-radius:5px;background:#fff;color:#2b579a;font-weight:800;display:flex;align-items:center;justify-content:center}
+#fname{font-weight:600;max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#bar button{height:28px;min-width:30px;padding:0 10px;border:1px solid rgba(255,255,255,.35);border-radius:6px;background:rgba(255,255,255,.14);color:#fff;font:600 13px "Segoe UI",system-ui,sans-serif;cursor:pointer}
+#bar button:hover{background:rgba(255,255,255,.28)}
+#zv{min-width:46px;text-align:center;font-size:13px}
+#main{flex:1;min-height:0;position:relative;overflow:auto}
+#content{min-height:100%}
+#msg{display:none;position:absolute;left:50%;top:80px;transform:translateX(-50%);max-width:80%;padding:18px 22px;background:#fff;border-radius:12px;box-shadow:0 8px 28px rgba(15,23,42,.12);text-align:center}
+#landing{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#e5e7eb}
+#landing.hide{display:none}
+#landing .box{width:min(460px,90%);padding:34px 28px;text-align:center;background:#fff;border:2px dashed #c3c8d0;border-radius:16px}
+#landing.drag .box{border-color:#2b579a;background:#f1f6ff}
+#landing .ico{font-weight:800;font-size:22px;letter-spacing:4px;margin-bottom:10px;background:linear-gradient(90deg,#2b579a 33%,#217346 33% 66%,#c43e1c 66%);-webkit-background-clip:text;color:transparent}
+#landing h2{margin:0 0 6px}
+#landing p{margin:0 0 18px;color:#6b7280}
+#landing button{padding:11px 26px;border:0;border-radius:10px;background:#2b579a;color:#fff;font:700 14px "Segoe UI",system-ui,sans-serif;cursor:pointer}
+#tabs{display:none;flex-shrink:0;gap:2px;padding:4px 8px 0;background:#f3f4f6;border-top:1px solid #d1d5db;overflow-x:auto;white-space:nowrap}
+#tabs button{padding:6px 16px;border:1px solid #d1d5db;border-bottom:0;border-radius:6px 6px 0 0;background:#e5e7eb;color:#374151;font:13px "Segoe UI",system-ui,sans-serif;cursor:pointer}
+#tabs button.on{background:#fff;color:#217346;font-weight:700;box-shadow:inset 0 -3px 0 #217346}
+/* Word */
+.docx-wrapper{background:#e5e7eb!important;padding:20px 0!important}
+.docx-wrapper>section.docx{box-shadow:0 2px 10px rgba(0,0,0,.18);margin-bottom:18px!important}
+/* Excel */
+.sheet{background:#fff;display:inline-block;min-width:100%}
+.sheet table{border-collapse:collapse;font:13px Calibri,"Segoe UI",sans-serif}
+.sheet td,.sheet th{border:1px solid #d4d4d8;padding:2px 8px;height:22px;white-space:pre;max-width:420px;overflow:hidden;text-overflow:ellipsis}
+.sheet th{position:sticky;top:0;background:#f3f4f6;color:#4b5563;font-weight:600;text-align:center;z-index:2}
+.sheet td.rn{position:sticky;left:0;background:#f3f4f6;color:#4b5563;text-align:center;font-weight:600;z-index:1}
+.sheet th.corner{left:0;z-index:3}
+.note{padding:10px;color:#6b7280;font-size:12px}
+/* PowerPoint */
+.pptx-preview-wrapper{background:#e5e7eb!important;margin:0 auto}
+@media print{#bar,#tabs,#landing,#msg{display:none!important}html,body,#main{overflow:visible!important;height:auto!important;background:#fff}.docx-wrapper{background:#fff!important;padding:0!important}}
