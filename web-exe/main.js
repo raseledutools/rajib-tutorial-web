@@ -12,6 +12,7 @@ const SITE_ORIGIN = new URL(SITE).origin;
 const PACKAGED = app.isPackaged;
 let win = null;
 let tray = null;
+let bgIcon = false; // the tray icon image loaded → the app is allowed to keep running in the background (with or without a visible tray icon)
 let forceQuit = false; // true only for a real quit (tray → Quit, installing an update, Windows shutdown)
 let startHidden = process.argv.includes('--hidden'); // started by Windows at login: stay in the tray
 
@@ -327,7 +328,7 @@ function create() {
   win.once('ready-to-show', () => { win.maximize(); if (!startHidden) win.show(); startHidden = false; });
   // Closing the window only hides it to the tray, so update / admin-panel notifications and Focus Mode keep working.
   win.on('close', (e) => {
-    if (forceQuit || !tray) return;
+    if (forceQuit || !bgIcon) return;
     if (!pref('closeToTray', true) && !focus.isActive()) { forceQuit = true; return; } // setting: close = quit
     e.preventDefault();
     win.hide();
@@ -437,12 +438,20 @@ function trayMenu() {
 function initTray() {
   try {
     const img = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon.png'));
-    if (img.isEmpty()) return; // no icon → no tray → the close button keeps its normal behaviour
+    if (img.isEmpty()) return; // no icon → no background mode → the close button keeps its normal behaviour
+    bgIcon = true;
+    if (!pref('trayIcon', true)) return; // hidden background mode (like Telegram): no tray icon, process keeps running, notifications keep coming
     tray = new Tray(img.resize({ width: 16, height: 16 }));
     tray.setToolTip('Rajib Tutorial');
     tray.setContextMenu(trayMenu());
     tray.on('click', showMain);
   } catch (_) { tray = null; }
+}
+// Settings toggle: show / hide the tray icon live. Hidden = the app still runs in the background; open it again by starting the shortcut.
+function applyTrayIcon(on) {
+  if (!bgIcon) return;
+  if (on && !tray) initTray();
+  else if (!on && tray) { try { tray.destroy(); } catch (_) {} tray = null; }
 }
 // Focus Mode now opens INSIDE the app (a view of the website: sidebar + title bar stay) instead of replacing the window.
 let pendingFocusView = false;
@@ -568,17 +577,18 @@ ipcMain.on('notify:show', (_e, title, body) => {
 // IPC: sidebar Settings panel (index.html). Only the main window may call these.
 function settingsState() {
   return { notifications: !!pref('notifications', true), screenProtect: !!pref('screenProtect', true), autostart: autostartOn(),
-           closeToTray: !!pref('closeToTray', true), notifySound: !!pref('notifySound', true), alwaysOnTop: !!pref('alwaysOnTop', false),
+           closeToTray: !!pref('closeToTray', true), trayIcon: !!pref('trayIcon', true), notifySound: !!pref('notifySound', true), alwaysOnTop: !!pref('alwaysOnTop', false),
            gpuOff: !!pref('gpuOff', false), adultBlock: !!pref('adultBlock', true), version: app.getVersion(), packaged: PACKAGED };
 }
 ipcMain.handle('settings:get', (e) => (trusted(e) ? settingsState() : null));
 ipcMain.handle('settings:set', (e, key, val) => {
-  if (!trusted(e) || !['notifications', 'screenProtect', 'autostart', 'closeToTray', 'notifySound', 'alwaysOnTop', 'gpuOff', 'adultBlock'].includes(key)) return null;
+  if (!trusted(e) || !['notifications', 'screenProtect', 'autostart', 'closeToTray', 'trayIcon', 'notifySound', 'alwaysOnTop', 'gpuOff', 'adultBlock'].includes(key)) return null;
   val = !!val;
   if (key === 'autostart' && !val && focus.isActive()) return settingsState(); // Focus session running: keep Start-with-Windows on
   const p = readPrefs(); p[key] = val; writePrefs(p);
   if (key === 'screenProtect') BrowserWindow.getAllWindows().forEach((w) => { try { if (!w.isDestroyed()) w.setContentProtection(val); } catch (_) {} });
   if (key === 'autostart') applyAutostart(val);
+  if (key === 'trayIcon') applyTrayIcon(val);
   if (key === 'alwaysOnTop' && win && !win.isDestroyed()) { try { win.setAlwaysOnTop(val); } catch (_) {} }
   if (key === 'adultBlock') adultBlockOn = val;
   if (key === 'gpuOff') { setTimeout(() => { forceQuit = true; app.relaunch(); app.exit(0); }, 400); return settingsState(); }
@@ -818,4 +828,4 @@ app.whenReady().then(() => {
   try { globalShortcut.register('PrintScreen', () => { try { clipboard.clear(); } catch (_) {} }); } catch (_) {}
 });
 app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch (_) {} });
-app.on('window-all-closed', () => { if (!tray || forceQuit) app.quit(); });
+app.on('window-all-closed', () => { if (!bgIcon || forceQuit) app.quit(); });
