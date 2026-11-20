@@ -112,6 +112,10 @@ ipcRenderer.on('bt:key', (_e, k) => {
   } catch (_) {}
 });
 
+ipcRenderer.on('bt:dl', (_e, json) => {
+  try { document.dispatchEvent(new CustomEvent('bt-dl', { detail: String(json || '') })); } catch (_) {}
+});
+
 ipcRenderer.on('bt:ctx', (_e, json) => {
   try { document.dispatchEvent(new CustomEvent('bt-ctx', { detail: String(json || '') })); } catch (_) {}
 });
@@ -144,6 +148,20 @@ contextBridge.exposeInMainWorld('ElectronShell', {
     remove: (k) => ipcRenderer.invoke('ext:remove', String(k)),
     toggle: (k, on) => ipcRenderer.invoke('ext:toggle', String(k), !!on),
     open: (k) => ipcRenderer.invoke('ext:open', String(k)),
+  },
+  bt: {   // Chrome-style menu helpers (webtools.js / main.js)
+    newWindow: (u) => ipcRenderer.invoke('win:new', String(u || '')),
+    incognito: (u) => ipcRenderer.invoke('incog:open', String(u || '')),
+    clearData: (o) => ipcRenderer.invoke('browsing:clear', { cache: !!(o && o.cache), cookies: !!(o && o.cookies) }),
+    savePage: (id) => ipcRenderer.invoke('page:save', Number(id)),
+    dl: {
+      list: () => ipcRenderer.invoke('dl:list'),
+      open: (id) => ipcRenderer.invoke('dl:open', Number(id)),
+      show: (id) => ipcRenderer.invoke('dl:show', Number(id)),
+      cancel: (id) => ipcRenderer.invoke('dl:cancel', Number(id)),
+      remove: (id) => ipcRenderer.invoke('dl:remove', Number(id)),
+      clear: () => ipcRenderer.invoke('dl:clear'),
+    },
   },
   embed: true, // this build can show YouTube / Studio / Google inside the app layout (<webview>)
   // offline lesson videos (saved to disk by the main process)

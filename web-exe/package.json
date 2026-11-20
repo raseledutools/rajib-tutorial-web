@@ -27,6 +27,7 @@
       "ext-preload.js",
       "extensions.js",
       "safety.js",
+      "webtools.js",
       "vidstore.js",
       "offline.html",
       "splash.html",

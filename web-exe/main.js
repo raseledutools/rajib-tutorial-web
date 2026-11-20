@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Menu, Tray, nativeImage, session, shell, clipboard, globalShortcut, ipcMain, Notification, protocol, net, safeStorage } = require('electron');
+const { app, BrowserWindow, Menu, Tray, nativeImage, session, shell, clipboard, globalShortcut, ipcMain, Notification, protocol, net, safeStorage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -222,9 +222,10 @@ function guard(wc) {
 
 /* Open a URL in a child window (inside the app, not the system browser).
    Used for YouTube, Google, YouTube Studio and any external https link. */
-function openChild(url, title) {
-  // If a child with this URL already exists, just focus it
-  for (const w of BrowserWindow.getAllWindows()) {
+function openChild(url, title, opts) {
+  opts = opts || {};
+  // If a child with this URL already exists, just focus it (not for "New window" / incognito)
+  if (!opts.forceNew) for (const w of BrowserWindow.getAllWindows()) {
     if (w !== win && !w.isDestroyed()) {
       try { if (w.webContents.getURL() === url) { w.focus(); return; } } catch (_) {}
     }
@@ -237,7 +238,7 @@ function openChild(url, title) {
     title: title || 'Rajib Tutorial',
     parent: win || undefined,
     webPreferences: {
-      partition: EXT_PARTITION,   // same session as the Safe Browser tabs: logins are kept + Chrome user-agent
+      partition: opts.partition || EXT_PARTITION,   // same session as the Safe Browser tabs: logins are kept + Chrome user-agent (incognito: its own temporary session)
       preload: path.join(__dirname, 'ext-preload.js'),
       sandbox: true,
       contextIsolation: true,
@@ -267,9 +268,11 @@ function openChild(url, title) {
         bar.appendChild(btn('←','Back', function(){ history.back(); }));
         bar.appendChild(btn('→','Forward', function(){ history.forward(); }));
         bar.appendChild(btn('⟳','Refresh', function(){ location.reload(); }));
+        var INC = ${opts.incognito ? 'true' : 'false'};
+        if (INC) bar.style.background = 'rgba(38,28,66,.96)';
         var title = document.createElement('span');
         title.style.cssText = 'flex:1;color:#ddd;font-size:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center;';
-        title.textContent = document.title || location.hostname;
+        title.textContent = (INC ? '🕶 Incognito — ' : '') + (document.title || location.hostname);
         bar.appendChild(title);
         bar.appendChild(btn('✕','Close window', function(){ window.close(); }));
         (document.body||document.documentElement).prepend(bar);
@@ -642,6 +645,19 @@ ipcMain.handle('ext:addStore', (e, s) => (trusted(e) ? extMgr.addStore(String(s 
 ipcMain.handle('ext:remove', (e, k) => (trusted(e) ? extMgr.remove(String(k)) : null));
 ipcMain.handle('ext:toggle', (e, k, on) => (trusted(e) ? extMgr.toggle(String(k), !!on) : null));
 ipcMain.handle('ext:open', (e, k) => (trusted(e) ? extMgr.open(String(k)) : null));
+// Chrome-style menu: New window / New Incognito window (temporary session: nothing is saved, closed = gone)
+const safeHttps = (u, d) => { try { const x = new URL(String(u || d)); return x.protocol === 'https:' ? x.toString() : d; } catch (_) { return d; } };
+ipcMain.handle('win:new', (e, u) => { if (!trusted(e)) return null; openChild(safeHttps(u, 'https://www.google.com/'), 'Safe Browser', { forceNew: true }); return { ok: true }; });
+ipcMain.handle('incog:open', (e, u) => {
+  if (!trusted(e)) return null;
+  const part = 'rtincog-' + Date.now().toString(36);   // no "persist:" prefix => memory only
+  const ses = session.fromPartition(part);
+  setupBrowserSession(ses, false);
+  webTools.hook(ses);
+  openChild(safeHttps(u, 'https://www.google.com/'), 'Incognito', { forceNew: true, partition: part, incognito: true });
+  return { ok: true };
+});
+const webTools = require('./webtools').register({ ipcMain, app, session, shell, dialog, webContents: require('electron').webContents, getWin: () => win, partition: EXT_PARTITION, trusted });
 // the course-video page shown by index.html (wvPlayer): youtube.com/embed/<id> or /watch?v=<id>, opened with "#rtlesson"
 function isLessonPage(wc) {
   try { const u = new URL(wc.getURL()); return u.hostname === 'www.youtube.com' && /(^|[#&])rtlesson/.test(u.hash); } catch (_) { return false; }
@@ -743,7 +759,7 @@ app.on('web-contents-created', (_e, wc) => {
       try {
         if (input.type !== 'keyDown' || isLessonPage(wc) || isFocusGuest(wc)) return;
         const k = input.key, ctrl = !!(input.control || input.meta);
-        const fwd = k === 'F11' || k === 'F5' || k === 'Escape' || (ctrl && (/^[twlrdfhp0-9=+\-_]$/i.test(k) || k === 'Tab')) || (input.alt && (k === 'ArrowLeft' || k === 'ArrowRight'));
+        const fwd = k === 'F11' || k === 'F5' || k === 'Escape' || (ctrl && (/^[twlrdfhpnjs0-9=+\-_]$/i.test(k) || k === 'Tab' || (input.shift && k === 'Delete'))) || (input.alt && (k === 'ArrowLeft' || k === 'ArrowRight'));
         if (fwd && wc.hostWebContents && !wc.hostWebContents.isDestroyed()) {
           wc.hostWebContents.send('bt:key', { key: k, ctrlKey: ctrl, shiftKey: !!input.shift, altKey: !!input.alt });
         }
@@ -753,12 +769,7 @@ app.on('web-contents-created', (_e, wc) => {
 });
 
 app.setAppUserModelId('com.rajibtutorial.webexe'); // needed for Windows notifications
-app.whenReady().then(() => {
-  Menu.setApplicationMenu(null);
-  {
-    // Embedded sites (YouTube, Studio, Google): own persistent session so logins are kept, and a normal
-    // Chrome user-agent (Google refuses sign-in from browsers that announce "Electron").
-    const ext = session.fromPartition(EXT_PARTITION);
+function setupBrowserSession(ext, persistent) {
     // Reported Chrome version never below MIN_CHROME_MAJOR (Electron's own Chrome gets old -> "out of date browser")
     const MIN_CHROME_MAJOR = 146;
     const realMajor = parseInt(String(process.versions.chrome).split('.')[0], 10);
@@ -781,7 +792,7 @@ app.whenReady().then(() => {
       } catch (_) {}
       cb({});
     });
-    safety.persistCookies(ext);   // stay signed in after the app is closed
+    if (persistent) safety.persistCookies(ext);   // stay signed in after the app is closed
     ext.webRequest.onBeforeSendHeaders((details, cb) => {
       const h = details.requestHeaders;
       if (details.resourceType === 'mainFrame' && /^https:\/\/www\.youtube\.com\/embed\//.test(details.url)) h['Referer'] = SITE;
@@ -796,7 +807,11 @@ app.whenReady().then(() => {
     });
     ext.setPermissionRequestHandler((_wc, perm, cb) =>
       cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));
-  }
+}
+
+app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
+  setupBrowserSession(session.fromPartition(EXT_PARTITION), true);
   session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) =>
     cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));
   session.defaultSession.webRequest.onBeforeSendHeaders(

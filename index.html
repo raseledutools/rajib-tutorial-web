@@ -2060,6 +2060,33 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
 .bt-bmi{font-size:13px;letter-spacing:.1px}
 .bt-si{font-size:14px}.bt-si small{font-size:13px}
 #btUrl{font-size:14px;letter-spacing:.1px}
+/* ── full Chrome-style 3-dot menu ── */
+#btPop2{z-index:64}
+.bt-pop{max-height:min(740px,calc(100vh - 110px));overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#555 transparent}
+.bt-mi svg.chev{width:18px;height:18px;margin-left:auto;color:#c4c7c5;flex:none}
+.bt-mi.sel{background:#3c3c3c}
+.bt-prof{margin:6px 10px;width:calc(100% - 20px);min-height:54px;padding:6px 14px;border-radius:14px;background:#35383b}
+.bt-prof:hover:not(.dis),.bt-prof.sel{background:#3f4245}
+.bt-prof .bt-avatar{width:30px;height:30px;margin:0;font-size:14px;cursor:inherit;background:#3b5566;flex:none}
+.bt-prof .pill{font-style:normal;background:#004a77;color:#c2e7ff;border-radius:16px;padding:6px 14px;font-size:13.5px;font-weight:500}
+.bt-mz{display:flex;align-items:center;gap:8px;padding:2px 14px 2px 20px;min-height:48px;font-size:14px;color:#e3e3e3}
+.bt-mz>svg{width:20px;height:20px;margin-right:8px;flex:none}
+.bt-mz>span{flex:1}
+.bt-mz b{min-width:46px;text-align:center;font-weight:400}
+.bt-mz button.zb{width:34px;height:34px;border:0;border-radius:50%;background:#2f3133;color:#e3e3e3;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.bt-mz button.zb:hover{background:#3f4144}
+.bt-mz button.zb svg{width:18px;height:18px}
+.bt-mz .zs{width:1px;height:28px;background:#555;margin:0 4px}
+.bt-gd{width:12px;height:12px;border-radius:50%;flex:none;margin:0 4px}
+.bt-gc{flex:none;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:600;color:#202124}
+.bt-ck{display:flex;align-items:center;gap:10px;margin:9px 0;font-size:14px;cursor:pointer}
+.bt-ck input{width:18px;height:18px;accent-color:#8ab4f8}.bt-ck small{color:var(--c-icon);font-size:12px}
+.bt-dr{display:flex;align-items:center;gap:14px;padding:12px 8px;border-bottom:1px solid #3a3a3a}
+.bt-dr .n{flex:1;min-width:0}.bt-dr .n b{display:block;font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bt-dr .n small{color:var(--c-icon);font-size:12.5px}
+.bt-dr .pg{height:4px;border-radius:2px;background:#444;margin-top:6px;overflow:hidden}.bt-dr .pg i{display:block;height:100%;background:var(--c-blue)}
+.bt-dr button{border:0;background:transparent;color:var(--c-blue);font-size:13px;font-weight:600;cursor:pointer;padding:6px 10px;border-radius:14px}
+.bt-dr button:hover{background:rgba(138,180,248,.12)}
 </style>
 
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2376,7 +2403,13 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     </div>
     <div class="bt-find" id="btFind"><input id="btFindIn" type="text" spellcheck="false" placeholder="Find in page" oninput="btFindGo(true)" onkeydown="if(event.key==='Enter'){btFindGo(false,!event.shiftKey)}else if(event.key==='Escape'){btFindClose()}"><span id="btFindN">0/0</span><i></i><button onclick="btFindGo(false,false)" title="Previous (Shift+Enter)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button><button onclick="btFindGo(false,true)" title="Next (Enter)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><button onclick="btFindClose()" title="Close (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="bt-sug" id="btSug"></div>
-    <div class="bt-pop" id="btPop"></div>
+    <div class="bt-pop" id="btPop"></div><div class="bt-pop" id="btPop2"></div>
+    <div class="bt-ask" id="btDel"><div><h3>Delete browsing data</h3><p>Choose what to delete from Safe Browser.</p>
+      <label class="bt-ck"><input type="checkbox" id="btDelH" checked> Browsing history</label>
+      <label class="bt-ck"><input type="checkbox" id="btDelD" checked> Download history</label>
+      <label class="bt-ck"><input type="checkbox" id="btDelC" checked> Cached images and files</label>
+      <label class="bt-ck"><input type="checkbox" id="btDelK"> <span>Cookies and other site data<br><small>You will be signed out of most websites</small></span></label>
+      <div class="r"><button id="btDelNo">Cancel</button><button class="p" id="btDelOk">Delete data</button></div></div></div>
     <div class="bt-toast" id="btToast"></div>
     <div class="bt-ask" id="btAsk"><div><h3 id="btAskT"></h3><p id="btAskP"></p><input id="btAskIn" type="text" spellcheck="false" autocomplete="off"><div class="r"><button id="btAskNo">Cancel</button><button class="p" id="btAskOk">Install</button></div></div></div>
     <div class="bt-fshint" id="btFsHint">Press F11 or Esc to exit full screen</div>
@@ -5843,7 +5876,7 @@ window.mBrowserOpenExternal = function() {
 // ─── Safe Browser: Chrome-style tabs (own <webview> per tab, shared ad-blocked session) ───
 (function(){
   const HOME="https://www.google.com/";
-  const tabs=[];let cur=null,seq=0,prev="viewHome";
+  const tabs=[];let cur=null,seq=0,prev="viewHome";const groups=[];let gseq=0;let bmAlways=false;try{bmAlways=localStorage.getItem("rt_bt_bmbar")==="1"}catch(e){}
   const web=()=>!!(window.ElectronShell&&window.ElectronShell.isElectron&&window.ElectronShell.embed);
   const X='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
   const GLOBE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
@@ -5851,6 +5884,7 @@ window.mBrowserOpenExternal = function() {
   function norm(v){
     v=String(v||"").trim();if(!v)return"";
     if(/^safe:\/\/history/i.test(v))return"safe://history";
+    if(/^safe:\/\/downloads/i.test(v))return"safe://downloads";
     if(/^https?:\/\//i.test(v))return v.replace(/^http:\/\//i,"https://");
     if(/^[a-z][a-z0-9+.-]*:/i.test(v)&&!/^[\w.-]+:\d+/.test(v))return"https://www.google.com/search?q="+encodeURIComponent(v);
     if(!/\s/.test(v)&&/^[\w-]+(\.[\w-]+)+(:\d+)?([\/?#].*)?$/.test(v))return"https://"+v;
@@ -5869,6 +5903,9 @@ window.mBrowserOpenExternal = function() {
       const x=document.createElement("button");x.className="bt-x";x.title="Close tab (Ctrl+W)";x.innerHTML=X;
       x.onclick=e=>{e.stopPropagation();closeTab(t)};
       d.append(ico,tt,x);d.classList.toggle("pin",!!t.pin);tabEvents(d,t);d.onclick=()=>activate(t);
+      const gr=groupOf(t);
+      if(gr){d.style.boxShadow="inset 0 -3px 0 "+gr.color;const ix=tabs.indexOf(t);
+        if(gr.name&&(ix===0||tabs[ix-1].grp!==t.grp)){const ch=document.createElement("span");ch.className="bt-gc";ch.style.background=gr.color;ch.textContent=gr.name;d.insertBefore(ch,ico)}}
       d.onauxclick=e=>{if(e.button===1){e.preventDefault();closeTab(t)}};
       box.appendChild(d);
     });
@@ -5885,6 +5922,7 @@ window.mBrowserOpenExternal = function() {
   function make(url){
     if(!url){const n={id:++seq,url:"",title:"New tab",fav:"",loading:false,web:false,ntp:true,el:ntpEl()};return n}
     if(url==="safe://history")return{id:++seq,url,title:"History",fav:"",loading:false,web:false,int:"history",el:histEl()};
+    if(url==="safe://downloads")return{id:++seq,url,title:"Downloads",fav:"",loading:false,web:false,int:"downloads",el:dlEl()};
     const t={id:++seq,url,title:"",fav:"",loading:true,web:web(),el:null};
     if(t.web){
       const el=document.createElement("webview");
@@ -5913,7 +5951,7 @@ window.mBrowserOpenExternal = function() {
     return t;
   }
   function activate(t){
-    btFindClose(true);cur=t;tabs.forEach(x=>{if(x.web){x.el.style.display="flex";x.el.classList.toggle("bt-bg",x!==t)}else x.el.style.display=x===t?"flex":"none"});if(t.ntp)fillNtp(t.el);if(t.int==="history")fillHist(t.el);
+    btFindClose(true);cur=t;tabs.forEach(x=>{if(x.web){x.el.style.display="flex";x.el.classList.toggle("bt-bg",x!==t)}else x.el.style.display=x===t?"flex":"none"});if(t.ntp)fillNtp(t.el);if(t.int==="history")fillHist(t.el);if(t.int==="downloads")fillDl(t.el,true);
     $("btErr").style.display="none";renderTabs();sync(t);
   }
   window.btNewTab=function(url){
@@ -5940,7 +5978,7 @@ window.mBrowserOpenExternal = function() {
   };
   window.btNav=function(act){
     const t=cur;if(!t||t.ntp)return;
-    if(t.int&&act!=="home"){if(act==="reload"&&t.int==="history")fillHist(t.el);return}
+    if(t.int&&act!=="home"){if(act==="reload"&&t.int==="history")fillHist(t.el);if(act==="reload"&&t.int==="downloads")fillDl(t.el,true);return}
     try{
       if(act==="home"){btGo(HOME);return}
       $("btErr").style.display="none";
@@ -5989,23 +6027,69 @@ window.mBrowserOpenExternal = function() {
   const globeEl=()=>Object.assign(document.createElement("span"),{className:"bt-ico",innerHTML:GLOBE});
   function favImg(u){const im=document.createElement("img");im.src=favUrl(u);im.alt="";im.onerror=()=>im.replaceWith(globeEl());return im}
 
-  // popup menu (kebab, tab search, extensions, apps, bookmark right-click)
-  const pop=()=>$("btPop");
-  function popupAt(x,y,items,alignRight){
-    const p=pop();p.innerHTML="";
+  // ── popup menus (3-dot, tab search, extensions, apps, bookmark right-click) with Chrome-style sub-menus ──
+  const ICN={
+    win:svg('<path d="M12 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-6"/><path d="M18 3v6M15 6h6"/>'),
+    inc:svg('<path d="M4 12h16M7 12l1.5-6h7L17 12"/><circle cx="8" cy="17" r="2.5"/><circle cx="16" cy="17" r="2.5"/><path d="M10.5 17h3"/>'),
+    key:svg('<circle cx="8" cy="12" r="3.5"/><path d="M11.5 12H21M18 12v3M15 12v2"/>'),
+    dl:svg('<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>'),
+    grp:svg('<rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/>'),
+    tr:svg('<path d="M4 5h9M8.5 3v2M6 5c.8 3.5 3.5 6 6.5 7M12 5c-.8 3.5-3.5 6-7 7.5"/><path d="M12 20l4-9 4 9M13.5 17h5"/>'),
+    lens:svg('<circle cx="12" cy="12" r="3.5"/><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/>'),
+    gem:svg('<path fill="currentColor" d="M12 3c.6 4.7 4.3 8.4 9 9-4.7.6-8.4 4.3-9 9-.6-4.7-4.3-8.4-9-9 4.7-.6 8.4-4.3 9-9z"/>'),
+    fnd:svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><circle cx="12" cy="14" r="2.5"/><path d="M14 16l2 2"/>'),
+    share:svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4M14 3l5 5v3"/><path d="M17 14v6M14 17l3 3 3-3"/>'),
+    tools:svg('<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M9 8V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18"/>'),
+    help:svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>'),
+    gear:svg('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'),
+    exit:svg('<path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9"/>'),
+    bld:svg('<rect x="5" y="3" width="10" height="18" rx="1"/><path d="M15 9h4v12h-4M8 7h4M8 11h4M8 15h4"/>')
+  };
+  const CHEV=svg('<path d="M9 6l6 6-6 6"/>');
+  const pop=()=>$("btPop"),pop2=()=>$("btPop2");
+  function closePops(){[pop(),pop2()].forEach(p=>{if(p){p.classList.remove("show");p._a=null}})}
+  let subT=null;
+  function fillMenu(p,items,lvl){
+    p.innerHTML="";
     items.forEach(it=>{
       if(it.sep){const s=document.createElement("div");s.className="bt-ps";p.appendChild(s);return}
       if(it.zoom){const z=document.createElement("div");z.className="bt-mz";z.onclick=e=>e.stopPropagation();
-        z.innerHTML="<span>Zoom</span><button>−</button><b></b><button>+</button>";const bs=z.querySelectorAll("button"),pc=z.querySelector("b");
+        z.innerHTML=IC.zoom+'<span>Zoom</span><button class="zb">−</button><b></b><button class="zb">+</button><i class="zs"></i><button class="zb" title="Full screen (F11)">'+IC.fs+'</button>';
+        const bs=z.querySelectorAll("button"),pc=z.querySelector("b");
         const up=()=>{pc.textContent=Math.round(zoomOf(cur)*100)+"%"};up();
-        bs[0].onclick=e=>{e.stopPropagation();btZoom(-1);up()};bs[1].onclick=e=>{e.stopPropagation();btZoom(1);up()};p.appendChild(z);return}
-      const b=document.createElement("button");b.className="bt-mi"+(it.on?" on":"")+(it.dis?" dis":"");
-      if(it.fav)b.appendChild(favImg(it.fav));else if(it.ic)b.insertAdjacentHTML("beforeend",it.ic);
-      const l=document.createElement("span");l.className="l";l.textContent=it.l;b.appendChild(l);
-      if(it.k){const k=document.createElement("kbd");k.textContent=it.k;b.appendChild(k)}
-      b.onclick=e=>{e.stopPropagation();if(it.dis)return;p.classList.remove("show");p._a=null;if(it.f)it.f()};
+        bs[0].onclick=e=>{e.stopPropagation();btZoom(-1);up()};bs[1].onclick=e=>{e.stopPropagation();btZoom(1);up()};
+        bs[2].onclick=e=>{e.stopPropagation();closePops();btFs()};
+        z.onmouseenter=()=>pop2().classList.remove("show");p.appendChild(z);return}
+      const b=document.createElement("button");
+      b.className="bt-mi"+(it.prof?" bt-prof":"")+(it.on?" on":"")+(it.dis?" dis":"");
+      if(it.prof){
+        b.innerHTML='<div class="bt-avatar"></div><span class="l"></span><em class="pill"></em>';
+        b.querySelector(".bt-avatar").textContent=it.letter;b.querySelector(".l").textContent=it.l;b.querySelector(".pill").textContent=it.pill;
+      }else{
+        if(it.fav)b.appendChild(favImg(it.fav));else if(it.ic)b.insertAdjacentHTML("beforeend",it.ic);
+        const l=document.createElement("span");l.className="l";l.textContent=it.l;b.appendChild(l);
+        if(it.k&&!it.sub){const k=document.createElement("kbd");k.textContent=it.k;b.appendChild(k)}
+      }
+      if(it.sub){b.insertAdjacentHTML("beforeend",CHEV);b.lastChild.classList.add("chev")}
+      b.onclick=e=>{e.stopPropagation();if(it.dis)return;if(it.sub){clearTimeout(subT);openSub(b,it.sub,p);return}closePops();if(it.f)it.f()};
+      if(lvl===1)b.onmouseenter=()=>{clearTimeout(subT);subT=setTimeout(()=>{if(it.sub&&!it.dis)openSub(b,it.sub,p);else{pop2().classList.remove("show");p.querySelectorAll(".sel").forEach(n=>n.classList.remove("sel"))}},it.sub?90:160)};
       p.appendChild(b);
     });
+  }
+  function openSub(b,sub,parent){
+    const items=typeof sub==="function"?sub():sub,p2=pop2();
+    parent.querySelectorAll(".sel").forEach(n=>n.classList.remove("sel"));b.classList.add("sel");
+    fillMenu(p2,items,2);
+    const r=$("viewBrowser").getBoundingClientRect(),pr=parent.getBoundingClientRect(),br=b.getBoundingClientRect();
+    p2.style.left="0px";p2.style.top="0px";p2.classList.add("show");
+    const w=p2.offsetWidth,h=p2.offsetHeight;
+    let left=pr.left-w-4;if(left<r.left+4)left=pr.right+4;
+    let top=br.top-8;
+    p2.style.left=Math.max(4,Math.min(left-r.left,r.width-w-4))+"px";
+    p2.style.top=Math.max(4,Math.min(top-r.top,r.height-h-4))+"px";
+  }
+  function popupAt(x,y,items,alignRight){
+    const p=pop();pop2().classList.remove("show");fillMenu(p,items,1);
     const r=$("viewBrowser").getBoundingClientRect();
     p.style.left="0px";p.style.top="0px";p.classList.add("show");
     const w=p.offsetWidth,h=p.offsetHeight;
@@ -6016,29 +6100,76 @@ window.mBrowserOpenExternal = function() {
   function popupBelow(e,btn,items,right){
     if(e)e.stopPropagation();
     const p=pop();
-    if(p.classList.contains("show")&&p._a===btn){p.classList.remove("show");p._a=null;return}
+    if(p.classList.contains("show")&&p._a===btn){closePops();return}
     const b=btn.getBoundingClientRect();popupAt(right?b.right:b.left,b.bottom+4,items,!!right);p._a=btn;
   }
-  document.addEventListener("click",()=>{const p=pop();if(p){p.classList.remove("show");p._a=null}});
+  document.addEventListener("click",closePops);
 
+  // ── the 3-dot menu: same entries as Chrome ──
   window.btMenu=function(e){
-    popupBelow(e,$("btMenuBtn"),[
+    const t=cur,page=!!(t&&t.web),https=!!(t&&/^https?:\/\//i.test(t.url||"")),anchor=$("btMenuBtn");
+    const nm=profName(),signed=!!(typeof session!=="undefined"&&session&&session.mobile);
+    const wv=fn=>()=>{try{cur.el[fn]()}catch(er){}};
+    popupBelow(e,anchor,[
       {l:"New tab",ic:IC.plus,k:"Ctrl+T",f:()=>btNewTab()},
-      {l:"Reopen closed tab",ic:IC.reload,k:"Ctrl+Shift+T",dis:!closed.length,f:()=>btReopen()},
+      {l:"New window",ic:ICN.win,k:"Ctrl+N",f:()=>btNewWindow()},
+      {l:"New Incognito window",ic:ICN.inc,k:"Ctrl+Shift+N",f:()=>btIncognito()},
       {sep:1},
-      {l:"History",ic:IC.hist,k:"Ctrl+H",f:()=>btOpenHistory()},
-      {l:"Extensions",ic:PUZ(),f:()=>setTimeout(()=>extPanel($("btMenuBtn")),0)},
-      {l:"Bookmark this tab",ic:IC.star0,k:"Ctrl+D",f:()=>btStar()},
+      {prof:1,l:nm,letter:nm.charAt(0).toUpperCase(),pill:signed?"Signed in":"Guest",sub:()=>[
+        {l:"Manage your Google Account",ic:IC.out,f:()=>btNewTab("https://myaccount.google.com/")},
+        {l:"Google Account security",ic:IC.out,f:()=>btNewTab("https://myaccount.google.com/security")}]},
+      {l:"Passwords and autofill",ic:ICN.key,sub:()=>[
+        {l:"Google Password Manager",ic:ICN.key,f:()=>btNewTab("https://passwords.google.com/")},
+        {l:"Payment methods",ic:IC.out,f:()=>btNewTab("https://pay.google.com/payments/home#paymentMethods")},
+        {l:"Addresses and more",ic:IC.out,f:()=>btNewTab("https://myaccount.google.com/personal-info")}]},
+      {l:"History",ic:IC.hist,sub:()=>{
+        const it=[{l:"History",ic:IC.hist,k:"Ctrl+H",f:()=>btOpenHistory()},{sep:1}];
+        const rc=closed.slice(-6).reverse();
+        if(rc.length){it.push({l:"Recently closed",dis:1});rc.forEach(c=>it.push({l:c.u.indexOf("safe://")===0?c.u.slice(7):host(c.u),fav:/^https?:/i.test(c.u)?c.u:"",ic:/^https?:/i.test(c.u)?"":IC.hist,f:()=>{const i=closed.indexOf(c);if(i>=0)closed.splice(i,1);const n=btNewTab(c.u);if(c.p&&n){n.pin=true;sortPins();renderTabs()}}}))}
+        else it.push({l:"No recently closed tabs",dis:1});
+        return it}},
+      {l:"Downloads",ic:ICN.dl,k:"Ctrl+J",f:()=>btOpenDownloads()},
+      {l:"Bookmarks and lists",ic:IC.star0,sub:()=>{
+        const it=[{l:"Bookmark this tab",ic:IC.star0,k:"Ctrl+D",dis:!t||!t.url,f:()=>btStar()},
+          {l:"Show bookmarks bar",ic:bmAlways?svg('<path d="M5 12l5 5L19 7"/>'):"",on:bmAlways,f:()=>{bmAlways=!bmAlways;try{localStorage.setItem("rt_bt_bmbar",bmAlways?"1":"0")}catch(er){}omniUi(cur);renderBm()}},{sep:1}];
+        if(bms.length)bms.slice(0,15).forEach(b=>it.push({l:b.t,fav:b.u,f:()=>btGo(b.u)}));else it.push({l:"No bookmarks yet",dis:1});
+        return it}},
+      {l:"Tab groups",ic:ICN.grp,sub:()=>tabGroupsMenu()},
+      {l:"Extensions",ic:PUZ(),sub:()=>[
+        {l:"Manage extensions",ic:PUZ(),f:()=>setTimeout(()=>extPanel(anchor),0)},
+        {l:"Visit Chrome Web Store",ic:IC.out,f:()=>btNewTab("https://chromewebstore.google.com/")}]},
+      {l:"Delete browsing data…",ic:IC.del,k:"Ctrl+Shift+Del",f:()=>btDelData()},
       {sep:1},
       {zoom:1},
-      {l:"Print…",ic:IC.print,k:"Ctrl+P",f:()=>btPrint()},
-      {l:"Find in page…",ic:IC.find,k:"Ctrl+F",f:()=>btFindOpen()},
-      {l:"Reload",ic:IC.reload,k:"Ctrl+R",f:()=>btNav("reload")},
-      {l:fsOn()?"Exit full screen":"Full screen",ic:IC.fs,k:"F11",f:()=>btFs()},
       {sep:1},
-      {l:"Clear browsing history…",ic:IC.del,f:()=>btClearHist()},
-      {l:"Fix black screen (compatibility mode)",ic:IC.reload,f:()=>btGpuFix()},
-      {l:"Open in separate window",ic:IC.out,f:()=>btPopOut()}
+      {l:"Print…",ic:IC.print,k:"Ctrl+P",dis:!t||t.ntp||!!t.int,f:()=>btPrint()},
+      {l:"Open Gemini",ic:ICN.gem,f:()=>btNewTab("https://gemini.google.com/")},
+      {l:"Search this tab with Google Lens",ic:ICN.lens,dis:!https,f:()=>btNewTab("https://lens.google.com/uploadbyurl?url="+encodeURIComponent(t.url))},
+      {l:"Translate…",ic:ICN.tr,dis:!https,f:()=>btGo("https://translate.google.com/translate?sl=auto&tl=bn&u="+encodeURIComponent(t.url))},
+      {l:"Find and edit",ic:ICN.fnd,sub:()=>[
+        {l:"Find…",ic:IC.find,k:"Ctrl+F",dis:!page,f:()=>btFindOpen()},{sep:1},
+        {l:"Cut",k:"Ctrl+X",dis:!page,f:wv("cut")},{l:"Copy",k:"Ctrl+C",dis:!page,f:wv("copy")},
+        {l:"Paste",k:"Ctrl+V",dis:!page,f:wv("paste")},{l:"Select all",k:"Ctrl+A",dis:!page,f:wv("selectAll")}]},
+      {l:"Cast, save and share",ic:ICN.share,sub:()=>[
+        {l:"Save page as…",ic:ICN.share,k:"Ctrl+S",dis:!page,f:()=>btSavePage()},
+        {l:"Copy link",ic:IC.copy,dis:!https,f:()=>{try{navigator.clipboard.writeText(t.url);toast("Link copied")}catch(er){}}},{sep:1},
+        {l:"Share on WhatsApp",ic:IC.out,dis:!https,f:()=>btNewTab("https://wa.me/?text="+encodeURIComponent(t.url))},
+        {l:"Share on Telegram",ic:IC.out,dis:!https,f:()=>btNewTab("https://t.me/share/url?url="+encodeURIComponent(t.url))}]},
+      {l:"More tools",ic:ICN.tools,sub:()=>[
+        {l:"Save page as…",ic:ICN.share,k:"Ctrl+S",dis:!page,f:()=>btSavePage()},
+        {l:"Downloads",ic:ICN.dl,k:"Ctrl+J",f:()=>btOpenDownloads()},
+        {l:"Delete browsing data…",ic:IC.del,k:"Ctrl+Shift+Del",f:()=>btDelData()},
+        {l:"Extensions",ic:PUZ(),f:()=>setTimeout(()=>extPanel(anchor),0)},{sep:1},
+        {l:"Open in separate window",ic:IC.out,f:()=>btPopOut()},
+        {l:"Fix black screen (compatibility mode)",ic:IC.reload,f:()=>btGpuFix()}]},
+      {sep:1},
+      {l:"Help",ic:ICN.help,sub:()=>[
+        {l:"About Safe Browser",f:async()=>{let v="";try{const s=await window.ElectronShell.settings.get();v=s&&s.version?" v"+s.version:""}catch(er){}toast("Rajib Tutorial Safe Browser"+v)}},
+        {l:"Google Search help",ic:IC.out,f:()=>btNewTab("https://support.google.com/websearch")}]},
+      {l:"Settings",ic:ICN.gear,f:()=>{const n=document.getElementById("navSettings");if(n)n.click()}},
+      {l:"Exit",ic:ICN.exit,f:()=>tabs.slice().forEach(closeTab)},
+      {sep:1},
+      {l:"Managed by Rajib Tutorial",ic:ICN.bld,f:()=>toast("এই ব্রাউজার Rajib Tutorial পরিচালনা করে — Adult Block "+(adultOn?"চালু":"বন্ধ")+", বিজ্ঞাপন ব্লক ও SafeSearch সক্রিয়।")}
     ],true);
   };
   window.btTabSearch=function(e){
@@ -6153,7 +6284,7 @@ window.mBrowserOpenExternal = function() {
   function omniUi(t){
     if(!t)return;
     // like Chrome ("only on the New Tab page"): bookmarks bar is hidden once a page is opened
-    const vb=$("viewBrowser"),hide=!t.ntp,was=vb.classList.contains("bt-nobm");
+    const vb=$("viewBrowser"),hide=!t.ntp&&!bmAlways,was=vb.classList.contains("bt-nobm");
     vb.classList.toggle("bt-nobm",hide);if(was&&!hide)setTimeout(renderBm,0);
     const u=t.url||"",lk=$("btLock");
     const home=!u||/^about:/.test(u)||/^https:\/\/www\.google\.[a-z.]+\/?(\?.*)?$/.test(u);
@@ -6252,6 +6383,90 @@ window.mBrowserOpenExternal = function() {
       try{old.replaceWith(n)}catch(e){$("btHost").appendChild(n)}
       $("btErr").style.display="none";activate(t);
     },260);
+  }
+
+  // ── Chrome-menu features: New window / Incognito, Downloads page, Delete browsing data, Save page, Tab groups ──
+  const BT=()=>window.ElectronShell&&window.ElectronShell.bt;
+  window.btNewWindow=function(){const x=BT();if(x)x.newWindow("https://www.google.com/");else window.open("https://www.google.com/","_blank","noopener")};
+  window.btIncognito=function(){const x=BT();if(x)x.incognito("https://www.google.com/");else toast("Incognito window works in the Windows app")};
+  window.btSavePage=async function(){
+    const x=BT();if(!x){toast("Save page works in the Windows app");return}
+    if(!cur||!cur.web||!cur.ready){toast("Open a web page first");return}
+    try{const r=await x.savePage(cur.el.getWebContentsId());if(r&&r.ok)toast("Page saved");else if(r&&!r.canceled)toast((r&&r.error)||"Could not save the page")}
+    catch(er){toast("Could not save the page")}
+  };
+  // downloads page (safe://downloads)
+  window.btOpenDownloads=function(){const ex=tabs.find(x=>x.int==="downloads");if(ex){activate(ex);return}btNewTab("safe://downloads")};
+  const fmtB=n=>{n=Number(n)||0;return n<1024?n+" B":n<1048576?(n/1024).toFixed(0)+" KB":n<1073741824?(n/1048576).toFixed(1)+" MB":(n/1073741824).toFixed(2)+" GB"};
+  function dlEl(){
+    const d=document.createElement("div");d.className="bt-hist";
+    d.innerHTML='<div class="bt-hw"><div class="bt-hh"><h2>Downloads</h2><button>Clear all</button></div><div class="bt-hbody"></div></div>';
+    d.querySelector("button").onclick=async()=>{const x=BT();if(x){await x.dl.clear();fillDl(d,true)}};
+    d._iv=setInterval(()=>{if(!d.isConnected){clearInterval(d._iv);return}if(cur&&cur.el===d)fillDl(d)},1000);
+    return d;
+  }
+  async function fillDl(d,force){
+    const box=d.querySelector(".bt-hbody"),x=BT();
+    if(!x){box.innerHTML='<div class="bt-hn">Downloads work in the Windows app</div>';return}
+    let list=[];try{list=await x.dl.list()||[]}catch(er){}
+    const sig=JSON.stringify(list.map(i=>[i.id,i.state,Math.floor(i.received/20000)]));
+    if(!force&&d._sig===sig)return;d._sig=sig;box.innerHTML="";
+    if(!list.length){box.innerHTML='<div class="bt-hn">Files you download will appear here</div>';return}
+    list.forEach(i=>{
+      const r=document.createElement("div");r.className="bt-dr";
+      const n=document.createElement("div");n.className="n";
+      const b=document.createElement("b");b.textContent=i.name;n.appendChild(b);
+      const sm=document.createElement("small");
+      sm.textContent=i.state==="completed"?fmtB(i.total||i.received)+" • "+host(i.url):i.state==="progressing"||i.state==="paused"?fmtB(i.received)+(i.total?" of "+fmtB(i.total):"")+" • downloading…":i.state==="cancelled"?"Cancelled":"Failed";
+      n.appendChild(sm);
+      if(i.state==="progressing"&&i.total){const pg=document.createElement("div");pg.className="pg";const bar=document.createElement("i");bar.style.width=Math.min(100,Math.round(i.received*100/i.total))+"%";pg.appendChild(bar);n.appendChild(pg)}
+      r.appendChild(n);
+      const mk=(t,fn)=>{const bt=document.createElement("button");bt.textContent=t;bt.onclick=async e=>{e.stopPropagation();await fn();fillDl(d,true)};r.appendChild(bt)};
+      if(i.state==="completed"){
+        if(!i.risky)mk("Open",async()=>{const o=await x.dl.open(i.id);if(o&&!o.ok&&o.error)toast(o.error)});
+        mk("Show in folder",()=>x.dl.show(i.id));
+      }else if(i.state==="progressing"||i.state==="paused")mk("Cancel",()=>x.dl.cancel(i.id));
+      if(i.state!=="progressing"&&i.state!=="paused")mk("✕",()=>x.dl.remove(i.id));
+      box.appendChild(r);
+    });
+  }
+  document.addEventListener("bt-dl",ev=>{try{const m=JSON.parse(ev.detail);
+    if(m.type==="start")toast("Downloading "+m.name+"…");
+    else if(m.type==="done")toast(m.state==="completed"?m.name+" downloaded":m.name+" — download "+(m.state==="cancelled"?"cancelled":"failed"));
+    const dt=tabs.find(x=>x.int==="downloads");if(dt)fillDl(dt.el,true)}catch(er){}});
+  // Delete browsing data (Ctrl+Shift+Del)
+  window.btDelData=function(){
+    const box=$("btDel"),close=()=>box.classList.remove("show");
+    box.classList.add("show");$("btDelNo").onclick=close;box.onclick=e=>{if(e.target===box)close()};
+    $("btDelOk").onclick=async()=>{
+      const H=$("btDelH").checked,D=$("btDelD").checked,C=$("btDelC").checked,K=$("btDelK").checked;close();
+      if(H){hist=[];histSave();tabs.forEach(t=>{if(t.int==="history")fillHist(t.el)})}
+      const x=BT();
+      try{if(x){if(D)await x.dl.clear();if(C||K)await x.clearData({cache:C,cookies:K})}}catch(er){}
+      tabs.forEach(t=>{if(t.int==="downloads")fillDl(t.el,true)});
+      toast("Browsing data deleted"+(K?" — sign in again where needed":""));
+    };
+  };
+  // Tab groups (coloured underline + name chip in the tab strip)
+  const GCOL=["#8ab4f8","#f28b82","#fdd663","#81c995","#ff8bcb","#c58af9","#78d9ec"];
+  function groupOf(t){return t&&t.grp?groups.find(g=>g.id===t.grp)||null:null}
+  function toGroup(t,g){
+    if(!t)return;
+    if(!g){delete t.grp;renderTabs();return}
+    tabs.splice(tabs.indexOf(t),1);
+    let at=-1;tabs.forEach((x,i)=>{if(x.grp===g.id)at=i});
+    if(at<0)at=tabs.length-1;
+    tabs.splice(at+1,0,t);t.grp=g.id;sortPins();renderTabs();
+  }
+  function tabGroupsMenu(){
+    const t=cur,it=[];
+    it.push({l:"New tab group",ic:IC.plus,dis:!t,f:()=>ask("New tab group","Give the group a name, for example Math or Physics.","Group name","Create",v=>{const g={id:++gseq,name:v.slice(0,20),color:GCOL[(gseq-1)%GCOL.length]};groups.push(g);toGroup(cur,g)})});
+    const live=groups.filter(g=>tabs.some(x=>x.grp===g.id));
+    if(live.length)it.push({sep:1});
+    live.forEach(g=>{const inG=!!t&&t.grp===g.id;
+      it.push({l:(inG?"Remove from ":"Add to ")+g.name,ic:'<span class="bt-gd" style="background:'+g.color+'"></span>',dis:!t,f:()=>{if(inG){toGroup(t,null)}else toGroup(t,g)}})});
+    if(live.length)it.push({sep:1},{l:"Ungroup all tabs",ic:IC.stop,f:()=>{tabs.forEach(x=>{delete x.grp});groups.length=0;renderTabs()}});
+    return it;
   }
 
   // ── Full screen (like Chrome F11): hides app title bar, header and sidebar ──
@@ -6458,8 +6673,11 @@ window.mBrowserOpenExternal = function() {
   document.addEventListener("keydown",e=>{
     if(!isActive())return;const k=e.key,c=e.ctrlKey||e.metaKey;
     if(k==="F5"){e.preventDefault();btNav("reload");return}
-    if(!c)return;const l=k.toLowerCase();
-    if(l==="f"){e.preventDefault();btFindOpen()}
+    if(!c)return;if(k==="Delete"&&e.shiftKey){e.preventDefault();btDelData();return}const l=k.toLowerCase();
+    if(l==="j"){e.preventDefault();btOpenDownloads()}
+    else if(l==="n"){e.preventDefault();if(e.shiftKey)btIncognito();else btNewWindow()}
+    else if(l==="s"){e.preventDefault();btSavePage()}
+    else if(l==="f"){e.preventDefault();btFindOpen()}
     else if(l==="h"){e.preventDefault();btOpenHistory()}
     else if(l==="p"){e.preventDefault();btPrint()}
     else if(k==="+"||k==="="){e.preventDefault();btZoom(1)}
