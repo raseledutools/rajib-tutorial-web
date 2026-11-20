@@ -7025,12 +7025,29 @@ window.openOffline=function(){goView("viewOffline");closeSidebar()};
   const ui=on=>{t.textContent=on?"Focus চলছে":"Focus Mode";nav.style.color=on?"#16a34a":""};
   ui(sh.focus.isOn());sh.focus.onChange(ui);
   // new exe: the Focus page opens inside this layout (webview of the local rtfocus:// page); older exe: separate page as before
-  window.focusEnsure=function(){
-    const host=$("focusHost");if(!host||host.firstChild)return;
+  window.focusEnsure=function(force){
+    const host=$("focusHost");if(!host)return;
+    if(host.firstChild&&!force&&host.dataset.st!=="fail")return;   // already loaded (or loading); a failed attempt is rebuilt on the next open
+    host.dataset.st="load";host.textContent="";
     const el=document.createElement("webview");
     el.setAttribute("partition","rtfocus");
     el.setAttribute("src","rtfocus://app/focus.html");
-    el.addEventListener("did-fail-load",e=>{if(e.isMainFrame&&e.errorCode!==-3){host.innerHTML='<div class="empty" style="padding:40px 16px;text-align:center"><p>Focus Mode load hoyni. App ta ekbar tray theke Quit kore abar chalan.</p></div>'}});
+    let timer=0;
+    // never leave the view blank: if the local Focus page does not come up, say so and offer Retry / update check
+    const fail=()=>{
+      clearTimeout(timer);
+      if(host.dataset.st==="ok")return;
+      host.dataset.st="fail";host.textContent="";
+      const d=document.createElement("div");d.className="empty";d.style.cssText="padding:40px 16px;text-align:center";
+      const p=document.createElement("p");p.style.cssText="margin:0 0 14px";
+      p.textContent="Focus Mode load hoyni. App ta purano version hote pare — Update check kore dekhun, na hole abar try korun.";
+      const mk=(t,f)=>{const b=document.createElement("button");b.textContent=t;b.style.cssText="margin:0 6px;padding:9px 18px;border:0;border-radius:10px;background:var(--accent,#0ca8b0);color:#fff;font-weight:700;cursor:pointer";b.onclick=f;return b};
+      d.append(p,mk("↻ Retry",()=>window.focusEnsure(true)),mk("⬆ Check for update",()=>{try{sh.checkUpdate&&sh.checkUpdate();showToast("Update check kora hocche…")}catch(e){}}));
+      host.appendChild(d);
+    };
+    el.addEventListener("dom-ready",()=>{host.dataset.st="ok";clearTimeout(timer)});
+    el.addEventListener("did-fail-load",e=>{if(e.isMainFrame&&e.errorCode!==-3)fail()});
+    timer=setTimeout(fail,10000);
     host.appendChild(el);
   };
   window.openFocus=function(){
