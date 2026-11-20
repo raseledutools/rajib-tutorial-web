@@ -39,7 +39,8 @@ module.exports.register = function register({ ipcMain, app, session, shell, dial
       } catch (_) {}
     });
   }
-  hook(session.fromPartition(partition));
+  // session.fromPartition() only works after the app is ready (calling it earlier crashed the app at start)
+  app.whenReady().then(() => hook(session.fromPartition(partition)));
 
   ipcMain.handle('dl:list', (e) => (trusted(e) ? downloads.map(pub) : []));
   ipcMain.handle('dl:open', (e, id) => {
