@@ -36,6 +36,16 @@ function isAdultSearch(u) {
   return !!q && ADULT_Q.test(q);
 }
 
+// External browsers (Chrome / Edge / Firefox ...): all we can see is the window title ("<page title> - Google Chrome").
+// Same adult-word list as the Safe Browser search check, plus the names of known adult sites.
+const SITE_CORES = [...SET].map((d) => d.split('.')[0]).filter((c) => c.length >= 5);
+function isAdultTitle(title) {
+  const t = String(title || '').toLowerCase();
+  if (!t) return false;
+  if (ADULT_Q.test(t) || SUBSTR.test(t)) return true;
+  return SITE_CORES.some((c) => t.includes(c));
+}
+
 // returns a redirect URL that forces SafeSearch, or '' when nothing has to change
 function safeSearchUrl(u) {
   const h = u.hostname.replace(/^www\./, '');
@@ -51,7 +61,7 @@ function safeSearchUrl(u) {
 
 module.exports = function createSafety({ getSessions, isAdultBlockOn }) {
   return {
-    isAdultHost,
+    isAdultHost, isAdultTitle,
     // used from the session's onBeforeRequest: { cancel:true } (blocked) / { redirectURL } (SafeSearch) / null
     adultCheck(d) {
       try {
@@ -101,3 +111,4 @@ module.exports = function createSafety({ getSessions, isAdultBlockOn }) {
     },
   };
 };
+module.exports.isAdultTitle = isAdultTitle;

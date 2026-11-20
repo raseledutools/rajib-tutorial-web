@@ -6,38 +6,38 @@ button{font-family:inherit;color:inherit}
 .hide{display:none!important}
 
 /* ---------- tab strip (flat, same grey as the screenshot; active tab melts into the toolbar below) ---------- */
-#tabstrip{display:flex;align-items:stretch;height:42px;background:var(--strip);flex-shrink:0;border:0}
-#backBtn{align-self:center;width:32px;height:30px;margin:0 2px 0 8px;border:0;border-radius:6px;background:transparent;color:var(--ink);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+#tabstrip{display:flex;align-items:stretch;height:30px;background:var(--strip);flex-shrink:0;border:0}
+#backBtn{align-self:center;width:26px;height:22px;margin:0 2px 0 6px;border:0;border-radius:5px;background:transparent;color:var(--ink);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 #backBtn:hover{background:var(--hov);color:var(--ink2)}
-#appico{align-self:center;margin:0 4px 0 6px;flex-shrink:0}
-#menuBtn{width:42px;border:0;background:transparent;color:var(--ink);cursor:pointer;flex-shrink:0}
+#appico{align-self:center;margin:0 2px 0 4px;flex-shrink:0;width:16px;height:16px}
+#menuBtn{width:30px;border:0;background:transparent;color:var(--ink);cursor:pointer;flex-shrink:0}
 #menuBtn:hover{background:var(--hov);color:var(--ink2)}
 #tabs{display:flex;flex:1;min-width:0;overflow:hidden}
-.tab{display:flex;align-items:center;gap:6px;min-width:70px;max-width:225px;flex:1 1 0;padding:0 8px 0 12px;background:var(--strip);color:var(--ink);border:0;border-left:1px solid var(--line);cursor:pointer;font-size:15px;position:relative}
+.tab{display:flex;align-items:center;gap:6px;min-width:70px;max-width:200px;flex:1 1 0;padding:0 4px 0 10px;background:var(--strip);color:var(--ink);border:0;border-left:1px solid var(--line);cursor:pointer;font-size:12.5px;position:relative}
 .tab:first-child{border-left:0}
 .tab span.t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
-.tab.home{flex:0 0 225px;max-width:225px}
+.tab.home{flex:0 0 170px;max-width:170px}
 .tab:hover{background:var(--hov);color:var(--ink2)}
 .tab.on{background:var(--bar);color:var(--ink2)}
-.tab .x{width:22px;height:22px;border:0;border-radius:4px;background:transparent;color:inherit;font-size:18px;line-height:1;cursor:pointer;flex-shrink:0;opacity:.9}
+.tab .x{width:17px;height:17px;border:0;border-radius:3px;background:transparent;color:inherit;font-size:14px;line-height:1;cursor:pointer;flex-shrink:0;opacity:.9}
 .tab .x:hover{background:#6a6a70;color:#fff;opacity:1}
 
 /* ---------- toolbar (flat, same grey as the active tab) ---------- */
-#toolbar{display:flex;align-items:center;gap:4px;height:42px;padding:0 8px;background:var(--bar);border:0;flex-shrink:0;overflow:hidden}
+#toolbar{display:flex;align-items:center;gap:2px;height:30px;padding:0 6px;background:var(--bar);border:0;flex-shrink:0;overflow:hidden}
 #toolbar .grow{flex:1;min-width:8px}
-.ib{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:0;border-radius:6px;background:transparent;color:var(--ink);cursor:pointer;flex-shrink:0}
-.ib svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ib{width:26px;height:24px;display:flex;align-items:center;justify-content:center;border:0;border-radius:5px;background:transparent;color:var(--ink);cursor:pointer;flex-shrink:0}
+.ib svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .ib:hover{background:#3e3e42;color:var(--ink2)}
 .ib.on{background:#505056;color:var(--ink2)}
 .ib:disabled{opacity:.3;cursor:default;background:transparent}
-.sep{width:1px;height:22px;background:#4a4a4f;margin:0 6px;flex-shrink:0}
-#toolbar label{color:var(--ink);font-size:15px;flex-shrink:0;margin:0 2px 0 4px}
-#toolbar input{height:30px;background:var(--bar);color:#f1f1f1;border:1px solid #c3c3c6;border-radius:3px;padding:0 8px;font:15px "Segoe UI",system-ui,sans-serif;user-select:text;outline:none}
+.sep{width:1px;height:16px;background:#4a4a4f;margin:0 4px;flex-shrink:0}
+#toolbar label{color:var(--ink);font-size:12.5px;flex-shrink:0;margin:0 2px 0 4px}
+#toolbar input{height:20px;background:var(--bar);color:#f1f1f1;border:1px solid #9a9aa0;border-radius:3px;padding:0 6px;font:12.5px "Segoe UI",system-ui,sans-serif;user-select:text;outline:none}
 #toolbar input:focus{border-color:#f5c518}
-#pageIn{width:66px;text-align:right}
-#pageOf{color:var(--ink);margin:0 6px 0 2px;min-width:34px;flex-shrink:0}
-#findIn{width:min(280px,22vw)}
-#zv{min-width:46px;text-align:center;color:#9a9aa0;font-size:13px;flex-shrink:0}
+#pageIn{width:48px;text-align:right}
+#pageOf{color:var(--ink);font-size:12.5px;margin:0 4px 0 2px;min-width:30px;flex-shrink:0}
+#findIn{width:min(220px,20vw)}
+#zv{min-width:38px;text-align:center;color:#9a9aa0;font-size:11.5px;flex-shrink:0}
 #toolbar .need{transition:opacity .1s}
 #toolbar.homemode .need{opacity:.3;pointer-events:none}
 
@@ -83,7 +83,7 @@ button{font-family:inherit;color:inherit}
 body.notome #hideFreq{display:none}
 
 /* ---------- menu ---------- */
-#menu{position:fixed;top:42px;left:84px;z-index:99;min-width:270px;padding:6px;background:#3a3a3e;border:1px solid #55555b;border-radius:8px;box-shadow:0 12px 34px rgba(0,0,0,.55)}
+#menu{position:fixed;top:30px;left:64px;z-index:99;min-width:270px;padding:6px;background:#3a3a3e;border:1px solid #55555b;border-radius:8px;box-shadow:0 12px 34px rgba(0,0,0,.55)}
 #menu button{display:flex;justify-content:space-between;gap:18px;width:100%;padding:9px 12px;border:0;border-radius:5px;background:transparent;color:#eee;font-size:14.5px;text-align:left;cursor:pointer}
 #menu button:hover{background:#505056}
 #menu kbd{font:12px "Segoe UI",sans-serif;color:#9a9a9a}

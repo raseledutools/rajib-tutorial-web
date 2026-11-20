@@ -84,6 +84,13 @@ function decideForeground({ proc, title, selfName, sites }) {
   return null;
 }
 
+/** Adult Block for EXTERNAL browsers: an adult word / site in the foreground browser window's title -> close that tab. */
+function decideAdultForeground({ proc, title, selfName, isAdultTitle }) {
+  const p = lc(proc);
+  if (!p || !title || p === lc(selfName) || !isBrowser(p)) return null;
+  return isAdultTitle(String(title)) ? { action: 'closetab', msg: null } : null;
+}
+
 /** What to do with a running process that has a visible window. null = leave it alone. */
 function decideProcess({ mode, apps, proc, title, selfName }) {
   const p = lc(proc), t = lc(title);
@@ -249,7 +256,7 @@ function sanitizeSettings(o, base) {
 module.exports = {
   QUOTES, COMMON_SITES, COMMON_APPS, BROWSERS, SAFE,
   normalizeSite, normalizeApp, siteCore, exeMatch,
-  decideForeground, decideProcess, pickMessage,
+  decideForeground, decideAdultForeground, decideProcess, pickMessage,
   countWords, hashPassword, verifyPassword, sanitizeSettings, DEFAULTS,
   MAX_SCHEDULES, sanitizeSchedule, sanitizeSchedules, isScheduleActive, activeScheduleBlocks,
   decideScheduledForeground, decideScheduledProcess,

@@ -11,6 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn, execFile } = require('child_process');
 const core = require('./focus-core');
+const safetyMod = require('./safety');
 
 const IS_WIN = process.platform === 'win32';
 const SELF_EXE = path.basename(process.execPath);
@@ -22,6 +23,7 @@ let schedBlocks = { ids: [], names: [], sites: [], apps: [] }; // what the sched
 let helper = null, restartTimer = null, expiryTimer = null, schedTimer = null;
 let getMainWin = () => null, hooks = {};
 let lastAlert = 0, lastAct = 0, procBuf = [], lastProcs = [];
+let extAdult = false; // Settings -> Adult Block for all browsers (works with or without a Focus session)
 
 /* ---------- persistence ---------- */
 function load() {
@@ -185,11 +187,12 @@ const PS_ARGS = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', 
 function activeApps() { return lockedApps().concat(st.settings.apps); }
 
 function onForeground(parts) {
-  if (!st.active && !schedBlocks.sites.length) return;
+  if (!st.active && !schedBlocks.sites.length && !extAdult) return;
   const [, hwnd, pid, proc, title] = parts;
   if (Number(pid) === process.pid) return;
   let d = st.active ? core.decideForeground({ proc, title: title || '', selfName: SELF_EXE, sites: st.settings.sites }) : null;
   if (!d && schedBlocks.sites.length) d = core.decideScheduledForeground({ proc, title: title || '', selfName: SELF_EXE, sites: schedBlocks.sites });
+  if (!d && extAdult) d = core.decideAdultForeground({ proc, title: title || '', selfName: SELF_EXE, isAdultTitle: safetyMod.isAdultTitle });
   if (!d) return;
   const now = Date.now();
   if (now - lastAct < 1500) return;
@@ -223,7 +226,7 @@ function onLine(line) {
   }
 }
 
-function engineNeeded() { return st.active || schedBlocks.ids.length > 0; }
+function engineNeeded() { return st.active || schedBlocks.ids.length > 0 || extAdult; }
 /* Recompute which schedule profiles are blocking right now; start / stop the helper accordingly. */
 function refreshSchedule() {
   const before = schedBlocks.ids.join(',');
@@ -403,8 +406,14 @@ function init(opts) {
   });
 }
 
+/* Settings -> "Adult Block (all browsers)": start / stop the window watcher on its own. */
+function setExtAdult(on) {
+  extAdult = !!on;
+  if (engineNeeded()) startEngine(); else if (helper) stopEngine();
+}
+
 module.exports = {
-  init,
+  init, setExtAdult,
   openWindow,
   isActive: () => st.active,
   stop: () => { clearInterval(schedTimer); stopEngine(); }, // app is quitting: end the helper (the session itself stays saved)
