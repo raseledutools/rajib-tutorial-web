@@ -1951,7 +1951,7 @@ body:has(#viewFocus.active) #__rt_nav,body:has(#viewFocus.active) #__rt_updcheck
 .bt-find.show{display:flex}.bt-find input{width:190px;border:0;outline:0;background:transparent;color:inherit;font-size:14px;font-family:inherit}
 .bt-find span{font-size:12.5px;color:var(--c-icon);min-width:34px;text-align:right}.bt-find i{width:1px;height:20px;background:#4a4a4a;margin:0 4px}
 .bt-find button{width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:var(--c-text);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}.bt-find button:hover{background:var(--c-hover)}.bt-find button svg{width:16px;height:16px}
-.bt-sug{position:absolute;z-index:62;display:none;padding:6px 0 8px;border-radius:0 0 20px 20px;background:var(--c-omni);box-shadow:0 8px 24px rgba(0,0,0,.55);border:1px solid #4a4a4a;border-top:0}
+.bt-sug{position:absolute;z-index:62;display:none;padding:6px 0 8px;border-radius:16px;background:var(--c-omni);box-shadow:0 8px 24px rgba(0,0,0,.55);border:1px solid #4a4a4a}
 .bt-sug.show{display:block}
 .bt-si{display:flex;align-items:center;gap:12px;height:36px;padding:0 16px;cursor:pointer;color:var(--c-text);font-size:14px}
 .bt-si.on,.bt-si:hover{background:var(--c-hover)}.bt-si img,.bt-si svg{width:16px;height:16px;flex:none;border-radius:3px;color:var(--c-icon)}
@@ -6189,7 +6189,7 @@ window.mBrowserOpenExternal = function() {
       box.appendChild(r);
     });
     const o=u.parentElement.getBoundingClientRect(),v=$("viewBrowser").getBoundingClientRect();
-    box.style.left=(o.left-v.left)+"px";box.style.top=(o.bottom-v.top-17)+"px";box.style.width=o.width+"px";box.style.paddingTop="22px";
+    box.style.left=(o.left-v.left)+"px";box.style.top=(o.bottom-v.top+6)+"px";box.style.width=o.width+"px";box.style.paddingTop="6px";
     box.classList.add("show");
   };
   function sugMark(){[...$("btSug").children].forEach((c,i)=>c.classList.toggle("on",i===sugI))}
