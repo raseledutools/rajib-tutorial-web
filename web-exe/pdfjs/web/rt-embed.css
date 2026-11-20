@@ -1,0 +1,5 @@
+/* Loaded by office/viewer.js when pdf.js runs as a tab inside Office Reader: the reader's own toolbar drives it. */
+#toolbarContainer,.toolbar,#secondaryToolbar,#rtLanding{display:none!important}
+:root{--toolbar-height:0px;--body-bg-color:#262626}
+#viewerContainer{background:#262626}
+#outerContainer,body{background:#262626!important}
