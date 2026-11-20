@@ -4,7 +4,7 @@
  *
  * Direct video files (e.g. Cloudinary) are downloaded straight to disk (userData/offline-videos):
  * resumable, not held in RAM, served back via rtvid:// with Range support so seeking works.
- * YouTube lessons are downloaded via yt-dlp.exe (+ ffmpeg.exe when bundled) from resources/.
+ * YouTube lessons are downloaded via yt-dlp.exe (fetched once into userData/bin) (+ ffmpeg.exe when bundled) from resources/.
  *
  * Pure Node (no Electron imports) so it can be unit-tested.
  */
@@ -44,6 +44,46 @@ function ytdlpWritable() {
     if (fs.existsSync(dst)) return dst;
   } catch (_) {}
   return src;
+}
+
+/* yt-dlp.exe is NOT bundled in the installer any more (23 MB that every update re-shipped).
+   It is downloaded once, on the first YouTube save, into userData/bin (survives app updates) and then keeps itself current with `-U`. */
+const YTDLP_URL = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
+function httpsGetFile(url, dest, redirects = 0) {
+  return new Promise((resolve, reject) => {
+    if (redirects > MAX_REDIRECTS) return reject(new Error('too many redirects'));
+    const req = https.get(url, { headers: { 'User-Agent': 'RajibTutorial' } }, (res) => {
+      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+        res.resume();
+        return resolve(httpsGetFile(new URL(res.headers.location, url).toString(), dest, redirects + 1));
+      }
+      if (res.statusCode !== 200) { res.resume(); return reject(new Error('HTTP ' + res.statusCode)); }
+      const out = fs.createWriteStream(dest);
+      res.on('error', reject);
+      out.on('error', reject);
+      out.on('finish', () => out.close(() => resolve()));
+      res.pipe(out);
+    });
+    req.on('error', reject);
+    req.setTimeout(30000, () => req.destroy(new Error('timeout')));
+  });
+}
+let ytFetching = null;
+function fetchYtdlp() {
+  if (ytFetching) return ytFetching;
+  const base = (app && app.getPath) ? app.getPath('userData') : path.join(__dirname, 'bin');
+  const dst = path.join(base, 'bin', 'yt-dlp.exe'), tmp = dst + '.part';
+  ytFetching = (async () => {
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
+    try { fs.rmSync(tmp, { force: true }); } catch (_) {}
+    await httpsGetFile(YTDLP_URL, tmp);
+    const st = fs.statSync(tmp);
+    const fd = fs.openSync(tmp, 'r'); const hdr = Buffer.alloc(2); fs.readSync(fd, hdr, 0, 2, 0); fs.closeSync(fd);
+    if (st.size < 5 * 1024 * 1024 || hdr.toString('latin1') !== 'MZ') { fs.rmSync(tmp, { force: true }); throw new Error('bad download'); }
+    fs.renameSync(tmp, dst);
+    return dst;
+  })().finally(() => { ytFetching = null; });
+  return ytFetching;
 }
 
 // running yt-dlp processes (id -> child_process), for cancel support
@@ -118,8 +158,11 @@ function runYT(bin, item, workDir, onProgress, useRuntime) {
  * onProgress(pct), onDone(sizeBytes), onError(msg)
  */
 async function downloadYT(item, outFile, onProgress, onDone, onError) {
-  const bin = ytdlpWritable();
-  if (!fs.existsSync(bin)) { onError('yt-dlp.exe not found at ' + bin); return; }
+  let bin = ytdlpWritable();
+  if (!fs.existsSync(bin)) {   // first YouTube save on this PC: fetch yt-dlp once (needs internet; the video download needs it anyway)
+    try { onProgress(0); bin = await fetchYtdlp(); }
+    catch (e) { onError('yt-dlp ডাউনলোড করা যায়নি (ইন্টারনেট চেক করুন): ' + (e && e.message || e)); return; }
+  }
   const workDir = outFile.replace(/\.mp4$/i, '') + '.ytdl';
   try { fs.mkdirSync(workDir, { recursive: true }); } catch (e) { onError(e.message); return; }
   const cleanup = () => { try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (_) {} };
