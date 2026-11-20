@@ -27,6 +27,15 @@ function isAdultHost(host) {
   return BAD_TLD.test(host) || SUBSTR.test(host) || LABEL.test(host);
 }
 
+// adult words typed into a search engine (the page then turns into a focus page, see index.html toFocus)
+const ADULT_Q = /(\bporn\w*|\bxxx\b|\bxvideos?\b|\bxnxx\b|\bxhamster\b|\bhentai\b|\bnsfw\b|\bnudes?\b|\bnaked\b|\berotic\w*|\bblowjob\b|\bmilf\b|\bbdsm\b|\bfetish\b|\bcamgirls?\b|\bhorny\b|\bonlyfans\b|\bboobs?\b|\bpussy\b|\bsexy\b|\bsex(?!\s*(education|ed|ratio|chromosomes?|hormones?|determination|discrimination|differences?|offenders?|trafficking))\b|bangla\s*choti|choti\s*golpo|চটি|সেক্স|পর্ন|নেংটা|যৌন\s*(ভিডিও|গল্প))/iu;
+const SEARCH_HOST = /(^|\.)(google|bing|duckduckgo|yahoo|yandex|brave|ecosia|youtube|startpage)\./i;
+function isAdultSearch(u) {
+  if (!SEARCH_HOST.test(u.hostname + '.')) return false;
+  const q = u.searchParams.get('q') || u.searchParams.get('search_query') || u.searchParams.get('p') || u.searchParams.get('text') || '';
+  return !!q && ADULT_Q.test(q);
+}
+
 // returns a redirect URL that forces SafeSearch, or '' when nothing has to change
 function safeSearchUrl(u) {
   const h = u.hostname.replace(/^www\./, '');
@@ -50,7 +59,7 @@ module.exports = function createSafety({ getSessions, isAdultBlockOn }) {
         if (d.resourceType !== 'mainFrame' && d.resourceType !== 'subFrame') return null;
         const u = new URL(d.url);
         if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
-        if (isAdultHost(u.hostname)) return { cancel: true };
+        if (isAdultHost(u.hostname) || isAdultSearch(u)) return { cancel: true };
         const r = safeSearchUrl(u);
         return r ? { redirectURL: r } : null;
       } catch (_) { return null; }

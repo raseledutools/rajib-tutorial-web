@@ -1973,6 +1973,17 @@ body:has(#viewBrowser.active) #__rt_nav,body:has(#viewBrowser.active) #__rt_updc
 /* New Tab page (like Chrome's dark NTP) */
 .bt-ntp{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;padding:0 24px 90px;background:var(--c-page);overflow:auto}
 .bt-ntp>*{flex:none}
+.bt-fp{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px 24px 60px;background:radial-gradient(1200px 600px at 50% 0%,#2a3b3a 0%,var(--c-page) 70%);overflow:auto;text-align:center;animation:btFpIn .7s ease both}
+@keyframes btFpIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.bt-fp h2{margin:0;font-size:30px;font-weight:600;color:#e8f5f3}
+.bt-fp .sub{max-width:560px;font-size:15px;line-height:1.7;color:var(--c-icon)}
+.bt-fq{max-width:640px;min-height:120px;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:22px 28px;border-radius:18px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);transition:opacity .5s ease,transform .5s ease}
+.bt-fq.out{opacity:0;transform:translateY(8px)}
+.bt-fq q{quotes:none;font-size:20px;line-height:1.6;color:#fff}.bt-fq small{font-size:13.5px;color:#8fd3c8}
+.bt-ftm{font:600 54px/1 'Segoe UI',system-ui,sans-serif;letter-spacing:2px;color:#e8f5f3;font-variant-numeric:tabular-nums}
+.bt-fr{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.bt-fr button{border:0;border-radius:20px;padding:9px 18px;font-size:13.5px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.1);color:var(--c-text)}
+.bt-fr button:hover{background:rgba(255,255,255,.18)}.bt-fr button.p{background:#8fd3c8;color:#10201d}.bt-fr button.p:hover{background:#a6e0d6}
 .bt-ntp{position:relative}
 .bt-ntop{position:absolute;top:10px;right:16px;display:flex;align-items:center;gap:6px}
 .bt-ntop .lk{border:0;background:transparent;color:var(--c-text);font-size:13px;padding:7px 10px;border-radius:16px;cursor:pointer}
@@ -5762,7 +5773,7 @@ window.mBrowserOpenExternal = function() {
       el.addEventListener("did-navigate",nav);el.addEventListener("did-navigate-in-page",nav);
       el.addEventListener("page-title-updated",e=>{t.title=e.title||host(t.url);histAdd(t);renderTabs()});
       el.addEventListener("page-favicon-updated",e=>{if(e.favicons&&e.favicons[0]){t.fav=e.favicons[0];renderTabs()}});
-      el.addEventListener("did-fail-load",e=>{if(e.isMainFrame&&e.errorCode!==-3){t.loading=false;renderTabs();if(e.errorCode===-20)err(t,"Blocked by Safe Browser",host(e.validatedURL||t.url)+" — Adult Block চালু আছে বলে এই সাইট খোলা যাবে না। (Settings থেকে বন্ধ করা যায়)");else err(t,"Can't reach this page",host(e.validatedURL||t.url)+" could not be loaded. Check the address or your internet connection.")}});
+      el.addEventListener("did-fail-load",e=>{if(e.isMainFrame&&e.errorCode!==-3){t.loading=false;renderTabs();if(e.errorCode===-20&&adultOn){toFocus(t);return}if(e.errorCode===-20)err(t,"Blocked by Safe Browser",host(e.validatedURL||t.url)+" — Adult Block চালু আছে বলে এই সাইট খোলা যাবে না। (Settings থেকে বন্ধ করা যায়)");else err(t,"Can't reach this page",host(e.validatedURL||t.url)+" could not be loaded. Check the address or your internet connection.")}});
       t.el=el;
     }else{
       const el=document.createElement("iframe");
@@ -5775,7 +5786,7 @@ window.mBrowserOpenExternal = function() {
     return t;
   }
   function activate(t){
-    btFindClose(true);cur=t;tabs.forEach(x=>{if(x.web){x.el.style.display="flex";x.el.classList.toggle("bt-bg",x!==t)}else x.el.style.display=x===t?"flex":"none"});if(t.ntp)fillNtp(t.el);if(t.int)fillHist(t.el);
+    btFindClose(true);cur=t;tabs.forEach(x=>{if(x.web){x.el.style.display="flex";x.el.classList.toggle("bt-bg",x!==t)}else x.el.style.display=x===t?"flex":"none"});if(t.ntp)fillNtp(t.el);if(t.int==="history")fillHist(t.el);
     $("btErr").style.display="none";renderTabs();sync(t);
   }
   window.btNewTab=function(url){
@@ -5792,6 +5803,8 @@ window.mBrowserOpenExternal = function() {
   }
   window.btGo=function(v){
     const u=norm(v);if(!u)return;
+    adultRefresh();
+    if(adultOn&&adultSearchUrl(u)){if(!cur)btNewTab();toFocus(cur);$("btUrl").blur();return}
     if(!cur){btNewTab(u);return}
     if(cur.ntp||cur.int){const i=tabs.indexOf(cur),o=cur,n=make(u);tabs[i]=n;o.el.replaceWith(n.el);cur=null;activate(n);$("btUrl").blur();return}
     cur.url=u;cur.title="";cur.fav="";cur.loading=true;$("btErr").style.display="none";
@@ -5800,7 +5813,7 @@ window.mBrowserOpenExternal = function() {
   };
   window.btNav=function(act){
     const t=cur;if(!t||t.ntp)return;
-    if(t.int&&act!=="home"){if(act==="reload")fillHist(t.el);return}
+    if(t.int&&act!=="home"){if(act==="reload"&&t.int==="history")fillHist(t.el);return}
     try{
       if(act==="home"){btGo(HOME);return}
       $("btErr").style.display="none";
@@ -6055,6 +6068,67 @@ window.mBrowserOpenExternal = function() {
     fillNtp(d);
     return d;
   }
+  // ── Adult Block: an adult search / site turns the tab into a calm "focus" page with quotes of great people ──
+  let adultOn=web();
+  function adultRefresh(){try{const s=window.ElectronShell&&window.ElectronShell.settings;if(s&&s.get)s.get().then(x=>{if(x)adultOn=!!x.adultBlock}).catch(()=>{})}catch(e){}}
+  adultRefresh();
+  const ADULT_Q=/(\bporn\w*|\bxxx\b|\bxvideos?\b|\bxnxx\b|\bxhamster\b|\bhentai\b|\bnsfw\b|\bnudes?\b|\bnaked\b|\berotic\w*|\bblowjob\b|\bmilf\b|\bbdsm\b|\bfetish\b|\bcamgirls?\b|\bhorny\b|\bonlyfans\b|\bboobs?\b|\bpussy\b|\bsexy\b|\bsex(?!\s*(education|ed|ratio|chromosomes?|hormones?|determination|discrimination|differences?|offenders?|trafficking))\b|bangla\s*choti|choti\s*golpo|চটি|সেক্স|পর্ন|নেংটা|যৌন\s*(ভিডিও|গল্প))/iu;
+  function adultSearchUrl(u){
+    try{const x=new URL(u);
+      if(!/(^|\.)(google|bing|duckduckgo|yahoo|yandex|brave|ecosia|youtube|startpage)\./i.test(x.hostname+"."))return false;
+      const q=x.searchParams.get("q")||x.searchParams.get("search_query")||x.searchParams.get("p")||x.searchParams.get("text")||"";
+      return !!q&&ADULT_Q.test(q);
+    }catch(e){return false}
+  }
+  const QUOTES=[
+    ["ওঠো, জাগো এবং লক্ষ্যে না পৌঁছানো পর্যন্ত থেমো না।","স্বামী বিবেকানন্দ"],
+    ["স্বপ্ন সেটা নয় যা তুমি ঘুমিয়ে দেখো, স্বপ্ন সেটাই যা তোমাকে ঘুমাতে দেয় না।","এ. পি. জে. আবদুল কালাম"],
+    ["এক সময়ে একটি কাজ করো, আর তা করার সময় নিজের সমস্ত মন তাতে ঢেলে দাও।","স্বামী বিবেকানন্দ"],
+    ["চিত্ত যেথা ভয়শূন্য, উচ্চ যেথা শির।","রবীন্দ্রনাথ ঠাকুর"],
+    ["বল বীর — বল উন্নত মম শির!","কাজী নজরুল ইসলাম"],
+    ["আমরা যা বারবার করি, আমরা তা-ই। তাই শ্রেষ্ঠত্ব কোনো একটি কাজ নয়, এটি একটি অভ্যাস।","অ্যারিস্টটল"],
+    ["তুমি তোমার মনের ওপর ক্ষমতা রাখো, বাইরের ঘটনার ওপর নয়। এটা বুঝলেই তুমি শক্তি পাবে।","মার্কাস অরেলিয়াস"],
+    ["বাস্তবের চেয়ে কল্পনাতেই আমরা বেশি কষ্ট পাই।","সেনেকা"],
+    ["কাজটা শেষ না হওয়া পর্যন্ত সবসময় অসম্ভবই মনে হয়।","নেলসন ম্যান্ডেলা"],
+    ["প্রকৃত শক্তিশালী সে নয় যে কুস্তিতে অন্যকে হারায়; বরং সে-ই শক্তিশালী যে রাগের সময় নিজেকে নিয়ন্ত্রণ করে।","হাদিস (বুখারি ও মুসলিম)"]
+  ];
+  function focusEl(){
+    const d=document.createElement("div");d.className="bt-fp";
+    d.innerHTML='<h2>একটু থামুন 🌿</h2><div class="sub">আপনি যা খুঁজছিলেন তা আপনার লক্ষ্য থেকে মনোযোগ সরিয়ে দিতে পারে। এই মুহূর্তটা আপনার ভবিষ্যৎ গড়ার সময় — চলুন আবার পড়াশোনায় ফিরি।</div>'+
+      '<div class="bt-fq"><q></q><small></small></div><div class="bt-ftm">25:00</div>'+
+      '<div class="bt-fr"><button class="p" data-a="t">▶ ফোকাস শুরু</button><button data-a="r">↺ রিসেট</button><button data-a="q">💬 আরেকটি উক্তি</button><button data-a="s">📚 পড়াশোনায় ফিরুন</button><button data-a="f">🎯 Focus Mode</button></div>';
+    const box=d.querySelector(".bt-fq"),qe=box.querySelector("q"),ae=box.querySelector("small"),tm=d.querySelector(".bt-ftm"),pb=d.querySelector('[data-a="t"]');
+    let qi=Math.floor(Math.random()*QUOTES.length),left=1500,run=false,tk=null,rot=null;
+    const show=(first)=>{const put=()=>{qe.textContent="“"+QUOTES[qi][0]+"”";ae.textContent="— "+QUOTES[qi][1];box.classList.remove("out")};
+      if(first){put();return}box.classList.add("out");setTimeout(put,450)};
+    const next=()=>{qi=(qi+1)%QUOTES.length;show(false)};
+    const fmt=()=>{tm.textContent=String(Math.floor(left/60)).padStart(2,"0")+":"+String(left%60).padStart(2,"0")};
+    const stop=()=>{run=false;clearInterval(tk);pb.textContent="▶ ফোকাস শুরু"};
+    show(true);
+    rot=setInterval(()=>{if(!d.isConnected){clearInterval(rot);clearInterval(tk);return}next()},12000);
+    d.onclick=e=>{const b=e.target.closest("button");if(!b)return;const a=b.dataset.a;
+      if(a==="q")next();
+      else if(a==="r"){stop();left=1500;fmt()}
+      else if(a==="t"){if(run){stop();return}run=true;pb.textContent="⏸ বিরতি";
+        tk=setInterval(()=>{if(!d.isConnected){clearInterval(tk);return}left--;fmt();if(left<=0){stop();left=1500;fmt();toast("সাবাশ! ২৫ মিনিটের ফোকাস শেষ। এবার ৫ মিনিট বিরতি নিন।")}},1000)}
+      else if(a==="s"){const t=tabs.find(x=>x.el===d);if(t)closeTab(t);else goView("viewHome")}
+      else if(a==="f"){try{window.openFocus&&openFocus()}catch(er){}}};
+    return d;
+  }
+  // the tab fades out, then turns into the focus page (no error page, no reload flash)
+  function toFocus(t){
+    if(!t||t.int==="focus")return;
+    try{if(t.web)t.el.stop()}catch(e){}
+    const old=t.el,n=focusEl();n.style.display=t===cur?"flex":"none";
+    old.style.transition="opacity .25s ease";old.style.opacity="0";
+    setTimeout(()=>{
+      if(tabs.indexOf(t)<0)return;
+      t.web=false;t.ntp=false;t.int="focus";t.url="";t.title="Focus time";t.fav="";t.loading=false;t.el=n;
+      try{old.replaceWith(n)}catch(e){$("btHost").appendChild(n)}
+      $("btErr").style.display="none";activate(t);
+    },260);
+  }
+
   // ── Full screen (like Chrome F11): hides app title bar, header and sidebar ──
   let fsHintT=0;
   const fsOn=()=>document.documentElement.classList.contains("bt-fs");
@@ -6115,7 +6189,7 @@ window.mBrowserOpenExternal = function() {
   };
   window.btClearHist=function(){
     if(!confirm("Clear your browsing history?"))return;
-    hist=[];histSave();tabs.forEach(t=>{if(t.int)fillHist(t.el)});toast("Browsing history cleared");
+    hist=[];histSave();tabs.forEach(t=>{if(t.int==="history")fillHist(t.el)});toast("Browsing history cleared");
   };
   function histEl(){
     const d=document.createElement("div");d.className="bt-hist";
