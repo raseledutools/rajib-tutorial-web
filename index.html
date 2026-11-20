@@ -1973,6 +1973,16 @@ body:has(#viewBrowser.active) #__rt_nav,body:has(#viewBrowser.active) #__rt_updc
 /* New Tab page (like Chrome's dark NTP) */
 .bt-ntp{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;padding:0 24px 90px;background:var(--c-page);overflow:auto}
 .bt-ntp>*{flex:none}
+.bt-ntp{position:relative}
+.bt-ntop{position:absolute;top:10px;right:16px;display:flex;align-items:center;gap:6px}
+.bt-ntop .lk{border:0;background:transparent;color:var(--c-text);font-size:13px;padding:7px 10px;border-radius:16px;cursor:pointer}
+.bt-ntop .lk:hover{background:var(--c-hover)}
+.bt-ntop .ap{width:40px;height:40px;border:0;border-radius:50%;background:transparent;color:var(--c-icon);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.bt-ntop .ap:hover{background:var(--c-hover)}.bt-ntop .ap svg{width:22px;height:22px}
+.bt-ntop .bt-avatar{width:36px;height:36px;margin:0 0 0 4px;font-size:16px;cursor:pointer;background:#3b5566}
+.bt-pf{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 18px 10px;min-width:240px}
+.bt-pf .bt-avatar{width:56px;height:56px;margin:0;font-size:24px;cursor:default;background:#3b5566}
+.bt-pf b{font-size:15px;font-weight:600}.bt-pf small{color:var(--c-icon);font-size:12.5px}
 .bt-logo{font-family:'Product Sans','Google Sans','Segoe UI',Arial,sans-serif;font-size:80px;font-weight:500;letter-spacing:-3px;line-height:1;color:#fff;user-select:none;-webkit-user-select:none}
 .bt-nsearch{display:flex;align-items:center;gap:12px;width:min(584px,100%);height:46px;padding:0 18px;border-radius:999px;background:var(--c-omni);border:1px solid transparent;box-sizing:border-box}
 .bt-nsearch:hover,.bt-nsearch:focus-within{background:#2f2f2f;box-shadow:0 1px 6px rgba(0,0,0,.45)}
@@ -2289,7 +2299,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
       <button class="bt-fsb" id="btFsBtn" onclick="btFs()" title="Full screen (F11)"><svg id="btFsIc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
       <button id="btExt" onclick="btExt(event)" title="Extensions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11h-1.5V7a2 2 0 0 0-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5h-4a2 2 0 0 0-2 2v3.8h1.5a2.7 2.7 0 0 1 0 5.4H3.5V20a2 2 0 0 0 2 2h3.8v-1.5a2.7 2.7 0 0 1 5.4 0V22h3.8a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z" transform="translate(0 -1) scale(.96)"/></svg></button>
       <span class="bt-vsep"></span>
-      <div class="bt-avatar" id="btAvatar" title="Safe Browser">R</div>
+      <div class="bt-avatar" id="btAvatar" title="Profile" onclick="btProfile(event)" style="cursor:pointer">R</div>
       <button id="btMenuBtn" onclick="btMenu(event)" title="Customize and control Safe Browser"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
     </div>
     <div class="bt-bmbar">
@@ -5949,9 +5959,26 @@ window.mBrowserOpenExternal = function() {
     if(!confirm(on?"Compatibility mode turns off GPU acceleration to fix black / flickering screens. The app will restart. Continue?":"Turn compatibility mode off? The app will restart."))return;
     s.set("gpuOff",on);toast("Restarting…");
   };
+  const profName=()=>{try{return String((typeof session!=="undefined"&&session&&session.name)||"Rajib Tutorial").trim()||"Rajib Tutorial"}catch(e){return"Rajib Tutorial"}};
+  window.btProfile=function(e){
+    if(e)e.stopPropagation();
+    const btn=e&&e.currentTarget||$("btAvatar"),p=pop();
+    if(p.classList.contains("show")&&p._a===btn){p.classList.remove("show");p._a=null;return}
+    const n=profName();
+    popupBelow(null,btn,[{l:n,dis:1},{sep:1},
+      {l:"Manage your Google Account",ic:IC.out,f:()=>btNewTab("https://myaccount.google.com/")},
+      {l:"History",ic:IC.hist,k:"Ctrl+H",f:()=>btOpenHistory()},
+      {l:"Extensions",ic:($("btExt")&&$("btExt").innerHTML)||"",f:()=>setTimeout(()=>extPanel($("btMenuBtn")),0)},
+      {l:"Clear browsing history…",ic:IC.del,f:()=>btClearHist()}],true);
+    // header card with the big avatar, like Chrome's profile bubble
+    const hd=p.querySelector(".bt-mi.dis");if(hd){const c=document.createElement("div");c.className="bt-pf";
+      c.innerHTML='<div class="bt-avatar"></div><b></b><small>Safe Browser profile</small>';
+      c.querySelector(".bt-avatar").textContent=n.charAt(0).toUpperCase();c.querySelector("b").textContent=n;hd.replaceWith(c)}
+    p._a=btn;
+  };
   window.btApps=function(e){
     const A=[["YouTube","https://www.youtube.com/"],["Gmail","https://mail.google.com/"],["Google Drive","https://drive.google.com/"],["Google Maps","https://www.google.com/maps"],["Google Translate","https://translate.google.com/"],["Google Scholar","https://scholar.google.com/"]];
-    popupBelow(e,e.currentTarget,A.map(a=>({l:a[0],fav:a[1],f:()=>btGo(a[1])})),false);
+    popupBelow(e,e.currentTarget,A.map(a=>({l:a[0],fav:a[1],f:()=>btGo(a[1])})),!!e.currentTarget.closest(".bt-ntop"));
   };
   window.btBmMore=function(e){
     popupBelow(e,e.currentTarget,bms.map(b=>({l:b.t,fav:b.u,f:()=>btGo(b.u)})),true);
@@ -6003,6 +6030,7 @@ window.mBrowserOpenExternal = function() {
 
   // ── Chrome-style New Tab page (dark): Google wordmark, search box, shortcut tiles from the bookmarks ──
   function fillNtp(el){
+    try{const av=el.querySelector(".bt-ntop .bt-avatar");if(av)av.textContent=profName().charAt(0).toUpperCase()||"R"}catch(e){}
     const box=el.querySelector(".bt-tiles");if(!box)return;box.innerHTML="";
     bms.slice(0,10).forEach(b=>{
       const t=document.createElement("button");t.className="bt-tile";t.title=b.u;
@@ -6013,11 +6041,17 @@ window.mBrowserOpenExternal = function() {
   }
   function ntpEl(){
     const d=document.createElement("div");d.className="bt-ntp";
-    d.innerHTML='<div class="bt-logo">Google</div>'+
+    d.innerHTML='<div class="bt-ntop"><button class="lk" data-u="https://mail.google.com/">Gmail</button><button class="lk" data-u="https://www.google.com/imghp">Images</button>'+
+      '<button class="ap" title="Google apps">'+svg('<circle cx="5" cy="5" r="1.6"/><circle cx="12" cy="5" r="1.6"/><circle cx="19" cy="5" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/><circle cx="5" cy="19" r="1.6"/><circle cx="12" cy="19" r="1.6"/><circle cx="19" cy="19" r="1.6"/>').replace('fill="none"','fill="currentColor"')+'</button>'+
+      '<div class="bt-avatar" title="Profile">R</div></div>'+
+      '<div class="bt-logo">Google</div>'+
       '<label class="bt-nsearch">'+svg('<circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>')+'<input type="text" spellcheck="false" autocomplete="off" placeholder="Search Google or type a URL"></label>'+
       '<div class="bt-tiles"></div>';
     const inp=d.querySelector("input");
     inp.addEventListener("keydown",e=>{if(e.key==="Enter"&&inp.value.trim())btGo(inp.value)});
+    d.querySelectorAll(".lk").forEach(b=>b.addEventListener("click",()=>btGo(b.dataset.u)));
+    d.querySelector(".ap").addEventListener("click",e=>btApps(e));
+    d.querySelector(".bt-ntop .bt-avatar").addEventListener("click",e=>btProfile(e));
     fillNtp(d);
     return d;
   }
