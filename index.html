@@ -7134,7 +7134,8 @@ async function toggleFlashlight() {
     {k:'alwaysOnTop',t:'📌 Always on Top',d:'অ্যাপের উইন্ডো সবসময় অন্য উইন্ডোর উপরে থাকবে।'},
     {k:'adultBlock',t:'🔞 Adult Block (Safe Browsing)',d:'চালু থাকলে Safe Browser-এ অ্যাডাল্ট সাইট বন্ধ থাকবে এবং Google / Bing / DuckDuckGo-তে SafeSearch জোর করে চালু থাকবে।'},
     {k:'autostart',t:'🚀 Start with Windows',d:'কম্পিউটার চালু হলে অ্যাপ ব্যাকগ্রাউন্ডে চালু হবে।'},
-    {k:'closeToTray',t:'📥 Close → System Tray',d:'বন্ধ (X) করলে ব্যাকগ্রাউন্ডে চলবে। বন্ধ থাকলে অ্যাপ পুরোপুরি বন্ধ হবে।'}
+    {k:'closeToTray',t:'📥 Close → Background',d:'বন্ধ (X) করলে ব্যাকগ্রাউন্ডে চলবে, নোটিফিকেশন আসতে থাকবে। বন্ধ থাকলে অ্যাপ পুরোপুরি বন্ধ হবে।'},
+    {k:'trayIcon',t:'🔲 Tray Icon দেখাও',d:'বন্ধ করলে ব্যাকগ্রাউন্ডে অ্যাপ চলবে কিন্তু tray-তে আইকন থাকবে না (Telegram-এর মতো)। আবার খুলতে Desktop/Start Menu-র শর্টকাট চালান।'}
   ];
   const ov=document.createElement('div');ov.id='rtSetOv';
   ov.innerHTML='<div id="rtSet" role="dialog" aria-label="Settings"><h3>⚙️ Settings</h3><div class="rs-sub">অ্যাপের সেটিং (এই কম্পিউটারে সেভ থাকে)</div><div id="rtSetRows"></div>'
