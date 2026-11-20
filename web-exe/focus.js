@@ -4,7 +4,8 @@
    - a hidden PowerShell helper reports the foreground window (300 ms) and every process that has
      a visible window (every ~2 s); the decisions are made in focus-core.js
    - blocked app  -> process killed; blocked site -> Ctrl+W on the browser tab + minimise;
-     Task Manager / uninstall windows -> closed; a quote popup is shown each time */
+     Task Manager / uninstall windows -> closed; a quote popup is shown each time
+   - Schedule Block: saved profiles (days + time window + sites/apps) that block on their own, with or without a Focus session */
 const { app, BrowserWindow, ipcMain, dialog, Notification, screen, webContents } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -16,8 +17,9 @@ const SELF_EXE = path.basename(process.execPath);
 const STATE_FILE = () => path.join(app.getPath('userData'), 'focus.json');
 const HELPER_DIR = () => path.join(app.getPath('userData'), 'focus-helper');
 
-let st = { settings: Object.assign({}, core.DEFAULTS), active: false, endAt: 0, pw: null };
-let helper = null, restartTimer = null, expiryTimer = null;
+let st = { settings: Object.assign({}, core.DEFAULTS), active: false, endAt: 0, pw: null, schedules: [] };
+let schedBlocks = { ids: [], names: [], sites: [], apps: [] }; // what the schedules block right now (refreshed every 10 s)
+let helper = null, restartTimer = null, expiryTimer = null, schedTimer = null;
 let getMainWin = () => null, hooks = {};
 let lastAlert = 0, lastAct = 0, procBuf = [], lastProcs = [];
 
@@ -29,12 +31,13 @@ function load() {
     st.active = !!j.active && Number(j.endAt) > Date.now();
     st.endAt = st.active ? Number(j.endAt) : 0;
     st.pw = st.active && j.pw && j.pw.salt && j.pw.hash ? j.pw : null;
+    st.schedules = core.sanitizeSchedules(j.schedules);
   } catch (_) { /* first run */ }
 }
 function save() {
   try {
     fs.mkdirSync(path.dirname(STATE_FILE()), { recursive: true });
-    fs.writeFileSync(STATE_FILE(), JSON.stringify({ settings: st.settings, active: st.active, endAt: st.endAt, pw: st.pw }));
+    fs.writeFileSync(STATE_FILE(), JSON.stringify({ settings: st.settings, active: st.active, endAt: st.endAt, pw: st.pw, schedules: st.schedules }));
   } catch (_) {}
 }
 
@@ -59,6 +62,11 @@ function publicState() {
       apps: lockedApps().concat(s.apps.map((a) => ({ type: a.type, name: a.name, locked: false }))),
     },
     common: { sites: core.COMMON_SITES, apps: core.COMMON_APPS },
+    schedules: st.schedules.map((p) => ({
+      id: p.id, name: p.name, enabled: p.enabled, days: p.days.slice(), allDay: p.allDay, start: p.start, end: p.end,
+      sites: p.sites.slice(), apps: p.apps.map((a) => ({ type: a.type, name: a.name })),
+      activeNow: core.isScheduleActive(p, new Date()), // a profile that is blocking right now can't be edited / switched off / deleted
+    })),
   };
 }
 // the Focus page lives in a <webview> (rtfocus://app/focus.html) inside the main window
@@ -177,10 +185,11 @@ const PS_ARGS = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', 
 function activeApps() { return lockedApps().concat(st.settings.apps); }
 
 function onForeground(parts) {
-  if (!st.active) return;
+  if (!st.active && !schedBlocks.sites.length) return;
   const [, hwnd, pid, proc, title] = parts;
   if (Number(pid) === process.pid) return;
-  const d = core.decideForeground({ proc, title: title || '', selfName: SELF_EXE, sites: st.settings.sites });
+  let d = st.active ? core.decideForeground({ proc, title: title || '', selfName: SELF_EXE, sites: st.settings.sites }) : null;
+  if (!d && schedBlocks.sites.length) d = core.decideScheduledForeground({ proc, title: title || '', selfName: SELF_EXE, sites: schedBlocks.sites });
   if (!d) return;
   const now = Date.now();
   if (now - lastAct < 1500) return;
@@ -192,11 +201,12 @@ function onForeground(parts) {
 
 function onSweep(list) {
   lastProcs = list;
-  if (!st.active) return;
+  if (!st.active && !schedBlocks.apps.length) return;
   const apps = activeApps();
   for (const p of list) {
     if (p.pid === process.pid || (helper && p.pid === helper.pid)) continue;
-    const d = core.decideProcess({ mode: st.settings.mode, apps, proc: p.name, title: p.title, selfName: SELF_EXE });
+    let d = st.active ? core.decideProcess({ mode: st.settings.mode, apps, proc: p.name, title: p.title, selfName: SELF_EXE }) : null;
+    if (!d && schedBlocks.apps.length) d = core.decideScheduledProcess({ apps: schedBlocks.apps, proc: p.name, title: p.title, selfName: SELF_EXE });
     if (!d) continue;
     try { process.kill(p.pid); } catch (_) { /* elevated / protected: nothing we can do */ }
     showAlert(d.msg);
@@ -211,6 +221,15 @@ function onLine(line) {
     const [, pid, name, title] = line.split('\t');
     if (procBuf.length < 400) procBuf.push({ pid: Number(pid), name, title: title || '' });
   }
+}
+
+function engineNeeded() { return st.active || schedBlocks.ids.length > 0; }
+/* Recompute which schedule profiles are blocking right now; start / stop the helper accordingly. */
+function refreshSchedule() {
+  const before = schedBlocks.ids.join(',');
+  schedBlocks = core.activeScheduleBlocks(st.schedules, new Date());
+  if (engineNeeded()) startEngine(); else if (helper) stopEngine();
+  if (schedBlocks.ids.join(',') !== before) broadcast();
 }
 
 function startEngine() {
@@ -234,7 +253,7 @@ function startEngine() {
   helper.on('exit', () => {
     if (helper === me) helper = null;
     // someone killed the helper while a session is running: bring it back
-    if (st.active) { clearTimeout(restartTimer); restartTimer = setTimeout(startEngine, 2000); restartTimer.unref(); }
+    if (engineNeeded()) { clearTimeout(restartTimer); restartTimer = setTimeout(startEngine, 2000); restartTimer.unref(); }
   });
 }
 function stopEngine() {
@@ -246,7 +265,7 @@ function stopEngine() {
 /* ---------- session control ---------- */
 function finish(notify) {
   st.active = false; st.endAt = 0; st.pw = null;
-  save(); stopEngine(); broadcast();
+  save(); refreshSchedule(); if (!engineNeeded()) stopEngine(); broadcast();
   if (notify && Notification.isSupported()) {
     new Notification({ title: 'Focus Mode', body: 'Focus session শেষ। দারুণ কাজ! 🎉' }).show();
   }
@@ -312,6 +331,10 @@ function init(opts) {
   hooks = opts || {};
   load();
   if (st.active) { startEngine(); armExpiry(); }
+  refreshSchedule();
+  clearInterval(schedTimer);
+  schedTimer = setInterval(refreshSchedule, 10000);
+  schedTimer.unref();
   save();
 
   ipcMain.on('focus:open', openWindow);
@@ -324,10 +347,41 @@ function init(opts) {
     save(); broadcast();
     return { ok: true, state: publicState() };
   });
+  /* ---- Schedule Block profiles ---- */
+  const schedLocked = (id) => { const p = st.schedules.find((x) => x.id === id); return !!p && core.isScheduleActive(p, new Date()); };
+  const LOCK_MSG = 'এই profile এখন block করছে — সময় শেষ না হওয়া পর্যন্ত পরিবর্তন / বন্ধ / delete করা যাবে না।';
+  ipcMain.handle('focus:schedSave', (e, o) => {
+    if (!fromFocusWin(e)) return { ok: false };
+    const id = o && typeof o.id === 'string' ? o.id : '';
+    if (id && schedLocked(id)) return { ok: false, error: LOCK_MSG, state: publicState() };
+    const idx = st.schedules.findIndex((x) => x.id === id);
+    if (idx < 0 && st.schedules.length >= core.MAX_SCHEDULES) return { ok: false, error: 'সর্বোচ্চ ' + core.MAX_SCHEDULES + ' টি profile রাখা যাবে।', state: publicState() };
+    const r = core.sanitizeSchedule(o, idx >= 0 ? id : undefined);
+    if (!r.value) return { ok: false, error: r.error, state: publicState() };
+    if (idx >= 0) st.schedules[idx] = r.value; else st.schedules.push(r.value);
+    save(); refreshSchedule(); broadcast();
+    return { ok: true, state: publicState() };
+  });
+  ipcMain.handle('focus:schedDelete', (e, id) => {
+    if (!fromFocusWin(e)) return { ok: false };
+    if (schedLocked(id)) return { ok: false, error: LOCK_MSG, state: publicState() };
+    st.schedules = st.schedules.filter((x) => x.id !== id);
+    save(); refreshSchedule(); broadcast();
+    return { ok: true, state: publicState() };
+  });
+  ipcMain.handle('focus:schedToggle', (e, id, enabled) => {
+    if (!fromFocusWin(e)) return { ok: false };
+    if (schedLocked(id)) return { ok: false, error: LOCK_MSG, state: publicState() };
+    const p = st.schedules.find((x) => x.id === id);
+    if (!p) return { ok: false, state: publicState() };
+    p.enabled = !!enabled;
+    save(); refreshSchedule(); broadcast();
+    return { ok: true, state: publicState() };
+  });
   ipcMain.handle('focus:start', (e, o) => (fromFocusWin(e) ? startSession(o) : { ok: false }));
   ipcMain.handle('focus:stop', (e, o) => (fromFocusWin(e) ? stopSession(o) : { ok: false }));
   ipcMain.handle('focus:pickExe', async (e) => {
-    if (!fromFocusWin(e) || st.active) return null;
+    if (!fromFocusWin(e)) return null; // (focus:update / schedSave refuse changes while locked)
     const r = await dialog.showOpenDialog(getMainWin(), { properties: ['openFile'], filters: [{ name: 'Executable Files', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }] });
     return r.canceled || !r.filePaths[0] ? null : path.basename(r.filePaths[0]);
   });
@@ -353,5 +407,5 @@ module.exports = {
   init,
   openWindow,
   isActive: () => st.active,
-  stop: stopEngine, // app is quitting: end the helper (the session itself stays saved)
+  stop: () => { clearInterval(schedTimer); stopEngine(); }, // app is quitting: end the helper (the session itself stays saved)
 };
