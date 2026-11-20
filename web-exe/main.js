@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { Readable } = require('stream');
 const vidstore = require('./vidstore');
 const focus = require('./focus');
+const pdfreader = require('./pdfreader');
 
 const SITE = 'https://raseledutools.github.io/rajib-tutorial-web/';
 const SITE_ORIGIN = new URL(SITE).origin;
@@ -19,6 +20,7 @@ let startHidden = process.argv.includes('--hidden'); // started by Windows at lo
 // rtvid://  — plays saved lesson videos from disk (with Range support so seeking works)
 protocol.registerSchemesAsPrivileged([
   { scheme: 'rtvid', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: true } },
+  { scheme: 'rtpdf', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true } },   // PDF Reader (pdf.js viewer + the opened PDF), see pdfreader.js
   { scheme: 'rtfocus', privileges: { standard: true, secure: true } },   // Focus Mode page, shown inside the app layout (<webview> in index.html)
 ]);
 const FOCUS_SRC = 'rtfocus://app/focus.html';
@@ -47,7 +49,16 @@ app.on('child-process-gone', (_e, d) => {
 });
 
 if (!app.requestSingleInstanceLock()) app.quit();
-app.on('second-instance', () => { showMain(); });
+// PDF Reader context (pdfreader.js): Windows starts us with a .pdf path when the user opens a PDF from Explorer
+const pdfCtx = {
+  ipcMain, dialog, shell, session, protocol,
+  getWin: () => win, trusted: (e) => trusted(e), showMain: () => showMain(),
+  ready: () => { try { return !!win && !win.isDestroyed() && win.webContents.getURL().startsWith(SITE_ORIGIN); } catch (_) { return false; } },
+};
+app.on('second-instance', (_e, argv) => {
+  const f = pdfreader.pdfFromArgv(argv);
+  if (f) pdfreader.openFile(pdfCtx, f); else showMain();
+});
 
 
 /* ---------- Offline cache for the website shell ----------
@@ -214,7 +225,7 @@ function guard(wc) {
       else wc.reloadIgnoringCache();
       return;
     }
-    if (ctrl && ['p', 's', 'u'].includes(k)) e.preventDefault();
+    if (ctrl && ['p', 's', 'u'].includes(k) && !(isPdfGuest(wc) && k !== 'u')) e.preventDefault();   // PDF reader: print / save allowed
     if (PACKAGED && (k === 'f12' || (ctrl && input.shift && ['i', 'j', 'c'].includes(k)))) e.preventDefault();
   });
   wc.on('context-menu', (e) => e.preventDefault());
@@ -351,6 +362,7 @@ function create() {
   });
   wc.on('did-finish-load', () => {
     if (pendingFocusView && wc.getURL().startsWith(SITE_ORIGIN)) { pendingFocusView = false; setTimeout(sendFocusShow, 600); }
+    if (wc.getURL().startsWith(SITE_ORIGIN)) setTimeout(() => pdfreader.flush(pdfCtx), 900);   // a PDF opened from Explorer while the site was loading
   });
   wc.on('did-fail-load', (_e, code, _d, url, isMain) => {
     if (!isMain || code === -3 || !url.startsWith('http')) return;
@@ -674,6 +686,8 @@ function isLessonPage(wc) {
 }
 // the local Focus Mode page shown in a <webview> inside the app layout (see index.html openFocus)
 function isFocusGuest(wc) { try { return wc.getURL().startsWith('rtfocus://'); } catch (_) { return false; } }
+// the PDF Reader page (pdf.js viewer) shown in a <webview> inside the app layout
+function isPdfGuest(wc) { try { return wc.getURL().startsWith('rtpdf://'); } catch (_) { return false; } }
 // Ad / ad-tracking networks: blocked for every site opened in the embedded view (these domains serve ads only).
 const AD_DOMAINS = [
   'doubleclick.net', 'googlesyndication.com', 'googleadservices.com', 'googletagservices.com', 'adservice.google.com', '2mdn.net',
@@ -693,11 +707,13 @@ app.on('web-contents-created', (_e, wc) => {
   wc.on('will-attach-webview', (e, webPreferences, params) => {
     let ok = false;
     const isFocus = params.src === FOCUS_SRC && params.partition === FOCUS_PARTITION;
+    const isPdf = String(params.src).split('?')[0] === pdfreader.PDF_SRC && params.partition === pdfreader.PDF_PARTITION;
     try { ok = new URL(params.src).protocol === 'https:' && params.partition === EXT_PARTITION; } catch (_) {}
-    if (!ok && !isFocus) { e.preventDefault(); return; }
+    if (!ok && !isFocus && !isPdf) { e.preventDefault(); return; }
     delete webPreferences.preloadURL;
     // external sites: ext-preload.js makes the page look like normal Chrome (Google sign-in); Focus page: its own small API bridge
-    webPreferences.preload = path.join(__dirname, isFocus ? 'focus-preload.js' : 'ext-preload.js');
+    if (isPdf) delete webPreferences.preload;   // the PDF viewer needs no bridge at all
+    else webPreferences.preload = path.join(__dirname, isFocus ? 'focus-preload.js' : 'ext-preload.js');
     webPreferences.nodeIntegration = false;
     webPreferences.contextIsolation = true;
     webPreferences.sandbox = true;
@@ -728,7 +744,7 @@ app.on('web-contents-created', (_e, wc) => {
     // links that want a new window just navigate the embedded page
     wc.setWindowOpenHandler(({ url: u, disposition, features }) => {
       try {
-        if (isLessonPage(wc) || isFocusGuest(wc)) return { action: 'deny' };                    // course video: nothing may open from it
+        if (isLessonPage(wc) || isFocusGuest(wc) || isPdfGuest(wc)) return { action: 'deny' };                    // course video: nothing may open from it
         const parsed = new URL(u || 'about:blank');
         if (AD_HOST_RE.test(parsed.hostname)) return { action: 'deny' };   // ad pop-up / pop-under
         // Sign-in flows ("Continue with Google" etc.) open a pop-up and talk to it through window.opener / postMessage.
@@ -761,13 +777,13 @@ app.on('web-contents-created', (_e, wc) => {
     // right-click inside the page → Chrome-style menu drawn by index.html (Safe Browser tabs only, never the course video)
     wc.on('context-menu', (_ev, params) => {
       try {
-        if (isLessonPage(wc) || isFocusGuest(wc) || !wc.hostWebContents || wc.hostWebContents.isDestroyed()) return;
+        if (isLessonPage(wc) || isFocusGuest(wc) || isPdfGuest(wc) || !wc.hostWebContents || wc.hostWebContents.isDestroyed()) return;
         wc.hostWebContents.send('bt:ctx', JSON.stringify({ x: params.x, y: params.y, linkURL: params.linkURL || '', srcURL: params.srcURL || '', mediaType: params.mediaType || '', selectionText: (params.selectionText || '').slice(0, 300), isEditable: !!params.isEditable }));
       } catch (_) {}
     });
     wc.on('before-input-event', (_ev, input) => {
       try {
-        if (input.type !== 'keyDown' || isLessonPage(wc) || isFocusGuest(wc)) return;
+        if (input.type !== 'keyDown' || isLessonPage(wc) || isFocusGuest(wc) || isPdfGuest(wc)) return;
         const k = input.key, ctrl = !!(input.control || input.meta);
         const fwd = k === 'F11' || k === 'F5' || k === 'Escape' || (ctrl && (/^[twlrdfhpnjs0-9=+\-_]$/i.test(k) || k === 'Tab' || (input.shift && k === 'Delete'))) || (input.alt && (k === 'ArrowLeft' || k === 'ArrowRight'));
         if (fwd && wc.hostWebContents && !wc.hostWebContents.isDestroyed()) {
@@ -846,8 +862,10 @@ app.whenReady().then(() => {
   adultBlockOn = !!pref('adultBlock', true);
   safety.persistCookies(session.defaultSession);
   extMgr.init().catch(() => {});
+  try { pdfreader.init(pdfCtx); } catch (e) { console.error('pdfreader failed', e); }
   create();
   initTray();
+  { const f = pdfreader.pdfFromArgv(process.argv); if (f) { startHidden = false; pdfreader.openFile(pdfCtx, f); } }   // started by double-clicking a .pdf
   focus.init({ getMainWin: () => win, onStart: () => applyAutostart(true), onActiveChange: refreshTrayMenu, openView: openFocusView });
   applyAutostart(autostartOn() || focus.isActive());
   setTimeout(initUpdater, 1500);
