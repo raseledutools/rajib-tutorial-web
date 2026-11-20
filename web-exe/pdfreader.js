@@ -1,5 +1,6 @@
 'use strict';
-// Office Reader: PDF (pdf.js) + Word / Excel / PowerPoint (./office, rendered locally). Shown inside the app layout. pdf.js viewer (Acrobat-style UI) shown inside the app layout (<webview>, partition PDF_PARTITION),
+// Office Reader: one SumatraPDF-style tabbed reader (./office/viewer.html) for PDF (pdf.js in a tab), Word, Excel, PowerPoint, images, video, audio, Markdown and text, all rendered locally.
+// Shown inside the app layout (<webview>, partition PDF_PARTITION),
 // served from ./pdfjs through the rtpdf:// protocol. Also the "open with" target for .pdf files from Windows Explorer.
 //   rtpdf://app/pdfjs/...            viewer files (read-only, only inside ./pdfjs)
 //   rtpdf://app/f/<token>/<name>.pdf a PDF the user picked / Windows launched us with (token -> path, nothing else is readable)
@@ -12,7 +13,18 @@ const PDF_PARTITION = 'persist:rtpdf';
 const PDF_SRC = 'rtpdf://app/pdfjs/web/viewer.html';
 const OFFICE_SRC = 'rtpdf://app/office/viewer.html';
 const ROOTS = [path.join(__dirname, 'pdfjs'), path.join(__dirname, 'office')];
-const KINDS = { pdf: 'pdf', docx: 'docx', xlsx: 'xlsx', xls: 'xls', csv: 'csv', pptx: 'pptx', doc: 'doc', ppt: 'ppt' };
+const KINDS = {};
+[['pdf', 'pdf'], ['docx', 'docx'], ['xlsx', 'xlsx'], ['xls', 'xlsx'], ['csv', 'xlsx'], ['pptx', 'pptx'], ['doc', 'olddoc'], ['ppt', 'olddoc'],
+  ['png', 'image'], ['jpg', 'image'], ['jpeg', 'image'], ['gif', 'image'], ['webp', 'image'], ['bmp', 'image'], ['svg', 'image'], ['ico', 'image'], ['avif', 'image'],
+  ['mp4', 'video'], ['webm', 'video'], ['mkv', 'video'], ['mov', 'video'], ['m4v', 'video'], ['ogv', 'video'],
+  ['mp3', 'audio'], ['wav', 'audio'], ['ogg', 'audio'], ['m4a', 'audio'], ['flac', 'audio'], ['aac', 'audio'],
+  ['md', 'md'], ['markdown', 'md'], ['txt', 'text'], ['log', 'text'], ['json', 'text'], ['xml', 'text'], ['ini', 'text'], ['cfg', 'text'], ['yml', 'text'], ['yaml', 'text']].forEach(([e, k]) => { KINDS[e] = k; });
+const PICK_FILTERS = [
+  { name: 'All supported files', extensions: Object.keys(KINDS) },
+  { name: 'PDF', extensions: ['pdf'] }, { name: 'Word', extensions: ['docx'] }, { name: 'Excel / CSV', extensions: ['xlsx', 'xls', 'csv'] }, { name: 'PowerPoint', extensions: ['pptx'] },
+  { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico', 'avif'] }, { name: 'Video', extensions: ['mp4', 'webm', 'mkv', 'mov', 'm4v', 'ogv'] },
+  { name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'] }, { name: 'Markdown / Text', extensions: ['md', 'markdown', 'txt', 'log', 'json', 'xml', 'ini', 'cfg', 'yml', 'yaml'] },
+];
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png',
@@ -20,18 +32,19 @@ const MIME = {
   '.ttf': 'font/ttf', '.icc': 'application/octet-stream', '.ftl': 'text/plain; charset=utf-8', '.properties': 'text/plain; charset=utf-8',
 };
 const tokens = new Map();   // token -> absolute path of a PDF
-let pendingUrl = null;       // a PDF Windows asked us to open before the site was ready
 
 function kindOf(p) { const m = /\.([a-z0-9]+)$/i.exec(String(p || '')); return m ? (KINDS[m[1].toLowerCase()] || null) : null; }
 function isDocPath(p) { return !!kindOf(p); }
-// the first supported file argument of a command line (Explorer: "Rajib Tutorial.exe" "C:\x\file.pdf")
-function fileFromArgv(argv) {
+// every supported file argument of a command line (Explorer: "Rajib Tutorial.exe" "C:\\x\\file.pdf" "C:\\x\\photo.png")
+function filesFromArgv(argv) {
+  const out = [];
   for (const a of (argv || []).slice(1)) {
     const s = String(a || '').replace(/^"|"$/g, '');
-    if (isDocPath(s)) { try { if (fs.statSync(s).isFile()) return path.resolve(s); } catch (_) {} }
+    if (isDocPath(s)) { try { if (fs.statSync(s).isFile()) out.push(path.resolve(s)); } catch (_) {} }
   }
-  return null;
+  return out;
 }
+function fileFromArgv(argv) { return filesFromArgv(argv)[0] || null; }
 function makeUrl(file) {
   const t = crypto.randomBytes(9).toString('hex');
   tokens.set(t, file);
@@ -63,12 +76,10 @@ function init(ctx) {
   ctx.ipcMain.handle('pdf:pick', async (e) => {
     if (!ctx.trusted(e)) return null;
     const w = ctx.getWin();
-    const r = await ctx.dialog.showOpenDialog(w, { title: 'Open file', properties: ['openFile'], filters: [
-      { name: 'PDF / Word / Excel / PowerPoint', extensions: ['pdf', 'docx', 'xlsx', 'xls', 'csv', 'pptx'] },
-      { name: 'PDF', extensions: ['pdf'] }, { name: 'Word', extensions: ['docx'] }, { name: 'Excel', extensions: ['xlsx', 'xls', 'csv'] }, { name: 'PowerPoint', extensions: ['pptx'] },
-    ] });
-    if (r.canceled || !r.filePaths[0] || !isDocPath(r.filePaths[0])) return null;
-    return { url: makeUrl(r.filePaths[0]), name: path.basename(r.filePaths[0]), kind: kindOf(r.filePaths[0]) };
+    const r = await ctx.dialog.showOpenDialog(w, { title: 'Open file', properties: ['openFile', 'multiSelections'], filters: PICK_FILTERS });
+    if (r.canceled) return null;
+    const list = r.filePaths.filter(isDocPath).map((f) => ({ url: makeUrl(f), name: path.basename(f), kind: kindOf(f) }));
+    return list.length ? list : null;
   });
   // Windows does not let an app make itself the default: open its "Default apps" page (user picks Rajib Tutorial for .pdf there)
   ctx.ipcMain.handle('pdf:setDefault', (e) => {
@@ -78,20 +89,21 @@ function init(ctx) {
   });
 }
 
-// a PDF file was opened from outside (Explorer double-click, "Open with", second instance)
-function openFile(ctx, file) {
-  if (!file) return;
-  const url = makeUrl(file);
+// files were opened from outside (Explorer double-click, "Open with", second instance)
+const pending = [];
+function openFile(ctx, files) {
+  const list = (Array.isArray(files) ? files : [files]).filter(Boolean);
+  if (!list.length) return;
+  const items = list.map((f) => ({ url: makeUrl(f), name: path.basename(f), kind: kindOf(f) }));
   ctx.showMain();
   const w = ctx.getWin();
-  if (w && !w.isDestroyed() && ctx.ready()) w.webContents.send('pdf:open', { url, name: path.basename(file), kind: kindOf(file) });
-  else pendingUrl = { url, name: path.basename(file), kind: kindOf(file) };   // site still loading: delivered by flush()
+  if (w && !w.isDestroyed() && ctx.ready()) items.forEach((o) => w.webContents.send('pdf:open', o));
+  else pending.push(...items);   // site still loading: delivered by flush()
 }
 function flush(ctx) {
   const w = ctx.getWin();
-  if (!pendingUrl || !w || w.isDestroyed()) return;
-  const p = pendingUrl; pendingUrl = null;
-  w.webContents.send('pdf:open', p);
+  if (!pending.length || !w || w.isDestroyed()) return;
+  pending.splice(0).forEach((o) => w.webContents.send('pdf:open', o));
 }
 
-module.exports = { PDF_PARTITION, PDF_SRC, OFFICE_SRC, init, openFile, flush, fileFromArgv };
+module.exports = { PDF_PARTITION, PDF_SRC, OFFICE_SRC, init, openFile, flush, fileFromArgv, filesFromArgv };

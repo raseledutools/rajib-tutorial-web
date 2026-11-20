@@ -100,6 +100,108 @@
         "name": "PowerPoint Presentation",
         "description": "PowerPoint Presentation",
         "role": "Viewer"
+      },
+      {
+        "ext": "png",
+        "name": "Image",
+        "description": "Image",
+        "role": "Viewer"
+      },
+      {
+        "ext": "jpg",
+        "name": "Image",
+        "description": "Image",
+        "role": "Viewer"
+      },
+      {
+        "ext": "jpeg",
+        "name": "Image",
+        "description": "Image",
+        "role": "Viewer"
+      },
+      {
+        "ext": "gif",
+        "name": "Image",
+        "description": "Image",
+        "role": "Viewer"
+      },
+      {
+        "ext": "webp",
+        "name": "Image",
+        "description": "Image",
+        "role": "Viewer"
+      },
+      {
+        "ext": "bmp",
+        "name": "Image",
+        "description": "Image",
+        "role": "Viewer"
+      },
+      {
+        "ext": "mp4",
+        "name": "Video",
+        "description": "Video",
+        "role": "Viewer"
+      },
+      {
+        "ext": "webm",
+        "name": "Video",
+        "description": "Video",
+        "role": "Viewer"
+      },
+      {
+        "ext": "mkv",
+        "name": "Video",
+        "description": "Video",
+        "role": "Viewer"
+      },
+      {
+        "ext": "mov",
+        "name": "Video",
+        "description": "Video",
+        "role": "Viewer"
+      },
+      {
+        "ext": "mp3",
+        "name": "Audio",
+        "description": "Audio",
+        "role": "Viewer"
+      },
+      {
+        "ext": "wav",
+        "name": "Audio",
+        "description": "Audio",
+        "role": "Viewer"
+      },
+      {
+        "ext": "m4a",
+        "name": "Audio",
+        "description": "Audio",
+        "role": "Viewer"
+      },
+      {
+        "ext": "flac",
+        "name": "Audio",
+        "description": "Audio",
+        "role": "Viewer"
+      },
+      {
+        "ext": "md",
+        "name": "Markdown Document",
+        "description": "Markdown Document",
+        "role": "Viewer"
+      },
+      {
+        "ext": "txt",
+        "name": "Text Document",
+        "description": "Text Document",
+        "role": "Viewer"
+      },
+      {
+        "ext": "csv",
+        "name": "CSV File",
+        "description": "CSV File",
+        "role": "Viewer"
       }
     ]
   },

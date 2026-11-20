@@ -56,8 +56,8 @@ const pdfCtx = {
   ready: () => { try { return !!win && !win.isDestroyed() && win.webContents.getURL().startsWith(SITE_ORIGIN); } catch (_) { return false; } },
 };
 app.on('second-instance', (_e, argv) => {
-  const f = pdfreader.fileFromArgv(argv);
-  if (f) pdfreader.openFile(pdfCtx, f); else showMain();
+  const f = pdfreader.filesFromArgv(argv);
+  if (f.length) pdfreader.openFile(pdfCtx, f); else showMain();
 });
 
 
@@ -865,7 +865,7 @@ app.whenReady().then(() => {
   try { pdfreader.init(pdfCtx); } catch (e) { console.error('pdfreader failed', e); }
   create();
   initTray();
-  { const f = pdfreader.fileFromArgv(process.argv); if (f) { startHidden = false; pdfreader.openFile(pdfCtx, f); } }   // started by double-clicking a .pdf
+  { const f = pdfreader.filesFromArgv(process.argv); if (f.length) { startHidden = false; pdfreader.openFile(pdfCtx, f); } }   // started by double-clicking a .pdf
   focus.init({ getMainWin: () => win, onStart: () => applyAutostart(true), onActiveChange: refreshTrayMenu, openView: openFocusView });
   applyAutostart(autostartOn() || focus.isActive());
   setTimeout(initUpdater, 1500);
