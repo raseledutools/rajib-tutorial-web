@@ -6,12 +6,6 @@ on:
     branches: [main]
     paths: ['web-exe/**', '.github/workflows/build-web-exe.yml']
 
-env:
-  # TESTING MODE: ffmpeg is left out of the installer (much smaller + faster build/update).
-  # Without it YouTube lessons still save, but as one ready-made mp4 (usually 360p) instead of merged 720p.
-  # Set to 'true' before the final release to bundle ffmpeg.exe again.
-  BUNDLE_FFMPEG: 'false'
-
 jobs:
   build:
     runs-on: windows-latest
@@ -26,20 +20,6 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      # ffmpeg.exe: lets yt-dlp merge YouTube video+audio (720p) so offline save works for every YouTube lesson.
-      - name: Get ffmpeg.exe
-        if: env.BUNDLE_FFMPEG == 'true'
-        shell: bash
-        run: |
-          curl -L --fail --retry 3 -o ff.zip https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip
-          7z e ff.zip "*/bin/ffmpeg.exe" -obin -y
-          ls -la bin
-      - name: Leave ffmpeg out of the installer (testing mode)
-        if: env.BUNDLE_FFMPEG != 'true'
-        shell: bash
-        run: |
-          node -e "const fs=require('fs'),j=JSON.parse(fs.readFileSync('package.json','utf8'));j.build.extraResources=(j.build.extraResources||[]).filter(x=>!/ffmpeg/.test(x.from));fs.writeFileSync('package.json',JSON.stringify(j,null,2))"
-          grep -c ffmpeg package.json || true
       # Every build gets a new, higher version (1.0.<run number>) so installed apps see it as an update.
       - name: Set version
         shell: bash

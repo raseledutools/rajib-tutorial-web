@@ -29,7 +29,9 @@ function resBin(name) {
   return path.join(__dirname, 'bin', name);
 }
 const ytdlpBin = () => resBin('yt-dlp.exe');
-const ffmpegBin = () => resBin('ffmpeg.exe');
+// ffmpeg.exe is fetched on demand into userData/bin (see fetchFfmpeg); an older installer may still carry one in resources/.
+function userBin(name) { try { return path.join((app && app.getPath) ? app.getPath('userData') : path.join(__dirname, 'bin'), 'bin', name); } catch (_) { return resBin(name); } }
+const ffmpegBin = () => { const u = userBin('ffmpeg.exe'); return fs.existsSync(u) ? u : resBin('ffmpeg.exe'); };
 
 // A writable copy of yt-dlp lives in userData so it can update itself (YouTube breaks yt-dlp every few weeks).
 function ytdlpWritable() {
@@ -84,6 +86,29 @@ function fetchYtdlp() {
     return dst;
   })().finally(() => { ytFetching = null; });
   return ytFetching;
+}
+
+/* ffmpeg.exe (132 MB) is not in the installer either: a gzip copy (58 MB) lives in this repo's "web-exe-tools" release
+   (published by the "Publish tools" workflow). Downloaded once on the first YouTube save, unpacked into userData/bin. */
+const FFMPEG_URL = 'https://github.com/raseledutools/rajib-tutorial-web/releases/download/web-exe-tools/ffmpeg.exe.gz';
+let ffFetching = null;
+function fetchFfmpeg() {
+  if (ffFetching) return ffFetching;
+  const dst = userBin('ffmpeg.exe'), gz = dst + '.gz.part', tmp = dst + '.part';
+  ffFetching = (async () => {
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
+    for (const f of [gz, tmp]) { try { fs.rmSync(f, { force: true }); } catch (_) {} }
+    try {
+      await httpsGetFile(FFMPEG_URL, gz);
+      await require('stream/promises').pipeline(fs.createReadStream(gz), require('zlib').createGunzip(), fs.createWriteStream(tmp));
+      const st = fs.statSync(tmp);
+      const fd = fs.openSync(tmp, 'r'); const hdr = Buffer.alloc(2); fs.readSync(fd, hdr, 0, 2, 0); fs.closeSync(fd);
+      if (st.size < 20 * 1024 * 1024 || hdr.toString('latin1') !== 'MZ') throw new Error('bad download');
+      fs.renameSync(tmp, dst);
+      return dst;
+    } finally { for (const f of [gz, tmp]) { try { fs.rmSync(f, { force: true }); } catch (_) {} } }
+  })().finally(() => { ffFetching = null; });
+  return ffFetching;
 }
 
 // running yt-dlp processes (id -> child_process), for cancel support
@@ -163,6 +188,8 @@ async function downloadYT(item, outFile, onProgress, onDone, onError) {
     try { onProgress(0); bin = await fetchYtdlp(); }
     catch (e) { onError('yt-dlp ডাউনলোড করা যায়নি (ইন্টারনেট চেক করুন): ' + (e && e.message || e)); return; }
   }
+  // ffmpeg (merges video+audio for 720p): fetch once too. If that fails the save still works, as one ready-made mp4.
+  if (!fs.existsSync(ffmpegBin())) { try { onProgress(0); await fetchFfmpeg(); } catch (_) {} }
   const workDir = outFile.replace(/\.mp4$/i, '') + '.ytdl';
   try { fs.mkdirSync(workDir, { recursive: true }); } catch (e) { onError(e.message); return; }
   const cleanup = () => { try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (_) {} };

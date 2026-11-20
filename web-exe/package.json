@@ -37,12 +37,6 @@
       "focus.html",
       "build/icon.png"
     ],
-    "extraResources": [
-      {
-        "from": "bin/ffmpeg.exe",
-        "to": "ffmpeg.exe"
-      }
-    ],
     "win": {
       "target": [
         {
