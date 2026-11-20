@@ -88,7 +88,7 @@ function decideForeground({ proc, title, selfName, sites }) {
 function decideAdultForeground({ proc, title, selfName, isAdultTitle }) {
   const p = lc(proc);
   if (!p || !title || p === lc(selfName) || !isBrowser(p)) return null;
-  return isAdultTitle(String(title)) ? { action: 'closetab', msg: null } : null;
+  return isAdultTitle(String(title)) ? { action: 'tofocus', msg: null } : null;
 }
 
 /** What to do with a running process that has a visible window. null = leave it alone. */

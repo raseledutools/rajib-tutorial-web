@@ -39,6 +39,7 @@
       "office/**/*",
       "pdfreader.js",
       "focus.html",
+      "extfocus.html",
       "build/icon.png"
     ],
     "win": {

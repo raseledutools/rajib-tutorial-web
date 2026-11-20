@@ -10,6 +10,7 @@ const { app, BrowserWindow, ipcMain, dialog, Notification, screen, webContents }
 const path = require('path');
 const fs = require('fs');
 const { spawn, execFile } = require('child_process');
+const http = require('http');
 const core = require('./focus-core');
 const safetyMod = require('./safety');
 
@@ -23,6 +24,25 @@ let schedBlocks = { ids: [], names: [], sites: [], apps: [] }; // what the sched
 let helper = null, restartTimer = null, expiryTimer = null, schedTimer = null;
 let getMainWin = () => null, hooks = {};
 let lastAlert = 0, lastAct = 0, procBuf = [], lastProcs = [];
+let extServer = null, extPort = 0;
+/* Tiny local page server (127.0.0.1 only): an adult tab in Chrome / Edge / Firefox ... is navigated to this focus page. */
+function startExtServer() {
+  if (extServer) return;
+  try {
+    const srv = http.createServer((req, res) => {
+      try {
+        const html = fs.readFileSync(path.join(__dirname, 'extfocus.html'));
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+        res.end(html);
+      } catch (_) { res.writeHead(500); res.end('error'); }
+    });
+    srv.on('error', () => { if (extServer === srv) { extServer = null; extPort = 0; } });
+    srv.listen(0, '127.0.0.1', () => { try { extPort = srv.address().port; } catch (_) { extPort = 0; } });
+    srv.unref();
+    extServer = srv;
+  } catch (_) { extServer = null; extPort = 0; }
+}
+function stopExtServer() { if (extServer) { try { extServer.close(); } catch (_) {} extServer = null; extPort = 0; } }
 let extAdult = false; // Settings -> Adult Block for all browsers (works with or without a Focus session)
 
 /* ---------- persistence ---------- */
@@ -152,7 +172,7 @@ while ($true) {
 }
 `;
 
-const ACT_PS = `param([string]$Action, [long]$Hwnd)
+const ACT_PS = `param([string]$Action, [long]$Hwnd, [string]$Url)
 $ErrorActionPreference = 'SilentlyContinue'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type @"
@@ -165,7 +185,21 @@ public class RFAct {
 }
 "@
 $h = [IntPtr]$Hwnd
-if ($Action -eq 'closetab') {
+if ($Action -eq 'tofocus') {
+  # same tab -> focus page: Ctrl+L, paste the local URL, Enter (the old clipboard text is put back afterwards)
+  if ([RFAct]::GetForegroundWindow() -eq $h -and $Url) {
+    $old = $null
+    try { $old = [System.Windows.Forms.Clipboard]::GetText() } catch {}
+    try { [System.Windows.Forms.Clipboard]::SetText($Url) } catch {}
+    [System.Windows.Forms.SendKeys]::SendWait('^l')
+    Start-Sleep -Milliseconds 150
+    [System.Windows.Forms.SendKeys]::SendWait('^v')
+    Start-Sleep -Milliseconds 120
+    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+    Start-Sleep -Milliseconds 400
+    try { if ($old) { [System.Windows.Forms.Clipboard]::SetText($old) } else { [System.Windows.Forms.Clipboard]::Clear() } } catch {}
+  }
+} elseif ($Action -eq 'closetab') {
   if ([RFAct]::GetForegroundWindow() -eq $h) {
     [System.Windows.Forms.SendKeys]::SendWait('^w')
     Start-Sleep -Milliseconds 80
@@ -197,9 +231,11 @@ function onForeground(parts) {
   const now = Date.now();
   if (now - lastAct < 1500) return;
   lastAct = now;
-  execFile('powershell.exe', PS_ARGS.concat([path.join(HELPER_DIR(), 'act.ps1'), '-Action', d.action, '-Hwnd', String(hwnd)]),
-    { windowsHide: true, timeout: 8000 }, () => {});
-  showAlert(d.msg);
+  if (d.action === 'tofocus' && !extPort) d = { action: 'closetab', msg: null };   // local page not ready: old behaviour
+  const args = ['-STA'].concat(PS_ARGS, [path.join(HELPER_DIR(), 'act.ps1'), '-Action', d.action, '-Hwnd', String(hwnd)]);
+  if (d.action === 'tofocus') { args.push('-Url', 'http://127.0.0.1:' + extPort + '/focus'); lastAct = now + 2500; }
+  execFile('powershell.exe', args, { windowsHide: true, timeout: 8000 }, () => {});
+  if (d.action !== 'tofocus') showAlert(d.msg);   // adult tab: no popup, the tab itself becomes the focus page
 }
 
 function onSweep(list) {
@@ -409,6 +445,7 @@ function init(opts) {
 /* Settings -> "Adult Block (all browsers)": start / stop the window watcher on its own. */
 function setExtAdult(on) {
   extAdult = !!on;
+  if (extAdult && IS_WIN) startExtServer(); else stopExtServer();
   if (engineNeeded()) startEngine(); else if (helper) stopEngine();
 }
 
@@ -416,5 +453,5 @@ module.exports = {
   init, setExtAdult,
   openWindow,
   isActive: () => st.active,
-  stop: () => { clearInterval(schedTimer); stopEngine(); }, // app is quitting: end the helper (the session itself stays saved)
+  stop: () => { clearInterval(schedTimer); stopEngine(); stopExtServer(); }, // app is quitting: end the helper (the session itself stays saved)
 };

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Focus time 🌿</title>
+<style>
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{font-family:'Segoe UI','Noto Sans Bengali',system-ui,sans-serif;color:#e3e3e3;background:radial-gradient(1200px 600px at 50% 0%,#2a3b3a 0%,#3c3c3c 70%);display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;overflow:auto}
+.fp{display:flex;flex-direction:column;align-items:center;gap:22px;animation:fi .7s ease both}
+@keyframes fi{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+h2{margin:0;font-size:30px;font-weight:600;color:#e8f5f3}
+.sub{max-width:560px;font-size:15px;line-height:1.7;color:#c4c7c5}
+.fq{max-width:640px;min-height:120px;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:22px 28px;border-radius:18px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);transition:opacity .5s ease,transform .5s ease}
+.fq.out{opacity:0;transform:translateY(8px)}
+.fq q{quotes:none;font-size:20px;line-height:1.6;color:#fff}.fq small{font-size:13.5px;color:#8fd3c8}
+.tm{font:600 54px/1 'Segoe UI',system-ui,sans-serif;letter-spacing:2px;color:#e8f5f3;font-variant-numeric:tabular-nums}
+.fr{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+button{border:0;border-radius:20px;padding:9px 18px;font-size:13.5px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.1);color:#e3e3e3;font-family:inherit}
+button:hover{background:rgba(255,255,255,.18)}button.p{background:#8fd3c8;color:#10201d}button.p:hover{background:#a6e0d6}
+</style></head><body>
+<div class="fp">
+<h2>একটু থামুন 🌿</h2>
+<div class="sub">আপনি যা খুঁজছিলেন তা আপনার লক্ষ্য থেকে মনোযোগ সরিয়ে দিতে পারে। এই মুহূর্তটা আপনার ভবিষ্যৎ গড়ার সময় — চলুন আবার পড়াশোনায় ফিরি।</div>
+<div class="fq" id="fq"><q id="q"></q><small id="a"></small></div>
+<div class="tm" id="tm">25:00</div>
+<div class="fr"><button class="p" id="bt">▶ ফোকাস শুরু</button><button id="br">↺ রিসেট</button><button id="bq">💬 আরেকটি উক্তি</button><button id="bs">📚 পড়াশোনায় ফিরুন</button></div>
+</div>
+<script>
+const QUOTES=[
+["ওঠো, জাগো এবং লক্ষ্যে না পৌঁছানো পর্যন্ত থেমো না।","স্বামী বিবেকানন্দ"],
+["স্বপ্ন সেটা নয় যা তুমি ঘুমিয়ে দেখো, স্বপ্ন সেটাই যা তোমাকে ঘুমাতে দেয় না।","এ. পি. জে. আবদুল কালাম"],
+["এক সময়ে একটি কাজ করো, আর তা করার সময় নিজের সমস্ত মন তাতে ঢেলে দাও।","স্বামী বিবেকানন্দ"],
+["চিত্ত যেথা ভয়শূন্য, উচ্চ যেথা শির।","রবীন্দ্রনাথ ঠাকুর"],
+["বল বীর — বল উন্নত মম শির!","কাজী নজরুল ইসলাম"],
+["আমরা যা বারবার করি, আমরা তা-ই। তাই শ্রেষ্ঠত্ব কোনো একটি কাজ নয়, এটি একটি অভ্যাস।","অ্যারিস্টটল"],
+["তুমি তোমার মনের ওপর ক্ষমতা রাখো, বাইরের ঘটনার ওপর নয়। এটা বুঝলেই তুমি শক্তি পাবে।","মার্কাস অরেলিয়াস"],
+["বাস্তবের চেয়ে কল্পনাতেই আমরা বেশি কষ্ট পাই।","সেনেকা"],
+["কাজটা শেষ না হওয়া পর্যন্ত সবসময় অসম্ভবই মনে হয়।","নেলসন ম্যান্ডেলা"],
+["প্রকৃত শক্তিশালী সে নয় যে কুস্তিতে অন্যকে হারায়; বরং সে-ই শক্তিশালী যে রাগের সময় নিজেকে নিয়ন্ত্রণ করে।","হাদিস (বুখারি ও মুসলিম)"]];
+const $=id=>document.getElementById(id);
+let qi=Math.floor(Math.random()*QUOTES.length),left=1500,run=false,tk=null;
+function put(){$('q').textContent='“'+QUOTES[qi][0]+'”';$('a').textContent='— '+QUOTES[qi][1];$('fq').classList.remove('out')}
+function nextQ(){qi=(qi+1)%QUOTES.length;$('fq').classList.add('out');setTimeout(put,450)}
+function fmt(){$('tm').textContent=String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0');document.title=run?$('tm').textContent+' · Focus time 🌿':'Focus time 🌿'}
+function stop(){run=false;clearInterval(tk);$('bt').textContent='▶ ফোকাস শুরু';fmt()}
+put();setInterval(nextQ,12000);
+$('bq').onclick=nextQ;
+$('br').onclick=()=>{stop();left=1500;fmt()};
+$('bt').onclick=()=>{if(run){stop();return}run=true;$('bt').textContent='⏸ বিরতি';
+  tk=setInterval(()=>{left--;fmt();if(left<=0){stop();left=1500;fmt();alert('সাবাশ! ২৫ মিনিটের ফোকাস শেষ। এবার ৫ মিনিট বিরতি নিন।')}},1000)};
+$('bs').onclick=()=>{location.href='https://raseledutools.github.io/rajib-tutorial-web/'};
+</script></body></html>
