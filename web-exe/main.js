@@ -331,6 +331,7 @@ function create() {
     if (!pref('closeToTray', true) && !focus.isActive()) { forceQuit = true; return; } // setting: close = quit
     e.preventDefault();
     win.hide();
+    safety.clean().catch(() => {});   // gone to the tray: drop caches (logins stay)
     stopAllMedia(); // window is hidden → course / YouTube videos must not keep playing in the background
   });
   win.on('show', unmuteAll);
@@ -453,8 +454,13 @@ function openFocusView() {
 }
 function refreshTrayMenu() { if (tray) tray.setContextMenu(trayMenu()); }
 
+let cacheCleanedOnQuit = false;
 app.on('before-quit', (e) => {
-  if (!forceQuit && focus.isActive()) e.preventDefault(); // a Focus session is running
+  if (!forceQuit && focus.isActive()) { e.preventDefault(); return; } // a Focus session is running
+  if (cacheCleanedOnQuit) return;
+  // real quit: wipe caches first (max 2.5 s), then quit for real. Cookies / logins are kept.
+  e.preventDefault(); cacheCleanedOnQuit = true;
+  Promise.race([safety.clean(), new Promise((r) => setTimeout(r, 2500))]).catch(() => {}).finally(() => app.quit());
 });
 app.on('session-end', () => { forceQuit = true; });
 app.on('will-quit', () => { focus.stop(); });
@@ -563,17 +569,18 @@ ipcMain.on('notify:show', (_e, title, body) => {
 function settingsState() {
   return { notifications: !!pref('notifications', true), screenProtect: !!pref('screenProtect', true), autostart: autostartOn(),
            closeToTray: !!pref('closeToTray', true), notifySound: !!pref('notifySound', true), alwaysOnTop: !!pref('alwaysOnTop', false),
-           gpuOff: !!pref('gpuOff', false), version: app.getVersion(), packaged: PACKAGED };
+           gpuOff: !!pref('gpuOff', false), adultBlock: !!pref('adultBlock', true), version: app.getVersion(), packaged: PACKAGED };
 }
 ipcMain.handle('settings:get', (e) => (trusted(e) ? settingsState() : null));
 ipcMain.handle('settings:set', (e, key, val) => {
-  if (!trusted(e) || !['notifications', 'screenProtect', 'autostart', 'closeToTray', 'notifySound', 'alwaysOnTop', 'gpuOff'].includes(key)) return null;
+  if (!trusted(e) || !['notifications', 'screenProtect', 'autostart', 'closeToTray', 'notifySound', 'alwaysOnTop', 'gpuOff', 'adultBlock'].includes(key)) return null;
   val = !!val;
   if (key === 'autostart' && !val && focus.isActive()) return settingsState(); // Focus session running: keep Start-with-Windows on
   const p = readPrefs(); p[key] = val; writePrefs(p);
   if (key === 'screenProtect') BrowserWindow.getAllWindows().forEach((w) => { try { if (!w.isDestroyed()) w.setContentProtection(val); } catch (_) {} });
   if (key === 'autostart') applyAutostart(val);
   if (key === 'alwaysOnTop' && win && !win.isDestroyed()) { try { win.setAlwaysOnTop(val); } catch (_) {} }
+  if (key === 'adultBlock') adultBlockOn = val;
   if (key === 'gpuOff') { setTimeout(() => { forceQuit = true; app.relaunch(); app.exit(0); }, 400); return settingsState(); }
   refreshTrayMenu();
   return settingsState();
@@ -612,6 +619,11 @@ ipcMain.on('nav', (e, act) => {
 
 const EXT_PARTITION = 'persist:rtext';
 const extMgr = require('./extensions')({ partition: EXT_PARTITION, getMainWin: () => win });
+let adultBlockOn = true;   // Settings → Adult Block (kept in memory: checked on every request)
+const safety = require('./safety')({
+  getSessions: () => ({ def: session.defaultSession, ext: session.fromPartition(EXT_PARTITION) }),
+  isAdultBlockOn: () => adultBlockOn,
+});
 ipcMain.handle('ext:list', (e) => (trusted(e) ? extMgr.list() : []));
 ipcMain.handle('ext:addFolder', (e) => (trusted(e) ? extMgr.addFolder() : null));
 ipcMain.handle('ext:addFile', (e) => (trusted(e) ? extMgr.addFile() : null));
@@ -747,12 +759,18 @@ app.whenReady().then(() => {
     const brands = '"Chromium";v="' + major + '", "Google Chrome";v="' + major + '", "Not_A Brand";v="24"';
     const fullList = '"Chromium";v="' + spoofFull + '", "Google Chrome";v="' + spoofFull + '", "Not_A Brand";v="24.0.0.0"';
     // YouTube ads: cancel the ad / tracking requests (only in this embedded session; ext-preload.js handles the rest)
-    ext.webRequest.onBeforeRequest({ urls: [
-      '*://*.doubleclick.net/*', '*://*.googlesyndication.com/*', '*://*.googleadservices.com/*', '*://adservice.google.com/*',
-      '*://*.youtube.com/pagead/*', '*://*.youtube.com/api/stats/ads*', '*://*.youtube.com/ptracking*',
-      '*://*.youtube.com/get_midroll_info*', '*://*.youtube.com/youtubei/v1/player/ad_break*',
-      ...AD_DOMAINS.map((d) => '*://*.' + d + '/*'),
-    ] }, (_d, cb) => cb({ cancel: true }));
+    // ONE listener (Electron keeps only one per event): adult block / SafeSearch first, then the ad network block
+    const YT_AD_PATH = /^\/(pagead\/|api\/stats\/ads|ptracking|get_midroll_info|youtubei\/v1\/player\/ad_break)/;
+    ext.webRequest.onBeforeRequest((d, cb) => {
+      const a = safety.adultCheck(d);
+      if (a) return cb(a);
+      try {
+        const u = new URL(d.url);
+        if (AD_HOST_RE.test(u.hostname) || (/(^|\.)youtube\.com$/.test(u.hostname) && YT_AD_PATH.test(u.pathname))) return cb({ cancel: true });
+      } catch (_) {}
+      cb({});
+    });
+    safety.persistCookies(ext);   // stay signed in after the app is closed
     ext.webRequest.onBeforeSendHeaders((details, cb) => {
       const h = details.requestHeaders;
       if (details.resourceType === 'mainFrame' && /^https:\/\/www\.youtube\.com\/embed\//.test(details.url)) h['Referer'] = SITE;
@@ -789,6 +807,8 @@ app.whenReady().then(() => {
   };
   try { session.fromPartition(FOCUS_PARTITION).protocol.handle('rtfocus', focusHandler); } catch (_) {}
   try { protocol.handle('rtfocus', focusHandler); } catch (_) {}
+  adultBlockOn = !!pref('adultBlock', true);
+  safety.persistCookies(session.defaultSession);
   extMgr.init().catch(() => {});
   create();
   initTray();

@@ -5762,7 +5762,7 @@ window.mBrowserOpenExternal = function() {
       el.addEventListener("did-navigate",nav);el.addEventListener("did-navigate-in-page",nav);
       el.addEventListener("page-title-updated",e=>{t.title=e.title||host(t.url);histAdd(t);renderTabs()});
       el.addEventListener("page-favicon-updated",e=>{if(e.favicons&&e.favicons[0]){t.fav=e.favicons[0];renderTabs()}});
-      el.addEventListener("did-fail-load",e=>{if(e.isMainFrame&&e.errorCode!==-3){t.loading=false;renderTabs();err(t,"Can't reach this page",host(e.validatedURL||t.url)+" could not be loaded. Check the address or your internet connection.")}});
+      el.addEventListener("did-fail-load",e=>{if(e.isMainFrame&&e.errorCode!==-3){t.loading=false;renderTabs();if(e.errorCode===-20)err(t,"Blocked by Safe Browser",host(e.validatedURL||t.url)+" — Adult Block চালু আছে বলে এই সাইট খোলা যাবে না। (Settings থেকে বন্ধ করা যায়)");else err(t,"Can't reach this page",host(e.validatedURL||t.url)+" could not be loaded. Check the address or your internet connection.")}});
       t.el=el;
     }else{
       const el=document.createElement("iframe");
@@ -7046,6 +7046,7 @@ async function toggleFlashlight() {
     {k:'notifySound',t:'🔊 Notification Sound',d:'বন্ধ থাকলে নোটিফিকেশন নিঃশব্দে আসবে।'},
     {k:'screenProtect',t:'🛡️ Screenshot / Screen-Record Protection',d:'চালু থাকলে স্ক্রিনশট ও স্ক্রিন রেকর্ডে অ্যাপের উইন্ডো কালো আসবে। বন্ধ করলে সব ক্যাপচারে দেখা যাবে।'},
     {k:'alwaysOnTop',t:'📌 Always on Top',d:'অ্যাপের উইন্ডো সবসময় অন্য উইন্ডোর উপরে থাকবে।'},
+    {k:'adultBlock',t:'🔞 Adult Block (Safe Browsing)',d:'চালু থাকলে Safe Browser-এ অ্যাডাল্ট সাইট বন্ধ থাকবে এবং Google / Bing / DuckDuckGo-তে SafeSearch জোর করে চালু থাকবে।'},
     {k:'autostart',t:'🚀 Start with Windows',d:'কম্পিউটার চালু হলে অ্যাপ ব্যাকগ্রাউন্ডে চালু হবে।'},
     {k:'closeToTray',t:'📥 Close → System Tray',d:'বন্ধ (X) করলে ব্যাকগ্রাউন্ডে চলবে। বন্ধ থাকলে অ্যাপ পুরোপুরি বন্ধ হবে।'}
   ];
