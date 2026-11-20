@@ -75,6 +75,7 @@ final class Store {
         String examTitle = "", examTime = "", examUrl = "";
         String premiumUrl = "", premiumInfo = "";
         String payBkash = "", payNagad = "", payRocket = "";   // manual-payment numbers shown in the buy dialog
+        Object ads = null;   // home-page ad offers (managed by the website admin panel); carried through unchanged so saving here never wipes them
     }
 
     // ── State ───────────────────────────────────────────────
@@ -220,6 +221,7 @@ final class Store {
         m.put("examTitle", l.examTitle); m.put("examTime", l.examTime); m.put("examUrl", l.examUrl);
         m.put("premiumUrl", l.premiumUrl); m.put("premiumInfo", l.premiumInfo);
         m.put("payBkash", l.payBkash); m.put("payNagad", l.payNagad); m.put("payRocket", l.payRocket);
+        if (l.ads != null) m.put("ads", l.ads);
         return m;
     }
 
@@ -305,6 +307,7 @@ final class Store {
                         r.live.examTime = str(lm, "examTime"); r.live.examUrl = str(lm, "examUrl");
                         r.live.premiumUrl = str(lm, "premiumUrl"); r.live.premiumInfo = str(lm, "premiumInfo");
                         r.live.payBkash = str(lm, "payBkash"); r.live.payNagad = str(lm, "payNagad"); r.live.payRocket = str(lm, "payRocket");
+                        r.live.ads = lm.get("ads");
                     }
                     continue;
                 }

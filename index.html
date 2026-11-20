@@ -1810,6 +1810,39 @@ body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 /* hidden admin entry: 5 taps on logo/brand or Ctrl+Shift+A */
 #btnAdminLogin,.sidebar-bottom{display:none!important}
 .sidebar-top,.hm-herologo{-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+
+/* ── Home: animated Ad / Offer banner (controlled from Admin → Ad Offers) ── */
+#viewHome .hm-ad{position:relative;z-index:1;margin-bottom:16px}
+#viewHome .hm-ad.hidden{display:none}
+#viewHome .hm-ad-track{display:grid}
+#viewHome .hm-ad-slide{grid-area:1/1;position:relative;overflow:hidden;border-radius:14px;padding:16px 16px 34px;min-height:150px;display:flex;align-items:center;gap:12px;color:#fff;background:var(--adbg);background-size:220% 220%;animation:adShift 8s ease-in-out infinite;opacity:0;transform:translateX(26px) scale(.98);pointer-events:none;transition:opacity .55s ease,transform .55s ease;text-align:left;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+#viewHome .hm-ad-slide.on{opacity:1;transform:none;pointer-events:auto}
+#viewHome .hm-ad-slide[role=link]{cursor:pointer}
+#viewHome .hm-ad-slide::before,#viewHome .hm-ad-slide::after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.14);animation:adFloat 6s ease-in-out infinite}
+#viewHome .hm-ad-slide::before{width:120px;height:120px;right:-30px;top:-40px}
+#viewHome .hm-ad-slide::after{width:70px;height:70px;right:70px;bottom:-30px;animation-delay:-3s}
+#viewHome .hm-ad-tag{position:absolute;left:12px;top:10px;z-index:2;font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:5px;background:rgba(255,255,255,.92);color:#444}
+#viewHome .hm-ad-body{position:relative;z-index:1;flex:1;min-width:0;padding-top:12px}
+#viewHome .hm-ad-slide.on .hm-ad-body{animation:adIn .6s ease both}
+#viewHome .hm-ad-body b{display:block;font-size:19px;font-weight:800;line-height:1.2;letter-spacing:-.01em;overflow-wrap:anywhere}
+#viewHome .hm-ad-body p{margin:6px 0 0;font-size:13px;line-height:1.45;opacity:.95;overflow-wrap:anywhere}
+#viewHome .hm-ad-cta{position:relative;overflow:hidden;display:inline-block;margin-top:10px;padding:7px 16px;border-radius:999px;background:#fff;color:#222;font-size:12.5px;font-weight:700;animation:adPulse 2.2s ease-in-out infinite}
+#viewHome .hm-ad-cta::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,170,60,.55),transparent);transform:skewX(-20deg);animation:adShine 2.6s ease-in-out infinite}
+#viewHome .hm-ad-img{position:relative;z-index:1;flex:0 0 auto;width:34%;max-width:130px;max-height:112px;object-fit:contain;border-radius:10px;animation:adFloat 4s ease-in-out infinite}
+#viewHome .hm-ad-dots{position:absolute;z-index:3;right:12px;bottom:10px;display:flex;gap:5px}
+#viewHome .hm-ad-dots button{width:7px;height:7px;padding:0;border:0;border-radius:99px;background:rgba(255,255,255,.5);cursor:pointer;transition:all .3s}
+#viewHome .hm-ad-dots button.on{width:18px;background:#fff}
+@keyframes adShift{0%,100%{background-position:0 50%}50%{background-position:100% 50%}}
+@keyframes adFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes adIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes adPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes adShine{0%{left:-60%}60%,100%{left:140%}}
+@media (prefers-reduced-motion:reduce){#viewHome .hm-ad-slide,#viewHome .hm-ad-slide::before,#viewHome .hm-ad-slide::after,#viewHome .hm-ad-cta,#viewHome .hm-ad-cta::after,#viewHome .hm-ad-img,#viewHome .hm-ad-slide.on .hm-ad-body{animation:none}}
+.ad-ed{border:1px solid var(--border);border-radius:12px;padding:12px;margin:0 0 12px;background:var(--card2)}
+.ad-ed-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;font-weight:700;font-size:13px}
+.ad-ed-h label{display:flex;align-items:center;gap:6px;font-weight:600;font-size:12.5px}
+.ad-ed select{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--text)}
+.ad-ed .ad-del{border:1px solid #f1b8c2;background:#fff;color:#d12a4f;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer}
 </style>
 
 <style id="rasExt">
@@ -2083,6 +2116,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     <button class="btn-admin-action" onclick="openNotify();closeSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg> Notification Center
     </button>
+    <button class="btn-admin-action" onclick="openAds();closeSidebar()">🎁 Ad Offers</button>
     <button class="btn-admin-action" onclick="openBrowser();closeSidebar()">🌐 Safe Browser</button>
     <button class="btn-admin-action" onclick="openInAppBrowser('https://m.youtube.com/','YouTube');closeSidebar()">▶️ YouTube</button>
     <button class="btn-admin-action" onclick="openInAppBrowser('https://www.google.com/','Google');closeSidebar()">🔍 Google</button>
@@ -2133,7 +2167,8 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
         </div>
       </div>
       <div class="hm-herobox">
-        <div class="hm-herologo"><span><svg viewBox="0 0 100 100" fill="none" stroke-width="8" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg></span><div><b>Rajib Tutorial</b><small>Diploma in Electrical &amp; Electronic Engineering</small></div></div>
+        <div class="hm-ad hidden" id="hmAd"></div>
+        <div class="hm-herologo" id="hmLogo"><span><svg viewBox="0 0 100 100" fill="none" stroke-width="8" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg></span><div><b>Rajib Tutorial</b><small>Diploma in Electrical &amp; Electronic Engineering</small></div></div>
         <div class="hm-stats">
           <div><b id="statC">–</b><span>Courses</span></div>
           <div><b id="statV">–</b><span>Video Lessons</span></div>
@@ -2659,6 +2694,19 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     <div class="modal-acts">
       <button class="btn-cancel" onclick="closeM('mLive')">Cancel</button>
       <button class="btn-ok" onclick="saveLive()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="mAds">
+  <div class="modal">
+    <div class="modal-title">🎁 Ad Offers</div>
+    <div class="modal-sub">These offers appear as an animated ad banner on every user's Home page (in the “Rajib Tutorial” box). Up to 6 offers rotate automatically. Turn an offer off, or remove all of them, to show the normal Rajib Tutorial card again.</div>
+    <div id="adEdList"></div>
+    <button class="btn-cancel" style="width:100%;margin-bottom:12px" onclick="adAdd()">+ Add offer</button>
+    <div class="modal-acts">
+      <button class="btn-cancel" onclick="closeM('mAds')">Cancel</button>
+      <button class="btn-ok" onclick="saveAds()">Save</button>
     </div>
   </div>
 </div>
@@ -3514,6 +3562,7 @@ window.closeSidebar=()=>{$("sidebar").classList.remove("open");$("overlay").clas
 
 // ─── Live class / exam ───────────────────────────────────
 function renderLive(){
+  try{renderAds()}catch(e){}
   const xNow=lxAll.find(x=>lxState(x)==="live"),cOn=!!safeUrl(live.classUrl), eOn=!!safeUrl(live.examUrl)||!!xNow;
   $("btnLiveClass").classList.toggle("is-live",cOn);
   $("btnLiveExam").classList.toggle("is-live",eOn);
@@ -3598,6 +3647,70 @@ window.saveLive=async function(){
   try{
     await setDoc(doc(db,"tutorial_courses",LIVE_DOC),{live:next,isSettings:true});
     live=next;renderLive();closeM("mLive");showToast("Live settings saved");
+  }catch(e){showToast("Error: "+e.message)}
+};
+
+// ─── Home ad / offer banner (stored in the _live_settings doc as live.ads; edited in Admin → Ad Offers) ───
+const AD_THEMES=[["Sunset","linear-gradient(120deg,#FF7A3D,#E8365D,#FF7A3D)"],["Purple","linear-gradient(120deg,#7C3AED,#DB2777,#7C3AED)"],["Ocean","linear-gradient(120deg,#2563EB,#06B6D4,#2563EB)"],["Green","linear-gradient(120deg,#16A34A,#84CC16,#16A34A)"],["Gold","linear-gradient(120deg,#F59E0B,#EF4444,#F59E0B)"],["Night","linear-gradient(120deg,#111827,#4B5563,#111827)"]];
+const AD_MAX=6;
+let adCur=[],adIdx=0,adTimer=null,adSig="",adHover=false;
+function adsActive(){return(Array.isArray(live.ads)?live.ads:[]).filter(a=>a&&a.on!==false&&String(a.t||"").trim()).slice(0,AD_MAX)}
+function renderAds(){
+  const box=$("hmAd"),logo=$("hmLogo");if(!box)return;
+  const list=adsActive(),sig=JSON.stringify(list);
+  if(sig===adSig)return;adSig=sig;
+  if(adTimer){clearInterval(adTimer);adTimer=null}
+  adCur=list;adIdx=0;
+  if(!list.length){box.classList.add("hidden");box.innerHTML="";if(logo)logo.classList.remove("hidden");return}
+  if(logo)logo.classList.add("hidden");
+  box.classList.remove("hidden");
+  box.innerHTML='<div class="hm-ad-track">'+list.map((a,i)=>{
+    const th=(AD_THEMES[a.c]||AD_THEMES[0])[1],u=safeUrl(a.u),im=safeUrl(a.i);
+    return `<div class="hm-ad-slide ${i===0?"on":""}" style="--adbg:${th}" ${u?`role="link" tabindex="0" onclick="adOpen(${i})" onkeydown="if(event.key==='Enter')adOpen(${i})"`:""}>
+      <span class="hm-ad-tag">Ad · Offer</span>
+      <div class="hm-ad-body"><b>${esc(a.t)}</b>${a.d?`<p>${esc(a.d)}</p>`:""}${u&&a.b?`<span class="hm-ad-cta">${esc(a.b)}</span>`:""}</div>
+      ${im?`<img class="hm-ad-img" src="${esc(im)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:""}
+    </div>`}).join("")+'</div>'+
+    (list.length>1?'<div class="hm-ad-dots">'+list.map((_,i)=>`<button class="${i===0?"on":""}" aria-label="Offer ${i+1}" onclick="event.stopPropagation();adGo(${i})"></button>`).join("")+'</div>':"");
+  box.onmouseenter=()=>{adHover=true};box.onmouseleave=()=>{adHover=false};
+  if(list.length>1)adTimer=setInterval(()=>{if(!adHover&&!document.hidden)adGo((adIdx+1)%adCur.length)},5000);
+}
+window.adGo=function(i){
+  const box=$("hmAd");if(!box)return;adIdx=i;
+  box.querySelectorAll(".hm-ad-slide").forEach((el,k)=>el.classList.toggle("on",k===i));
+  box.querySelectorAll(".hm-ad-dots button").forEach((el,k)=>el.classList.toggle("on",k===i));
+};
+window.adOpen=function(i){const u=safeUrl(adCur[i]&&adCur[i].u);if(u)window.open(u,"_blank","noopener")};
+// admin editor
+let adDraft=[];
+function adEdRender(){
+  $("adEdList").innerHTML=adDraft.length?adDraft.map((a,i)=>`<div class="ad-ed">
+    <div class="ad-ed-h"><span>Offer ${i+1}</span><label><input type="checkbox" ${a.on!==false?"checked":""} onchange="adSet(${i},'on',this.checked)"/> Show</label><button class="ad-del" onclick="adDel(${i})">Remove</button></div>
+    <div class="fl"><label>Headline</label><input type="text" maxlength="60" value="${esc(a.t)}" oninput="adSet(${i},'t',this.value)" placeholder="e.g. 50% OFF Premium — this week only"/></div>
+    <div class="fl"><label>Details (optional)</label><input type="text" maxlength="140" value="${esc(a.d)}" oninput="adSet(${i},'d',this.value)" placeholder="e.g. Get all lessons, live classes and exams"/></div>
+    <div class="fl"><label>Button text</label><input type="text" maxlength="24" value="${esc(a.b)}" oninput="adSet(${i},'b',this.value)" placeholder="Claim offer"/></div>
+    <div class="fl"><label>Link (button / banner opens this)</label><input type="url" value="${esc(a.u)}" oninput="adSet(${i},'u',this.value)" placeholder="https://…"/></div>
+    <div class="fl"><label>Image link (optional, small picture on the right)</label><input type="url" value="${esc(a.i)}" oninput="adSet(${i},'i',this.value)" placeholder="https://… .png / .jpg"/></div>
+    <div class="fl"><label>Colour</label><select onchange="adSet(${i},'c',Number(this.value))">${AD_THEMES.map((t,k)=>`<option value="${k}" ${(a.c|0)===k?"selected":""}>${t[0]}</option>`).join("")}</select></div>
+  </div>`).join(""):'<div class="modal-sub" style="margin:0 0 12px">No offers yet. Tap “+ Add offer”.</div>';
+}
+window.adSet=function(i,k,v){if(adDraft[i])adDraft[i][k]=v};
+window.adAdd=function(){if(adDraft.length>=AD_MAX){showToast("Up to "+AD_MAX+" offers");return}adDraft.push({t:"",d:"",b:"Claim offer",u:"",i:"",c:adDraft.length%AD_THEMES.length,on:true});adEdRender()};
+window.adDel=function(i){adDraft.splice(i,1);adEdRender()};
+window.openAds=function(){adDraft=(Array.isArray(live.ads)?live.ads:[]).map(a=>({t:a.t||"",d:a.d||"",b:a.b||"",u:a.u||"",i:a.i||"",c:a.c|0,on:a.on!==false}));adEdRender();openM("mAds")};
+window.saveAds=async function(){
+  const out=[];
+  for(const a of adDraft){
+    const t=String(a.t||"").trim().slice(0,60);if(!t&&!String(a.d||"").trim())continue;
+    const u=String(a.u||"").trim(),im=String(a.i||"").trim();
+    if((u&&!safeUrl(u))||(im&&!safeUrl(im))){showToast("Links must start with http:// or https://");return}
+    if(!t){showToast("Every offer needs a headline");return}
+    out.push({t,d:String(a.d||"").trim().slice(0,140),b:String(a.b||"").trim().slice(0,24),u,i:im,c:Math.max(0,Math.min(AD_THEMES.length-1,a.c|0)),on:a.on!==false});
+  }
+  const next={...live,ads:out.slice(0,AD_MAX)};
+  try{
+    await setDoc(doc(db,"tutorial_courses",LIVE_DOC),{live:next,isSettings:true});
+    live=next;renderAds();closeM("mAds");showToast(out.length?"Ad offers saved":"Ad offers removed");
   }catch(e){showToast("Error: "+e.message)}
 };
 

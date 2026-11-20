@@ -37,19 +37,6 @@
       "focus.html",
       "build/icon.png"
     ],
-    "extraResources": [
-      {
-        "from": "bin/yt-dlp.exe",
-        "to": "yt-dlp.exe",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "bin/ffmpeg.exe",
-        "to": "ffmpeg.exe"
-      }
-    ],
     "win": {
       "target": [
         {
@@ -76,7 +63,8 @@
         "provider": "generic",
         "url": "https://github.com/raseledutools/rajib-tutorial-web/releases/download/web-exe-latest/"
       }
-    ]
+    ],
+    "afterPack": "after-pack.js"
   },
   "dependencies": {
     "electron-updater": "^6.3.9"

@@ -637,6 +637,7 @@ final class Dialogs {
             next.examTitle = leT.text(); next.examTime = leS.text(); next.examUrl = eu;
             next.premiumUrl = pu; next.premiumInfo = pmI.text();
             next.payBkash = pbk.text(); next.payNagad = pnd.text(); next.payRocket = prk.text();
+            next.ads = Store.live.ads;
             run(() -> {
                 Map<String, Object> d = new LinkedHashMap<>();
                 d.put("live", Store.liveMap(next));

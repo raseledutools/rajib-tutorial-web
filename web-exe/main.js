@@ -544,8 +544,9 @@ function initUpdater() {
   autoUpdater.on('download-progress', (p) => setUpdate({ status: 'downloading', percent: Math.round(p.percent || 0) }));
   autoUpdater.on('update-downloaded', () => {
     setUpdate({ status: 'installing', percent: 100 });
-    // silent install, then relaunch the new version
-    setTimeout(() => { forceQuit = true; autoUpdater.quitAndInstall(true, true); }, 150);
+    // NOT silent: the one-click installer shows its own "Installing…" progress window while it closes the old version and
+    // installs the new one (a silent install showed nothing for ~40 s). It relaunches the new version when it is done.
+    setTimeout(() => { forceQuit = true; autoUpdater.quitAndInstall(false, true); }, 150);
   });
   autoUpdater.on('error', () => {
     if (updateState.status === 'downloading') setUpdate({ status: 'available' });
