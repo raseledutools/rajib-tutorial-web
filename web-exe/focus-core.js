@@ -100,6 +100,89 @@ function decideProcess({ mode, apps, proc, title, selfName }) {
   return t.length > 0 ? { reason: 'notallowed', msg: 'Focus is Active. Only allowed apps can run.' } : null;
 }
 
+/* ---------- Schedule Block (profiles that block sites / apps at fixed days + times) ---------- */
+const MAX_SCHEDULES = 30;
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const toMin = (t) => { const [h, m] = String(t).split(':'); return Number(h) * 60 + Number(m); };
+
+function cleanSites(list) {
+  const seen = new Set(), out = [];
+  for (const x of Array.isArray(list) ? list.slice(0, 300) : []) {
+    const s = normalizeSite(x);
+    if (s && !seen.has(s)) { seen.add(s); out.push(s); }
+  }
+  return out;
+}
+function cleanApps(list) {
+  const seen = new Set(), out = [];
+  for (const x of Array.isArray(list) ? list.slice(0, 300) : []) {
+    const a = x && normalizeApp(x.name, x.type);
+    const key = a && a.type + ':' + lc(a.name);
+    if (a && !seen.has(key)) { seen.add(key); out.push(a); }
+  }
+  return out;
+}
+/** -> { value } or { error }. Never trusts the renderer. */
+function sanitizeSchedule(o, existingId) {
+  o = o && typeof o === 'object' ? o : {};
+  let id = typeof o.id === 'string' && /^[a-z0-9-]{6,40}$/.test(o.id) ? o.id : existingId;
+  if (!id) id = crypto.randomBytes(8).toString('hex');
+  const name = String(o.name == null ? '' : o.name).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 40) || 'Schedule';
+  const days = [...new Set((Array.isArray(o.days) ? o.days : []).map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort();
+  if (!days.length) return { error: 'কমপক্ষে একটি দিন select করুন।' };
+  const allDay = !!o.allDay;
+  const start = TIME_RE.test(o.start) ? o.start : '09:00';
+  const end = TIME_RE.test(o.end) ? o.end : '17:00';
+  if (!allDay && start === end) return { error: 'Start আর End time এক হতে পারবে না (পুরো দিন চাইলে "All day" দিন)।' };
+  const sites = cleanSites(o.sites), apps = cleanApps(o.apps);
+  if (!sites.length && !apps.length) return { error: 'অন্তত একটি website বা app যোগ করুন।' };
+  return { value: { id, name, enabled: o.enabled !== false, days, allDay, start, end, sites, apps } };
+}
+function sanitizeSchedules(list) {
+  const out = [], ids = new Set();
+  for (const x of Array.isArray(list) ? list.slice(0, MAX_SCHEDULES) : []) {
+    const r = sanitizeSchedule(x);
+    if (r.value && !ids.has(r.value.id)) { ids.add(r.value.id); out.push(r.value); }
+  }
+  return out;
+}
+/** Is this profile blocking at `date` (local time)? An overnight window (22:00-06:00) belongs to the day it STARTS on. */
+function isScheduleActive(p, date) {
+  if (!p || !p.enabled) return false;
+  const d = date instanceof Date ? date : new Date();
+  const day = d.getDay(), min = d.getHours() * 60 + d.getMinutes();
+  const has = (n) => p.days.includes(n);
+  if (p.allDay) return has(day);
+  const a = toMin(p.start), b = toMin(p.end);
+  if (a < b) return has(day) && min >= a && min < b;
+  return (has(day) && min >= a) || (has((day + 6) % 7) && min < b);
+}
+/** Everything that must be blocked right now because of schedules. */
+function activeScheduleBlocks(schedules, date) {
+  const profiles = (schedules || []).filter((p) => isScheduleActive(p, date));
+  const sites = [...new Set(profiles.flatMap((p) => p.sites))];
+  const apps = [], seen = new Set();
+  for (const a of profiles.flatMap((p) => p.apps)) { const k = a.type + ':' + lc(a.name); if (!seen.has(k)) { seen.add(k); apps.push(a); } }
+  return { ids: profiles.map((p) => p.id), names: profiles.map((p) => p.name), sites, apps };
+}
+/** Foreground window while a schedule is on: only a blocked site in a browser tab is acted on (never Task Manager etc.). */
+function decideScheduledForeground({ proc, title, selfName, sites }) {
+  const p = lc(proc), t = lc(title);
+  if (!p || !t || p === lc(selfName) || !isBrowser(p)) return null;
+  for (const site of sites || []) {
+    const core = siteCore(site);
+    if (core && t.includes(core)) return { action: 'closetab', msg: null };
+  }
+  return null;
+}
+/** Running window while a schedule is on: kill it if it matches a scheduled app. */
+function decideScheduledProcess({ apps, proc, title, selfName }) {
+  const p = lc(proc), t = lc(title);
+  if (!p || p === lc(selfName) || p === 'taskmgr.exe' || isSafe(p)) return null;
+  const hit = (app) => (app.type === 'title' ? t.includes(lc(app.name)) : exeMatch(p, app.name));
+  return (apps || []).some(hit) ? { reason: 'schedule', msg: null } : null;
+}
+
 /* ---------- quotes ---------- */
 function pickMessage({ showQuotes, quoteLang, customMsg, rnd }) {
   if (customMsg) return customMsg;
@@ -168,4 +251,6 @@ module.exports = {
   normalizeSite, normalizeApp, siteCore, exeMatch,
   decideForeground, decideProcess, pickMessage,
   countWords, hashPassword, verifyPassword, sanitizeSettings, DEFAULTS,
+  MAX_SCHEDULES, sanitizeSchedule, sanitizeSchedules, isScheduleActive, activeScheduleBlocks,
+  decideScheduledForeground, decideScheduledProcess,
 };
