@@ -35,6 +35,8 @@
       "focus.js",
       "focus-core.js",
       "focus-preload.js",
+      "pdfjs/**/*",
+      "pdfreader.js",
       "focus.html",
       "build/icon.png"
     ],
@@ -65,7 +67,16 @@
         "url": "https://github.com/raseledutools/rajib-tutorial-web/releases/download/web-exe-latest/"
       }
     ],
-    "afterPack": "after-pack.js"
+    "afterPack": "after-pack.js",
+    "fileAssociations": [
+      {
+        "ext": "pdf",
+        "name": "PDF Document",
+        "description": "PDF Document",
+        "mimeType": "application/pdf",
+        "role": "Viewer"
+      }
+    ]
   },
   "dependencies": {
     "electron-updater": "^6.3.9"

@@ -105,6 +105,10 @@ function setFocusOn(on) { focusOn = !!on; focusListeners.forEach((fn) => { try {
 ipcRenderer.on('focus:badge', (_e, on) => setFocusOn(on));
 window.addEventListener('DOMContentLoaded', () => { ipcRenderer.invoke('focus:isActive').then(setFocusOn).catch(() => {}); });
 
+// PDF Reader: main.js sends { url, name } when a .pdf is opened from Windows Explorer / "Open with"
+const pdfOpenListeners = [];
+ipcRenderer.on('pdf:open', (_e, o) => pdfOpenListeners.forEach((fn) => { try { fn(o); } catch (_) {} }));
+
 // Keys forwarded by main.js from the page inside the Safe Browser <webview> (F11, Esc, Ctrl+T …) → handled by index.html like normal key presses
 ipcRenderer.on('bt:key', (_e, k) => {
   try {
@@ -139,6 +143,11 @@ contextBridge.exposeInMainWorld('ElectronShell', {
     onChange: (fn) => { focusListeners.push(fn); },
     embed: true,                                   // Focus page opens inside the app layout (index.html openFocus)
     onShow: (fn) => { focusShowListeners.push(fn); }, // tray → Focus Mode asks the website to show its Focus view
+  },
+  pdf: {   // PDF Reader (pdfreader.js): pick a file, open the Windows "Default apps" page, get PDFs opened from Explorer
+    pick: () => ipcRenderer.invoke('pdf:pick'),
+    setDefault: () => ipcRenderer.invoke('pdf:setDefault'),
+    onOpen: (fn) => { pdfOpenListeners.push(fn); },
   },
   ext: {   // Safe Browser extensions (extensions.js)
     list: () => ipcRenderer.invoke('ext:list'),
