@@ -594,11 +594,11 @@ ipcMain.on('notify:show', (_e, title, body) => {
 function settingsState() {
   return { notifications: !!pref('notifications', true), screenProtect: !!pref('screenProtect', true), autostart: autostartOn(),
            closeToTray: !!pref('closeToTray', true), trayIcon: !!pref('trayIcon', true), notifySound: !!pref('notifySound', true), alwaysOnTop: !!pref('alwaysOnTop', false),
-           gpuOff: !!pref('gpuOff', false), adultBlock: !!pref('adultBlock', true), version: app.getVersion(), packaged: PACKAGED };
+           gpuOff: !!pref('gpuOff', false), adultBlock: !!pref('adultBlock', true), adultExternal: !!pref('adultExternal', false), version: app.getVersion(), packaged: PACKAGED };
 }
 ipcMain.handle('settings:get', (e) => (trusted(e) ? settingsState() : null));
 ipcMain.handle('settings:set', (e, key, val) => {
-  if (!trusted(e) || !['notifications', 'screenProtect', 'autostart', 'closeToTray', 'trayIcon', 'notifySound', 'alwaysOnTop', 'gpuOff', 'adultBlock'].includes(key)) return null;
+  if (!trusted(e) || !['notifications', 'screenProtect', 'autostart', 'closeToTray', 'trayIcon', 'notifySound', 'alwaysOnTop', 'gpuOff', 'adultBlock', 'adultExternal'].includes(key)) return null;
   val = !!val;
   if (key === 'autostart' && !val && focus.isActive()) return settingsState(); // Focus session running: keep Start-with-Windows on
   const p = readPrefs(); p[key] = val; writePrefs(p);
@@ -607,6 +607,7 @@ ipcMain.handle('settings:set', (e, key, val) => {
   if (key === 'trayIcon') applyTrayIcon(val);
   if (key === 'alwaysOnTop' && win && !win.isDestroyed()) { try { win.setAlwaysOnTop(val); } catch (_) {} }
   if (key === 'adultBlock') adultBlockOn = val;
+  if (key === 'adultExternal') focus.setExtAdult(val);
   if (key === 'gpuOff') { setTimeout(() => { forceQuit = true; app.relaunch(); app.exit(0); }, 400); return settingsState(); }
   refreshTrayMenu();
   return settingsState();
@@ -867,6 +868,7 @@ app.whenReady().then(() => {
   initTray();
   { const f = pdfreader.filesFromArgv(process.argv); if (f.length) { startHidden = false; pdfreader.openFile(pdfCtx, f); } }   // started by double-clicking a .pdf
   focus.init({ getMainWin: () => win, onStart: () => applyAutostart(true), onActiveChange: refreshTrayMenu, openView: openFocusView });
+  focus.setExtAdult(!!pref('adultExternal', false));
   applyAutostart(autostartOn() || focus.isActive());
   setTimeout(initUpdater, 1500);
   try { globalShortcut.register('PrintScreen', () => { try { clipboard.clear(); } catch (_) {} }); } catch (_) {}
