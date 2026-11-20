@@ -6772,6 +6772,47 @@ function dRender(){
   dBuildChat();dStartPoll();
 }
 window.openDiscussion=function(){goView("viewDisc");dRender();closeSidebar()};
+/* Desktop exe: Discussion-group messages as native Windows notifications, also while the window is closed to the background.
+   The chat itself only polls while it is open, so the exe watches the newest few messages and notifies for new ones
+   from other people (Premium members / admin only). Exe only. */
+(function(){
+  if(!(window.ElectronShell&&window.ElectronShell.notify))return;
+  const KEY="rt_exe_disc_seen";
+  let seen=Number(localStorage.getItem(KEY)||0);
+  if(!seen){seen=Date.now();try{localStorage.setItem(KEY,String(seen))}catch(e){}}
+  const brief=m=>{
+    const t=String(m.text||"").replace(/\s+/g," ").trim().slice(0,140),ty=m.type||"text";
+    if(ty==="image")return"📷 Photo"+(t?": "+t:"");
+    if(ty==="video")return"🎬 Video"+(t?": "+t:"");
+    if(ty==="audio")return String(m.fileName||"").startsWith("Voice message")?"🎤 Voice message":"🎵 "+(m.fileName||"Audio");
+    if(ty==="file")return"📄 "+(m.fileName||"File");
+    if(ty==="poll")return"📊 Poll: "+t;
+    if(ty==="call")return"📞 Group call";
+    return t||"New message";
+  };
+  function watch(){
+    try{
+      onSnapshot(query(collection(db,"tutorial_courses"),where(documentId(),">=",DISC_PREFIX),where(documentId(),"<","_disc`"),orderBy(documentId(),"desc"),limit(10)),snap=>{
+        const fresh=[];
+        snap.docChanges().forEach(c=>{
+          if(c.type!=="added")return;
+          const m=c.doc.data();
+          if(m&&m.ts>seen)fresh.push(m);
+        });
+        if(!fresh.length)return;
+        fresh.sort((a,b)=>a.ts-b.ts);
+        seen=fresh[fresh.length-1].ts;
+        try{localStorage.setItem(KEY,String(seen))}catch(e){}
+        if(!session&&!adminIn)return;
+        if(!dHas())return;
+        if(dMode===2&&document.hasFocus())return; // chat is open and in front: no need
+        const me=dMyId();
+        fresh.filter(m=>!me||m.mobile!==me).slice(-3).forEach(m=>window.ElectronShell.notify("💬 "+(m.name||"Member")+" · Discussion",brief(m)));
+      },()=>{setTimeout(watch,30000)});
+    }catch(e){}
+  }
+  setTimeout(watch,4000);
+})();
 function dLeave(){dStopPoll();dVoiceCancel();dMode=-1;dFirst=true;dSig="";document.body.classList.remove("chat-on");const v=$("viewDisc");if(v)v.classList.remove("dz-dark")}
 
 const DZ_MIC='<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5.3-3a1 1 0 1 0-2 0 3.3 3.3 0 0 1-6.6 0 1 1 0 1 0-2 0 5.3 5.3 0 0 0 4.3 5.2V19H9a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2.7v-2.8A5.3 5.3 0 0 0 17.3 11z"/></svg>',DZ_SEND='<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.39 10.1 15 12 3.39 13.9z"/></svg>';
