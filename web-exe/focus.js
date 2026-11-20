@@ -1,7 +1,7 @@
 'use strict';
 /* Focus Mode (main process). Port of the "Simple Blocks" tab of RasFocus-Exe-Release.
    - state is saved in userData/focus.json, so an active session survives restarts
-   - a hidden PowerShell helper reports the foreground window (300 ms) and every process that has
+   - a hidden PowerShell helper reports the foreground window (100 ms, incl. the browser address bar) and every process that has
      a visible window (every ~2 s); the decisions are made in focus-core.js
    - blocked app  -> process killed; blocked site -> Ctrl+W on the browser tab + minimise;
      Task Manager / uninstall windows -> closed; a quote popup is shown each time
@@ -129,113 +129,64 @@ function showAlert(customMsg) {
   } catch (_) {}
 }
 
-/* ---------- Windows helper (PowerShell) ---------- */
-const MONITOR_PS = `$ErrorActionPreference = 'SilentlyContinue'
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-Add-Type @"
-using System;
-using System.Text;
-using System.Runtime.InteropServices;
-public class RFMon {
-  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
-  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
-}
-"@
-function Clean([string]$s) { if ($null -eq $s) { return '' }; return ($s -replace '[\\t\\r\\n]+', ' ') }
-$names = @{}
-$tick = 0
-while ($true) {
-  $h = [RFMon]::GetForegroundWindow()
-  if ($h -ne [IntPtr]::Zero) {
-    $sb = New-Object System.Text.StringBuilder 512
-    [void][RFMon]::GetWindowText($h, $sb, 512)
-    [uint32]$procId = 0
-    [void][RFMon]::GetWindowThreadProcessId($h, [ref]$procId)
-    if (-not $names.ContainsKey($procId)) {
-      $pr = Get-Process -Id $procId
-      if ($pr) { $names[$procId] = $pr.ProcessName + '.exe' }
-    }
-    [Console]::Out.WriteLine("FG\`t" + $h.ToInt64() + "\`t" + $procId + "\`t" + $names[$procId] + "\`t" + (Clean $sb.ToString()))
-  }
-  if ($tick % 7 -eq 0) {
-    if ($names.Count -gt 500) { $names.Clear() }
-    foreach ($p in Get-Process) {
-      if ($p.MainWindowHandle -ne 0) {
-        [Console]::Out.WriteLine("P\`t" + $p.Id + "\`t" + $p.ProcessName + ".exe\`t" + (Clean $p.MainWindowTitle))
-      }
-    }
-    [Console]::Out.WriteLine("ENDP")
-  }
-  $tick++
-  Start-Sleep -Milliseconds 300
-}
-`;
-
-const ACT_PS = `param([string]$Action, [long]$Hwnd, [string]$Url)
-$ErrorActionPreference = 'SilentlyContinue'
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class RFAct {
-  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
-  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
-}
-"@
-$h = [IntPtr]$Hwnd
-if ($Action -eq 'tofocus') {
-  # same tab -> focus page: Ctrl+L, paste the local URL, Enter (the old clipboard text is put back afterwards)
-  if ([RFAct]::GetForegroundWindow() -eq $h -and $Url) {
-    $old = $null
-    try { $old = [System.Windows.Forms.Clipboard]::GetText() } catch {}
-    try { [System.Windows.Forms.Clipboard]::SetText($Url) } catch {}
-    [System.Windows.Forms.SendKeys]::SendWait('^l')
-    Start-Sleep -Milliseconds 150
-    [System.Windows.Forms.SendKeys]::SendWait('^v')
-    Start-Sleep -Milliseconds 120
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-    Start-Sleep -Milliseconds 400
-    try { if ($old) { [System.Windows.Forms.Clipboard]::SetText($old) } else { [System.Windows.Forms.Clipboard]::Clear() } } catch {}
-  }
-} elseif ($Action -eq 'closetab') {
-  if ([RFAct]::GetForegroundWindow() -eq $h) {
-    [System.Windows.Forms.SendKeys]::SendWait('^w')
-    Start-Sleep -Milliseconds 80
-  }
-  [void][RFAct]::ShowWindow($h, 6)
-} elseif ($Action -eq 'closewin') {
-  [void][RFAct]::PostMessage($h, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
-}
-`;
-
+/* ---------- Windows helpers (PowerShell, two long-running processes) ----------
+   focus-monitor.ps1: foreground window (title + address bar of browsers) every 100 ms, windowed processes every ~1 s
+   focus-actor.ps1  : stays running and waits for commands (closetab / tofocus / closewin), so a block needs no new
+                      PowerShell start-up + compile (that was ~1-2 s per block). It re-checks the tab is still the one it
+                      decided about right before pressing keys, so switching tabs can never hit the wrong tab. */
 function writeScripts() {
   fs.mkdirSync(HELPER_DIR(), { recursive: true });
   const bom = '\ufeff'; // Windows PowerShell 5 reads BOM-less files as ANSI
-  fs.writeFileSync(path.join(HELPER_DIR(), 'monitor.ps1'), bom + MONITOR_PS, 'utf8');
-  fs.writeFileSync(path.join(HELPER_DIR(), 'act.ps1'), bom + ACT_PS, 'utf8');
+  for (const f of ['focus-monitor.ps1', 'focus-actor.ps1']) {
+    fs.writeFileSync(path.join(HELPER_DIR(), f), bom + fs.readFileSync(path.join(__dirname, f), 'utf8'), 'utf8');
+  }
 }
 const PS_ARGS = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File'];
+
+let actor = null;
+function startActor() {
+  if (!IS_WIN || actor) return;
+  try {
+    actor = spawn('powershell.exe', ['-STA'].concat(PS_ARGS, [path.join(HELPER_DIR(), 'focus-actor.ps1')]),
+      { windowsHide: true, stdio: ['pipe', 'ignore', 'ignore'] });
+  } catch (_) { actor = null; return; }
+  const me = actor;
+  me.stdin.on('error', () => {});
+  me.on('error', () => { if (actor === me) actor = null; });
+  me.on('exit', () => { if (actor === me) actor = null; });   // started again on the next action
+}
+function stopActor() { if (actor) { const a = actor; actor = null; try { a.stdin.end(); } catch (_) {} try { a.kill(); } catch (_) {} } }
+function act(action, hwnd, url, title) {
+  if (!actor) startActor();
+  if (!actor) return;
+  try { actor.stdin.write([action, String(hwnd), url || '', Buffer.from(String(title || ''), 'utf8').toString('base64')].join('\t') + '\n'); } catch (_) {}
+}
 
 function activeApps() { return lockedApps().concat(st.settings.apps); }
 
 function onForeground(parts) {
-  if (!st.active && !schedBlocks.sites.length && !extAdult) return;
-  const [, hwnd, pid, proc, title] = parts;
-  if (Number(pid) === process.pid) return;
-  let d = st.active ? core.decideForeground({ proc, title: title || '', selfName: SELF_EXE, sites: st.settings.sites }) : null;
-  if (!d && schedBlocks.sites.length) d = core.decideScheduledForeground({ proc, title: title || '', selfName: SELF_EXE, sites: schedBlocks.sites });
-  if (!d && extAdult) d = core.decideAdultForeground({ proc, title: title || '', selfName: SELF_EXE, isAdultTitle: safetyMod.isAdultTitle });
+  if (!st.active && !schedBlocks.sites.length && !schedBlocks.apps.length && !extAdult) return;
+  const [, hwnd, pid, proc, title, url] = parts;
+  if (Number(pid) === process.pid || (helper && Number(pid) === helper.pid)) return;
+  // 1) a blocked / not-allowed APP that comes to the front is killed at once (no waiting for the ~1 s process sweep)
+  if (st.active || schedBlocks.apps.length) {
+    let dp = st.active ? core.decideProcess({ mode: st.settings.mode, apps: activeApps(), proc, title: title || '', selfName: SELF_EXE }) : null;
+    if (!dp && schedBlocks.apps.length) dp = core.decideScheduledProcess({ apps: schedBlocks.apps, proc, title: title || '', selfName: SELF_EXE });
+    if (dp) { try { process.kill(Number(pid)); } catch (_) {} showAlert(dp.msg); return; }
+  }
+  // 2) browser tabs (address bar when it can be read, else the window title)
+  const base = { proc, title: title || '', url: url || '', selfName: SELF_EXE };
+  let d = st.active ? core.decideForeground(Object.assign({ mode: st.settings.mode, sites: st.settings.sites }, base)) : null;
+  if (!d && schedBlocks.sites.length) d = core.decideScheduledForeground(Object.assign({ sites: schedBlocks.sites }, base));
+  if (!d && extAdult) d = core.decideAdultForeground(Object.assign({ isAdultTitle: safetyMod.isAdultTitle, isAdultHost: safetyMod.isAdultHost }, base));
   if (!d) return;
   const now = Date.now();
-  if (now - lastAct < 1500) return;
+  if (now - lastAct < 700) return;
   lastAct = now;
   if (d.action === 'tofocus' && !extPort) d = { action: 'closetab', msg: null };   // local page not ready: old behaviour
-  const args = ['-STA'].concat(PS_ARGS, [path.join(HELPER_DIR(), 'act.ps1'), '-Action', d.action, '-Hwnd', String(hwnd)]);
-  if (d.action === 'tofocus') { args.push('-Url', 'http://127.0.0.1:' + extPort + '/focus'); lastAct = now + 2500; }
-  execFile('powershell.exe', args, { windowsHide: true, timeout: 8000 }, () => {});
-  if (d.action !== 'tofocus') showAlert(d.msg);   // adult tab: no popup, the tab itself becomes the focus page
+  if (d.action === 'tofocus') { act('tofocus', hwnd, 'http://127.0.0.1:' + extPort + '/focus', title); lastAct = now + 800; return; }  // the tab itself becomes the focus page
+  act(d.action, hwnd, '', title);
+  showAlert(d.msg);
 }
 
 function onSweep(list) {
@@ -275,7 +226,8 @@ function startEngine() {
   if (!IS_WIN || helper) return;
   try {
     writeScripts();
-    helper = spawn('powershell.exe', PS_ARGS.concat([path.join(HELPER_DIR(), 'monitor.ps1')]),
+    startActor();
+    helper = spawn('powershell.exe', PS_ARGS.concat([path.join(HELPER_DIR(), 'focus-monitor.ps1')]),
       { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
   } catch (_) { helper = null; return; }
   let buf = '';
@@ -298,6 +250,7 @@ function startEngine() {
 function stopEngine() {
   clearTimeout(restartTimer);
   if (helper) { const h = helper; helper = null; try { h.kill(); } catch (_) {} }
+  stopActor();
   procBuf = [];
 }
 

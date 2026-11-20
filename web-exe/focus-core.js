@@ -68,27 +68,62 @@ function isTaskMgrTitle(t) { return t.includes('task manager') || t.includes('ta
 function isBrowser(proc) { return BROWSERS.has(lc(proc)); }
 function isSafe(proc) { return SAFE.has(lc(proc)); }
 
-/** What to do with the FOREGROUND window. null = leave it alone. */
-function decideForeground({ proc, title, selfName, sites }) {
+/* ---------- address-bar text (read by the PowerShell helper via UI Automation) ---------- */
+// -> { host, internal } | null (nothing usable). Chrome / Edge show "example.com/path" without the scheme.
+function parseUrlText(raw) {
+  let t = String(raw == null ? '' : raw).trim();
+  if (!t || /\s/.test(t.split(/[\/?#]/)[0])) return null;      // empty, or search text instead of a URL
+  const m = t.match(/^([a-z][a-z0-9+.-]*):(\/\/)?/i);
+  if (m) {
+    const sch = lc(m[1]);
+    if (sch !== 'http' && sch !== 'https') return { host: '', internal: true };   // chrome:// edge:// about: file: ...
+    t = t.slice(m[0].length);
+  }
+  let host = lc(t.split(/[\/?#]/)[0]).replace(/^[^@]*@/, '').replace(/:\d+$/, '').replace(/^(www|m)\./, '');
+  if (!host) return null;
+  if (host === 'localhost' || host === '127.0.0.1' || !host.includes('.')) return { host, internal: true };   // our own focus page, new-tab pages
+  return { host, internal: false };
+}
+function hostMatches(host, site) {
+  const h = lc(host), s = lc(site);
+  return !!h && !!s && (h === s || h.endsWith('.' + s));
+}
+
+/** What to do with the FOREGROUND window. null = leave it alone.
+    block mode: a listed site (by address bar when it can be read, else by window title) -> close the tab.
+    allow mode: with a site list, every site that is NOT listed -> close the tab (address bar only: a title can't tell). */
+function decideForeground({ proc, title, url, mode, selfName, sites }) {
   const p = lc(proc), t = lc(title);
   if (!p || !t || p === lc(selfName)) return null;
   const browser = isBrowser(p);
   if (!browser && isTaskMgrTitle(t)) return { action: 'closewin', msg: 'Focus is Active. Task Manager is blocked!' };
   if (!browser && isUninstallTitle(t)) return { action: 'closewin', msg: 'Focus is Active. Uninstallation is blocked!' };
-  if (browser) {
-    for (const site of sites || []) {
-      const core = siteCore(site);
-      if (core && t.includes(core)) return { action: 'closetab', msg: null };
-    }
+  if (!browser) return null;
+  const u = parseUrlText(url);
+  if (mode === 'allow') {
+    if (!(sites || []).length || !u || u.internal) return null;
+    return (sites || []).some((s) => hostMatches(u.host, s)) ? null : { action: 'closetab', msg: 'Focus is Active. Only allowed websites can open.' };
+  }
+  if (u && !u.internal) return (sites || []).some((s) => hostMatches(u.host, s)) ? { action: 'closetab', msg: null } : null;
+  for (const site of sites || []) {
+    const core = siteCore(site);
+    if (core && t.includes(core)) return { action: 'closetab', msg: null };
   }
   return null;
 }
 
-/** Adult Block for EXTERNAL browsers: an adult word / site in the foreground browser window's title -> close that tab. */
-function decideAdultForeground({ proc, title, selfName, isAdultTitle }) {
+/** Adult Block for EXTERNAL browsers: adult site / search in the address bar (seen at once, before the page title loads),
+    or an adult word in the title -> turn that tab into the focus page. */
+function decideAdultForeground({ proc, title, url, selfName, isAdultTitle, isAdultHost }) {
   const p = lc(proc);
-  if (!p || !title || p === lc(selfName) || !isBrowser(p)) return null;
-  return isAdultTitle(String(title)) ? { action: 'tofocus', msg: null } : null;
+  if (!p || p === lc(selfName) || !isBrowser(p)) return null;
+  const u = parseUrlText(url);
+  if (u && u.internal) return null;                                   // our focus page, new tab ...
+  if (u && isAdultHost && isAdultHost(u.host)) return { action: 'tofocus', msg: null };
+  let dec = String(url || '');
+  try { dec = decodeURIComponent(dec.replace(/\+/g, ' ')); } catch (_) {}
+  if (dec && /[?&#]/.test(dec) && isAdultTitle(dec)) return { action: 'tofocus', msg: null };   // adult words in a search query
+  return title && isAdultTitle(String(title)) ? { action: 'tofocus', msg: null } : null;
 }
 
 /** What to do with a running process that has a visible window. null = leave it alone. */
@@ -173,9 +208,11 @@ function activeScheduleBlocks(schedules, date) {
   return { ids: profiles.map((p) => p.id), names: profiles.map((p) => p.name), sites, apps };
 }
 /** Foreground window while a schedule is on: only a blocked site in a browser tab is acted on (never Task Manager etc.). */
-function decideScheduledForeground({ proc, title, selfName, sites }) {
+function decideScheduledForeground({ proc, title, url, selfName, sites }) {
   const p = lc(proc), t = lc(title);
   if (!p || !t || p === lc(selfName) || !isBrowser(p)) return null;
+  const u = parseUrlText(url);
+  if (u && !u.internal) return (sites || []).some((s) => hostMatches(u.host, s)) ? { action: 'closetab', msg: null } : null;
   for (const site of sites || []) {
     const core = siteCore(site);
     if (core && t.includes(core)) return { action: 'closetab', msg: null };
@@ -256,7 +293,7 @@ function sanitizeSettings(o, base) {
 module.exports = {
   QUOTES, COMMON_SITES, COMMON_APPS, BROWSERS, SAFE,
   normalizeSite, normalizeApp, siteCore, exeMatch,
-  decideForeground, decideAdultForeground, decideProcess, pickMessage,
+  parseUrlText, hostMatches, decideForeground, decideAdultForeground, decideProcess, pickMessage,
   countWords, hashPassword, verifyPassword, sanitizeSettings, DEFAULTS,
   MAX_SCHEDULES, sanitizeSchedule, sanitizeSchedules, isScheduleActive, activeScheduleBlocks,
   decideScheduledForeground, decideScheduledProcess,
