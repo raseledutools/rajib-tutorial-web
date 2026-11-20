@@ -632,12 +632,20 @@ ipcMain.on('nav', (e, act) => {
 });
 
 const EXT_PARTITION = 'persist:rtext';
-const extMgr = require('./extensions')({ partition: EXT_PARTITION, getMainWin: () => win });
+// Optional modules must never stop the app from starting (a failure here once disabled the window AND the updater):
+// every one of them falls back to a harmless stub.
+const stubErr = async () => ({ ok: false, error: 'This feature could not start.' });
+let extMgr;
+try { extMgr = require('./extensions')({ partition: EXT_PARTITION, getMainWin: () => win }); }
+catch (e) { console.error('extensions failed', e); extMgr = { init: async () => {}, list: () => [], addFolder: stubErr, addFile: stubErr, addStore: stubErr, remove: stubErr, toggle: stubErr, open: stubErr }; }
 let adultBlockOn = true;   // Settings → Adult Block (kept in memory: checked on every request)
-const safety = require('./safety')({
-  getSessions: () => ({ def: session.defaultSession, ext: session.fromPartition(EXT_PARTITION) }),
-  isAdultBlockOn: () => adultBlockOn,
-});
+let safety;
+try {
+  safety = require('./safety')({
+    getSessions: () => ({ def: session.defaultSession, ext: session.fromPartition(EXT_PARTITION) }),
+    isAdultBlockOn: () => adultBlockOn,
+  });
+} catch (e) { console.error('safety failed', e); safety = { adultCheck: () => null, persistCookies() {}, clean: async () => {}, isAdultHost: () => false }; }
 ipcMain.handle('ext:list', (e) => (trusted(e) ? extMgr.list() : []));
 ipcMain.handle('ext:addFolder', (e) => (trusted(e) ? extMgr.addFolder() : null));
 ipcMain.handle('ext:addFile', (e) => (trusted(e) ? extMgr.addFile() : null));
@@ -657,7 +665,9 @@ ipcMain.handle('incog:open', (e, u) => {
   openChild(safeHttps(u, 'https://www.google.com/'), 'Incognito', { forceNew: true, partition: part, incognito: true });
   return { ok: true };
 });
-const webTools = require('./webtools').register({ ipcMain, app, session, shell, dialog, webContents: require('electron').webContents, getWin: () => win, partition: EXT_PARTITION, trusted });
+let webTools = { hook() {} };
+try { webTools = require('./webtools').register({ ipcMain, app, session, shell, dialog, webContents: require('electron').webContents, getWin: () => win, partition: EXT_PARTITION, trusted }); }
+catch (e) { console.error('webtools failed', e); }
 // the course-video page shown by index.html (wvPlayer): youtube.com/embed/<id> or /watch?v=<id>, opened with "#rtlesson"
 function isLessonPage(wc) {
   try { const u = new URL(wc.getURL()); return u.hostname === 'www.youtube.com' && /(^|[#&])rtlesson/.test(u.hash); } catch (_) { return false; }
