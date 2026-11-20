@@ -1872,7 +1872,11 @@ body:has(#viewExt.active) #__rt_nav,body:has(#viewExt.active) #__rt_updcheck,bod
 /* Focus Mode view (exe): the local Focus page sits inside the app layout — sidebar, header and title bar stay fixed */
 #viewFocus{background:#f5f7fb}
 #viewPdf{background:#e9ebee}
-#viewPdf.active{display:flex;flex-direction:column;height:calc(100vh - var(--tb,0px) - 64px)}
+#viewPdf.active{display:flex;flex-direction:column;height:calc(100vh - var(--tb,0px));height:calc(100dvh - var(--tb,0px))}
+/* PDF Reader = full page (like Acrobat): sidebar + top bar are hidden, only the title bar and the reader stay; "Back" returns */
+body:has(#viewPdf.active) .sidebar,body:has(#viewPdf.active) .topbar,body:has(#viewPdf.active) #overlay{display:none!important}
+body:has(#viewPdf.active) .main{margin-left:0!important}
+body:has(#viewPdf.active) #__rt_nav,body:has(#viewPdf.active) #__rt_updcheck,body:has(#viewPdf.active) #__rt_focus{display:none!important}
 #pdfBar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border-bottom:1px solid #dfe3e8;font-size:13px}
 #pdfBar .sp{flex:1}
 #pdfBar button{padding:6px 12px;border:1px solid #d5d9df;border-radius:8px;background:#f8f9fb;color:#1f2937;font-weight:600;cursor:pointer}
@@ -2374,7 +2378,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
   </div>
 
   <div class="view" id="viewFocus"><div id="focusHost"></div></div>
-  <div class="view" id="viewPdf"><div id="pdfBar"><b>📕 PDF Reader</b><span class="sp"></span><button type="button" onclick="pdfPick()">📂 Open PDF</button><button type="button" onclick="pdfDefault()">⭐ Default PDF reader</button></div><div id="pdfHost"></div></div>
+  <div class="view" id="viewPdf"><div id="pdfBar"><button type="button" onclick="goHome()">← Back</button><b>📕 PDF Reader</b><span class="sp"></span><button type="button" onclick="pdfPick()">📂 Open PDF</button><button type="button" onclick="pdfDefault()">⭐ Default PDF reader</button></div><div id="pdfHost"></div></div>
 
   <div class="view" id="viewBrowser">
     <div class="bt-strip" id="btStrip">
