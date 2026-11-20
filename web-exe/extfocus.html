@@ -15,13 +15,23 @@ h2{margin:0;font-size:30px;font-weight:600;color:#e8f5f3}
 .fr{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 button{border:0;border-radius:20px;padding:9px 18px;font-size:13.5px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.1);color:#e3e3e3;font-family:inherit}
 button:hover{background:rgba(255,255,255,.18)}button.p{background:#8fd3c8;color:#10201d}button.p:hover{background:#a6e0d6}
+
+.sites{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:680px}
+.sites a{display:inline-flex;align-items:center;gap:6px;text-decoration:none;border-radius:20px;padding:9px 16px;font-size:13.5px;font-weight:600;background:rgba(143,211,200,.16);color:#d6f2ed;border:1px solid rgba(143,211,200,.35)}
+.sites a:hover{background:rgba(143,211,200,.28)}.sites a i{font-style:normal;opacity:.7;margin-left:4px;cursor:pointer}.sites a i:hover{opacity:1;color:#ffb4a8}
+.sh{font-size:13px;color:#9aa5a2}.add{display:flex;gap:8px}.add input{border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.25);color:#fff;border-radius:20px;padding:9px 16px;font-size:13.5px;width:230px;outline:0;font-family:inherit}
+.live{color:#8fd3c8;font-size:14px;font-weight:600}.lock{opacity:.5;pointer-events:none}
 </style></head><body>
 <div class="fp">
 <h2>একটু থামুন 🌿</h2>
 <div class="sub">আপনি যা খুঁজছিলেন তা আপনার লক্ষ্য থেকে মনোযোগ সরিয়ে দিতে পারে। এই মুহূর্তটা আপনার ভবিষ্যৎ গড়ার সময় — চলুন আবার পড়াশোনায় ফিরি।</div>
 <div class="fq" id="fq"><q id="q"></q><small id="a"></small></div>
 <div class="tm" id="tm">25:00</div>
-<div class="fr"><button class="p" id="bt">▶ ফোকাস শুরু</button><button id="br">↺ রিসেট</button><button id="bq">💬 আরেকটি উক্তি</button><button id="bs">📚 পড়াশোনায় ফিরুন</button></div>
+<div class="live" id="live"></div>
+<div class="fr"><button class="p" id="bt">▶ ২৫ মিনিট ফোকাস শুরু</button><button id="bq">💬 আরেকটি উক্তি</button></div>
+<div class="sh" id="sh">অনুমোদিত ওয়েবসাইট — ক্লিক করলে এই ট্যাবেই খুলবে</div>
+<div class="sites" id="sites"></div>
+<div class="add" id="add"><input id="in" placeholder="যেমন: youtube.com" autocomplete="off"><button id="ba">＋ যোগ</button></div>
 </div>
 <script>
 const QUOTES=[
@@ -36,15 +46,40 @@ const QUOTES=[
 ["কাজটা শেষ না হওয়া পর্যন্ত সবসময় অসম্ভবই মনে হয়।","নেলসন ম্যান্ডেলা"],
 ["প্রকৃত শক্তিশালী সে নয় যে কুস্তিতে অন্যকে হারায়; বরং সে-ই শক্তিশালী যে রাগের সময় নিজেকে নিয়ন্ত্রণ করে।","হাদিস (বুখারি ও মুসলিম)"]];
 const $=id=>document.getElementById(id);
-let qi=Math.floor(Math.random()*QUOTES.length),left=1500,run=false,tk=null;
+const TOKEN='__RF_TOKEN__';
+let qi=Math.floor(Math.random()*QUOTES.length),endAt=0,off=0,active=false,sites=[],tk=null;
 function put(){$('q').textContent='“'+QUOTES[qi][0]+'”';$('a').textContent='— '+QUOTES[qi][1];$('fq').classList.remove('out')}
 function nextQ(){qi=(qi+1)%QUOTES.length;$('fq').classList.add('out');setTimeout(put,450)}
-function fmt(){$('tm').textContent=String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0');document.title=run?$('tm').textContent+' · Focus time 🌿':'Focus time 🌿'}
-function stop(){run=false;clearInterval(tk);$('bt').textContent='▶ ফোকাস শুরু';fmt()}
-put();setInterval(nextQ,12000);
+async function api(path,body){
+  try{const r=await fetch(path,{method:body?'POST':'GET',headers:{'x-rf-token':TOKEN,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});return await r.json()}catch(e){return null}
+}
+function left(){return active?Math.max(0,Math.round((endAt-(Date.now()+off))/1000)):1500}
+function fmt(){
+  const l=left();$('tm').textContent=String(Math.floor(l/60)).padStart(2,'0')+':'+String(l%60).padStart(2,'0');
+  document.title=active?$('tm').textContent+' · Focus time 🌿':'Focus time 🌿';
+  if(active&&l<=0){active=false;render();$('live').textContent='সাবাশ! ফোকাস শেষ 🎉 এবার ৫ মিনিট বিরতি নিন।'}
+}
+function render(){
+  $('bt').style.display=active?'none':'';$('add').style.display=active?'none':'flex';
+  if(active)$('live').textContent='🔒 ফোকাস চলছে — সময় শেষ না হওয়া পর্যন্ত নতুন ট্যাব / অন্য সাইট এই পাতায় ফিরে আসবে';
+  else if(left()>0&&$('live').textContent.indexOf('সাবাশ')<0)$('live').textContent='';
+  $('sh').style.display=sites.length?'':'none';
+  const box=$('sites');box.textContent='';
+  sites.forEach(s=>{
+    const a=document.createElement('a');a.href='https://'+s+'/';a.textContent='🌐 '+s;
+    if(!active){const x=document.createElement('i');x.textContent='✕';x.title='মুছুন';x.onclick=async e=>{e.preventDefault();e.stopPropagation();const r=await api('/api/sites',{remove:s});if(r&&r.ok){sites=r.sites;render()}};a.appendChild(x)}
+    box.appendChild(a);
+  });
+  fmt();
+}
+function apply(st){if(!st)return;active=!!st.active;endAt=st.endAt||0;off=(st.now||Date.now())-Date.now();sites=st.sites||[];render()}
+async function poll(){apply(await api('/api/state'))}
+$('bt').onclick=async()=>{
+  const r=await api('/api/start',{});
+  if(r&&r.ok){await poll()}else{$('live').textContent='শুরু করা যায়নি — Rajib Tutorial অ্যাপ চালু আছে কি না দেখুন।'}
+};
+$('ba').onclick=async()=>{const v=$('in').value.trim();if(!v)return;const r=await api('/api/sites',{add:v});if(r&&r.ok){sites=r.sites;$('in').value='';render()}else $('live').textContent='সঠিক ওয়েবসাইট লিখুন (যেমন example.com)'};
+$('in').onkeydown=e=>{if(e.key==='Enter')$('ba').click()};
 $('bq').onclick=nextQ;
-$('br').onclick=()=>{stop();left=1500;fmt()};
-$('bt').onclick=()=>{if(run){stop();return}run=true;$('bt').textContent='⏸ বিরতি';
-  tk=setInterval(()=>{left--;fmt();if(left<=0){stop();left=1500;fmt();alert('সাবাশ! ২৫ মিনিটের ফোকাস শেষ। এবার ৫ মিনিট বিরতি নিন।')}},1000)};
-$('bs').onclick=()=>{location.href='https://raseledutools.github.io/rajib-tutorial-web/'};
+put();setInterval(nextQ,12000);setInterval(fmt,500);setInterval(poll,3000);poll();
 </script></body></html>

@@ -19,30 +19,33 @@ const SELF_EXE = path.basename(process.execPath);
 const STATE_FILE = () => path.join(app.getPath('userData'), 'focus.json');
 const HELPER_DIR = () => path.join(app.getPath('userData'), 'focus-helper');
 
-let st = { settings: Object.assign({}, core.DEFAULTS), active: false, endAt: 0, pw: null, schedules: [] };
+const QUICK_MIN = 25;
+const DEFAULT_QSITES = ['raseledutools.github.io'];
+let st = { settings: Object.assign({}, core.DEFAULTS), active: false, endAt: 0, pw: null, schedules: [], quick: false, qsites: DEFAULT_QSITES.slice() };
 let schedBlocks = { ids: [], names: [], sites: [], apps: [] }; // what the schedules block right now (refreshed every 10 s)
 let helper = null, restartTimer = null, expiryTimer = null, schedTimer = null;
 let getMainWin = () => null, hooks = {};
 let lastAlert = 0, lastAct = 0, procBuf = [], lastProcs = [];
-let extServer = null, extPort = 0;
-/* Tiny local page server (127.0.0.1 only): an adult tab in Chrome / Edge / Firefox ... is navigated to this focus page. */
-function startExtServer() {
-  if (extServer) return;
-  try {
-    const srv = http.createServer((req, res) => {
-      try {
-        const html = fs.readFileSync(path.join(__dirname, 'extfocus.html'));
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
-        res.end(html);
-      } catch (_) { res.writeHead(500); res.end('error'); }
-    });
-    srv.on('error', () => { if (extServer === srv) { extServer = null; extPort = 0; } });
-    srv.listen(0, '127.0.0.1', () => { try { extPort = srv.address().port; } catch (_) { extPort = 0; } });
-    srv.unref();
-    extServer = srv;
-  } catch (_) { extServer = null; extPort = 0; }
-}
-function stopExtServer() { if (extServer) { try { extServer.close(); } catch (_) {} extServer = null; extPort = 0; } }
+const extSrv = require('./ext-server').create({
+  htmlPath: path.join(__dirname, 'extfocus.html'),
+  getState: () => ({ active: st.active && st.quick, endAt: st.endAt, now: Date.now(), sites: st.qsites.slice(), minutes: QUICK_MIN }),
+  start: () => startQuick(),
+  addSite: (raw) => {
+    if (st.active) return { ok: false, error: 'locked' };
+    const site = core.normalizeSite(raw);
+    if (!site) return { ok: false, error: 'invalid' };
+    if (!st.qsites.includes(site) && st.qsites.length < 40) st.qsites.push(site);
+    save(); return { ok: true, sites: st.qsites.slice() };
+  },
+  removeSite: (raw) => {
+    if (st.active) return { ok: false, error: 'locked' };
+    st.qsites = st.qsites.filter((x) => x !== raw);
+    save(); return { ok: true, sites: st.qsites.slice() };
+  },
+});
+const extPortNow = () => extSrv.port();
+function startExtServer() { extSrv.listen(); }
+function stopExtServer() { if (!(st.active && st.quick)) extSrv.close(); }   // a Quick Focus session needs the page
 let extAdult = false; // Settings -> Adult Block for all browsers (works with or without a Focus session)
 
 /* ---------- persistence ---------- */
@@ -54,12 +57,14 @@ function load() {
     st.endAt = st.active ? Number(j.endAt) : 0;
     st.pw = st.active && j.pw && j.pw.salt && j.pw.hash ? j.pw : null;
     st.schedules = core.sanitizeSchedules(j.schedules);
+    st.quick = st.active && !!j.quick;
+    if (Array.isArray(j.qsites)) { const q = core.sanitizeSettings({ sites: j.qsites }, core.DEFAULTS).sites; st.qsites = q.length || j.qsites.length === 0 ? q : DEFAULT_QSITES.slice(); }
   } catch (_) { /* first run */ }
 }
 function save() {
   try {
     fs.mkdirSync(path.dirname(STATE_FILE()), { recursive: true });
-    fs.writeFileSync(STATE_FILE(), JSON.stringify({ settings: st.settings, active: st.active, endAt: st.endAt, pw: st.pw, schedules: st.schedules }));
+    fs.writeFileSync(STATE_FILE(), JSON.stringify({ settings: st.settings, active: st.active, endAt: st.endAt, pw: st.pw, schedules: st.schedules, quick: st.quick, qsites: st.qsites }));
   } catch (_) {}
 }
 
@@ -162,7 +167,8 @@ function act(action, hwnd, url, title) {
   try { actor.stdin.write([action, String(hwnd), url || '', Buffer.from(String(title || ''), 'utf8').toString('base64')].join('\t') + '\n'); } catch (_) {}
 }
 
-function activeApps() { return lockedApps().concat(st.settings.apps); }
+function activeApps() { return st.quick ? [] : lockedApps().concat(st.settings.apps); }
+const sessMode = () => (st.quick ? 'block' : st.settings.mode);   // Quick Focus: only Task Manager / uninstall are guarded, the rest is about browser tabs
 
 function onForeground(parts) {
   if (!st.active && !schedBlocks.sites.length && !schedBlocks.apps.length && !extAdult) return;
@@ -170,21 +176,23 @@ function onForeground(parts) {
   if (Number(pid) === process.pid || (helper && Number(pid) === helper.pid)) return;
   // 1) a blocked / not-allowed APP that comes to the front is killed at once (no waiting for the ~1 s process sweep)
   if (st.active || schedBlocks.apps.length) {
-    let dp = st.active ? core.decideProcess({ mode: st.settings.mode, apps: activeApps(), proc, title: title || '', selfName: SELF_EXE }) : null;
+    let dp = st.active ? core.decideProcess({ mode: sessMode(), apps: activeApps(), proc, title: title || '', selfName: SELF_EXE }) : null;
     if (!dp && schedBlocks.apps.length) dp = core.decideScheduledProcess({ apps: schedBlocks.apps, proc, title: title || '', selfName: SELF_EXE });
     if (dp) { try { process.kill(Number(pid)); } catch (_) {} showAlert(dp.msg); return; }
   }
   // 2) browser tabs (address bar when it can be read, else the window title)
   const base = { proc, title: title || '', url: url || '', selfName: SELF_EXE };
-  let d = st.active ? core.decideForeground(Object.assign({ mode: st.settings.mode, sites: st.settings.sites }, base)) : null;
+  let d = null;
+  if (st.active && st.quick) d = core.decideQuickForeground(Object.assign({ sites: st.qsites, isAdultTitle: safetyMod.isAdultTitle }, base));
+  else if (st.active) d = core.decideForeground(Object.assign({ mode: st.settings.mode, sites: st.settings.sites }, base));
   if (!d && schedBlocks.sites.length) d = core.decideScheduledForeground(Object.assign({ sites: schedBlocks.sites }, base));
-  if (!d && extAdult) d = core.decideAdultForeground(Object.assign({ isAdultTitle: safetyMod.isAdultTitle, isAdultHost: safetyMod.isAdultHost }, base));
+  if (!d && (extAdult || (st.active && st.quick))) d = core.decideAdultForeground(Object.assign({ isAdultTitle: safetyMod.isAdultTitle, isAdultHost: safetyMod.isAdultHost }, base));
   if (!d) return;
   const now = Date.now();
   if (now - lastAct < 700) return;
   lastAct = now;
-  if (d.action === 'tofocus' && !extPort) d = { action: 'closetab', msg: null };   // local page not ready: old behaviour
-  if (d.action === 'tofocus') { act('tofocus', hwnd, 'http://127.0.0.1:' + extPort + '/focus', title); lastAct = now + 800; return; }  // the tab itself becomes the focus page
+  if (d.action === 'tofocus' && !extPortNow()) { startExtServer(); d = { action: 'closetab', msg: null }; }   // local page not ready: old behaviour
+  if (d.action === 'tofocus') { act('tofocus', hwnd, 'http://127.0.0.1:' + extPortNow() + '/focus', title); lastAct = now + 800; return; }  // the tab itself becomes the focus page
   act(d.action, hwnd, '', title);
   showAlert(d.msg);
 }
@@ -195,7 +203,7 @@ function onSweep(list) {
   const apps = activeApps();
   for (const p of list) {
     if (p.pid === process.pid || (helper && p.pid === helper.pid)) continue;
-    let d = st.active ? core.decideProcess({ mode: st.settings.mode, apps, proc: p.name, title: p.title, selfName: SELF_EXE }) : null;
+    let d = st.active ? core.decideProcess({ mode: sessMode(), apps, proc: p.name, title: p.title, selfName: SELF_EXE }) : null;
     if (!d && schedBlocks.apps.length) d = core.decideScheduledProcess({ apps: schedBlocks.apps, proc: p.name, title: p.title, selfName: SELF_EXE });
     if (!d) continue;
     try { process.kill(p.pid); } catch (_) { /* elevated / protected: nothing we can do */ }
@@ -256,11 +264,22 @@ function stopEngine() {
 
 /* ---------- session control ---------- */
 function finish(notify) {
-  st.active = false; st.endAt = 0; st.pw = null;
+  st.active = false; st.endAt = 0; st.pw = null; st.quick = false;
   save(); refreshSchedule(); if (!engineNeeded()) stopEngine(); broadcast();
   if (notify && Notification.isSupported()) {
     new Notification({ title: 'Focus Mode', body: 'Focus session শেষ। দারুণ কাজ! 🎉' }).show();
   }
+  if (!extAdult) stopExtServer();
+}
+
+/* Quick Focus: started from the focus tab (any browser). Runs until the time is over and cannot be stopped. */
+function startQuick() {
+  if (!IS_WIN) return { ok: false, error: 'windows-only' };
+  if (st.active) return { ok: false, error: 'running' };
+  st.active = true; st.quick = true; st.pw = null; st.endAt = Date.now() + QUICK_MIN * 60000;
+  save(); startExtServer(); startEngine(); armExpiry(); broadcast();
+  if (hooks.onStart) hooks.onStart();
+  return { ok: true, endAt: st.endAt, now: Date.now() };
 }
 
 function startSession(o) {
@@ -278,7 +297,7 @@ function startSession(o) {
     if (p.length < 4 || p.length > 40) return { ok: false, error: 'Parent password ৪–৪০ অক্ষরের হতে হবে।' };
     pw = core.hashPassword(p);
   }
-  st.active = true; st.endAt = Date.now() + mins * 60000; st.pw = pw;
+  st.active = true; st.quick = false; st.endAt = Date.now() + mins * 60000; st.pw = pw;
   save(); startEngine(); armExpiry(); broadcast();
   if (hooks.onStart) hooks.onStart();
   return { ok: true };
@@ -286,6 +305,7 @@ function startSession(o) {
 
 function stopSession(o) {
   if (!st.active) return { ok: true };
+  if (st.quick) return { ok: false, error: 'এই Quick Focus (২৫ মিনিট) সময় শেষ না হওয়া পর্যন্ত বন্ধ করা যাবে না।' };
   const mode = st.settings.controlMode;
   if (mode === 'parents') {
     if (!core.verifyPassword(o && o.password, st.pw)) return { ok: false, error: 'ভুল password।' };
@@ -322,7 +342,7 @@ function init(opts) {
   getMainWin = (opts && opts.getMainWin) || getMainWin;
   hooks = opts || {};
   load();
-  if (st.active) { startEngine(); armExpiry(); }
+  if (st.active) { if (st.quick) startExtServer(); startEngine(); armExpiry(); }
   refreshSchedule();
   clearInterval(schedTimer);
   schedTimer = setInterval(refreshSchedule, 10000);
@@ -398,7 +418,7 @@ function init(opts) {
 /* Settings -> "Adult Block (all browsers)": start / stop the window watcher on its own. */
 function setExtAdult(on) {
   extAdult = !!on;
-  if (extAdult && IS_WIN) startExtServer(); else stopExtServer();
+  if ((extAdult || (st.active && st.quick)) && IS_WIN) startExtServer(); else stopExtServer();
   if (engineNeeded()) startEngine(); else if (helper) stopEngine();
 }
 

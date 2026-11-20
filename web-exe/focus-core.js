@@ -126,6 +126,29 @@ function decideAdultForeground({ proc, title, url, selfName, isAdultTitle, isAdu
   return title && isAdultTitle(String(title)) ? { action: 'tofocus', msg: null } : null;
 }
 
+
+/* ---------- Quick Focus (25-minute session started from the focus tab) ----------
+   While it runs, a browser tab that is not on the allowed list turns into the focus page again (any browser):
+   a new tab, a not-allowed site, an adult search. Allowed sites and our own focus page are left alone. */
+const NEWTAB_TITLE = /^(new tab|new page|start page|speed dial|about:blank|নতুন ট্যাব)(\s|$|[-\u2013\u2014|])/i;
+const NEWTAB_URL = /^(chrome|edge|brave|opera|vivaldi|about|chrome-search):(\/\/)?(newtab|new-tab-page|startpage|blank|local-ntp|speeddial)?/i;
+function decideQuickForeground({ proc, title, url, selfName, sites, isAdultTitle }) {
+  const p = lc(proc);
+  if (!p || p === lc(selfName) || !isBrowser(p)) return null;
+  const raw = String(url || '').trim();
+  const u = parseUrlText(raw);
+  if (u && !u.internal) {
+    if (isAdultTitle && isAdultTitle(raw)) return { action: 'tofocus', msg: null };
+    return (sites || []).some((s) => hostMatches(u.host, s)) ? null : { action: 'tofocus', msg: null };
+  }
+  if (u && u.internal) {
+    if (u.host === 'localhost' || u.host === '127.0.0.1') return null;          // our own focus page
+    return NEWTAB_URL.test(raw) && /^(about:blank|[a-z-]+:\/\/(newtab|new-tab-page|startpage|blank|local-ntp|speeddial))\/?$/i.test(raw) ? { action: 'tofocus', msg: null } : null;
+  }
+  // address bar not readable (user is typing in it, or the browser hides it): a new tab is recognised by its title
+  return NEWTAB_TITLE.test(String(title || '').trim()) ? { action: 'tofocus', msg: null } : null;
+}
+
 /** What to do with a running process that has a visible window. null = leave it alone. */
 function decideProcess({ mode, apps, proc, title, selfName }) {
   const p = lc(proc), t = lc(title);
@@ -296,5 +319,5 @@ module.exports = {
   parseUrlText, hostMatches, decideForeground, decideAdultForeground, decideProcess, pickMessage,
   countWords, hashPassword, verifyPassword, sanitizeSettings, DEFAULTS,
   MAX_SCHEDULES, sanitizeSchedule, sanitizeSchedules, isScheduleActive, activeScheduleBlocks,
-  decideScheduledForeground, decideScheduledProcess,
+  decideScheduledForeground, decideScheduledProcess, decideQuickForeground,
 };

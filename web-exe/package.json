@@ -34,6 +34,7 @@
       "package.json",
       "focus.js",
       "focus-core.js",
+      "ext-server.js",
       "focus-monitor.ps1",
       "focus-actor.ps1",
       "focus-preload.js",
