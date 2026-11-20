@@ -1877,11 +1877,6 @@ body:has(#viewExt.active) #__rt_nav,body:has(#viewExt.active) #__rt_updcheck,bod
 body:has(#viewPdf.active) .sidebar,body:has(#viewPdf.active) .topbar,body:has(#viewPdf.active) #overlay{display:none!important}
 body:has(#viewPdf.active) .main{margin-left:0!important}
 body:has(#viewPdf.active) #__rt_nav,body:has(#viewPdf.active) #__rt_updcheck,body:has(#viewPdf.active) #__rt_focus{display:none!important}
-#pdfBar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#000;color:#e5e5e5;border-bottom:1px solid #2a2a2a;font-size:13px}
-#pdfBar .sp{flex:1}
-#pdfBar button{padding:6px 12px;border:1px solid #3a3a3a;border-radius:8px;background:#1f1f1f;color:#e5e5e5;font-weight:600;cursor:pointer}
-#pdfBar button:hover{background:#2c2c2c;border-color:#f5c518}
-#pdfBar button:hover{background:#eef0f3}
 #pdfHost{flex:1;min-height:0}
 #pdfHost>webview{width:100%;height:100%;border:0;display:flex}
 #viewFocus.active{display:block;height:calc(100vh - var(--tb,0px) - 64px)}
@@ -2379,7 +2374,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
   </div>
 
   <div class="view" id="viewFocus"><div id="focusHost"></div></div>
-  <div class="view" id="viewPdf"><div id="pdfBar"><button type="button" onclick="goHome()">← Back</button><b>📖 Office Reader</b><span class="sp"></span><button type="button" onclick="pdfPick()">📂 Open file</button><button type="button" onclick="pdfDefault()">⭐ Default reader</button></div><div id="pdfHost"></div></div>
+  <div class="view" id="viewPdf"><div id="pdfHost"></div></div>
 
   <div class="view" id="viewBrowser">
     <div class="bt-strip" id="btStrip">
@@ -7094,6 +7089,14 @@ window.openOffline=function(){goView("viewOffline");closeSidebar()};
     wv.setAttribute("partition","persist:rtpdf");
     wv.setAttribute("src",OSRC);
     wv.addEventListener("dom-ready",()=>{ready=true;queue.splice(0).forEach(send)});
+    // Back / Default reader / Full page buttons inside the reader talk to the app through console messages
+    wv.addEventListener("console-message",e=>{
+      const m=String(e.message||"");if(m.indexOf("__RT_CMD__:")!==0)return;
+      const c=m.slice(11);
+      if(c==="back")goHome();
+      else if(c==="default")window.pdfDefault();
+      else if(c==="fullscreen"){try{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}catch(x){}}
+    });
     wv.addEventListener("did-fail-load",e=>{
       if(!e.isMainFrame||e.errorCode===-3)return;
       host.textContent="";wv=null;ready=false;

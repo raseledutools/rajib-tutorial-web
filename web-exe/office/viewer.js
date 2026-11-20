@@ -546,6 +546,26 @@ async function renderHome() {
 $('hideFreq').onclick = (e) => { e.preventDefault(); hideFreq = !hideFreq; try { localStorage.setItem('rt_hidefreq', hideFreq ? '1' : '0'); } catch (_) {} renderHome(); };
 $('openDoc').onclick = (e) => { e.preventDefault(); pickFiles(); };
 
+/* ------------------------------------------------------------------ host bridge: Back / Full page */
+// The reader runs inside a <webview> of the app; the host page (index.html) listens for these console messages.
+function hostCmd(c) { try { console.info('__RT_CMD__:' + c); } catch (_) {} }
+function goBack() { hostCmd('back'); }
+function inFull() { return !!document.fullscreenElement; }
+async function toggleFull() {
+  try {
+    if (inFull()) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen();
+  } catch (_) { hostCmd('fullscreen'); }   // host falls back to its own window full-screen
+}
+function paintFull() {
+  const on = inFull(); const b = $('tFull');
+  b.title = on ? 'Exit full page (Esc / F11)' : 'Full page (F11)'; b.classList.toggle('on', on);
+  $('fullIco').innerHTML = on ? '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>' : '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>';
+}
+document.addEventListener('fullscreenchange', () => { paintFull(); setTimeout(refreshInfo, 120); });
+$('backBtn').onclick = goBack;
+$('tFull').onclick = toggleFull;
+
 /* ------------------------------------------------------------------ pick / drag-drop / menu */
 function pickFiles() { $('fi').click(); }
 $('fi').onchange = (e) => { const l = [...e.target.files]; e.target.value = ''; openFiles(l); };
@@ -565,6 +585,8 @@ menu.addEventListener('click', async (e) => {
   if (a === 'open') pickFiles();
   else if (a === 'close') { if (cur !== 'home') closeTab(cur); }
   else if (a === 'print') { const h = H(); if (h && h.print) h.print(); }
+  else if (a === 'full') toggleFull();
+  else if (a === 'default') hostCmd('default');
   else if (a === 'clear') { await dbClear(); renderHome(); }
 });
 document.addEventListener('click', (e) => { const a = e.target.closest && e.target.closest('a'); if (a && !a.hasAttribute('data-ok')) e.preventDefault(); }, true);   // links inside documents never navigate the reader
@@ -578,6 +600,7 @@ function forwardKey(e) {
   if (c && k === 'Tab') { nextTab(e.shiftKey ? -1 : 1); return true; }
   if (c && (k === 'f' || k === 'F')) { if (!$('findIn').disabled) { $('findIn').focus(); $('findIn').select(); } return true; }
   if (k === 'F3') { runFind(e.shiftKey ? -1 : 1); return true; }
+  if (k === 'F11') { toggleFull(); return true; }
   if (c && /^[1-9]$/.test(k)) { const all = ['home'].concat(tabs); activate(all[Math.min(+k - 1, all.length - 1)]); return true; }
   return false;
 }
@@ -596,8 +619,11 @@ document.addEventListener('wheel', (e) => {
   if (!e.ctrlKey) return; const h = H(); if (!h || !h.wheelZoom) return;
   e.preventDefault(); h.wheelZoom(e.deltaY < 0 ? 1 : -1); refreshInfo();
 }, { passive: false });
-/* Alt+Left / Alt+Right etc. do nothing; stop the default browser back/forward gestures */
-window.addEventListener('keydown', (e) => { if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) e.preventDefault(); });
+/* Alt+Left = Back to the app; F11 = full page; Alt+Right does nothing */
+window.addEventListener('keydown', (e) => {
+  if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); if (e.key === 'ArrowLeft') goBack(); }
+  if (e.key === 'F11') { e.preventDefault(); toggleFull(); }
+});
 window.addEventListener('resize', refreshInfo);
 
 /* ------------------------------------------------------------------ host bridge + boot */
