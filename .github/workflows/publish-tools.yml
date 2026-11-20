@@ -1,0 +1,26 @@
+name: Publish tools (ffmpeg for offline YouTube saves)
+
+# Run manually (Actions → Publish tools → Run workflow). Uploads ffmpeg.exe.gz to the fixed release "web-exe-tools".
+# The Windows app downloads it ONCE, on the first YouTube offline save, into its hidden userData/bin folder,
+# so ffmpeg (132 MB) no longer sits inside every installer / update.
+on:
+  workflow_dispatch:
+
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Get ffmpeg.exe (LGPL build)
+        run: |
+          curl -L --fail --retry 3 -o ff.zip https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip
+          unzip -j ff.zip "*/bin/ffmpeg.exe" -d .
+          gzip -9 -f ffmpeg.exe
+          ls -la ffmpeg.exe.gz
+      - name: Publish to web-exe-tools
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view web-exe-tools --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create web-exe-tools --repo "$GITHUB_REPOSITORY" --title "App tools (downloaded on demand)" --notes "ffmpeg.exe.gz: fetched once by the Windows app for merging YouTube video+audio when saving lessons offline." --latest=false
+          gh release upload web-exe-tools ffmpeg.exe.gz --repo "$GITHUB_REPOSITORY" --clobber
