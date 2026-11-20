@@ -4,6 +4,7 @@
 </head><body>
 <!-- tab strip: menu + Home + one tab per open file (SumatraPDF-style) -->
 <div id="tabstrip">
+  <button id="backBtn" title="Back (Alt+Left)" aria-label="Back"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 12H5M11 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   <svg id="appico" viewBox="0 0 24 24" width="22" height="22"><rect x="2" y="2" width="20" height="20" rx="5" fill="#f5c518"/><text x="12" y="16.5" text-anchor="middle" font-size="9" font-weight="800" font-family="Segoe UI,Arial" fill="#222">RT</text></svg>
   <button id="menuBtn" title="Menu (Ctrl+O = open)" aria-label="Menu"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
   <div id="tabs" role="tablist"></div>
@@ -30,6 +31,8 @@
   <button id="tFPrev" class="ib" title="Previous match (Shift+Enter)"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
   <button id="tFNext" class="ib" title="Next match (Enter)"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
   <button id="tCase" class="ib" title="Match case"><span style="font-weight:600;font-size:17px">Aa</span></button>
+  <span class="grow"></span>
+  <button id="tFull" class="ib" title="Full page (F11)" aria-label="Full page"><svg id="fullIco" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
 </div>
 
 <div id="stage">
@@ -55,6 +58,8 @@
   <button data-a="open">Open…<kbd>Ctrl+O</kbd></button>
   <button data-a="close">Close tab<kbd>Ctrl+W</kbd></button>
   <button data-a="print">Print…<kbd>Ctrl+P</kbd></button>
+  <button data-a="full">Full page<kbd>F11</kbd></button>
+  <button data-a="default">Make default reader…</button>
   <button data-a="clear">Clear frequently-read list</button>
 </div>
 
