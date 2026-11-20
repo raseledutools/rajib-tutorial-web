@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Office Reader</title>
+<link rel="stylesheet" href="viewer.css">
+</head><body>
+<div id="bar">
+  <span id="badge">W</span><span id="fname">Office Reader</span><span class="sp"></span>
+  <button id="zout" title="Zoom out">−</button><span id="zv">100%</span><button id="zin" title="Zoom in">+</button><button id="zfit">Fit</button>
+  <button id="print">🖨 Print</button><button id="open">📂 Open</button>
+</div>
+<div id="main">
+  <div id="content"></div>
+  <div id="landing"><div class="box"><div class="ico">W X P</div><h2>Office Reader</h2><p>Word, Excel ba PowerPoint file ekhane drag &amp; drop korun ba niche chapen. PDF khulte upore "Open file" chapen.</p><button id="open2" type="button">Open file</button></div></div>
+  <div id="msg"></div>
+</div>
+<div id="tabs"></div>
+<input type="file" id="fi" hidden accept=".docx,.xlsx,.xls,.csv,.pptx">
+<script src="jszip.min.js"></script>
+<script src="docx-preview.min.js"></script>
+<script src="xlsx.full.min.js"></script>
+<script src="pptx-preview.umd.js"></script>
+<script src="viewer.js"></script>
+</body></html>

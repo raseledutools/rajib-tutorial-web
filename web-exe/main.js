@@ -56,7 +56,7 @@ const pdfCtx = {
   ready: () => { try { return !!win && !win.isDestroyed() && win.webContents.getURL().startsWith(SITE_ORIGIN); } catch (_) { return false; } },
 };
 app.on('second-instance', (_e, argv) => {
-  const f = pdfreader.pdfFromArgv(argv);
+  const f = pdfreader.fileFromArgv(argv);
   if (f) pdfreader.openFile(pdfCtx, f); else showMain();
 });
 
@@ -707,7 +707,7 @@ app.on('web-contents-created', (_e, wc) => {
   wc.on('will-attach-webview', (e, webPreferences, params) => {
     let ok = false;
     const isFocus = params.src === FOCUS_SRC && params.partition === FOCUS_PARTITION;
-    const isPdf = String(params.src).split('?')[0] === pdfreader.PDF_SRC && params.partition === pdfreader.PDF_PARTITION;
+    const isPdf = [pdfreader.PDF_SRC, pdfreader.OFFICE_SRC].includes(String(params.src).split('?')[0]) && params.partition === pdfreader.PDF_PARTITION;
     try { ok = new URL(params.src).protocol === 'https:' && params.partition === EXT_PARTITION; } catch (_) {}
     if (!ok && !isFocus && !isPdf) { e.preventDefault(); return; }
     delete webPreferences.preloadURL;
@@ -865,7 +865,7 @@ app.whenReady().then(() => {
   try { pdfreader.init(pdfCtx); } catch (e) { console.error('pdfreader failed', e); }
   create();
   initTray();
-  { const f = pdfreader.pdfFromArgv(process.argv); if (f) { startHidden = false; pdfreader.openFile(pdfCtx, f); } }   // started by double-clicking a .pdf
+  { const f = pdfreader.fileFromArgv(process.argv); if (f) { startHidden = false; pdfreader.openFile(pdfCtx, f); } }   // started by double-clicking a .pdf
   focus.init({ getMainWin: () => win, onStart: () => applyAutostart(true), onActiveChange: refreshTrayMenu, openView: openFocusView });
   applyAutostart(autostartOn() || focus.isActive());
   setTimeout(initUpdater, 1500);

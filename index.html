@@ -2132,7 +2132,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     <div class="nav-item" id="navDisc" onclick="openDiscussion()"><span class="nav-ico">💬</span><span>Discussion</span></div>
     <div class="nav-item" id="navInbox" onclick="openInbox()"><span class="nav-ico">🔔</span><span>Notifications</span></div>
     <div class="nav-item" id="navFocus" style="display:none" onclick="openFocus()"><span class="nav-ico">🎯</span><span id="navFocusT">Focus Mode</span></div>
-    <div class="nav-item" id="navPdf" style="display:none" onclick="openPdf()"><span class="nav-ico">📕</span><span>PDF Reader</span></div>
+    <div class="nav-item" id="navPdf" style="display:none" onclick="openPdf()"><span class="nav-ico">📖</span><span>Office Reader</span></div>
     <div class="nav-item" id="navPush" style="display:none" onclick="pushEnableClick();closeSidebar()"><span class="nav-ico">✅</span><span>Enable Notifications</span></div>
     <div class="nav-item" id="navResCircular" onclick="openRes('circular')"><span class="nav-ico">📢</span><span>Current Circular</span></div>
     <div class="nav-item" id="navResQbank" onclick="openRes('qbank')"><span class="nav-ico">📚</span><span>Question Bank</span></div>
@@ -2378,7 +2378,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
   </div>
 
   <div class="view" id="viewFocus"><div id="focusHost"></div></div>
-  <div class="view" id="viewPdf"><div id="pdfBar"><button type="button" onclick="goHome()">← Back</button><b>📕 PDF Reader</b><span class="sp"></span><button type="button" onclick="pdfPick()">📂 Open PDF</button><button type="button" onclick="pdfDefault()">⭐ Default PDF reader</button></div><div id="pdfHost"></div></div>
+  <div class="view" id="viewPdf"><div id="pdfBar"><button type="button" onclick="goHome()">← Back</button><b>📖 Office Reader</b><span class="sp"></span><button type="button" onclick="pdfPick()">📂 Open file</button><button type="button" onclick="pdfDefault()">⭐ Default reader</button></div><div id="pdfHost"></div></div>
 
   <div class="view" id="viewBrowser">
     <div class="bt-strip" id="btStrip">
@@ -3556,7 +3556,7 @@ window.goView=function(id, _fromPop){
   if(id==="viewHome") $("navHome").classList.add("active");
   if(id==="viewFocus"){try{focusEnsure();$("navFocus").classList.add("active")}catch(e){}}
   if(id==="viewPdf"){try{pdfEnsure();$("navPdf").classList.add("active")}catch(e){}}
-  const titles={viewFocus:"Focus Mode",viewPdf:"PDF Reader",viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewOffline:"Offline Lessons",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewQB:"MCQ Practice",viewMembers:"Premium Members",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class",viewBrowser:"Safe Browser",viewStudy:"Study Tools"};
+  const titles={viewFocus:"Focus Mode",viewPdf:"Office Reader",viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewOffline:"Offline Lessons",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewQB:"MCQ Practice",viewMembers:"Premium Members",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class",viewBrowser:"Safe Browser",viewStudy:"Study Tools"};
   $("topbarTitle").textContent=titles[id]||"Rajib Tutorial";
   try{if(id!=="viewDisc")dLeave();if(id==="viewInbox")inboxLoad();if(id==="viewOffline")offRender()}catch(e){}
 
@@ -7071,16 +7071,17 @@ window.openOffline=function(){goView("viewOffline");closeSidebar()};
   };
   if(sh.focus.onShow)sh.focus.onShow(()=>window.openFocus());   // tray → Focus Mode
 })();
-// PDF Reader sidebar item (Windows exe only): Acrobat-style viewer (pdf.js) in a webview of the local rtpdf:// page.
-// Also receives PDFs opened from Windows Explorer ("Open with" / default app).
+// Office Reader sidebar item (Windows exe only): PDF (pdf.js, Acrobat-style) + Word / Excel / PowerPoint, all rendered locally in a webview of rtpdf:// pages.
+// Also receives files opened from Windows Explorer ("Open with" / default app).
 (function(){
   const sh=window.ElectronShell;if(!(sh&&sh.isElectron&&sh.pdf))return;
   const nav=document.getElementById("navPdf");if(!nav)return;
   nav.style.display="";
-  const SRC="rtpdf://app/pdfjs/web/viewer.html";let wv=null;
-  window.pdfEnsure=function(url){
+  const SRC="rtpdf://app/pdfjs/web/viewer.html",OSRC="rtpdf://app/office/viewer.html";let wv=null;
+  window.pdfEnsure=function(url,kind,name){
     const host=$("pdfHost");if(!host)return;
-    const src=url?SRC+"?file="+encodeURIComponent(url):SRC;
+    const office=!!url&&!!kind&&kind!=="pdf";
+    const src=!url?OSRC:office?OSRC+"?file="+encodeURIComponent(url)+"&type="+encodeURIComponent(kind)+"&name="+encodeURIComponent(name||("file."+kind)):SRC+"?file="+encodeURIComponent(url);
     if(wv&&wv.isConnected){if(url)wv.setAttribute("src",src);return}
     host.textContent="";
     wv=document.createElement("webview");
@@ -7090,19 +7091,19 @@ window.openOffline=function(){goView("viewOffline");closeSidebar()};
       if(!e.isMainFrame||e.errorCode===-3)return;
       host.textContent="";wv=null;
       const d=document.createElement("div");d.className="empty";d.style.cssText="padding:40px 16px;text-align:center";
-      d.textContent="PDF Reader load hoyni. App update kore abar try korun.";
+      d.textContent="Office Reader load hoyni. App update kore abar try korun.";
       host.appendChild(d);
     });
     host.appendChild(wv);
   };
   window.openPdf=function(){goView("viewPdf");closeSidebar()};
   window.pdfPick=async function(){
-    try{const r=await sh.pdf.pick();if(r&&r.url){window.pdfEnsure(r.url);goView("viewPdf")}}catch(e){}
+    try{const r=await sh.pdf.pick();if(r&&r.url){window.pdfEnsure(r.url,r.kind,r.name);goView("viewPdf")}}catch(e){}
   };
   window.pdfDefault=function(){
-    try{sh.pdf.setDefault();showToast("Default apps e PDF → Rajib Tutorial select korun")}catch(e){}
+    try{sh.pdf.setDefault();showToast("Default apps e PDF / Word / Excel / PowerPoint → Rajib Tutorial select korun")}catch(e){}
   };
-  sh.pdf.onOpen(o=>{if(o&&o.url){window.pdfEnsure(o.url);goView("viewPdf");closeSidebar()}});   // PDF opened from Windows Explorer
+  sh.pdf.onOpen(o=>{if(o&&o.url){window.pdfEnsure(o.url,o.kind,o.name);goView("viewPdf");closeSidebar()}});   // file opened from Windows Explorer
 })();
 window.offRender=async function(){
   const box=$("offList"),pl=$("offPlayer");if(!box)return;
