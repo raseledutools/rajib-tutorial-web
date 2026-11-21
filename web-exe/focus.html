@@ -188,7 +188,9 @@ button.tab.on:hover:not(:disabled){background:linear-gradient(135deg,#14bcc5,#6b
 .sw input:checked+span{background:var(--ok2)}
 .sw input:checked+span::after{transform:translateX(18px)}
 .sw input:disabled+span{opacity:.5;cursor:not-allowed}
-.modal.wide{width:min(720px,94vw)}
+.modal.wide{width:min(720px,94vw);overflow-y:auto;overflow-x:hidden}
+/* Save/Cancel always visible: the editor is taller than a small window, so the buttons stick to the bottom while the form scrolls */
+.modal.wide .btns{position:sticky;bottom:-18px;z-index:2;background:#fff;margin:12px -22px -18px;padding:12px 22px 18px;border-top:1px solid var(--line)}
 .modal input[type=time]{font:inherit;border:1.5px solid var(--line);border-radius:10px;padding:6px 10px;background:#fbfcfe;color:var(--ink)}
 .lft{text-align:left;margin-top:12px;font-weight:600}
 .days{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}

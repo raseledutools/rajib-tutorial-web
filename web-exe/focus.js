@@ -22,6 +22,15 @@ const HELPER_DIR = () => path.join(app.getPath('userData'), 'focus-helper');
 const QUICK_MIN = 25;
 const DEFAULT_QSITES = ['raseledutools.github.io'];
 let st = { settings: Object.assign({}, core.DEFAULTS), active: false, endAt: 0, pw: null, schedules: [], quick: false, qsites: DEFAULT_QSITES.slice() };
+/* Ready-made Schedule Block profiles, added once on first run. They start switched OFF: an active profile can't be edited or deleted until its window ends, so the user turns on the ones they want. */
+const PRESET_SCHEDULES = [
+  { name: 'Study Time', days: [6, 0, 1, 2, 3, 4], start: '09:00', end: '13:00', sites: ['facebook.com', 'youtube.com', 'instagram.com', 'tiktok.com'], apps: [{ type: 'exe', name: 'discord.exe' }, { type: 'exe', name: 'telegram.exe' }] },
+  { name: 'Deep Work', days: [0, 1, 2, 3, 4], start: '14:00', end: '18:00', sites: ['facebook.com', 'reddit.com', 'twitter.com', 'tiktok.com'], apps: [{ type: 'exe', name: 'discord.exe' }] },
+  { name: 'Night Block', days: [0, 1, 2, 3, 4, 5, 6], start: '23:00', end: '06:00', sites: ['facebook.com', 'youtube.com', 'instagram.com', 'tiktok.com', 'reddit.com'], apps: [{ type: 'exe', name: 'discord.exe' }, { type: 'exe', name: 'telegram.exe' }] },
+];
+function presetSchedules() {
+  return PRESET_SCHEDULES.map((p) => core.sanitizeSchedule(Object.assign({ enabled: false, allDay: false }, p)).value).filter(Boolean);
+}
 let schedBlocks = { ids: [], names: [], sites: [], apps: [] }; // what the schedules block right now (refreshed every 10 s)
 let helper = null, restartTimer = null, expiryTimer = null, schedTimer = null;
 let getMainWin = () => null, hooks = {};
@@ -57,14 +66,16 @@ function load() {
     st.endAt = st.active ? Number(j.endAt) : 0;
     st.pw = st.active && j.pw && j.pw.salt && j.pw.hash ? j.pw : null;
     st.schedules = core.sanitizeSchedules(j.schedules);
+    st.seeded = !!j.schedSeeded || st.schedules.length > 0;
     st.quick = st.active && !!j.quick;
     if (Array.isArray(j.qsites)) { const q = core.sanitizeSettings({ sites: j.qsites }, core.DEFAULTS).sites; st.qsites = q.length || j.qsites.length === 0 ? q : DEFAULT_QSITES.slice(); }
   } catch (_) { /* first run */ }
+  if (!st.seeded) { st.schedules = presetSchedules(); st.seeded = true; save(); }
 }
 function save() {
   try {
     fs.mkdirSync(path.dirname(STATE_FILE()), { recursive: true });
-    fs.writeFileSync(STATE_FILE(), JSON.stringify({ settings: st.settings, active: st.active, endAt: st.endAt, pw: st.pw, schedules: st.schedules, quick: st.quick, qsites: st.qsites }));
+    fs.writeFileSync(STATE_FILE(), JSON.stringify({ settings: st.settings, active: st.active, endAt: st.endAt, pw: st.pw, schedules: st.schedules, schedSeeded: !!st.seeded, quick: st.quick, qsites: st.qsites }));
   } catch (_) {}
 }
 
