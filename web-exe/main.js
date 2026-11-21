@@ -324,7 +324,7 @@ function create() {
     backgroundColor: '#ffffff', title: 'Rajib Tutorial', autoHideMenuBar: true,
     // custom title bar (drawn by preload.js); Windows draws only the min / max / close buttons
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#ffffff', symbolColor: '#1f2937', height: 36 },
+    titleBarOverlay: { color: '#ffffff', symbolColor: '#1f2937', height: 28 },
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       contextIsolation: true,

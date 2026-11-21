@@ -7,11 +7,11 @@ function buildTitleBar() {
   const isFile = location.protocol === 'file:';
   const bar = document.createElement('div');
   bar.id = '__rt_titlebar';
-  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:36px;z-index:2147483646;display:flex;align-items:center;gap:8px;padding:0 150px 0 12px;background:#fff;border-bottom:1px solid #E3E6EA;font:600 13px "Segoe UI",system-ui,sans-serif;color:#1f2937;-webkit-app-region:drag;user-select:none;transform:translateZ(0);will-change:transform';
+  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;height:28px;z-index:2147483646;display:flex;align-items:center;gap:8px;padding:0 150px 0 12px;background:#fff;border-bottom:1px solid #E3E6EA;font:600 13px "Segoe UI",system-ui,sans-serif;color:#1f2937;-webkit-app-region:drag;user-select:none;transform:translateZ(0);will-change:transform';
   bar.innerHTML = '<svg width="18" height="18" viewBox="0 0 100 100" fill="none" stroke="#00959c" stroke-width="9" stroke-linecap="round"><path d="M50 14v72M14 50h72M24 24l52 52M76 24L24 76"/></svg><span>Rajib Tutorial</span>';
   document.body.appendChild(bar);
   // Local pages (focus / offline) have no layout that knows about the bar: push their content down.
-  if (isFile && !location.pathname.endsWith('splash.html')) document.documentElement.style.paddingTop = '36px';
+  if (isFile && !location.pathname.endsWith('splash.html')) document.documentElement.style.paddingTop = '28px';
 }
 window.addEventListener('DOMContentLoaded', buildTitleBar);
 window.addEventListener('load', buildTitleBar);
@@ -24,7 +24,7 @@ function injectBarStyle() {
   if (!root || document.getElementById('__rt_tbstyle')) return;
   const st = document.createElement('style');
   st.id = '__rt_tbstyle';
-  st.textContent = 'html::before{content:"";position:fixed;top:0;left:0;right:0;height:36px;background:#fff;border-bottom:1px solid #E3E6EA;z-index:2147483645;pointer-events:none}'
+  st.textContent = 'html::before{content:"";position:fixed;top:0;left:0;right:0;height:28px;background:#fff;border-bottom:1px solid #E3E6EA;z-index:2147483645;pointer-events:none}'
     + 'html.bt-fs::before{display:none}';
   root.appendChild(st);
 }

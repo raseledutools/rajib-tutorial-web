@@ -1659,19 +1659,42 @@ body.chat-on .topbar{display:none}
   .cx-sems{padding:8px 10px}
   .cx-thumb{height:92px}
 }
+.btn-feedback{display:flex;align-items:center;gap:6px;height:36px;padding:0 13px;border-radius:10px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn-feedback:hover{background:rgba(255,255,255,.28)}
+@media(max-width:560px){.btn-feedback span{display:none}.btn-feedback{padding:0 10px}}
+/* feedback modal + admin feedback list */
+.fb-stars{display:flex;gap:4px;margin:4px 0 2px}.fb-stars button{font-size:26px;line-height:1;background:none;border:none;cursor:pointer;color:#cbd5e1;padding:0 2px}.fb-stars button.on{color:#f59e0b}
+.fb-card{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+.fb-card.new{border-color:#0ea5b0;box-shadow:0 0 0 3px rgba(14,165,176,.10)}
+.fb-top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--sub)}
+.fb-top b{color:var(--text);font-size:14px}.fb-st{color:#f59e0b;letter-spacing:1px}
+.fb-msg{margin:8px 0;white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.5;color:var(--text)}
+.fb-meta{font-size:11.5px;color:var(--sub)}.fb-acts{display:flex;gap:8px;margin-top:10px}
+.fb-acts button{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12.5px;font-weight:600;cursor:pointer}
+.fb-acts button.d{color:var(--red);border-color:rgba(239,107,91,.35)}
+.fb-tabs{display:flex;gap:8px;margin-bottom:12px}.fb-tabs button{padding:6px 14px;border-radius:999px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer}.fb-tabs button.on{background:var(--rd-teal,#00959c);border-color:var(--rd-teal,#00959c);color:#fff}
+.nav-cnt{margin-left:6px;background:#ef4444;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px}
+/* member devices (admin) */
+.dv-sum{align-self:flex-start;margin-top:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg2,#f5f6f8);font-size:12px;font-weight:600;cursor:pointer;color:var(--text)}
+.dv-list{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.dv-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff}
+.dv-row b{font-size:13px;color:var(--text)}.dv-row small{display:block;font-size:11px;color:var(--sub);margin-top:2px;line-height:1.45}
+.mc-info .dv-on{color:#059669;font-size:11.5px;font-weight:700;margin-left:6px}.mc-info .dv-off{color:var(--sub);font-size:11.5px;margin-left:6px}.mc-info .dv-al{color:#0b7285;background:#e0f5f6;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700;margin-left:6px}
+.dv-acts{display:flex;gap:6px;flex-wrap:wrap}.dv-acts button{padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12px;font-weight:600;cursor:pointer}
+.dv-acts button.ok{background:#e0f5f6;border-color:#0ea5b0;color:#0b7285}.dv-acts button.d{color:var(--red);border-color:rgba(239,107,91,.35)}
 </style>
 <style id="rasDesk">
 /* ── RasFocus+ desktop style: title bar (exe) · teal header · fixed teal sidebar · framed content cards ── */
-html.is-exe{--tb:36px}
-:root{--tb:0px;--rd-teal:#00959c;--rd-teal2:#00808c;--rd-teal3:#0ea5b0;--rd-green:#5aa717;--rd-cream:#FFF8DC;--rd-bg:#F7F8FA;--rd-line:#E3E6EA;--rd-sidebar-w:250px}
+html.is-exe{--tb:28px}
+:root{--tb:0px;--rd-hdr:50px;--rd-teal:#00959c;--rd-teal2:#00808c;--rd-teal3:#0ea5b0;--rd-green:#5aa717;--rd-cream:#FFF8DC;--rd-bg:#F7F8FA;--rd-line:#E3E6EA;--rd-sidebar-w:250px}
 body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Noto Sans Bengali',sans-serif;background:var(--rd-bg)}
 
 /* header (teal) */
-.topbar{top:var(--tb);height:64px;background:var(--rd-teal);border-bottom:none;box-shadow:none;padding:0 20px 0 8px;backdrop-filter:none;-webkit-backdrop-filter:none}
-.topbar-title{font-size:21px;font-weight:700;color:#fff;-webkit-text-fill-color:#fff;letter-spacing:-.01em}
-.btn-hamburger{background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:10px;width:42px;height:42px}
+.topbar{top:var(--tb);height:var(--rd-hdr);background:var(--rd-teal);border-bottom:none;box-shadow:none;padding:0 20px 0 8px;backdrop-filter:none;-webkit-backdrop-filter:none}
+.topbar-title{font-size:19px;font-weight:700;color:#fff;-webkit-text-fill-color:#fff;letter-spacing:-.01em}
+.btn-hamburger{background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:10px;width:38px;height:38px}
 .btn-hamburger:hover{background:rgba(255,255,255,.28);color:#fff;border:none}
-.btn-nav,.btn-bell,.tb-right .btn-refresh{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:10px;width:40px;height:40px}
+.btn-nav,.btn-bell,.tb-right .btn-refresh{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:10px;width:36px;height:36px}
 .btn-nav:hover,.btn-bell:hover,.tb-right .btn-refresh:hover{background:rgba(255,255,255,.28);color:#fff}
 .tb-right{gap:8px}
 .tb-right #userArea>*{color:#fff}
@@ -1680,12 +1703,13 @@ body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Noto Sans Bengali',s
 /* sidebar (solid dark teal, active item = white bar) */
 .sidebar{background:var(--rd-teal2);color:#fff;border-right:none;box-shadow:none;width:var(--rd-sidebar-w);top:var(--tb);height:calc(100vh - var(--tb))}
 .sidebar.open{box-shadow:10px 0 30px rgba(0,60,66,.35)}
-.sidebar-top{padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.14)}
+.sidebar-top{padding:0 14px;height:var(--rd-hdr);box-sizing:border-box;gap:10px;border-bottom:1px solid rgba(255,255,255,.14)}
+.sidebar-logo{width:34px;height:34px}.sidebar-logo svg{width:20px;height:20px}
 .sidebar-logo{background:#fff;border-radius:50%;box-shadow:none}
 .sidebar-logo svg{stroke:var(--rd-teal2)}
 #sidebarCourses>div{color:rgba(255,255,255,.75)!important}
-.sidebar-brand{color:#fff;font-weight:700;font-size:17px}
-.sidebar-brand small{color:rgba(255,255,255,.75)}
+.sidebar-brand{color:#fff;font-weight:700;font-size:15px}
+.sidebar-brand small{color:rgba(255,255,255,.75);font-size:10.5px}
 .sidebar-nav{padding:10px 0}
 .nav-label{color:rgba(255,255,255,.6);padding:14px 20px 6px}
 .nav-item,.course-nav-item{color:#fff;border-radius:0;padding:13px 20px;font-size:15px;font-weight:600;gap:14px}
@@ -1848,7 +1872,7 @@ body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 <style id="rasExt">
 /* ── Embedded site view (YouTube, YouTube Studio, Google …): sidebar + top header + title bar stay fixed ── */
 #viewExt{position:relative;flex-direction:column;background:#fff}
-#viewExt.active{display:flex;height:calc(100vh - var(--tb,0px) - 64px)}
+#viewExt.active{display:flex;height:calc(100vh - var(--tb,0px) - var(--rd-hdr,64px))}
 .ext-bar{display:flex;align-items:center;gap:4px;padding:6px 10px;background:#fff;border-bottom:1px solid var(--rd-line,#e3e6ea);flex:none}
 .ext-bar button{width:32px;height:32px;border-radius:8px;border:0;background:transparent;color:var(--rd-teal2,#00808c);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;transition:background .12s}
 .ext-bar button:hover:not(:disabled){background:#e6f6f7}
@@ -1879,7 +1903,7 @@ body:has(#viewPdf.active) .main{margin-left:0!important}
 body:has(#viewPdf.active) #__rt_nav,body:has(#viewPdf.active) #__rt_updcheck,body:has(#viewPdf.active) #__rt_focus{display:none!important}
 #pdfHost{flex:1;min-height:0}
 #pdfHost>webview{width:100%;height:100%;border:0;display:flex}
-#viewFocus.active{display:block;height:calc(100vh - var(--tb,0px) - 64px)}
+#viewFocus.active{display:block;height:calc(100vh - var(--tb,0px) - var(--rd-hdr,64px))}
 #focusHost,#focusHost>webview{width:100%;height:100%;border:0;display:flex}
 body:has(#viewFocus.active) #__rt_nav,body:has(#viewFocus.active) #__rt_updcheck,body:has(#viewFocus.active) #__rt_focus{display:none!important}
 @media(max-width:900px){#viewFocus.active{height:calc(100vh - var(--tb,0px) - 56px)}}
@@ -1889,7 +1913,7 @@ body:has(#viewFocus.active) #__rt_nav,body:has(#viewFocus.active) #__rt_updcheck
 /* ── Safe Browser: Chrome dark theme (tab strip · toolbar · bookmarks bar) ── */
 #viewBrowser{--c-frame:#1f1f1f;--c-bar:#3c3c3c;--c-bar2:#474747;--c-omni:#282828;--c-omni-hover:#2e2e2e;--c-text:#e3e3e3;--c-icon:#c4c7c5;--c-hover:rgba(255,255,255,.1);--c-line:#2b2b2b;--c-sep:#8e918f;--c-blue:#a8c7fa;--c-page:#3c3c3c;
   position:relative;flex-direction:column;background:var(--c-page);color:var(--c-text);font-family:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;color-scheme:dark}
-#viewBrowser.active{display:flex;height:calc(100vh - var(--tb,0px) - 64px)}
+#viewBrowser.active{display:flex;height:calc(100vh - var(--tb,0px) - var(--rd-hdr,64px))}
 #viewBrowser button{font-family:inherit}
 .bt-strip{display:flex;align-items:flex-end;background:var(--c-frame);padding:8px 8px 0 8px;flex:none;height:41px;box-sizing:border-box}
 .bt-ts{width:28px;height:28px;margin:0 8px 3px 0;border:0;border-radius:8px;background:var(--c-bar);color:var(--c-icon);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
@@ -2149,6 +2173,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     <button class="btn-admin-action" onclick="openMembers();closeSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 6.5 7 .9-5.2 4.8 1.4 7L12 17.8 5.8 21.2l1.4-7L2 9.4l7-.9z"/></svg> Premium Members
     </button>
+    <button class="btn-admin-action" onclick="openFeedbackAdmin();closeSidebar()">💬 Feedback<span class="nav-cnt hidden" id="fbCnt"></span></button>
     <button class="btn-admin-action" onclick="openNotify();closeSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg> Notification Center
     </button>
@@ -2185,7 +2210,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
       </button>
       <span class="topbar-title" id="topbarTitle">Rajib Tutorial</span>
     </div>
-    <div class="tb-right"><button class="btn-bell" onclick="openInbox()" aria-label="Notifications" title="Notifications">🔔<span class="bell-dot hidden" id="bellDot"></span></button><button class="btn-refresh" id="btnRefresh" onclick="refreshSite()" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button><div id="userArea"></div></div>
+    <div class="tb-right"><button class="btn-bell" onclick="openInbox()" aria-label="Notifications" title="Notifications">🔔<span class="bell-dot hidden" id="bellDot"></span></button><button class="btn-feedback" id="btnFeedback" onclick="openFeedback()" aria-label="Feedback" title="Feedback দিন">💬<span>Feedback</span></button><div id="userArea"></div></div>
   </header>
 
   <!-- HOME -->
@@ -2199,7 +2224,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
         <p>Video lessons, live classes and exams, a question bank and MCQ practice — complete preparation for all 8 semesters, right at your fingertips.</p>
         <div class="hm-cta">
           <a class="hm-btn pri" href="#coursesAnchor" onclick="document.getElementById('coursesAnchor').scrollIntoView({behavior:'smooth'});return false">Browse Courses</a>
-          <a class="hm-btn dark" href="RajibTutorial.apk" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg><span>Download App</span></a>
+          <a class="hm-btn dark" href="https://github.com/raseledutools/rajib-tutorial-web/releases/latest/download/RajibTutorial.apk" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg><span>Download App for Android</span></a>
         </div>
       </div>
       <div class="hm-herobox">
@@ -2285,7 +2310,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     <section class="hm-ctab">
       <h2>Get Started Today</h2>
       <p>Smarter, simpler EEE preparation — right on your phone</p>
-      <div class="hm-cta"><a class="hm-btn light" href="RajibTutorial.apk" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg><span>Download App</span></a></div>
+      <div class="hm-cta"><a class="hm-btn light" href="https://github.com/raseledutools/rajib-tutorial-web/releases/latest/download/RajibTutorial.apk" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg><span>Download App for Android</span></a></div>
     </section>
   </div>
 
@@ -2451,6 +2476,14 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
         <div class="grp"><button class="btn-add" onclick="openAddMember()">+ Add Member</button></div>
       </div>
       <div id="memberList"></div>
+    </div>
+  </div>
+  <!-- FEEDBACK (admin) -->
+  <div class="view" id="viewFeedback">
+    <div class="manage-wrap">
+      <div class="manage-hdr"><h2>Feedback</h2><div class="grp"><button class="btn-add" onclick="loadFeedback()">⟳ Reload</button></div></div>
+      <div class="fb-tabs" id="fbTabs"></div>
+      <div id="fbList"><div class="loader"><div class="spin"></div>Loading…</div></div>
     </div>
   </div>
   <!-- DISCUSSION -->
@@ -3010,19 +3043,19 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
 </div>
 
 
-<!-- Device Settings modal -->
-<div class="modal-bg hidden" id="mDeviceSettings">
+<!-- Feedback modal -->
+<div class="modal-bg hidden" id="mFeedback">
   <div class="modal">
-    <div class="modal-title">Device Settings</div>
-    <div class="modal-sub" id="dsMemberName">Member device management</div>
-    <input type="hidden" id="dsMemberId"/>
-    <div id="dsCurrentDevice" style="margin:12px 0;padding:12px;background:var(--bg2);border-radius:10px;font-size:13px"></div>
-    <h4 style="font-size:12px;font-weight:700;color:var(--sub);letter-spacing:.08em;text-transform:uppercase;margin:12px 0 6px">Allowed Devices</h4>
-    <div class="modal-sub" style="font-size:12px;margin-bottom:8px">শুধু এই device গুলো login করতে পারবে। Empty রাখলে যেকোনো device থেকে login করা যাবে (তবে একসময়ে শুধু একটি)।</div>
-    <div id="dsAllowedList" style="max-height:160px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:6px;margin-bottom:8px"></div>
+    <div class="modal-title">💬 Feedback</div>
+    <div class="modal-sub">আপনার মতামত, সমস্যা বা পরামর্শ জানান — admin সরাসরি দেখতে পারবেন।</div>
+    <div class="fl"><label>Rating (ঐচ্ছিক)</label><div class="fb-stars" id="fbStars"></div></div>
+    <div class="fl"><label>আপনার মতামত</label><textarea id="fbMsg" maxlength="1000" placeholder="এখানে লিখুন…"></textarea></div>
+    <div class="fl"><label>নাম (ঐচ্ছিক)</label><input type="text" id="fbName" maxlength="60" placeholder="আপনার নাম"/></div>
+    <div class="fl"><label>মোবাইল (ঐচ্ছিক)</label><input type="tel" id="fbMobile" maxlength="14" placeholder="01XXXXXXXXX"/></div>
+    <div class="err-msg h" id="fbErr"></div>
     <div class="modal-acts">
-      <button class="btn-cancel" onclick="closeM('mDeviceSettings')">বন্ধ করুন</button>
-      <button class="btn-ok red" onclick="forceLogoutDevice()">Device Logout করুন</button>
+      <button class="btn-cancel" onclick="closeM('mFeedback')">বাতিল</button>
+      <button class="btn-ok" id="fbSend" onclick="sendFeedback()">পাঠান</button>
     </div>
   </div>
 </div>
@@ -3193,20 +3226,25 @@ const DEVICE_ID=getOrCreateDeviceId();
 
 function deviceLabel(){
   const ua=navigator.userAgent;
-  let os='Unknown';
+  let os='Unknown',model='';
   if(/Windows/.test(ua))os='Windows';
-  else if(/Android/.test(ua))os='Android';
+  else if(/Android/.test(ua)){
+    os='Android';
+    const mm=ua.match(/Android[^;)]*;\s*([^;)]+?)(?:\s+Build|[;)])/);
+    if(mm){const t=mm[1].trim();if(t.length>2&&!/^(wv|U|K)$/i.test(t))model=t}
+  }
   else if(/iPhone|iPad/.test(ua))os='iOS';
   else if(/Mac/.test(ua))os='Mac';
   else if(/Linux/.test(ua))os='Linux';
-  let browser='Browser';
-  if(/Chrome/.test(ua)&&!/Edg/.test(ua))browser='Chrome';
-  else if(/Firefox/.test(ua))browser='Firefox';
-  else if(/Safari/.test(ua)&&!/Chrome/.test(ua))browser='Safari';
-  else if(/Edg/.test(ua))browser='Edge';
-  return os+' · '+browser;
+  let app='Browser';
+  if(/Electron\//.test(ua))app='PC App';
+  else if(/Android/.test(ua)&&/; wv\)/.test(ua))app='Android App';
+  else if(/Edg/.test(ua))app='Edge';
+  else if(/Chrome/.test(ua))app='Chrome';
+  else if(/Firefox/.test(ua))app='Firefox';
+  else if(/Safari/.test(ua))app='Safari';
+  return os+(model?' '+model:'')+' · '+app;
 }
-
 
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function safeUrl(u){u=String(u||"").trim();return /^https?:\/\//i.test(u)?u:""}
@@ -3552,7 +3590,7 @@ window.goView=function(id, _fromPop){
   if(id==="viewHome") $("navHome").classList.add("active");
   if(id==="viewFocus"){try{focusEnsure();$("navFocus").classList.add("active")}catch(e){}}
   if(id==="viewPdf"){try{pdfEnsure();$("navPdf").classList.add("active")}catch(e){}}
-  const titles={viewFocus:"Focus Mode",viewPdf:"Office Reader",viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewOffline:"Offline Lessons",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewQB:"MCQ Practice",viewMembers:"Premium Members",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class",viewBrowser:"Safe Browser",viewStudy:"Study Tools"};
+  const titles={viewFocus:"Focus Mode",viewPdf:"Office Reader",viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewOffline:"Offline Lessons",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewQB:"MCQ Practice",viewMembers:"Premium Members",viewFeedback:"Feedback",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class",viewBrowser:"Safe Browser",viewStudy:"Study Tools"};
   $("topbarTitle").textContent=titles[id]||"Rajib Tutorial";
   try{if(id!=="viewDisc")dLeave();if(id==="viewInbox")inboxLoad();if(id==="viewOffline")offRender()}catch(e){}
 
@@ -4434,7 +4472,7 @@ async function loadCourses(){
       if(d.id===LIVE_DOC){live={...live,...(data.live||{})};return}
       if(d.id.startsWith("_member_")){members.push({id:d.id,...data});return}
       if(d.id.startsWith("_res_")){resources.push({id:d.id,type:data.type||"",category:data.category||"",title:data.title||"",url:data.url||"",note:data.note||"",at:Number(data.at)||0});return}
-      if(d.id.startsWith("_disc_")||d.id.startsWith("_call_")||d.id.startsWith("_payreq_"))return;
+      if(d.id.startsWith("_disc_")||d.id.startsWith("_call_")||d.id.startsWith("_payreq_")||d.id.startsWith("_fb_"))return;
       courses.push({
         id:d.id,courseName:data.courseName||"",title:data.title||d.id,
         category:CATS.some(k=>k.id===data.category)?data.category:"diploma",className:data.className||"",subject:data.subject||"",description:data.description||"",price:parsePrice(data.price),
@@ -4609,13 +4647,8 @@ async function _playVideo(vid){
       if(snap.exists()){
         const d=snap.data();
         // Token mismatch → kicked out by another device
-        if(d.sessionToken && d.sessionToken!==session.token){
-          _forceLogoutUser("এই video চালু করা যাচ্ছে না। আপনার account অন্য device-এ login হয়েছে।");
-          return;
-        }
-        // Allowed-device block
-        if(d.allowedDevices&&d.allowedDevices.length>0&&!d.allowedDevices.includes(DEVICE_ID)){
-          _forceLogoutUser("এই device-এ video দেখার অনুমতি নেই।");
+        if(!sessionStillValid(d)){
+          _forceLogoutUser("এই video চালু করা যাচ্ছে না। আপনার account অন্য device-এ login হয়েছে বা admin logout করেছেন।");
           return;
         }
         // Expiry
@@ -4680,7 +4713,7 @@ window.doLogin=function(){
   if($("pwIn").value===ADMIN_PW){
     adminIn=true;closeM("mLogin");
     $("adminSidebar").classList.add("show");$("btnAdminLogin").style.display="none";
-    renderManage();renderUser();if(curCourse)renderVlist();goView("viewManage");closeSidebar();showToast("Welcome to the admin panel");
+    renderManage();renderUser();if(curCourse)renderVlist();goView("viewManage");closeSidebar();showToast("Welcome to the admin panel");try{fbRefreshCount()}catch(e){}
   }else{$("pwErr").classList.remove("h");$("pwIn").value="";$("pwIn").focus()}
 };
 window.adminLogout=function(){
@@ -4988,6 +5021,15 @@ function validateSession(){
 // ── Session-token heartbeat ───────────────────────────────
 let _sessionPollTimer=null;
 function genToken(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
+// A session is valid while THIS device's own token in the member doc still matches. Devices the admin "Allowed" keep their own
+// token, so they stay logged in together; every other device shares one slot (a newer login clears the older one's token).
+// Sessions that started before per-device tokens existed (no record for this device) fall back to the old single-token rule.
+function sessionStillValid(d){
+  const dv=d.devices&&d.devices[DEVICE_ID];
+  if(dv)return !!dv.token&&dv.token===session.token;
+  return !(d.sessionToken&&d.sessionToken!==session.token);
+}
+let _lastSeenW=0;
 async function checkSessionAlive(){
   if(!session?.mobile||adminIn)return;
   try{
@@ -4996,9 +5038,14 @@ async function checkSessionAlive(){
     const d=snap.data();
     // Token mismatch OR missing token → another device logged in
     // If Firestore has a token but local session doesn't match → kick out
-    if(d.sessionToken && d.sessionToken!==session.token){
-      _forceLogoutUser("আপনার account অন্য একটি device-এ login হয়েছে। এই session শেষ।");
+    if(!sessionStillValid(d)){
+      _forceLogoutUser("আপনার account অন্য একটি device-এ login হয়েছে বা admin logout করেছেন। এই session শেষ।");
       return;
+    }
+    // heartbeat: "last active" for the admin's device list (at most one write per 5 minutes)
+    if(d.devices&&d.devices[DEVICE_ID]&&Date.now()-_lastSeenW>300000){
+      _lastSeenW=Date.now();
+      updateDoc(doc(db,"tutorial_courses","_member_"+session.mobile),{["devices."+DEVICE_ID+".lastSeen"]:_lastSeenW}).catch(()=>{});
     }
     // Expiry check
     if(d.expiry&&todayStr()>d.expiry){_forceLogoutUser("আপনার Premium membership মেয়াদোত্তীর্ণ।");return}
@@ -5186,40 +5233,43 @@ window.openMemberLogin=function(){
 };
 async function memberAuth(mobile, forceDevice=false){
   try{
-    const snap=await getDoc(doc(db,"tutorial_courses","_member_"+mobile));
+    const ref=doc(db,"tutorial_courses","_member_"+mobile);
+    const snap=await getDoc(ref);
     const m=snap.exists()?snap.data():null;
     if(!m||!m.isMember) return {err:null, noAccess:true};
     if(m.expiry&&todayStr()>m.expiry) return {err:"এই Premium membership মেয়াদোত্তীর্ণ। অনুগ্রহ করে নবায়ন করুন।"};
 
-    // ── Allowed-device check (admin-controlled) ──
-    if(m.allowedDevices && m.allowedDevices.length>0){
-      if(!m.allowedDevices.includes(DEVICE_ID)){
-        return {err:"এই device থেকে login করার অনুমতি নেই। Admin এর সাথে যোগাযোগ করুন।"};
+    // Devices the admin has ALLOWED can stay logged in at the same time. Every other device shares ONE slot:
+    // a newer login there replaces the older one (after the confirm dialog).
+    const allowedList=m.allowedDevices||[],allowed=allowedList.includes(DEVICE_ID);
+    if(!allowed){
+      const other=m.sessionDevice;
+      if(!forceDevice&&m.sessionToken&&other&&other!==DEVICE_ID&&!allowedList.includes(other)){
+        return {err:null, deviceConflict:true, otherDevice:m.activeDevice?.label||"অন্য device"};
       }
     }
 
-    // ── Single-device enforcement via session token ──
-    // If Firestore has an active token from a DIFFERENT device → conflict
-    const hasOtherActive = !forceDevice
-      && m.sessionToken                       // token exists in Firestore
-      && m.sessionDevice                      // device recorded
-      && m.sessionDevice !== DEVICE_ID;       // it's not THIS device
-
-    if(hasOtherActive){
-      return {err:null, deviceConflict:true, otherDevice:m.activeDevice?.label||"অন্য device"};
+    const token=genToken(),now=Date.now(),label=deviceLabel();
+    const prev=(m.devices||{})[DEVICE_ID]||{};
+    // every device that ever logs in with this number is remembered (name, first/last login) for the admin's list
+    const drec={label,ua:String(navigator.userAgent||"").slice(0,180),firstSeen:prev.firstSeen||now,lastSeen:now,loginTime:now,token};
+    const upd={["devices."+DEVICE_ID]:drec};
+    let devInfo=null;
+    if(!allowed){
+      const ad=m.activeDevice;
+      if(ad&&ad.deviceId&&ad.deviceId!==DEVICE_ID&&!allowedList.includes(ad.deviceId)){   // the device that held the slot is logged out
+        if(m.devices&&m.devices[ad.deviceId])upd["devices."+ad.deviceId+".token"]=null;
+        else upd["devices."+ad.deviceId]={label:ad.label||"Unknown device",firstSeen:ad.loginTime||now,lastSeen:ad.loginTime||now,loginTime:ad.loginTime||now,token:null};
+      }
+      devInfo={deviceId:DEVICE_ID,label,loginTime:now};
+      upd.activeDevice=devInfo;upd.sessionToken=token;upd.sessionDevice=DEVICE_ID;
+    }else if(m.sessionDevice===DEVICE_ID){
+      upd.activeDevice=null;upd.sessionToken=null;upd.sessionDevice=null;   // it was holding the slot before it was allowed: free it
     }
+    await updateDoc(ref,upd);
 
-    // ── Generate a new session token (invalidates ALL other devices instantly) ──
-    const token=genToken();
-    const devInfo={deviceId:DEVICE_ID,label:deviceLabel(),loginTime:Date.now()};
-    await updateDoc(doc(db,"tutorial_courses","_member_"+mobile),{
-      activeDevice:devInfo,
-      sessionToken:token,
-      sessionDevice:DEVICE_ID
-    });
-
-    session={mobile,token};saveSession();
-    const rec={id:snap.id,...m,activeDevice:devInfo,sessionToken:token};
+    session={mobile,token};saveSession();_lastSeenW=now;
+    const rec={id:snap.id,...m,devices:{...(m.devices||{}),[DEVICE_ID]:drec},...(allowed?{}:{activeDevice:devInfo,sessionToken:token,sessionDevice:DEVICE_ID})};
     const i=members.findIndex(x=>x.id===snap.id);
     if(i>=0)members[i]=rec;else members.push(rec);
     startSessionPoll();
@@ -5271,10 +5321,87 @@ window.memberLogout=async function(){
   if(curCourse){$("playerArea").innerHTML=placeholder(I.play,"Select a lesson to start watching");$("playerTitle").textContent="–";$("playerMeta").textContent="";renderVlist()}
   renderUser();showToast("Logged out");
   if(mobile){
-    try{await updateDoc(doc(db,"tutorial_courses","_member_"+mobile),{
-      activeDevice:null, sessionToken:null, sessionDevice:null
-    })}catch(e){}
+    try{
+      const ref=doc(db,"tutorial_courses","_member_"+mobile),sn=await getDoc(ref);
+      if(sn.exists()){
+        const d=sn.data(),upd={};
+        if(d.devices&&d.devices[DEVICE_ID])upd["devices."+DEVICE_ID+".token"]=null;   // only THIS device is logged out
+        if(d.sessionDevice===DEVICE_ID){upd.activeDevice=null;upd.sessionToken=null;upd.sessionDevice=null}
+        if(Object.keys(upd).length)await updateDoc(ref,upd);
+      }
+    }catch(e){}
   }
+};
+
+// ─── Feedback ────────────────────────────────────────────
+// Stored in the "tutorial_feedback" collection (so it is not downloaded by every visitor with the course list). If the Firestore
+// rules do not allow that collection, it falls back to "_fb_…" docs inside tutorial_courses (the app ignores those when loading courses).
+let _fbRating=0,_fbLast=0,fbItems=[],fbFilter="new";
+function fbStars(){$("fbStars").innerHTML=[1,2,3,4,5].map(n=>`<button type="button" class="${n<=_fbRating?"on":""}" onclick="setFbRating(${n})" aria-label="${n} star">★</button>`).join("")}
+window.setFbRating=n=>{_fbRating=_fbRating===n?0:n;fbStars()};
+window.openFeedback=function(){
+  let m=null;try{m=session?curMember():null}catch(e){}
+  $("fbMsg").value="";$("fbErr").classList.add("h");_fbRating=0;fbStars();
+  $("fbName").value=(m&&m.name)||"";$("fbMobile").value=(session&&session.mobile)||"";
+  $("fbSend").disabled=false;$("fbSend").textContent="পাঠান";
+  openM("mFeedback");setTimeout(()=>$("fbMsg").focus(),120);
+};
+window.sendFeedback=async function(){
+  const msg=$("fbMsg").value.trim(),err=$("fbErr"),btn=$("fbSend");
+  const fail=t=>{err.textContent=t;err.classList.remove("h")};
+  if(msg.length<5){fail("অনুগ্রহ করে অন্তত ৫টি অক্ষরের মতামত লিখুন।");return}
+  if(Date.now()-_fbLast<30000){fail("একটু পরে আবার পাঠান।");return}
+  const data={message:msg.slice(0,1000),rating:_fbRating,name:$("fbName").value.trim().slice(0,60),mobile:String($("fbMobile").value).replace(/\D/g,"").slice(0,14),
+    member:!!session,device:deviceLabel(),deviceId:DEVICE_ID,page:($("topbarTitle").textContent||"").slice(0,60),
+    platform:IS_EXE?"pc":(/Android/.test(navigator.userAgent)?"android":"web"),at:Date.now(),status:"new"};
+  const id="fb_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const wait=p=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(Object.assign(new Error("timeout"),{code:"timeout"})),12000))]);
+  btn.disabled=true;btn.textContent="পাঠানো হচ্ছে…";
+  try{
+    try{await wait(setDoc(doc(db,"tutorial_feedback",id),data))}
+    catch(e1){if(e1&&e1.code==="permission-denied")await wait(setDoc(doc(db,"tutorial_courses","_fb_"+id),data));else throw e1}
+    _fbLast=Date.now();closeM("mFeedback");showToast("ধন্যবাদ! আপনার feedback পাঠানো হয়েছে।");
+  }catch(e){
+    if(e&&e.code==="timeout"){_fbLast=Date.now();closeM("mFeedback");showToast("ইন্টারনেট ধীর — সংযোগ পেলে feedback নিজে থেকেই চলে যাবে।");return}
+    btn.disabled=false;btn.textContent="পাঠান";fail("পাঠানো যায়নি। ইন্টারনেট দেখে আবার চেষ্টা করুন।");
+  }
+};
+async function fbFetch(){
+  const out=[];let ok=false;
+  try{const sn=await _getDocs(collection(db,"tutorial_feedback"));ok=true;sn.forEach(d=>out.push({id:d.id,src:"tutorial_feedback",...d.data()}))}catch(e){}
+  try{const sn=await _getDocs(query(collection(db,"tutorial_courses"),where(documentId(),">=","_fb_"),where(documentId(),"<","_fb`")));ok=true;sn.forEach(d=>out.push({id:d.id,src:"tutorial_courses",...d.data()}))}catch(e){}
+  if(!ok)throw new Error("load failed");
+  return out.sort((a,b)=>(b.at||0)-(a.at||0));
+}
+function fbSetCount(){const n=fbItems.filter(x=>x.status!=="done").length,e=$("fbCnt");if(!e)return;e.textContent=n;e.classList.toggle("hidden",!n)}
+window.fbRefreshCount=async function(){try{fbItems=await fbFetch();fbSetCount()}catch(e){}};
+window.openFeedbackAdmin=function(){goView("viewFeedback");loadFeedback()};
+window.loadFeedback=async function(){
+  $("fbList").innerHTML='<div class="loader"><div class="spin"></div>Loading…</div>';
+  try{fbItems=await fbFetch();fbSetCount();renderFeedback()}
+  catch(e){$("fbList").innerHTML='<div class="empty"><p>Feedback load করা যায়নি।</p></div>'}
+};
+window.setFbFilter=f=>{fbFilter=f;renderFeedback()};
+function renderFeedback(){
+  const nNew=fbItems.filter(x=>x.status!=="done").length,nDone=fbItems.length-nNew;
+  $("fbTabs").innerHTML=[["new","নতুন ("+nNew+")"],["done","Done ("+nDone+")"],["all","সব ("+fbItems.length+")"]].map(([k,t])=>`<button class="${fbFilter===k?"on":""}" onclick="setFbFilter('${k}')">${t}</button>`).join("");
+  const list=fbItems.filter(x=>fbFilter==="all"||(fbFilter==="done"?x.status==="done":x.status!=="done"));
+  $("fbList").innerHTML=list.length?list.map(x=>`<div class="fb-card ${x.status==="done"?"":"new"}">
+    <div class="fb-top"><span><b>${esc(x.name||"নাম নেই")}</b>${x.mobile?" · "+esc(x.mobile):""}${x.member?" · ⭐ Premium":""}</span><span>${esc(fmtT(x.at))}</span></div>
+    ${x.rating?`<div class="fb-st">${"★".repeat(x.rating)}${"☆".repeat(5-x.rating)}</div>`:""}
+    <div class="fb-msg">${esc(x.message)}</div>
+    <div class="fb-meta">📱 ${esc(x.device||"")} · ${esc(x.platform||"")}${x.page?" · পাতা: "+esc(x.page):""}</div>
+    <div class="fb-acts"><button onclick="fbDone('${esc(x.id)}','${esc(x.src)}',${x.status==="done"?"false":"true"})">${x.status==="done"?"↩ নতুন করুন":"✔ Done"}</button><button class="d" onclick="fbDelete('${esc(x.id)}','${esc(x.src)}')">🗑 Delete</button></div>
+  </div>`).join(""):`<div class="empty"><p>${fbFilter==="new"?"কোনো নতুন feedback নেই।":"কিছু নেই।"}</p></div>`;
+}
+window.fbDone=async function(id,src,done){
+  try{await updateDoc(doc(db,src,id),{status:done?"done":"new"});const it=fbItems.find(x=>x.id===id);if(it)it.status=done?"done":"new";fbSetCount();renderFeedback()}
+  catch(e){showToast("Error: "+e.message)}
+};
+window.fbDelete=function(id,src){
+  $("confTitle").textContent="Feedback মুছবেন?";$("confMsg").textContent="এই feedback টি স্থায়ীভাবে মুছে যাবে।";
+  pendingDelFn=async()=>{try{await deleteDoc(doc(db,src,id));fbItems=fbItems.filter(x=>x.id!==id);fbSetCount();closeM("mConfirm");renderFeedback();showToast("Feedback মুছে ফেলা হয়েছে")}catch(e){showToast("Error: "+e.message)}};
+  openM("mConfirm");
 };
 
 // ─── Admin: members ──────────────────────────────────────
@@ -5482,6 +5609,60 @@ async function ntLoadHistory(){
       }).join("");
   }catch(e){st.textContent="❌ "+e.message;box.innerHTML=""}
 }
+// ── member devices (admin) ───────────────────────────────
+// Every device that logged in with a member's number is kept in m.devices (name, first/last login, own session token).
+// m.allowedDevices = devices the admin allowed: those can be logged in at the same time. All other devices share one slot.
+const _devOpen=new Set();
+const fmtT=t=>t?new Date(t).toLocaleString():"—";
+function memberDevices(m){
+  const map={...(m.devices||{})},allowed=m.allowedDevices||[];
+  const ad=m.activeDevice;
+  if(ad&&ad.deviceId&&!map[ad.deviceId])map[ad.deviceId]={label:ad.label,firstSeen:ad.loginTime,lastSeen:ad.loginTime,loginTime:ad.loginTime,token:m.sessionToken||null};   // logged in before device history existed
+  allowed.forEach(id=>{if(!map[id])map[id]={label:"Unknown device"}});
+  return Object.entries(map).map(([id,d])=>({id,...d,allowed:allowed.includes(id),online:!!d.token}))
+    .sort((a,b)=>(b.online-a.online)||((b.loginTime||0)-(a.loginTime||0)));
+}
+function devBlock(m){
+  const ds=memberDevices(m),on=ds.filter(d=>d.online).length,open=_devOpen.has(m.id);
+  const rows=ds.map(d=>`<div class="dv-row"><div><b>${esc(d.label||"Unknown device")}</b>${d.online?'<span class="dv-on">🟢 Logged in</span>':'<span class="dv-off">⚪ Logged out</span>'}${d.allowed?'<span class="dv-al">✔ Allowed — একসাথে login থাকতে পারবে</span>':''}<small>প্রথম দেখা: ${esc(fmtT(d.firstSeen))} · শেষ login: ${esc(fmtT(d.loginTime))}${d.lastSeen?" · শেষ active: "+esc(fmtT(d.lastSeen)):""} · ID …${esc(String(d.id).slice(-6))}</small></div><div class="dv-acts"><button class="${d.allowed?"":"ok"}" onclick="devAllow('${esc(m.id)}','${esc(d.id)}',${!d.allowed})">${d.allowed?"Allow বাদ দিন":"✔ Allow"}</button>${d.online?`<button class="d" onclick="devLogout('${esc(m.id)}','${esc(d.id)}')">Logout</button>`:""}</div></div>`).join("");
+  return `<button class="dv-sum" onclick="toggleDevs('${esc(m.id)}')">📱 ${ds.length} device · 🟢 ${on} এখন login ${open?"▴":"▾"}</button>`+
+    (open?`<div class="dv-list">${rows||'<div class="dv-off">এই নম্বর দিয়ে এখনো কোনো device login করেনি।</div>'}${on?`<div class="dv-acts"><button class="d" onclick="devLogoutAll('${esc(m.id)}')">সব device Logout</button></div>`:""}</div>`:"");
+}
+window.toggleDevs=function(mid){if(_devOpen.has(mid))_devOpen.delete(mid);else _devOpen.add(mid);renderMembers()};
+const _slotClear=()=>({activeDevice:null,sessionToken:null,sessionDevice:null});
+// fills `upd` so that device `did` is logged out (works for devices that only exist as the old single "activeDevice" too)
+function _logoutUpd(m,did,upd){
+  if(m.devices&&m.devices[did])upd["devices."+did+".token"]=null;
+  else{const ad=m.activeDevice,t=(ad&&ad.deviceId===did&&ad.loginTime)||Date.now();upd["devices."+did]={label:(ad&&ad.deviceId===did&&ad.label)||"Unknown device",firstSeen:t,lastSeen:t,loginTime:t,token:null}}
+  if(m.sessionDevice===did)Object.assign(upd,_slotClear());
+}
+async function _devWrite(mid,upd,msg){
+  try{await updateDoc(doc(db,"tutorial_courses",mid),upd);showToast(msg);await loadCourses();renderMembers()}
+  catch(e){showToast("Error: "+e.message)}
+}
+window.devAllow=async function(mid,did,on){
+  const m=members.find(x=>x.id===mid);if(!m)return;
+  const cur=new Set(m.allowedDevices||[]);on?cur.add(did):cur.delete(did);
+  const upd={allowedDevices:[...cur]};
+  if(on){
+    if(m.sessionDevice===did){   // it was holding the one-device slot: it keeps its own session, the slot becomes free
+      if(!(m.devices&&m.devices[did])){const ad=m.activeDevice,t=(ad&&ad.loginTime)||Date.now();upd["devices."+did]={label:(ad&&ad.label)||"Unknown device",firstSeen:t,lastSeen:t,loginTime:t,token:m.sessionToken||null}}
+      Object.assign(upd,_slotClear());
+    }
+  }else _logoutUpd(m,did,upd);   // back to the one-device rule → logged out
+  await _devWrite(mid,upd,on?"Device Allow করা হয়েছে — এখন একসাথে login থাকতে পারবে":"Allow বাদ দেওয়া হয়েছে (device logout)");
+};
+window.devLogout=async function(mid,did){
+  const m=members.find(x=>x.id===mid);if(!m)return;
+  const upd={};_logoutUpd(m,did,upd);
+  await _devWrite(mid,upd,"Device logout করা হয়েছে");
+};
+window.devLogoutAll=async function(mid){
+  const m=members.find(x=>x.id===mid);if(!m)return;
+  const upd={};memberDevices(m).filter(d=>d.online).forEach(d=>_logoutUpd(m,d.id,upd));Object.assign(upd,_slotClear());
+  await _devWrite(mid,upd,"সব device logout করা হয়েছে");
+};
+
 function renderMembers(){
   const wrap=$("memberList");
   if(!members.length){wrap.innerHTML=`<div class="empty">${I.star}<p>No Premium members yet. Click “+ Add Member”.</p></div>`;return}
@@ -5490,7 +5671,8 @@ function renderMembers(){
     return `<div class="manage-card single">
       <div class="mc-icon">${I.star}</div>
       <div class="mc-info"><strong>${esc(m.name)}</strong><span>${esc(m.mobile)}${m.batch?"  ·  👥 "+esc(m.batch):""}</span>
-        <span>${exp?'<span class="badge exp">Expired</span>':'<span class="badge ok">Active</span>'} ${m.expiry?"until "+esc(m.expiry):"No expiry"} · ${esc(accessLabel(m))}</span></div>
+        <span>${exp?'<span class="badge exp">Expired</span>':'<span class="badge ok">Active</span>'} ${m.expiry?"until "+esc(m.expiry):"No expiry"} · ${esc(accessLabel(m))}</span>
+        ${devBlock(m)}</div>
       <div class="mc-acts">
         <button class="btn-ic e" onclick="openEditMember('${m.id}')" aria-label="Edit">${I.edit}</button>
         <button class="btn-ic d" onclick="confirmDelMember('${m.id}')" aria-label="Remove">${I.trash}</button>
@@ -5543,64 +5725,6 @@ window.confirmDelMember=function(id){
   openM("mConfirm");
 };
 
-
-// ── Admin: device settings ───────────────────────────────
-window.openDeviceSettings=function(id){
-  const m=members.find(x=>x.id===id);if(!m)return;
-  $("dsMemberId").value=id;
-  $("dsMemberName").textContent=esc(m.name)+" — "+esc(m.mobile);
-  const dev=m.activeDevice;
-  $("dsCurrentDevice").innerHTML=dev
-    ?`<b>Currently logged in:</b><br/><span style="color:var(--green)">${esc(dev.label||"Unknown device")}</span><br/><small style="color:var(--sub)">Device ID: ${esc(dev.deviceId||"")}</small><br/><small style="color:var(--sub)">Login time: ${dev.loginTime?new Date(dev.loginTime).toLocaleString():"-"}</small>`
-    :`<span style="color:var(--sub)">এই member এখন কোনো device-এ login করা নেই।</span>`;
-
-  // Allowed devices list
-  const allowed=m.allowedDevices||[];
-  $("dsAllowedList").innerHTML=allowed.length
-    ?allowed.map((d,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;font-size:12.5px;border-bottom:1px solid var(--border)">
-        <span>Device ${i+1}: <code style="font-size:11px">${esc(d.slice(-12))}</code></span>
-        <button onclick="removeAllowedDevice('${id}','${esc(d)}')" style="color:var(--red);font-size:12px;font-weight:600;padding:3px 8px;border:1px solid rgba(239,107,91,.3);border-radius:6px">বাদ দিন</button>
-      </div>`).join("")
-    :`<div style="padding:10px;font-size:12.5px;color:var(--sub)">কোনো device restrict করা নেই। বর্তমান device যোগ করতে নিচের বোতাম ব্যবহার করুন।</div>`;
-
-  // Add current device button
-  if(dev&&dev.deviceId&&!allowed.includes(dev.deviceId)){
-    $("dsAllowedList").innerHTML+=`<div style="margin-top:8px"><button onclick="addAllowedDevice('${id}','${esc(dev.deviceId)}','${esc(dev.label||'')}');closeM('mDeviceSettings');openDeviceSettings('${id}')" style="width:100%;padding:9px;border-radius:9px;background:var(--accent-soft);color:var(--accent2);font-size:13px;font-weight:600;border:1px solid rgba(232,54,93,.2)">+ বর্তমান device টি allowed-list এ যোগ করুন</button></div>`;
-  }
-
-  openM("mDeviceSettings");
-};
-
-window.forceLogoutDevice=async function(){
-  const id=$("dsMemberId").value;
-  if(!id)return;
-  try{
-    await updateDoc(doc(db,"tutorial_courses",id),{activeDevice:null,sessionToken:null,sessionDevice:null});
-    showToast("Device logout করা হয়েছে");
-    closeM("mDeviceSettings");
-    await loadCourses();renderMembers();
-  }catch(e){showToast("Error: "+e.message)}
-};
-
-window.addAllowedDevice=async function(memberId,deviceId,label){
-  const m=members.find(x=>x.id===memberId);if(!m)return;
-  const allowed=[...new Set([...(m.allowedDevices||[]),deviceId])];
-  try{
-    await updateDoc(doc(db,"tutorial_courses",memberId),{allowedDevices:allowed});
-    showToast("Device allowed-list এ যোগ হয়েছে");
-    await loadCourses();
-  }catch(e){showToast("Error: "+e.message)}
-};
-
-window.removeAllowedDevice=async function(memberId,deviceId){
-  const m=members.find(x=>x.id===memberId);if(!m)return;
-  const allowed=(m.allowedDevices||[]).filter(d=>d!==deviceId);
-  try{
-    await updateDoc(doc(db,"tutorial_courses",memberId),{allowedDevices:allowed});
-    showToast("Device সরানো হয়েছে");
-    await loadCourses();renderMembers();openDeviceSettings(memberId);
-  }catch(e){showToast("Error: "+e.message)}
-};
 
 // ═══════════════════════════════════════════════════════════
 // KIOSK MODE
