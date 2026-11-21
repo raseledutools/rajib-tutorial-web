@@ -1659,7 +1659,7 @@ body.chat-on .topbar{display:none}
   .cx-sems{padding:8px 10px}
   .cx-thumb{height:92px}
 }
-.btn-feedback{display:flex;align-items:center;gap:6px;height:36px;padding:0 13px;border-radius:10px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn-feedback{display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:9px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
 .btn-feedback:hover{background:rgba(255,255,255,.28)}
 @media(max-width:560px){.btn-feedback span{display:none}.btn-feedback{padding:0 10px}}
 /* feedback modal + admin feedback list */
@@ -1686,17 +1686,19 @@ body.chat-on .topbar{display:none}
 <style id="rasDesk">
 /* ── RasFocus+ desktop style: title bar (exe) · teal header · fixed teal sidebar · framed content cards ── */
 html.is-exe{--tb:28px}
-:root{--tb:0px;--rd-hdr:50px;--rd-teal:#00959c;--rd-teal2:#00808c;--rd-teal3:#0ea5b0;--rd-green:#5aa717;--rd-cream:#FFF8DC;--rd-bg:#F7F8FA;--rd-line:#E3E6EA;--rd-sidebar-w:250px}
+:root{--tb:0px;--rd-hdr:42px;--rd-teal:#00959c;--rd-teal2:#00808c;--rd-teal3:#0ea5b0;--rd-green:#5aa717;--rd-cream:#FFF8DC;--rd-bg:#F7F8FA;--rd-line:#E3E6EA;--rd-sidebar-w:250px}
 body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Noto Sans Bengali',sans-serif;background:var(--rd-bg)}
 
 /* header (teal) */
 .topbar{top:var(--tb);height:var(--rd-hdr);background:var(--rd-teal);border-bottom:none;box-shadow:none;padding:0 20px 0 8px;backdrop-filter:none;-webkit-backdrop-filter:none}
-.topbar-title{font-size:19px;font-weight:700;color:#fff;-webkit-text-fill-color:#fff;letter-spacing:-.01em}
-.btn-hamburger{background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:10px;width:38px;height:38px}
+.topbar-title{font-size:17px;font-weight:700;color:#fff;-webkit-text-fill-color:#fff;letter-spacing:-.01em}
+.btn-hamburger{background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:9px;width:34px;height:34px}
 .btn-hamburger:hover{background:rgba(255,255,255,.28);color:#fff;border:none}
-.btn-nav,.btn-bell,.tb-right .btn-refresh{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:10px;width:36px;height:36px}
+.btn-nav,.btn-bell,.tb-right .btn-refresh{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:9px;width:32px;height:32px}
 .btn-nav:hover,.btn-bell:hover,.tb-right .btn-refresh:hover{background:rgba(255,255,255,.28);color:#fff}
-.tb-right{gap:8px}
+.tb-right{gap:6px}
+.tb-right .userchip{padding:3px 10px 3px 3px;gap:7px}.tb-right .av{width:26px;height:26px;font-size:12px}.tb-right .userchip .pro{font-size:11px;padding:2px 8px}
+.tb-right .btn-login,.tb-right .btn-premium{padding:5px 13px;font-size:12.5px}
 .tb-right #userArea>*{color:#fff}
 .tb-right #userArea button,.tb-right #userArea a{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:10px}
 
@@ -1704,11 +1706,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,'Noto Sans Bengali',s
 .sidebar{background:var(--rd-teal2);color:#fff;border-right:none;box-shadow:none;width:var(--rd-sidebar-w);top:var(--tb);height:calc(100vh - var(--tb))}
 .sidebar.open{box-shadow:10px 0 30px rgba(0,60,66,.35)}
 .sidebar-top{padding:0 14px;height:var(--rd-hdr);box-sizing:border-box;gap:10px;border-bottom:1px solid rgba(255,255,255,.14)}
-.sidebar-logo{width:34px;height:34px}.sidebar-logo svg{width:20px;height:20px}
+.sidebar-logo{width:30px;height:30px}.sidebar-logo svg{width:18px;height:18px}
 .sidebar-logo{background:#fff;border-radius:50%;box-shadow:none}
 .sidebar-logo svg{stroke:var(--rd-teal2)}
 #sidebarCourses>div{color:rgba(255,255,255,.75)!important}
-.sidebar-brand{color:#fff;font-weight:700;font-size:15px}
+.sidebar-brand{color:#fff;font-weight:700;font-size:14px}
 .sidebar-brand small{color:rgba(255,255,255,.75);font-size:10.5px}
 .sidebar-nav{padding:10px 0}
 .nav-label{color:rgba(255,255,255,.6);padding:14px 20px 6px}
