@@ -54,7 +54,7 @@ function renderUpdateBtn() {
     if (!b) {
       b = document.createElement('button');
       b.id = '__rt_update';
-      b.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:2147483647;border:0;border-radius:999px;padding:8px 18px;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)';
+      b.style.cssText = 'position:fixed;top:3px;left:50%;transform:translateX(-50%);z-index:2147483647;border:0;border-radius:999px;padding:0 16px;height:22px;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;font:600 12px/22px system-ui,sans-serif;cursor:pointer;white-space:nowrap;-webkit-app-region:no-drag';
       b.onclick = () => { if (lastUpdate.status === 'available') ipcRenderer.send('update:install'); };
       (document.body || document.documentElement).appendChild(b);
     }
@@ -68,9 +68,10 @@ function renderUpdateBtn() {
   if (!c) {
     c = document.createElement('button');
     c.id = '__rt_updcheck';
-    c.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483646;border:0;border-radius:999px;padding:8px 14px;background:rgba(30,30,40,.88);color:#fff;font:600 12.5px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);backdrop-filter:blur(6px)';
-    c.onmouseenter = () => (c.style.background = 'rgba(60,60,80,.95)');
-    c.onmouseleave = () => (c.style.background = 'rgba(30,30,40,.88)');
+    // lives in the title bar (top, left of the window buttons); no-drag so the bar's drag area doesn't swallow the click
+    c.style.cssText = 'position:fixed;top:3px;right:150px;height:22px;z-index:2147483647;border:1px solid #d7dde5;border-radius:999px;padding:0 11px;background:#eef2f6;color:#1f2937;font:600 11.5px/20px "Segoe UI",system-ui,sans-serif;cursor:pointer;white-space:nowrap;-webkit-app-region:no-drag';
+    c.onmouseenter = () => (c.style.background = '#dde6ee');
+    c.onmouseleave = () => (c.style.background = '#eef2f6');
     c.onclick = () => {
       const s = lastUpdate.status;
       if (s === 'available') ipcRenderer.send('update:install');
@@ -82,7 +83,7 @@ function renderUpdateBtn() {
   const label = {
     idle: '⟳ আপডেট চেক' + cur,
     checking: '⟳ চেক হচ্ছে…',
-    uptodate: '✅ আপনি latest version-এ আছেন' + cur,
+    uptodate: '✅ আপ-টু-ডেট' + cur,
     error: '❌ চেক করা যায়নি — আবার চাপুন',
     available: '🔄 আপডেট' + v,
     downloading: '⬇ ' + (lastUpdate.percent || 0) + '%',
