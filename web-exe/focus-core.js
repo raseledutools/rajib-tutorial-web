@@ -149,6 +149,27 @@ function decideQuickForeground({ proc, title, url, selfName, sites, isAdultTitle
   return NEWTAB_TITLE.test(String(title || '').trim()) ? { action: 'tofocus', msg: null } : null;
 }
 
+/* ---------- "focus" typed into the search bar of ANY browser -> that tab turns into the focus page ----------
+   Seen only AFTER Enter (search results page), so typing "focusrite.com" is never hijacked: the address bar holds
+   a search URL of a known search engine whose query is exactly "focus", or the tab title is "focus - <search engine>". */
+const SEARCH_HOST = /(^|\.)(google\.[a-z.]{2,6}|bing\.com|duckduckgo\.com|yahoo\.com|search\.brave\.com|ecosia\.org|startpage\.com|yandex\.[a-z]{2,3}|qwant\.com|kagi\.com)$/;
+const FOCUS_TITLE = /^focus\s*([-\u2013\u2014|]\s*|\s+at\s+)(google search|search|bing|duckduckgo|yahoo|brave search|ecosia|startpage|yandex|qwant|kagi)/i;
+function searchQuery(raw) {
+  let t = String(raw == null ? '' : raw).trim();
+  if (!t || /\s/.test(t.split(/[?#]/)[0])) return null;
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(t)) t = 'https://' + t;
+  let u; try { u = new URL(t); } catch (_) { return null; }
+  if (!SEARCH_HOST.test(lc(u.hostname).replace(/^(www|m)\./, ''))) return null;
+  for (const k of ['q', 'p', 'query', 'text']) { const v = u.searchParams.get(k); if (v != null) return lc(v.trim()); }
+  return null;
+}
+function decideFocusSearch({ proc, title, url, selfName }) {
+  const p = lc(proc);
+  if (!p || p === lc(selfName) || !isBrowser(p)) return null;
+  if (searchQuery(url) === 'focus' || FOCUS_TITLE.test(String(title || '').trim())) return { action: 'tofocus', msg: null, soft: true };
+  return null;
+}
+
 /** What to do with a running process that has a visible window. null = leave it alone. */
 function decideProcess({ mode, apps, proc, title, selfName }) {
   const p = lc(proc), t = lc(title);
@@ -319,5 +340,5 @@ module.exports = {
   parseUrlText, hostMatches, decideForeground, decideAdultForeground, decideProcess, pickMessage,
   countWords, hashPassword, verifyPassword, sanitizeSettings, DEFAULTS,
   MAX_SCHEDULES, sanitizeSchedule, sanitizeSchedules, isScheduleActive, activeScheduleBlocks,
-  decideScheduledForeground, decideScheduledProcess, decideQuickForeground,
+  decideScheduledForeground, decideScheduledProcess, decideQuickForeground, decideFocusSearch, searchQuery,
 };

@@ -21,6 +21,8 @@ button:hover{background:rgba(255,255,255,.18)}button.p{background:#8fd3c8;color:
 .sites a:hover{background:rgba(143,211,200,.28)}.sites a i{font-style:normal;opacity:.7;margin-left:4px;cursor:pointer}.sites a i:hover{opacity:1;color:#ffb4a8}
 .sh{font-size:13px;color:#9aa5a2}.add{display:flex;gap:8px}.add input{border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.25);color:#fff;border-radius:20px;padding:9px 16px;font-size:13.5px;width:230px;outline:0;font-family:inherit}
 .live{color:#8fd3c8;font-size:14px;font-weight:600}.lock{opacity:.5;pointer-events:none}
+.pm{display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap}.pm .pml{font-size:13.5px;color:#c4c7c5}.pm b{min-width:28px;font-size:22px;color:#e8f5f3;font-variant-numeric:tabular-nums}.pm button{padding:5px 14px;font-size:17px;line-height:1.2}
+.pmt{font-size:12.5px;color:#9aa5a2;min-height:16px}
 </style></head><body>
 <div class="fp">
 <h2>একটু থামুন 🌿</h2>
@@ -28,7 +30,10 @@ button:hover{background:rgba(255,255,255,.18)}button.p{background:#8fd3c8;color:
 <div class="fq" id="fq"><q id="q"></q><small id="a"></small></div>
 <div class="tm" id="tm">25:00</div>
 <div class="live" id="live"></div>
+<div class="pm" id="pm"><span class="pml">🍅 Pomodoro — কয়টা session?</span><button id="pmM" title="কমান">−</button><b id="pmN">1</b><button id="pmP" title="বাড়ান">＋</button></div>
+<div class="pmt" id="pmT"></div>
 <div class="fr"><button class="p" id="bt">▶ ২৫ মিনিট ফোকাস শুরু</button><button id="bq">💬 আরেকটি উক্তি</button></div>
+<div class="fr" id="bk" style="display:none"><button class="p" id="bs">▶ এখনই পরের session শুরু</button><button id="bx">✕ Pomodoro বন্ধ</button></div>
 <div class="sh" id="sh">অনুমোদিত ওয়েবসাইট — ক্লিক করলে এই ট্যাবেই খুলবে</div>
 <div class="sites" id="sites"></div>
 <div class="add" id="add"><input id="in" placeholder="যেমন: youtube.com" autocomplete="off"><button id="ba">＋ যোগ</button></div>
@@ -48,21 +53,28 @@ const QUOTES=[
 const $=id=>document.getElementById(id);
 const TOKEN='__RF_TOKEN__';
 let qi=Math.floor(Math.random()*QUOTES.length),endAt=0,off=0,active=false,sites=[],tk=null;
+let pomo=null,sess=1,maxS=8,mins=25,brkM=5,inited=false,wait=false,stopped=false;
+const inBreak=()=>!!(pomo&&pomo.phase==='break');
 function put(){$('q').textContent='“'+QUOTES[qi][0]+'”';$('a').textContent='— '+QUOTES[qi][1];$('fq').classList.remove('out')}
 function nextQ(){qi=(qi+1)%QUOTES.length;$('fq').classList.add('out');setTimeout(put,450)}
 async function api(path,body){
   try{const r=await fetch(path,{method:body?'POST':'GET',headers:{'x-rf-token':TOKEN,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});return await r.json()}catch(e){return null}
 }
-function left(){return active?Math.max(0,Math.round((endAt-(Date.now()+off))/1000)):1500}
+function left(){if(inBreak())return Math.max(0,Math.round((pomo.breakEndAt-(Date.now()+off))/1000));return active?Math.max(0,Math.round((endAt-(Date.now()+off))/1000)):mins*60}
 function fmt(){
   const l=left();$('tm').textContent=String(Math.floor(l/60)).padStart(2,'0')+':'+String(l%60).padStart(2,'0');
-  document.title=active?$('tm').textContent+' · Focus time 🌿':'Focus time 🌿';
-  if(active&&l<=0){active=false;render();$('live').textContent='সাবাশ! ফোকাস শেষ 🎉 এবার ৫ মিনিট বিরতি নিন।'}
+  document.title=(active||inBreak())?(inBreak()?'☕ ':'')+$('tm').textContent+' · Focus time 🌿':'Focus time 🌿';
+  if((active||inBreak())&&l<=0){
+    if(pomo){if(!wait){wait=true;poll().then(()=>{wait=false},()=>{wait=false})}}   // the app moves on to the break / next session / end by itself
+    else if(active){active=false;render();$('live').textContent='সাবাশ! ফোকাস শেষ 🎉 এবার ৫ মিনিট বিরতি নিন।'}
+  }
 }
 function render(){
-  $('bt').style.display=active?'none':'';$('add').style.display=active?'none':'flex';
+  const bk=inBreak();$('bt').style.display=(active||bk)?'none':'';$('pm').style.display=(active||bk)?'none':'flex';$('pmT').style.display=(active||bk)?'none':'';$('bk').style.display=bk?'flex':'none';$('add').style.display=active?'none':'flex';paintPm();
   if(active)$('live').textContent='🔒 ফোকাস চলছে — সময় শেষ না হওয়া পর্যন্ত নতুন ট্যাব / অন্য সাইট এই পাতায় ফিরে আসবে';
   else if(left()>0&&$('live').textContent.indexOf('সাবাশ')<0)$('live').textContent='';
+  if(active&&pomo)$('live').textContent='🔒 Session '+pomo.idx+'/'+pomo.total+' চলছে — সময় শেষ না হওয়া পর্যন্ত নতুন ট্যাব / অন্য সাইট এই পাতায় ফিরে আসবে';
+  if(bk)$('live').textContent='☕ বিরতি — Session '+pomo.idx+'/'+pomo.total+' শেষ। '+(pomo.idx+1)+' নম্বর session নিজে থেকেই শুরু হবে।';
   $('sh').style.display=sites.length?'':'none';
   const box=$('sites');box.textContent='';
   sites.forEach(s=>{
@@ -72,14 +84,24 @@ function render(){
   });
   fmt();
 }
-function apply(st){if(!st)return;active=!!st.active;endAt=st.endAt||0;off=(st.now||Date.now())-Date.now();sites=st.sites||[];render()}
+function apply(st){if(!st)return;const was=pomo;active=!!st.active;endAt=st.endAt||0;off=(st.now||Date.now())-Date.now();sites=st.sites||[];pomo=st.pomo||null;
+  if(st.maxSessions)maxS=st.maxSessions;if(st.minutes)mins=st.minutes;if(st.breakMinutes)brkM=st.breakMinutes;
+  if(!inited){inited=true;sess=Math.min(maxS,Math.max(1,st.sessions||1))}
+  render();
+  if(was&&!pomo&&!active){if(stopped)$('live').textContent='';else $('live').textContent='সাবাশ! সব '+was.total+' টি session শেষ 🎉';stopped=false}
+}
+function paintPm(){$('pmN').textContent=sess;$('bt').textContent=sess<2?'▶ '+mins+' মিনিট ফোকাস শুরু':'▶ '+sess+' × '+mins+' মিনিট ফোকাস শুরু';
+  $('pmT').textContent=sess<2?'শুধু একটি '+mins+' মিনিটের session':'মোট '+sess+' টি session, মাঝে '+brkM+' মিনিট বিরতি (প্রায় '+(sess*mins+(sess-1)*brkM)+' মিনিট)'}
 async function poll(){apply(await api('/api/state'))}
 $('bt').onclick=async()=>{
-  const r=await api('/api/start',{});
+  const r=await api('/api/start',{sessions:sess});
   if(r&&r.ok){await poll()}else{$('live').textContent='শুরু করা যায়নি — Rajib Tutorial অ্যাপ চালু আছে কি না দেখুন।'}
 };
 $('ba').onclick=async()=>{const v=$('in').value.trim();if(!v)return;const r=await api('/api/sites',{add:v});if(r&&r.ok){sites=r.sites;$('in').value='';render()}else $('live').textContent='সঠিক ওয়েবসাইট লিখুন (যেমন example.com)'};
 $('in').onkeydown=e=>{if(e.key==='Enter')$('ba').click()};
 $('bq').onclick=nextQ;
+$('pmM').onclick=()=>{if(sess>1){sess--;paintPm()}};$('pmP').onclick=()=>{if(sess<maxS){sess++;paintPm()}};
+$('bs').onclick=async()=>{await api('/api/pomo',{action:'skip'});poll()};
+$('bx').onclick=async()=>{stopped=true;await api('/api/pomo',{action:'stop'});poll()};
 put();setInterval(nextQ,12000);setInterval(fmt,500);setInterval(poll,3000);poll();
 </script></body></html>

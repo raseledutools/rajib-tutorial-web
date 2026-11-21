@@ -21,7 +21,8 @@ const HELPER_DIR = () => path.join(app.getPath('userData'), 'focus-helper');
 
 const QUICK_MIN = 25;
 const DEFAULT_QSITES = ['raseledutools.github.io'];
-let st = { settings: Object.assign({}, core.DEFAULTS), active: false, endAt: 0, pw: null, schedules: [], quick: false, qsites: DEFAULT_QSITES.slice() };
+let st = { settings: Object.assign({}, core.DEFAULTS), active: false, endAt: 0, pw: null, schedules: [], quick: false, qsites: DEFAULT_QSITES.slice(), pomo: null, pomoN: 1, tmSet: false };
+const POMO_BREAK_MIN = 5, POMO_MAX = 8;   // Pomodoro: QUICK_MIN focus + 5 min break, up to 8 sessions
 /* Ready-made Schedule Block profiles, added once on first run. They start switched OFF: an active profile can't be edited or deleted until its window ends, so the user turns on the ones they want. */
 const PRESET_SCHEDULES = [
   { name: 'Study Time', days: [6, 0, 1, 2, 3, 4], start: '09:00', end: '13:00', sites: ['facebook.com', 'youtube.com', 'instagram.com', 'tiktok.com'], apps: [{ type: 'exe', name: 'discord.exe' }, { type: 'exe', name: 'telegram.exe' }] },
@@ -37,8 +38,10 @@ let getMainWin = () => null, hooks = {};
 let lastAlert = 0, lastAct = 0, procBuf = [], lastProcs = [];
 const extSrv = require('./ext-server').create({
   htmlPath: path.join(__dirname, 'extfocus.html'),
-  getState: () => ({ active: st.active && st.quick, endAt: st.endAt, now: Date.now(), sites: st.qsites.slice(), minutes: QUICK_MIN }),
-  start: () => startQuick(),
+  getState: () => ({ active: st.active && st.quick, endAt: st.endAt, now: Date.now(), sites: st.qsites.slice(), minutes: QUICK_MIN,
+    breakMinutes: POMO_BREAK_MIN, maxSessions: POMO_MAX, sessions: st.pomoN || 1, pomo: st.pomo ? Object.assign({}, st.pomo) : null }),
+  start: (o) => startQuick(o && o.sessions),
+  pomo: (o) => pomoControl(o),
   addSite: (raw) => {
     if (st.active) return { ok: false, error: 'locked' };
     const site = core.normalizeSite(raw);
@@ -54,7 +57,7 @@ const extSrv = require('./ext-server').create({
 });
 const extPortNow = () => extSrv.port();
 function startExtServer() { extSrv.listen(); }
-function stopExtServer() { if (!(st.active && st.quick)) extSrv.close(); }   // a Quick Focus session needs the page
+function stopExtServer() { if (!(st.active && st.quick) && !st.pomo) extSrv.close(); }   // a Quick Focus session / Pomodoro needs the page
 let extAdult = false; // Settings -> Adult Block for all browsers (works with or without a Focus session)
 
 /* ---------- persistence ---------- */
@@ -68,6 +71,17 @@ function load() {
     st.schedules = core.sanitizeSchedules(j.schedules);
     st.seeded = !!j.schedSeeded || st.schedules.length > 0;
     st.quick = st.active && !!j.quick;
+    st.tmSet = !!j.tmSet;
+    st.pomoN = Math.min(POMO_MAX, Math.max(1, Math.floor(Number(j.pomoN)) || 1));
+    st.pomo = null;
+    const pm = j.pomo;
+    if (pm && typeof pm === 'object') {
+      const total = Math.min(POMO_MAX, Math.floor(Number(pm.total)) || 0), idx = Math.floor(Number(pm.idx)) || 0;
+      const phase = pm.phase === 'break' ? 'break' : 'focus';
+      if (total >= 2 && idx >= 1 && idx <= total && ((phase === 'focus' && st.active && st.quick) || (phase === 'break' && !st.active))) {
+        st.pomo = { total, idx, phase, breakEndAt: phase === 'break' ? Number(pm.breakEndAt) || 0 : 0 };
+      }
+    }
     if (Array.isArray(j.qsites)) { const q = core.sanitizeSettings({ sites: j.qsites }, core.DEFAULTS).sites; st.qsites = q.length || j.qsites.length === 0 ? q : DEFAULT_QSITES.slice(); }
   } catch (_) { /* first run */ }
   if (!st.seeded) { st.schedules = presetSchedules(); st.seeded = true; save(); }
@@ -75,7 +89,7 @@ function load() {
 function save() {
   try {
     fs.mkdirSync(path.dirname(STATE_FILE()), { recursive: true });
-    fs.writeFileSync(STATE_FILE(), JSON.stringify({ settings: st.settings, active: st.active, endAt: st.endAt, pw: st.pw, schedules: st.schedules, schedSeeded: !!st.seeded, quick: st.quick, qsites: st.qsites }));
+    fs.writeFileSync(STATE_FILE(), JSON.stringify({ settings: st.settings, active: st.active, endAt: st.endAt, pw: st.pw, schedules: st.schedules, schedSeeded: !!st.seeded, quick: st.quick, qsites: st.qsites, pomo: st.pomo, pomoN: st.pomoN, tmSet: !!st.tmSet }));
   } catch (_) {}
 }
 
@@ -145,6 +159,24 @@ function showAlert(customMsg) {
   } catch (_) {}
 }
 
+/* ---------- Task Manager ----------
+   Task Manager runs ELEVATED, so a normal (non-admin) app can neither kill nor close it: that is why only the pop-up showed.
+   Fix: while a Focus session runs, the per-user policy DisableTaskMgr=1 is set (HKCU, no admin needed), so Task Manager
+   cannot be opened (Ctrl+Shift+Esc, taskbar, Ctrl+Alt+Del). It is removed when the session ends, and also at the next start
+   of the app if the app was killed in between (st.tmSet remembers that we set it). */
+const TM_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System';
+function setTaskMgrPolicy(on) {
+  if (!IS_WIN) return;
+  if (on && !st.tmSet) {
+    st.tmSet = true; save();
+    execFile('reg', ['add', TM_KEY, '/v', 'DisableTaskMgr', '/t', 'REG_DWORD', '/d', '1', '/f'], { windowsHide: true }, (err) => { if (err) { st.tmSet = false; save(); } });
+  } else if (!on && st.tmSet) {
+    st.tmSet = false; save();
+    execFile('reg', ['delete', TM_KEY, '/v', 'DisableTaskMgr', '/f'], { windowsHide: true }, () => {});
+  }
+}
+const syncTaskMgr = () => setTaskMgrPolicy(st.active);
+
 /* ---------- Windows helpers (PowerShell, two long-running processes) ----------
    focus-monitor.ps1: foreground window (title + address bar of browsers) every 100 ms, windowed processes every ~1 s
    focus-actor.ps1  : stays running and waits for commands (closetab / tofocus / closewin), so a block needs no new
@@ -198,7 +230,9 @@ function onForeground(parts) {
   else if (st.active) d = core.decideForeground(Object.assign({ mode: st.settings.mode, sites: st.settings.sites }, base));
   if (!d && schedBlocks.sites.length) d = core.decideScheduledForeground(Object.assign({ sites: schedBlocks.sites }, base));
   if (!d && (extAdult || (st.active && st.quick))) d = core.decideAdultForeground(Object.assign({ isAdultTitle: safetyMod.isAdultTitle, isAdultHost: safetyMod.isAdultHost }, base));
+  if (!d) d = core.decideFocusSearch(base);   // "focus" typed in the search bar of any browser -> this tab becomes the focus page
   if (!d) return;
+  if (d.soft && !extPortNow()) { startExtServer(); return; }   // page server not up yet: it is next poll
   const now = Date.now();
   if (now - lastAct < 700) return;
   lastAct = now;
@@ -275,20 +309,24 @@ function stopEngine() {
 
 /* ---------- session control ---------- */
 function finish(notify) {
-  st.active = false; st.endAt = 0; st.pw = null; st.quick = false;
-  save(); refreshSchedule(); if (!engineNeeded()) stopEngine(); broadcast();
+  const pomoTotal = st.pomo ? st.pomo.total : 0;
+  st.active = false; st.endAt = 0; st.pw = null; st.quick = false; st.pomo = null;
+  save(); syncTaskMgr(); refreshSchedule(); if (!engineNeeded()) stopEngine(); broadcast();
   if (notify && Notification.isSupported()) {
-    new Notification({ title: 'Focus Mode', body: 'Focus session শেষ। দারুণ কাজ! 🎉' }).show();
+    new Notification({ title: 'Focus Mode', body: pomoTotal ? 'সব ' + pomoTotal + ' টি Pomodoro session শেষ। দারুণ কাজ! 🎉' : 'Focus session শেষ। দারুণ কাজ! 🎉' }).show();
   }
   if (!extAdult) stopExtServer();
 }
 
 /* Quick Focus: started from the focus tab (any browser). Runs until the time is over and cannot be stopped. */
-function startQuick() {
+function startQuick(sessions) {
   if (!IS_WIN) return { ok: false, error: 'windows-only' };
-  if (st.active) return { ok: false, error: 'running' };
+  if (st.active || st.pomo) return { ok: false, error: 'running' };
+  const total = Math.min(POMO_MAX, Math.max(1, Math.floor(Number(sessions)) || 1));   // Pomodoro: how many 25-minute sessions
+  st.pomoN = total;
+  st.pomo = total > 1 ? { total, idx: 1, phase: 'focus', breakEndAt: 0 } : null;
   st.active = true; st.quick = true; st.pw = null; st.endAt = Date.now() + QUICK_MIN * 60000;
-  save(); startExtServer(); startEngine(); armExpiry(); broadcast();
+  save(); syncTaskMgr(); startExtServer(); startEngine(); armExpiry(); broadcast();
   if (hooks.onStart) hooks.onStart();
   return { ok: true, endAt: st.endAt, now: Date.now() };
 }
@@ -309,7 +347,7 @@ function startSession(o) {
     pw = core.hashPassword(p);
   }
   st.active = true; st.quick = false; st.endAt = Date.now() + mins * 60000; st.pw = pw;
-  save(); startEngine(); armExpiry(); broadcast();
+  save(); syncTaskMgr(); startEngine(); armExpiry(); broadcast();
   if (hooks.onStart) hooks.onStart();
   return { ok: true };
 }
@@ -329,8 +367,37 @@ function stopSession(o) {
 
 function armExpiry() {
   clearInterval(expiryTimer);
-  expiryTimer = setInterval(() => { if (st.active && Date.now() >= st.endAt) finish(true); }, 1000);
+  expiryTimer = setInterval(() => {
+    const now = Date.now();
+    if (st.active) {
+      if (now < st.endAt) return;
+      if (st.quick && st.pomo && st.pomo.idx < st.pomo.total) startBreak(); else finish(true);
+    } else if (st.pomo && st.pomo.phase === 'break' && now >= st.pomo.breakEndAt) nextPomoFocus();
+  }, 1000);
   expiryTimer.unref();
+}
+const notify = (body) => { try { if (Notification.isSupported()) new Notification({ title: 'Pomodoro', body }).show(); } catch (_) {} };
+
+/* Pomodoro = N Quick Focus sessions (25 min each) with a short break in between. Blocking (and the Task Manager lock) is off during a break. */
+function startBreak() {
+  st.active = false; st.endAt = 0; st.quick = false; st.pw = null;
+  st.pomo.phase = 'break'; st.pomo.breakEndAt = Date.now() + POMO_BREAK_MIN * 60000;
+  save(); syncTaskMgr(); refreshSchedule(); if (!engineNeeded()) stopEngine(); broadcast();
+  notify('Session ' + st.pomo.idx + '/' + st.pomo.total + ' শেষ ☕ ' + POMO_BREAK_MIN + ' মিনিট বিরতি নিন।');
+}
+function nextPomoFocus() {
+  if (!st.pomo) return;
+  st.pomo.idx += 1; st.pomo.phase = 'focus'; st.pomo.breakEndAt = 0;
+  st.active = true; st.quick = true; st.pw = null; st.endAt = Date.now() + QUICK_MIN * 60000;
+  save(); syncTaskMgr(); startExtServer(); startEngine(); armExpiry(); broadcast();
+  notify('Session ' + st.pomo.idx + '/' + st.pomo.total + ' শুরু — ফোকাস করুন 🔒');
+}
+function pomoControl(o) {
+  if (!st.pomo || st.pomo.phase !== 'break') return { ok: false };
+  const a = o && o.action;
+  if (a === 'skip') { nextPomoFocus(); return { ok: true }; }
+  if (a === 'stop') { st.pomo = null; save(); broadcast(); return { ok: true }; }
+  return { ok: false };
 }
 
 /* ---------- page (a view inside the website layout: sidebar + title bar stay; see main.js openFocusView) ---------- */
@@ -353,7 +420,9 @@ function init(opts) {
   getMainWin = (opts && opts.getMainWin) || getMainWin;
   hooks = opts || {};
   load();
+  syncTaskMgr();   // session running -> Task Manager locked; app was killed during a session that is over -> unlocked again
   if (st.active) { if (st.quick) startExtServer(); startEngine(); armExpiry(); }
+  else if (st.pomo) { startExtServer(); armExpiry(); }   // Pomodoro break: the page + the next session timer
   refreshSchedule();
   clearInterval(schedTimer);
   schedTimer = setInterval(refreshSchedule, 10000);

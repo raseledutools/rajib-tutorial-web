@@ -2,7 +2,8 @@
 /* Local focus-page server (127.0.0.1 only, random port). Serves extfocus.html and a tiny JSON API used by that page:
      GET  /focus       the page (a per-run token is injected)
      GET  /api/state   { active, endAt, now, sites }
-     POST /api/start   start the 25-minute focus session
+     POST /api/start   { sessions } start the 25-minute focus session (sessions > 1 = Pomodoro: 25 min x N with short breaks)
+     POST /api/pomo    { action: 'skip' | 'stop' }  only during a Pomodoro break
      POST /api/sites   { add } | { remove }  (refused while a session runs)
    Every /api call needs the token header + a 127.0.0.1 Host (DNS-rebinding) + no foreign Origin (CSRF). No CORS headers are sent. */
 const http = require('http');
@@ -10,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-function create({ htmlPath, getState, start, addSite, removeSite }) {
+function create({ htmlPath, getState, start, pomo, addSite, removeSite }) {
   const token = crypto.randomBytes(16).toString('hex');
   let srv = null, port = 0;
   const json = (res, code, o) => {
@@ -37,7 +38,8 @@ function create({ htmlPath, getState, start, addSite, removeSite }) {
       req.on('end', () => {
         let o = {};
         try { o = JSON.parse(body || '{}') || {}; } catch (_) {}
-        if (p === '/api/start') return json(res, 200, start());
+        if (p === '/api/start') return json(res, 200, start(o));
+        if (p === '/api/pomo') return json(res, 200, pomo(o));
         if (p === '/api/sites') {
           if (typeof o.add === 'string') return json(res, 200, addSite(o.add));
           if (typeof o.remove === 'string') return json(res, 200, removeSite(o.remove));
