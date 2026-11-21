@@ -38,8 +38,9 @@ let getMainWin = () => null, hooks = {};
 let lastAlert = 0, lastAct = 0, procBuf = [], lastProcs = [];
 const extSrv = require('./ext-server').create({
   htmlPath: path.join(__dirname, 'extfocus.html'),
+  noisePath: path.join(__dirname, 'focus-noise.js'),
   getState: () => ({ active: st.active && st.quick, endAt: st.endAt, now: Date.now(), sites: st.qsites.slice(), minutes: QUICK_MIN,
-    breakMinutes: POMO_BREAK_MIN, maxSessions: POMO_MAX, sessions: st.pomoN || 1, pomo: st.pomo ? Object.assign({}, st.pomo) : null }),
+    breakMinutes: POMO_BREAK_MIN, maxSessions: POMO_MAX, sessions: st.pomoN || 1, pomo: st.pomo && !st.pomo.app ? Object.assign({}, st.pomo) : null }),
   start: (o) => startQuick(o && o.sessions),
   pomo: (o) => pomoControl(o),
   addSite: (raw) => {
@@ -67,7 +68,8 @@ function load() {
     st.settings = core.sanitizeSettings(j.settings, core.DEFAULTS);
     st.active = !!j.active && Number(j.endAt) > Date.now();
     st.endAt = st.active ? Number(j.endAt) : 0;
-    st.pw = st.active && j.pw && j.pw.salt && j.pw.hash ? j.pw : null;
+    const pwOk = j.pw && j.pw.salt && j.pw.hash ? j.pw : null;
+    st.pw = st.active ? pwOk : null;
     st.schedules = core.sanitizeSchedules(j.schedules);
     st.seeded = !!j.schedSeeded || st.schedules.length > 0;
     st.quick = st.active && !!j.quick;
@@ -78,8 +80,9 @@ function load() {
     if (pm && typeof pm === 'object') {
       const total = Math.min(POMO_MAX, Math.floor(Number(pm.total)) || 0), idx = Math.floor(Number(pm.idx)) || 0;
       const phase = pm.phase === 'break' ? 'break' : 'focus';
-      if (total >= 2 && idx >= 1 && idx <= total && ((phase === 'focus' && st.active && st.quick) || (phase === 'break' && !st.active))) {
-        st.pomo = { total, idx, phase, breakEndAt: phase === 'break' ? Number(pm.breakEndAt) || 0 : 0 };
+      if (total >= 2 && idx >= 1 && idx <= total && ((phase === 'focus' && st.active && st.quick === !pm.app) || (phase === 'break' && !st.active))) {
+        st.pomo = { total, idx, phase, breakEndAt: phase === 'break' ? Number(pm.breakEndAt) || 0 : 0, app: !!pm.app };   // app = started from the app's Focus tab (Quick/browser Pomodoro: false)
+        if (!st.active && st.pomo.app) st.pw = pwOk;   // the stop password must survive the break
       }
     }
     if (Array.isArray(j.qsites)) { const q = core.sanitizeSettings({ sites: j.qsites }, core.DEFAULTS).sites; st.qsites = q.length || j.qsites.length === 0 ? q : DEFAULT_QSITES.slice(); }
@@ -108,6 +111,8 @@ function publicState() {
     endAt: st.endAt,
     now: Date.now(),
     hasPassword: !!st.pw,
+    pomo: st.pomo ? { total: st.pomo.total, idx: st.pomo.idx, phase: st.pomo.phase, breakEndAt: st.pomo.breakEndAt, app: !!st.pomo.app } : null,
+    pomoMinutes: QUICK_MIN, breakMinutes: POMO_BREAK_MIN, maxSessions: POMO_MAX,
     settings: {
       mode: s.mode, controlMode: s.controlMode, showQuotes: s.showQuotes, quoteLang: s.quoteLang,
       hours: s.hours, mins: s.mins, sites: s.sites.slice(),
@@ -333,9 +338,10 @@ function startQuick(sessions) {
 
 function startSession(o) {
   if (!IS_WIN) return { ok: false, error: 'Focus Mode শুধু Windows এ চলে।' };
-  if (st.active) return { ok: false, error: 'Focus আগে থেকেই চলছে।' };
+  if (st.active || st.pomo) return { ok: false, error: 'Focus / Pomodoro আগে থেকেই চলছে।' };
   const s = st.settings;
-  const mins = s.hours * 60 + s.mins;
+  const pn = o && Number(o.pomodoro) >= 1 ? Math.min(POMO_MAX, Math.floor(Number(o.pomodoro))) : 0;   // Pomodoro: N x 25-minute sessions
+  const mins = pn ? QUICK_MIN : s.hours * 60 + s.mins;
   if (mins < 1) return { ok: false, error: 'সময় কমপক্ষে ১ মিনিট দিন।' };
   if (s.mode === 'block' && !s.sites.length && !s.apps.length) {
     return { ok: false, error: 'Block করার জন্য অন্তত একটি website বা app যোগ করুন।' };
@@ -346,6 +352,7 @@ function startSession(o) {
     if (p.length < 4 || p.length > 40) return { ok: false, error: 'Parent password ৪–৪০ অক্ষরের হতে হবে।' };
     pw = core.hashPassword(p);
   }
+  st.pomo = pn > 1 ? { total: pn, idx: 1, phase: 'focus', breakEndAt: 0, app: true } : null;
   st.active = true; st.quick = false; st.endAt = Date.now() + mins * 60000; st.pw = pw;
   save(); syncTaskMgr(); startEngine(); armExpiry(); broadcast();
   if (hooks.onStart) hooks.onStart();
@@ -353,7 +360,7 @@ function startSession(o) {
 }
 
 function stopSession(o) {
-  if (!st.active) return { ok: true };
+  if (!st.active && !(st.pomo && st.pomo.app)) return { ok: true };   // (an app Pomodoro break counts as running: same stop rules)
   if (st.quick) return { ok: false, error: 'এই Quick Focus (২৫ মিনিট) সময় শেষ না হওয়া পর্যন্ত বন্ধ করা যাবে না।' };
   const mode = st.settings.controlMode;
   if (mode === 'parents') {
@@ -371,7 +378,7 @@ function armExpiry() {
     const now = Date.now();
     if (st.active) {
       if (now < st.endAt) return;
-      if (st.quick && st.pomo && st.pomo.idx < st.pomo.total) startBreak(); else finish(true);
+      if (st.pomo && st.pomo.idx < st.pomo.total) startBreak(); else finish(true);
     } else if (st.pomo && st.pomo.phase === 'break' && now >= st.pomo.breakEndAt) nextPomoFocus();
   }, 1000);
   expiryTimer.unref();
@@ -380,7 +387,7 @@ const notify = (body) => { try { if (Notification.isSupported()) new Notificatio
 
 /* Pomodoro = N Quick Focus sessions (25 min each) with a short break in between. Blocking (and the Task Manager lock) is off during a break. */
 function startBreak() {
-  st.active = false; st.endAt = 0; st.quick = false; st.pw = null;
+  st.active = false; st.endAt = 0; st.quick = false; if (!st.pomo.app) st.pw = null;
   st.pomo.phase = 'break'; st.pomo.breakEndAt = Date.now() + POMO_BREAK_MIN * 60000;
   save(); syncTaskMgr(); refreshSchedule(); if (!engineNeeded()) stopEngine(); broadcast();
   notify('Session ' + st.pomo.idx + '/' + st.pomo.total + ' শেষ ☕ ' + POMO_BREAK_MIN + ' মিনিট বিরতি নিন।');
@@ -388,12 +395,12 @@ function startBreak() {
 function nextPomoFocus() {
   if (!st.pomo) return;
   st.pomo.idx += 1; st.pomo.phase = 'focus'; st.pomo.breakEndAt = 0;
-  st.active = true; st.quick = true; st.pw = null; st.endAt = Date.now() + QUICK_MIN * 60000;
-  save(); syncTaskMgr(); startExtServer(); startEngine(); armExpiry(); broadcast();
+  st.active = true; st.quick = !st.pomo.app; if (st.quick) st.pw = null; st.endAt = Date.now() + QUICK_MIN * 60000;
+  save(); syncTaskMgr(); if (st.quick) startExtServer(); startEngine(); armExpiry(); broadcast();
   notify('Session ' + st.pomo.idx + '/' + st.pomo.total + ' শুরু — ফোকাস করুন 🔒');
 }
 function pomoControl(o) {
-  if (!st.pomo || st.pomo.phase !== 'break') return { ok: false };
+  if (!st.pomo || st.pomo.app || st.pomo.phase !== 'break') return { ok: false };
   const a = o && o.action;
   if (a === 'skip') { nextPomoFocus(); return { ok: true }; }
   if (a === 'stop') { st.pomo = null; save(); broadcast(); return { ok: true }; }
@@ -434,7 +441,7 @@ function init(opts) {
   ipcMain.handle('focus:get', (e) => (fromFocusWin(e) ? publicState() : null));
   ipcMain.handle('focus:update', (e, patch) => {
     if (!fromFocusWin(e)) return { ok: false };
-    if (st.active) return { ok: false, error: 'Focus চলার সময় পরিবর্তন করা যাবে না।', state: publicState() };
+    if (st.active || (st.pomo && st.pomo.app)) return { ok: false, error: 'Focus চলার সময় পরিবর্তন করা যাবে না।', state: publicState() };
     st.settings = core.sanitizeSettings(patch, st.settings);
     save(); broadcast();
     return { ok: true, state: publicState() };

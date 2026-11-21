@@ -855,7 +855,9 @@ app.whenReady().then(() => {
   const focusHandler = (request) => {
     try {
       if (new URL(request.url).pathname !== '/focus.html') return new Response('not found', { status: 404 });
-      return new Response(fs.readFileSync(path.join(__dirname, 'focus.html')), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+      let noise = ''; try { noise = fs.readFileSync(path.join(__dirname, 'focus-noise.js'), 'utf8'); } catch (_) {}   // CSP: inline scripts only
+      const html = fs.readFileSync(path.join(__dirname, 'focus.html'), 'utf8').replace('/*__NOISE_JS__*/', () => noise);
+      return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
     } catch (_) { return new Response('error', { status: 500 }); }
   };
   try { session.fromPartition(FOCUS_PARTITION).protocol.handle('rtfocus', focusHandler); } catch (_) {}

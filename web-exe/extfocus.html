@@ -35,9 +35,11 @@ button:hover{background:rgba(255,255,255,.18)}button.p{background:#8fd3c8;color:
 <div class="fr"><button class="p" id="bt">▶ ২৫ মিনিট ফোকাস শুরু</button><button id="bq">💬 আরেকটি উক্তি</button></div>
 <div class="fr" id="bk" style="display:none"><button class="p" id="bs">▶ এখনই পরের session শুরু</button><button id="bx">✕ Pomodoro বন্ধ</button></div>
 <div class="sh" id="sh">অনুমোদিত ওয়েবসাইট — ক্লিক করলে এই ট্যাবেই খুলবে</div>
+<div id="nz" style="margin:14px 0 4px"></div>
 <div class="sites" id="sites"></div>
 <div class="add" id="add"><input id="in" placeholder="যেমন: youtube.com" autocomplete="off"><button id="ba">＋ যোগ</button></div>
 </div>
+<script>/*__NOISE_JS__*/</script>
 <script>
 const QUOTES=[
 ["ওঠো, জাগো এবং লক্ষ্যে না পৌঁছানো পর্যন্ত থেমো না।","স্বামী বিবেকানন্দ"],
@@ -100,6 +102,7 @@ $('bt').onclick=async()=>{
 $('ba').onclick=async()=>{const v=$('in').value.trim();if(!v)return;const r=await api('/api/sites',{add:v});if(r&&r.ok){sites=r.sites;$('in').value='';render()}else $('live').textContent='সঠিক ওয়েবসাইট লিখুন (যেমন example.com)'};
 $('in').onkeydown=e=>{if(e.key==='Enter')$('ba').click()};
 $('bq').onclick=nextQ;
+if(window.FocusNoise)FocusNoise.mount($('nz'),{theme:'dark',lang:'bn'});
 $('pmM').onclick=()=>{if(sess>1){sess--;paintPm()}};$('pmP').onclick=()=>{if(sess<maxS){sess++;paintPm()}};
 $('bs').onclick=async()=>{await api('/api/pomo',{action:'skip'});poll()};
 $('bx').onclick=async()=>{stopped=true;await api('/api/pomo',{action:'stop'});poll()};

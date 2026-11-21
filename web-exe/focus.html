@@ -268,6 +268,8 @@ button.sm{padding:5px 11px;font-size:12px}
         <select id="lang" style="min-width:110px"><option value="bn">Bangla</option><option value="en">English</option></select>
       </div>
     </div>
+    <hr>
+    <div id="nzApp"></div>
   </div>
 
   <div class="card pane hide" id="paneSched">
@@ -321,9 +323,17 @@ button.sm{padding:5px 11px;font-size:12px}
 <!-- time -->
 <div class="overlay" id="ovTime"><div class="modal">
   <h3>SET FOCUS DURATION</h3>
-  <div class="row" style="justify-content:center;gap:34px">
+  <div class="row" id="durRow" style="justify-content:center;gap:34px">
     <div><div class="tl">Hours</div><div class="spin"><button data-d="h-">−</button><b id="hv">1</b><button data-d="h+">+</button></div></div>
     <div><div class="tl">Minutes</div><div class="spin"><button data-d="m-">−</button><b id="mv">0</b><button data-d="m+">+</button></div></div>
+  </div>
+  <div style="margin-top:12px;text-align:center">
+    <label class="chk" style="justify-content:center"><input type="checkbox" id="pomoOn"> 🍅 Pomodoro mode</label>
+    <div id="pomoBox" style="display:none">
+      <div class="tl">Sessions</div>
+      <div class="spin"><button data-d="p-">−</button><b id="pv">4</b><button data-d="p+">+</button></div>
+      <div class="tl" id="pomoHint"></div>
+    </div>
   </div>
   <div id="pwSetWrap" style="display:none;margin-top:10px">
     <div class="tl" style="text-align:left">Parent password (needed to stop Focus)</div>
@@ -367,12 +377,15 @@ button.sm{padding:5px 11px;font-size:12px}
 
 <div id="toast"></div>
 
+<script>/*__NOISE_JS__*/</script>
 <script>
 (function () {
   'use strict';
   const $ = (id) => document.getElementById(id);
+  if (window.FocusNoise) FocusNoise.mount($('nzApp'), { theme: 'light', lang: 'en' });   // Focus noise (rain, ocean, ...)
   let S = null;                        // latest state from the main process
   let dur = { h: 1, m: 0 };
+  let pomoN = 4;                       // Pomodoro: number of 25-minute sessions
 
   function toast(msg) {
     const t = $('toast'); t.textContent = msg; t.style.display = 'block';
@@ -413,7 +426,7 @@ button.sm{padding:5px 11px;font-size:12px}
   }
   function render() {
     if (!S) return;
-    const s = S.settings, on = S.active;
+    const s = S.settings, on = S.active || !!(S.pomo && S.pomo.app);   // an app Pomodoro break is still "running"
     $('unsupported').style.display = S.supported ? 'none' : 'block';
     fillCommon($('siteCommon'), S.common.sites); fillCommon($('appCommon'), S.common.apps);
     $('control').value = s.controlMode; $('mode').value = s.mode;
@@ -431,11 +444,18 @@ button.sm{padding:5px 11px;font-size:12px}
   function tick() {
     if (!S) return;
     const sb = $('startBtn');
+    const po = S.pomo && S.pomo.app ? S.pomo : null;
+    if (po && po.phase === 'break') {
+      const bl = Math.max(0, po.breakEndAt - (Date.now() - (S._skew || 0)));
+      sb.textContent = 'Stop Pomodoro';
+      $('activeInfo').textContent = '☕ BREAK — Session ' + po.idx + '/' + po.total + ' done · next one starts in ' + pad(Math.floor(bl / 60000)) + ':' + pad(Math.floor(bl / 1000) % 60);
+      return;
+    }
     if (!S.active) { sb.textContent = 'Start Focus'; return; }
     const left = Math.max(0, S.endAt - (Date.now() - (S._skew || 0)));
     const m = Math.floor(left / 60000), sec = Math.floor(left / 1000) % 60, h = Math.floor(m / 60);
     sb.textContent = S.settings.controlMode === 'self' ? 'Stop (' + (m + 1) + 'm left)' : 'Stop Focus';
-    $('activeInfo').textContent = 'FOCUS ACTIVE — ' + pad(h) + ':' + pad(m % 60) + ':' + pad(sec) + ' left · Uninstallation & Task Manager restricted.';
+    $('activeInfo').textContent = (po ? '🍅 Session ' + po.idx + '/' + po.total + ' · ' : '') + 'FOCUS ACTIVE — ' + pad(h) + ':' + pad(m % 60) + ':' + pad(sec) + ' left · Uninstallation & Task Manager restricted.';
   }
   function setState(ns) { S = ns; S._skew = Date.now() - ns.now; render(); }
   setInterval(tick, 1000);
@@ -484,10 +504,16 @@ button.sm{padding:5px 11px;font-size:12px}
   $('lang').onchange = (e) => push({ quoteLang: e.target.value });
 
   /* ---- start / stop ---- */
-  function paintDur() { $('hv').textContent = dur.h; $('mv').textContent = dur.m; }
+  function paintDur() {
+    $('hv').textContent = dur.h; $('mv').textContent = dur.m; $('pv').textContent = pomoN;
+    const on = $('pomoOn').checked, fm = S ? S.pomoMinutes : 25, bm = S ? S.breakMinutes : 5;
+    $('durRow').style.display = on ? 'none' : ''; $('pomoBox').style.display = on ? '' : 'none';
+    $('pomoHint').textContent = pomoN + ' × ' + fm + ' min focus' + (pomoN > 1 ? ', ' + bm + ' min break between (about ' + (pomoN * fm + (pomoN - 1) * bm) + ' min)' : '');
+  }
+  $('pomoOn').onchange = paintDur;
   $('startBtn').onclick = () => {
     if (!S) return;
-    if (!S.active) {
+    if (!(S.active || (S.pomo && S.pomo.app))) {
       dur = { h: S.settings.hours, m: S.settings.mins }; paintDur();
       $('timeErr').textContent = ''; $('pwSet').value = '';
       $('pwSetWrap').style.display = S.settings.controlMode === 'parents' ? '' : 'none';
@@ -503,14 +529,17 @@ button.sm{padding:5px 11px;font-size:12px}
       if (d === 'h+' && dur.h < 23) dur.h++;
       if (d === 'm-') dur.m = dur.m - 5 < 0 ? 55 : dur.m - 5;
       if (d === 'm+') dur.m = (dur.m + 5) % 60;
+      if (d === 'p-' && pomoN > 1) pomoN--;
+      if (d === 'p+' && pomoN < ((S && S.maxSessions) || 8)) pomoN++;
       paintDur();
     };
   });
   $('timeCancel').onclick = () => show('ovTime', false);
   $('timeStart').onclick = async () => {
     $('timeErr').textContent = '';
-    await push({ hours: dur.h, mins: dur.m });
-    const r = await FocusAPI.start({ password: $('pwSet').value });
+    const pomo = $('pomoOn').checked;
+    if (!pomo) await push({ hours: dur.h, mins: dur.m });
+    const r = await FocusAPI.start({ password: $('pwSet').value, pomodoro: pomo ? pomoN : 0 });
     if (r && r.ok) { show('ovTime', false); $('pwSet').value = ''; }
     else $('timeErr').textContent = (r && r.error) || 'Could not start Focus.';
   };

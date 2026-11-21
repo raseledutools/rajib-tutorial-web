@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-function create({ htmlPath, getState, start, pomo, addSite, removeSite }) {
+function create({ htmlPath, noisePath, getState, start, pomo, addSite, removeSite }) {
   const token = crypto.randomBytes(16).toString('hex');
   let srv = null, port = 0;
   const json = (res, code, o) => {
@@ -25,7 +25,8 @@ function create({ htmlPath, getState, start, pomo, addSite, removeSite }) {
       if (!hostOk(req)) { res.writeHead(403); return res.end('forbidden'); }
       const p = String(req.url || '/').split('?')[0];
       if (req.method === 'GET' && !p.startsWith('/api/')) {
-        const html = fs.readFileSync(htmlPath, 'utf8').replace('__RF_TOKEN__', token);
+        let noise = ''; try { noise = fs.readFileSync(noisePath, 'utf8'); } catch (_) {}   // the page's CSP only allows inline scripts
+        const html = fs.readFileSync(htmlPath, 'utf8').replace('__RF_TOKEN__', token).replace('/*__NOISE_JS__*/', () => noise);
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
           'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'" });
         return res.end(html);
