@@ -112,3 +112,4 @@ module.exports = function createSafety({ getSessions, isAdultBlockOn }) {
   };
 };
 module.exports.isAdultTitle = isAdultTitle;
+module.exports.isAdultHost = isAdultHost;

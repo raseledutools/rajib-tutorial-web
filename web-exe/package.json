@@ -34,11 +34,16 @@
       "package.json",
       "focus.js",
       "focus-core.js",
+      "focus-noise.js",
+      "ext-server.js",
+      "focus-monitor.ps1",
+      "focus-actor.ps1",
       "focus-preload.js",
       "pdfjs/**/*",
       "office/**/*",
       "pdfreader.js",
       "focus.html",
+      "extfocus.html",
       "build/icon.png"
     ],
     "win": {
