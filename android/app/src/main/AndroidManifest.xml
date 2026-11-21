@@ -198,8 +198,8 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.RajibTutorial" />
 
-        <!-- HOME entry for Phone Mode. Enabled ONLY while Phone Mode runs (PhoneMode.setHomeEnabled),
-             so pressing Home keeps the user on the Phone Mode screen instead of the real launcher. -->
+        <!-- HOME entry for Phone Mode — ANDROID 9 AND BELOW ONLY (PhoneMode.useHomeLauncher()).
+             Android 10+ never enables it: no launcher system, the guard service bounces Home presses back. -->
         <activity-alias
             android:name=".PhoneHomeAlias"
             android:targetActivity=".PhoneLauncherActivity"

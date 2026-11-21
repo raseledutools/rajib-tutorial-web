@@ -252,7 +252,7 @@ public class PhoneLauncherActivity extends AppCompatActivity {
     private void refreshBanner() {
         banner.removeAllViews();
         PhoneMode.setHomeEnabled(this, true);
-        if (!PhoneMode.isDefaultHome(this)) addStep("⚠ Set as Home app (Home button lock)", v ->
+        if (PhoneMode.useHomeLauncher() && !PhoneMode.isDefaultHome(this)) addStep("⚠ Set as Home app (Home button lock)", v ->
             askHomeNow());
         if (!PhoneMode.hasUsageAccess(this)) addStep("⚠ Allow Usage access", v ->
             startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)));
@@ -267,6 +267,7 @@ public class PhoneLauncherActivity extends AppCompatActivity {
 
     /** Home button = 0 second only when this app IS the Home app, so ask for it right away. */
     private void maybeAskHome() {
+        if (!PhoneMode.useHomeLauncher()) return;   // Android 10+: no launcher / Home-app system
         if (askedHome || PhoneMode.isDefaultHome(this)) return;
         askedHome = true;
         new AlertDialog.Builder(this)
