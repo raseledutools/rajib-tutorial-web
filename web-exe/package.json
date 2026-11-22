@@ -42,6 +42,9 @@
       "pdfjs/**/*",
       "office/**/*",
       "pdfreader.js",
+      "osk.js",
+      "osk.html",
+      "osk-preload.js",
       "focus.html",
       "extfocus.html",
       "build/icon.png"
