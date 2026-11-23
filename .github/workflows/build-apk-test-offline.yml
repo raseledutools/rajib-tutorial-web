@@ -14,6 +14,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -58,7 +60,18 @@ jobs:
           KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           KEY_PASS: ${{ secrets.RELEASE_KEY_PASS }}
           TWILIO_TOKEN_URL: ${{ secrets.TWILIO_TOKEN_URL }}
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon 2>&1 | tee /tmp/gradle_output.txt; exit ${PIPESTATUS[0]}
+
+      - name: Push error log to this test branch on failure
+        if: failure()
+        run: |
+          git config user.email "ci@github.com"
+          git config user.name "GitHub CI"
+          grep -E "error:|warning: \[|FAILED|What went wrong|Execution failed|e: |Could not|symbol:|location:" -A3 /tmp/gradle_output.txt | head -300 > gradle-error-offline.txt || true
+          tail -60 /tmp/gradle_output.txt >> gradle-error-offline.txt
+          git add -f gradle-error-offline.txt
+          git commit -m "ci: gradle error log (test branch) [skip ci]"
+          git push origin HEAD:${GITHUB_REF_NAME}
 
       - uses: actions/upload-artifact@v4
         with:
