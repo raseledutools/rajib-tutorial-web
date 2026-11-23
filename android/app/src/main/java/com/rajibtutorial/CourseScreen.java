@@ -41,13 +41,7 @@ final class CourseScreen extends Screen {
     private VideoView video;
     private boolean released      = false;
     /** One listener for every save started from this screen (list icon, player button, auto-save). */
-    private final VideoCache.ProgressListener dl = (id, pct) -> {
-        if (released) return;
-        if (pct == -1) a.toast(VideoCache.lastError(id));
-        else if (pct == -2) a.toast("Download cancelled");
-        else if (pct == 100) a.toast("✅ Saved for offline · " + VideoCache.OFFLINE_DAYS + " days");
-        offTick(id, pct >= 100 || pct < 0);
-    };
+    private final VideoCache.ProgressListener dl;
     private boolean inlineSuspended = false;
     // in-place fullscreen: the SAME player view is moved into fsLayer (no re-create => no re-buffering)
     private FrameLayout fsLayer;
@@ -56,7 +50,16 @@ final class CourseScreen extends Screen {
     private boolean resumeVideo = false, fsWasPlaying = false;
     private int fsPos = 0;
 
-    CourseScreen(NativeHomeActivity host) { a = host; }
+    CourseScreen(NativeHomeActivity host) {
+        a = host;
+        dl = (id, pct) -> {
+            if (released) return;
+            if (pct == -1) a.toast(VideoCache.lastError(id));
+            else if (pct == -2) a.toast("Download cancelled");
+            else if (pct == 100) a.toast("✅ Saved for offline · " + VideoCache.OFFLINE_DAYS + " days");
+            offTick(id, pct >= 100 || pct < 0);
+        };
+    }
 
     @Override
     View build() {
