@@ -212,7 +212,27 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
+        UpdateChecker.cleanupApks(this);   // drop leftover update file(s) from a previous update
         updateChecker.checkForUpdate();
+        handleUpdateIntent(getIntent());   // opened from the "update available" notification
+    }
+
+    /** Notification tap: download the new APK inside the app, then the install prompt opens by itself. */
+    private void handleUpdateIntent(Intent in) {
+        if (in == null) return;
+        String url = in.getStringExtra(UpdateChecker.EXTRA_APK_URL);
+        String ver = in.getStringExtra(UpdateChecker.EXTRA_VERSION);
+        if (url == null || url.isEmpty()) return;
+        in.removeExtra(UpdateChecker.EXTRA_APK_URL);   // do not restart the download on rotation / recreate
+        hideUpdateBanner();
+        beginUpdateDownload(url, ver == null ? "" : ver);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleUpdateIntent(intent);
     }
 
     // ── Open web section ─────────────────────────────────────────────────

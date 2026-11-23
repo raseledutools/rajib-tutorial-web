@@ -37,6 +37,12 @@ public class UpdateChecker {
     private static final String PREFS_NAME   = "UpdatePrefs";
     private static final String KEY_LAST_TAG = "last_tag";
 
+    /** Notification tap -> MainActivity with these extras -> in-app download + install prompt. */
+    static final String EXTRA_APK_URL = "apk_url";
+    static final String EXTRA_VERSION = "version";
+    /** One fixed file name: every update overwrites the same file, so storage never fills up. */
+    private static final String APK_FILE = "RajibTutorial-update.apk";
+
     private static final String API_URL =
         "https://api.github.com/repos/" + BuildConfig.GITHUB_OWNER +
         "/" + BuildConfig.GITHUB_REPO + "/releases/latest";
@@ -250,13 +256,22 @@ public class UpdateChecker {
         return req;
     }
 
-    public void startDownload(String apkUrl, String version) {
-        final String fileName = "RajibTutorial-" + version + ".apk";
-
+    /** Deletes all downloaded update APKs (old version-named ones included). */
+    static void cleanupApks(Context ctx) {
         try {
-            File old = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
-            if (old.exists()) old.delete();
-        } catch (Exception ignored) {}
+            File dir = ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+            File[] fs = dir == null ? null : dir.listFiles();
+            if (fs == null) return;
+            for (File f : fs) {
+                String n = f.getName();
+                if (n.startsWith("RajibTutorial") && n.endsWith(".apk")) f.delete();
+            }
+        } catch (Exception ignored) { }
+    }
+
+    public void startDownload(String apkUrl, String version) {
+        final String fileName = APK_FILE;
+        cleanupApks(context);   // remove every old update file first (same name is reused)
 
         final DownloadManager dm = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
         if (dm == null) {
@@ -342,10 +357,12 @@ public class UpdateChecker {
 
     // ── Professional notification ──────────────────────────────────────────
     private void showUpdateNotification(String version, String body, String apkUrl) {
-        Intent dlIntent = new Intent(context, DownloadReceiver.class);
-        dlIntent.putExtra("apk_url", apkUrl);
-        dlIntent.putExtra("version", version);
-        PendingIntent dlPi = PendingIntent.getBroadcast(context, 0, dlIntent,
+        // Tap opens the app, which downloads inside the app (progress bar) and then shows the install prompt.
+        Intent dlIntent = new Intent(context, MainActivity.class)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(EXTRA_APK_URL, apkUrl)
+            .putExtra(EXTRA_VERSION, version);
+        PendingIntent dlPi = PendingIntent.getActivity(context, 0, dlIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         Intent dismissIntent = new Intent(context, DownloadReceiver.class);
@@ -382,70 +399,20 @@ public class UpdateChecker {
         catch (SecurityException e) { e.printStackTrace(); }
     }
 
-    // ── BroadcastReceiver — notification tap → old download path ─────────
+    // ── Old notifications still in the tray: tapping them now opens the app too (no external download) ──
     public static class DownloadReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context ctx, Intent intent) {
             if (intent.getBooleanExtra("dismiss", false)) return;
-            String apkUrl  = intent.getStringExtra("apk_url");
-            String version = intent.getStringExtra("version");
+            String apkUrl  = intent.getStringExtra(EXTRA_APK_URL);
+            String version = intent.getStringExtra(EXTRA_VERSION);
             if (apkUrl == null || apkUrl.isEmpty()) return;
-
-            // Notification থেকে click হলে system DownloadManager ব্যবহার করো
-            String fileName = "RajibTutorial-" + version + ".apk";
-            File old = new File(ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
-            if (old.exists()) old.delete();
-
-            DownloadManager.Request req = new DownloadManager.Request(Uri.parse(apkUrl))
-                .setTitle("Rajib Tutorial " + version + " is downloading")
-                .setDescription("Tap to install when the download completes")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalFilesDir(ctx, Environment.DIRECTORY_DOWNLOADS, fileName)
-                .setMimeType("application/vnd.android.package-archive");
-
             try {
-                DownloadManager dm = (DownloadManager) ctx.getSystemService(Context.DOWNLOAD_SERVICE);
-                if (dm == null) return;
-                long id = dm.enqueue(req);
-
-                Context app = ctx.getApplicationContext();
-                IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-                InstallReceiver receiver = new InstallReceiver(app, fileName, id);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    app.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
-                } else {
-                    app.registerReceiver(receiver, filter);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    public static class InstallReceiver extends BroadcastReceiver {
-        private final Context ctx;
-        private final String  fileName;
-        private final long    downloadId;
-
-        public InstallReceiver(Context ctx, String fileName, long downloadId) {
-            this.ctx = ctx; this.fileName = fileName; this.downloadId = downloadId;
-        }
-
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID,-1) != downloadId) return;
-            try { ctx.unregisterReceiver(this); } catch (Exception ignored) {}
-            try {
-                File apkFile = new File(ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
-                if (!apkFile.exists() || apkFile.length() < 1000) return;
-                Uri uri = FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".provider", apkFile);
-                ctx.startActivity(new Intent(Intent.ACTION_VIEW)
-                    .setDataAndType(uri, "application/vnd.android.package-archive")
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+                ctx.startActivity(new Intent(ctx, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra(EXTRA_APK_URL, apkUrl)
+                    .putExtra(EXTRA_VERSION, version));
+            } catch (Exception ignored) { }
         }
     }
 }
