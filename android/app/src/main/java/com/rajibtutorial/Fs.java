@@ -86,6 +86,24 @@ final class Fs {
     }
 
 
+    /** All documents of another top-level collection (e.g. qb_questions), up to {@code max}. */
+    static List<Doc> listCol(String col, int max) throws Exception {
+        String base = "https://firestore.googleapis.com/v1/projects/mywebtools-f8d53/databases/(default)/documents/" + col;
+        List<Doc> out = new ArrayList<>();
+        String token = null;
+        do {
+            String url = base + "?pageSize=300&key=" + KEY
+                + (token != null ? "&pageToken=" + URLEncoder.encode(token, "UTF-8") : "");
+            JSONObject o = new JSONObject(request("GET", url, null));
+            JSONArray docs = o.optJSONArray("documents");
+            if (docs != null) {
+                for (int i = 0; i < docs.length(); i++) out.add(parseDoc(docs.getJSONObject(i)));
+            }
+            token = o.has("nextPageToken") ? o.getString("nextPageToken") : null;
+        } while (token != null && out.size() < max);
+        return out;
+    }
+
     /**
      * Newest documents whose id starts with {@code prefix} (ids sort chronologically),
      * newest first. Uses a __name__ range query, so no composite index is needed.

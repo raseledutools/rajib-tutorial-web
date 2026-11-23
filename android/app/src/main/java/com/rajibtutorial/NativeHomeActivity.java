@@ -31,7 +31,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
 
     static final String EXTRA_OPEN = "open";
-    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6, V_INBOX = 7, V_RES = 8, V_OFFLINE = 9;
+    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6, V_INBOX = 7, V_RES = 8, V_OFFLINE = 9, V_QB = 10;
     String resType = "";
 
     // state shared with screens / dialogs
@@ -441,6 +441,11 @@ public class NativeHomeActivity extends AppCompatActivity {
         closeDrawer();
     }
 
+    void openQb() {
+        show(new QbScreen(this), V_QB, "MCQ Practice");
+        closeDrawer();
+    }
+
     void openOffline() {
         show(new OfflineScreen(this), V_OFFLINE, "Offline Lessons");
         closeDrawer();
@@ -666,6 +671,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         nav.addView(navItem("📢  Current Circular", currentView == V_RES && Store.R_CIRCULAR.equals(resType), false, () -> openResources(Store.R_CIRCULAR)));
         nav.addView(navItem("📚  Question Bank", currentView == V_RES && Store.R_QBANK.equals(resType), false, () -> openResources(Store.R_QBANK)));
         nav.addView(navItem("🆕  Recent Question Bank", currentView == V_RES && Store.R_RECENT.equals(resType), false, () -> openResources(Store.R_RECENT)));
+        nav.addView(navItem("📝  MCQ Practice", currentView == V_QB, false, this::openQb));
         nav.addView(navItem("🧰  Study Tools", false, false, () -> { closeDrawer(); startActivity(new Intent(this, StudyToolsActivity.class)); }));
         nav.addView(navItem("🌐  Safe Browser", false, false, () -> openWeb("https://www.google.com/", "Safe Browser", false, true)));
         nav.addView(navLabel("Courses"));
