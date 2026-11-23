@@ -9,8 +9,9 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -30,16 +31,19 @@ final class VideoCache {
     private VideoCache() {}
 
     interface ProgressListener {
-        /** Called on main thread. percent 0-100 while downloading, 100 when done, -1 on error. */
+        /** Called on main thread. percent 0-100 while downloading, 100 when done, -1 on error, -2 when cancelled. */
         void onProgress(String videoId, int percent);
     }
 
     // active downloads: videoId → percent (0-100)
-    private static final Map<String, Integer>  sProgress  = new HashMap<>();
+    private static final Map<String, Integer>  sProgress  = new ConcurrentHashMap<>();
     // listeners per videoId
-    private static final Map<String, ProgressListener> sListeners = new HashMap<>();
+    private static final Map<String, ProgressListener> sListeners = new ConcurrentHashMap<>();
     // cancellation flags
-    private static final Map<String, Boolean>  sCancel    = new HashMap<>();
+    private static final Map<String, Boolean>  sCancel    = new ConcurrentHashMap<>();
+    // bytes received so far (for "12.3 MB" when the server sends no size) and "looking up the YouTube link" phase
+    private static final Map<String, Long> sBytes = new ConcurrentHashMap<>();
+    private static final Set<String> sResolving = ConcurrentHashMap.newKeySet();
 
     private static final ExecutorService EX = Executors.newFixedThreadPool(2);
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
@@ -89,9 +93,54 @@ final class VideoCache {
         return sProgress.containsKey(videoId);
     }
 
+    /** Bytes received so far by the running download (0 when not downloading). */
+    static long getBytes(String videoId) {
+        Long b = sBytes.get(videoId);
+        return b == null ? 0 : b;
+    }
+
+    /** True while a YouTube link is still being looked up (before the first byte arrives). */
+    static boolean isResolving(String videoId) {
+        return sResolving.contains(videoId);
+    }
+
+    /** True after cancel() until the download thread has actually stopped. */
+    static boolean isCancelling(String videoId) {
+        return isDownloading(videoId) && Boolean.TRUE.equals(sCancel.get(videoId));
+    }
+
+    /** Size in bytes of the saved copy (0 if none). */
+    static long sizeOf(Context ctx, String videoId) {
+        String p = getLocalPath(ctx, videoId);
+        return p == null ? 0 : new File(p).length();
+    }
+
+    /** Removes expired copies and stale partial files (the exe does the same every few hours). */
+    static void purgeExpired(Context ctx) {
+        try {
+            File dir = new File(ctx.getFilesDir(), "video_cache");
+            File[] fs = dir.listFiles();
+            if (fs == null) return;
+            long now = System.currentTimeMillis();
+            for (File f : fs) {
+                String n = f.getName();
+                boolean tmp = n.endsWith(".tmp");
+                if (tmp) {
+                    String id = n.substring(0, n.length() - 8);          // strip ".mp4.tmp"
+                    if (isDownloading(id)) continue;
+                }
+                long age = now - f.lastModified();
+                if ((!tmp && age > MAX_AGE_MS) || (tmp && age > 2 * 86400000L)) {
+                    //noinspection ResultOfMethodCallIgnored
+                    f.delete();
+                }
+            }
+        } catch (Exception ignored) { }
+    }
+
     /** Always leave this much free on the device (same rule as the exe). */
     private static final long MIN_FREE_BYTES = 300L * 1024 * 1024;
-    private static final Map<String, String> sError = new HashMap<>();
+    private static final Map<String, String> sError = new ConcurrentHashMap<>();
 
     /** Short human-readable reason of the last failed download of this video. */
     static String lastError(String videoId) {
@@ -114,6 +163,7 @@ final class VideoCache {
 
         sProgress.put(videoId, 0);
         sCancel.put(videoId, Boolean.FALSE);
+        sBytes.put(videoId, 0L);
         sError.remove(videoId);
 
         final Context appCtx = ctx.getApplicationContext();
@@ -126,7 +176,8 @@ final class VideoCache {
                 String src = url;
                 if (yt) {
                     if (tmpFile.exists()) tmpFile.delete();   // signed YouTube links change: never resume those
-                    src = YtResolver.resolve(url);
+                    sResolving.add(videoId);
+                    try { src = YtResolver.resolve(url); } finally { sResolving.remove(videoId); }
                     if (Boolean.TRUE.equals(sCancel.get(videoId))) throw new CancelledException();
                 }
                 long have = tmpFile.exists() ? tmpFile.length() : 0;
@@ -155,12 +206,18 @@ final class VideoCache {
                 long downloaded = have;
                 int read;
                 int lastPct = -1;
+                long lastPing = downloaded;
                 keepTmp = !yt;
                 try {
                     while ((read = in.read(buf)) != -1) {
                         if (Boolean.TRUE.equals(sCancel.get(videoId))) throw new CancelledException();
                         out.write(buf, 0, read);
                         downloaded += read;
+                        sBytes.put(videoId, downloaded);
+                        if (total <= 0 && downloaded - lastPing >= 512 * 1024) {   // size unknown: still refresh the "MB" label
+                            lastPing = downloaded;
+                            notifyListener(videoId, 0);
+                        }
                         if (total > 0) {
                             int pct = (int) Math.min(99, downloaded * 100L / total);
                             if (pct != lastPct) {
@@ -186,6 +243,7 @@ final class VideoCache {
                 tmpFile.delete();
                 sProgress.remove(videoId);
                 sCancel.remove(videoId);
+                notifyListener(videoId, -2);
             } catch (Exception e) {
                 if (!keepTmp && tmpFile.exists()) tmpFile.delete();
                 String m = e.getMessage();
@@ -194,6 +252,8 @@ final class VideoCache {
                 sCancel.remove(videoId);
                 notifyListener(videoId, -1);
             } finally {
+                sBytes.remove(videoId);
+                sResolving.remove(videoId);
                 if (conn != null) conn.disconnect();
             }
         });
