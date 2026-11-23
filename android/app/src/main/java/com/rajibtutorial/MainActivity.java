@@ -78,6 +78,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        CrashLog.install(this);
 
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
@@ -160,6 +161,7 @@ public class MainActivity extends AppCompatActivity {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 501);
         }
         PushManager.init(this);
+        CrashLog.showIfAny(this);   // shows the stack trace if the app crashed last time
 
         // ── WebView setup ──
         setupWebView();

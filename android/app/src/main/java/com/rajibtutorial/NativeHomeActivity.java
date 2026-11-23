@@ -74,6 +74,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        CrashLog.install(this);
         Store.init(this);
         // warm up the YouTube player in the background so the first lesson starts faster
         if (OfflineCache.online(this)) Media.warmUp(this);
@@ -465,19 +466,16 @@ public class NativeHomeActivity extends AppCompatActivity {
         if (now - lastUnreadCheck < 15000) return;
         lastUnreadCheck = now;
         try {
-            com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("push_messages")
-                .orderBy("at", com.google.firebase.firestore.Query.Direction.DESCENDING).limit(30).get()
-                .addOnSuccessListener(snap -> {
-                    if (isFinishing() || bellDot == null) return;
+            Store.async(() -> Fs.query("push_messages", null, null, null, "at", true, 30),
+                (java.util.List<Fs.Doc> docs, Exception err) -> {
+                    if (err != null || docs == null || isFinishing() || bellDot == null) return;
                     long seen = PushManager.inboxSeen(this);
                     if (seen == 0) { PushManager.inboxMarkSeen(this, now); return; }   // first run: nothing is "new"
                     boolean fresh = false;
-                    for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) {
-                        Long at = d.getLong("at");
-                        if (at == null || at <= seen) continue;
-                        String target = d.getString("target");
-                        boolean mine = Store.notifForMe(target, d.getString("mobile"), d.getString("batch"));
-                        if (mine) { fresh = true; break; }
+                    for (Fs.Doc d : docs) {
+                        long at = Fs.num(d.data, "at");
+                        if (at <= seen) continue;
+                        if (Store.notifForMe(Fs.text(d.data, "target"), Fs.text(d.data, "mobile"), Fs.text(d.data, "batch"))) { fresh = true; break; }
                     }
                     bellDot.setVisibility(fresh && currentView != V_INBOX ? View.VISIBLE : View.GONE);
                 });

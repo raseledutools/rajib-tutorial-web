@@ -7,10 +7,6 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.Query;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -68,29 +64,27 @@ final class InboxScreen extends Screen {
 
     private void load() {
         try {
-            FirebaseFirestore.getInstance().collection("push_messages")
-                .orderBy("at", Query.Direction.DESCENDING).limit(100).get()
-                .addOnSuccessListener(snap -> {
+            Store.async(() -> Fs.query("push_messages", null, null, null, "at", true, 100),
+                (List<Fs.Doc> docs, Exception err) -> {
                     if (released) return;
-                    List<Item> items = new ArrayList<>();
-                    JSONArray keep = new JSONArray();
-                    for (DocumentSnapshot d : snap.getDocuments()) {
-                        String target = d.getString("target");
-                        if (!Store.notifForMe(target, d.getString("mobile"), d.getString("batch"))) continue;
-                        Item it = new Item();
-                        it.title = nz(d.getString("title"));
-                        it.body = nz(d.getString("body"));
-                        Long at = d.getLong("at");
-                        it.at = at == null ? 0L : at;
-                        it.tag = "batch".equals(target) ? "Your batch: " + nz(d.getString("batch")) : ("all".equals(target) ? "" : "For you");
-                        items.add(it);
-                        try { keep.put(new JSONObject().put("title", it.title).put("body", it.body).put("at", it.at).put("tag", it.tag)); } catch (Exception ignored) { }
+                    if (err == null && docs != null) {
+                        List<Item> items = new ArrayList<>();
+                        JSONArray keep = new JSONArray();
+                        for (Fs.Doc d : docs) {
+                            String target = Fs.text(d.data, "target");
+                            if (!Store.notifForMe(target, Fs.text(d.data, "mobile"), Fs.text(d.data, "batch"))) continue;
+                            Item it = new Item();
+                            it.title = Fs.text(d.data, "title");
+                            it.body = Fs.text(d.data, "body");
+                            it.at = Fs.num(d.data, "at");
+                            it.tag = "batch".equals(target) ? "Your batch: " + Fs.text(d.data, "batch") : ("all".equals(target) ? "" : "For you");
+                            items.add(it);
+                            try { keep.put(new JSONObject().put("title", it.title).put("body", it.body).put("at", it.at).put("tag", it.tag)); } catch (Exception ignored) { }
+                        }
+                        OfflineCache.saveInbox(a, keep);
+                        render(items);
+                        return;
                     }
-                    OfflineCache.saveInbox(a, keep);
-                    render(items);
-                })
-                .addOnFailureListener(e -> {
-                    if (released) return;
                     // offline / blocked: fall back to what this phone received
                     List<Item> local = new ArrayList<>();
                     JSONArray arr = OfflineCache.loadInbox(a);

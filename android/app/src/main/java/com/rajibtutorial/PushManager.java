@@ -11,7 +11,6 @@ import android.os.Build;
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.messaging.FirebaseMessaging;
-import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -193,15 +192,14 @@ final class PushManager {
     }
 
     /** Save FCM token to Firestore push_tokens/{token} */
-    static void saveTokenToFirestore(Context c, String token, String mobile) {
+    static void saveTokenToFirestore(Context c, final String token, final String mobile) {
         try {
-            FirebaseFirestore db = FirebaseFirestore.getInstance();
-            Map<String, Object> data = new HashMap<>();
+            final Map<String, Object> data = new HashMap<>();
             data.put("token",     token);
             data.put("mobile",    mobile);
             data.put("device",    Build.MANUFACTURER + " " + Build.MODEL);
             data.put("updatedAt", System.currentTimeMillis());
-            db.collection("push_tokens").document(token).set(data);
+            Store.async(() -> { Fs.setIn("push_tokens", token, data); return Boolean.TRUE; }, null);
         } catch (Throwable ignored) {}
     }
 }
