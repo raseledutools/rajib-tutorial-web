@@ -40,4 +40,8 @@ r = session.post(
     json=body, timeout=30)
 print(r.status_code, r.text)
 log(f"{'OK' if r.ok else 'FAILED'}: HTTP {r.status_code} {r.text[:500]}")
+if r.ok:
+    print(f"::notice title=FCM update push::sent for {tag} (HTTP {r.status_code})")
+else:
+    print(f"::error title=FCM update push failed::HTTP {r.status_code} {r.text[:300]}")
 sys.exit(0 if r.ok else 1)
