@@ -7,6 +7,7 @@ import org.schabi.newpipe.extractor.downloader.Request;
 import org.schabi.newpipe.extractor.downloader.Response;
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException;
 import org.schabi.newpipe.extractor.localization.Localization;
+import org.schabi.newpipe.extractor.stream.AudioStream;
 import org.schabi.newpipe.extractor.stream.DeliveryMethod;
 import org.schabi.newpipe.extractor.stream.StreamInfo;
 import org.schabi.newpipe.extractor.stream.VideoStream;
@@ -20,6 +21,8 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Resolves a YouTube watch URL into a direct, downloadable progressive MP4 link (video + audio in one file,
@@ -38,12 +41,34 @@ final class YtResolver {
         inited = true;
     }
 
-    /** @return direct media URL. @throws Exception when nothing downloadable was found. */
-    static String resolve(String watchUrl) throws Exception {
+    /** What to download: `url` alone is a ready video+audio file; with `audioUrl` the two must be merged on the phone. */
+    static final class Res {
+        final String url, audioUrl;
+        Res(String url, String audioUrl) { this.url = url; this.audioUrl = audioUrl; }
+    }
+
+    /**
+     * YouTube rarely offers a ready video+audio file any more (at most one 360p). Like yt-dlp does on the exe, prefer a separate
+     * H.264 video (up to 720p) + AAC audio pair; VideoCache downloads both and merges them with MediaMuxer.
+     * @throws Exception when nothing downloadable was found.
+     */
+    static Res resolve(String watchUrl) throws Exception {
         init();
         StreamInfo info = StreamInfo.getInfo(watchUrl);
-        List<VideoStream> list = info.getVideoStreams();   // muxed (video+audio) streams only
+        VideoStream muxed = bestMuxed(info.getVideoStreams());
+        VideoStream vo = bestVideoOnly(info.getVideoOnlyStreams());
+        AudioStream au = bestAudio(info.getAudioStreams());
+        if (vo != null && au != null && (muxed == null || height(vo) > height(muxed))) return new Res(vo.getContent(), au.getContent());
+        if (muxed != null) return new Res(muxed.getContent(), null);
+        throw new IOException("No downloadable stream for this video (ready " + size(info.getVideoStreams())
+            + ", video-only " + size(info.getVideoOnlyStreams()) + ", audio " + size(info.getAudioStreams()) + ")");
+    }
+
+    private static int size(List<?> l) { return l == null ? 0 : l.size(); }
+
+    private static VideoStream bestMuxed(List<VideoStream> list) {
         VideoStream best = null;
+        if (list == null) return null;
         for (VideoStream s : list) {
             if (s.isVideoOnly() || !s.isUrl()) continue;
             if (s.getDeliveryMethod() != DeliveryMethod.PROGRESSIVE_HTTP) continue;
@@ -51,8 +76,50 @@ final class YtResolver {
             if (!mp4 && best != null) continue;
             if (best == null || (mp4 && best.getFormat() != MediaFormat.MPEG_4) || height(s) > height(best)) best = s;
         }
-        if (best == null) throw new IOException("No downloadable stream for this video");
-        return best.getContent();
+        return best;
+    }
+
+    /** Highest H.264 mp4 video-only stream up to 720p (MediaMuxer can write H.264 on every Android version). */
+    private static VideoStream bestVideoOnly(List<VideoStream> list) {
+        VideoStream best = null;
+        if (list == null) return null;
+        for (VideoStream s : list) {
+            if (!s.isUrl() || s.getDeliveryMethod() != DeliveryMethod.PROGRESSIVE_HTTP) continue;
+            if (s.getFormat() != MediaFormat.MPEG_4) continue;
+            String cd = s.getCodec();
+            if (cd != null && !cd.toLowerCase().startsWith("avc1")) continue;
+            int h = height(s);
+            if (h <= 0 || h > 720) continue;
+            if (best == null || h > height(best)) best = s;
+        }
+        return best;
+    }
+
+    /** Best AAC (m4a) audio stream. */
+    private static AudioStream bestAudio(List<AudioStream> list) {
+        AudioStream best = null;
+        if (list == null) return null;
+        for (AudioStream s : list) {
+            if (!s.isUrl() || s.getDeliveryMethod() != DeliveryMethod.PROGRESSIVE_HTTP) continue;
+            if (s.getFormat() != MediaFormat.M4A) continue;
+            if (best == null || s.getAverageBitrate() > best.getAverageBitrate()) best = s;
+        }
+        return best;
+    }
+
+    /** googlevideo links are made for one YouTube client and expect that client's User-Agent when downloading. */
+    static String userAgentFor(String u) {
+        if (u == null) return UA;
+        if (u.contains("c=ANDROID_VR")) return "com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip";
+        if (u.contains("c=ANDROID")) return "com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip";
+        if (u.contains("c=IOS")) return "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)";
+        return UA;
+    }
+
+    /** Size of the stream from the link's clen= parameter, or -1. */
+    static long contentLength(String u) {
+        Matcher m = Pattern.compile("[?&]clen=(\\d+)").matcher(u == null ? "" : u);
+        try { return m.find() ? Long.parseLong(m.group(1)) : -1; } catch (Exception e) { return -1; }
     }
 
     private static int height(VideoStream s) {

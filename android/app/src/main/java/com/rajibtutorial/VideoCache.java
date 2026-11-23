@@ -1,14 +1,20 @@
 package com.rajibtutorial;
 
 import android.content.Context;
+import android.media.MediaCodec;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
+import android.media.MediaMuxer;
 import android.os.Handler;
 import android.os.Looper;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -169,72 +175,36 @@ final class VideoCache {
         final Context appCtx = ctx.getApplicationContext();
         final boolean yt = isYouTube(url);
         EX.execute(() -> {
-            HttpURLConnection conn = null;
             File tmpFile = new File(cacheFile(appCtx, videoId).getAbsolutePath() + ".tmp");
+            File vTmp = new File(tmpFile.getAbsolutePath() + ".v");     // YouTube: video-only part
+            File aTmp = new File(tmpFile.getAbsolutePath() + ".a");     // YouTube: audio-only part
             boolean keepTmp = false;
             try {
-                String src = url;
+                String src = url, audio = null;
                 if (yt) {
-                    if (tmpFile.exists()) tmpFile.delete();   // signed YouTube links change: never resume those
+                    tmpFile.delete(); vTmp.delete(); aTmp.delete();   // signed YouTube links change: never resume those
                     sResolving.add(videoId);
-                    try { src = YtResolver.resolve(url); } finally { sResolving.remove(videoId); }
-                    if (Boolean.TRUE.equals(sCancel.get(videoId))) throw new CancelledException();
+                    YtResolver.Res r;
+                    try { r = YtResolver.resolve(url); } finally { sResolving.remove(videoId); }
+                    src = r.url;
+                    audio = r.audioUrl;
+                    checkCancel(videoId);
                 }
-                long have = tmpFile.exists() ? tmpFile.length() : 0;
-                conn = (HttpURLConnection) new URL(src).openConnection();
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(30000);
-                if (yt) conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; rv:128.0) Gecko/20100101 Firefox/128.0");
-                if (have > 0) conn.setRequestProperty("Range", "bytes=" + have + "-");
-                conn.connect();
-                int code = conn.getResponseCode();
-                if (code == 416) {                       // stale partial file: start over
-                    tmpFile.delete();
-                    throw new java.io.IOException("Partial file was invalid, tap again");
+                if (audio != null) {
+                    // separate video + audio (like yt-dlp on the exe): download both, then merge into one mp4 on the phone
+                    fetch(appCtx, videoId, src, vTmp, false, true, 0L, 0, 80);
+                    fetch(appCtx, videoId, audio, aTmp, false, true, vTmp.length(), 80, 92);
+                    setPct(videoId, 93);
+                    try { merge(vTmp, aTmp, tmpFile, videoId); }
+                    catch (CancelledException ce) { throw ce; }
+                    catch (Exception me) { throw new IOException("could not merge video+audio (" + me + ")"); }
+                } else {
+                    keepTmp = !yt;                                    // direct files keep their partial file for resume
+                    fetch(appCtx, videoId, src, tmpFile, !yt, yt, 0L, 0, 99);
                 }
-                if (code != 200 && code != 206) throw new java.io.IOException("Server error " + code);
-                boolean resumed = code == 206 && have > 0;
-                if (!resumed) have = 0;
-                long len = conn.getContentLengthLong();
-                long total = len > 0 ? len + have : -1;
-                if (total > 0 && appCtx.getFilesDir().getUsableSpace() - (total - have) < MIN_FREE_BYTES) {
-                    throw new java.io.IOException("Not enough storage space");
-                }
-                InputStream in = conn.getInputStream();
-                FileOutputStream out = new FileOutputStream(tmpFile, resumed);
-                byte[] buf = new byte[16384];
-                long downloaded = have;
-                int read;
-                int lastPct = -1;
-                long lastPing = downloaded;
-                keepTmp = !yt;
-                try {
-                    while ((read = in.read(buf)) != -1) {
-                        if (Boolean.TRUE.equals(sCancel.get(videoId))) throw new CancelledException();
-                        out.write(buf, 0, read);
-                        downloaded += read;
-                        sBytes.put(videoId, downloaded);
-                        if (total <= 0 && downloaded - lastPing >= 512 * 1024) {   // size unknown: still refresh the "MB" label
-                            lastPing = downloaded;
-                            notifyListener(videoId, 0);
-                        }
-                        if (total > 0) {
-                            int pct = (int) Math.min(99, downloaded * 100L / total);
-                            if (pct != lastPct) {
-                                lastPct = pct;
-                                sProgress.put(videoId, pct);
-                                notifyListener(videoId, pct);
-                            }
-                        }
-                    }
-                } finally {
-                    try { out.close(); } catch (Exception ignored) { }
-                    try { in.close(); } catch (Exception ignored) { }
-                }
-                if (total > 0 && downloaded < total) throw new java.io.IOException("Connection lost, tap again to resume");
                 File dst = cacheFile(appCtx, videoId);
                 if (dst.exists()) dst.delete();
-                if (!tmpFile.renameTo(dst)) throw new java.io.IOException("Could not save file");
+                if (!tmpFile.renameTo(dst)) throw new IOException("Could not save file");
                 dst.setLastModified(System.currentTimeMillis()); // start the 7-day timer
                 sProgress.remove(videoId);
                 sCancel.remove(videoId);
@@ -252,11 +222,182 @@ final class VideoCache {
                 sCancel.remove(videoId);
                 notifyListener(videoId, -1);
             } finally {
+                vTmp.delete();
+                aTmp.delete();
                 sBytes.remove(videoId);
                 sResolving.remove(videoId);
-                if (conn != null) conn.disconnect();
             }
         });
+    }
+
+    // ── download helpers ────────────────────────────────────────────────────
+
+    private static final class HttpStatus extends IOException {
+        final int code;
+        HttpStatus(int code) { super("Server error " + code); this.code = code; }
+    }
+
+    private static void checkCancel(String id) {
+        if (Boolean.TRUE.equals(sCancel.get(id))) throw new CancelledException();
+    }
+
+    private static void setPct(String id, int pct) {
+        sProgress.put(id, pct);
+        notifyListener(id, pct);
+    }
+
+    private static void checkSpace(Context ctx, long total, long have) throws IOException {
+        if (total > 0 && ctx.getFilesDir().getUsableSpace() - (total - have) < MIN_FREE_BYTES) throw new IOException("Not enough storage space");
+    }
+
+    /** Copies `in` to `out`, reporting progress mapped onto p0..p1 percent (or MB when the size is unknown). */
+    private static void pump(InputStream in, FileOutputStream out, String id, long baseBytes, long done0, long total, int p0, int p1) throws IOException {
+        byte[] buf = new byte[32768];
+        long done = done0, lastPing = done0;
+        int n, lastPct = -1;
+        while ((n = in.read(buf)) != -1) {
+            checkCancel(id);
+            out.write(buf, 0, n);
+            done += n;
+            sBytes.put(id, baseBytes + done);
+            if (total > 0) {
+                int pct = (int) Math.min(p1, p0 + (p1 - p0) * done / total);
+                if (pct != lastPct) { lastPct = pct; setPct(id, pct); }
+            } else if (done - lastPing >= 512 * 1024) {      // size unknown: still refresh the "MB" label
+                lastPing = done;
+                notifyListener(id, 0);
+            }
+        }
+    }
+
+    private static HttpURLConnection open(String src, boolean yt) throws IOException {
+        HttpURLConnection c = (HttpURLConnection) new URL(src).openConnection();
+        c.setConnectTimeout(15000);
+        c.setReadTimeout(30000);
+        if (yt) c.setRequestProperty("User-Agent", YtResolver.userAgentFor(src));
+        return c;
+    }
+
+    /** Downloads one URL into `file`. Direct videos resume; a YouTube link that answers 403 is retried in small range= chunks. */
+    private static void fetch(Context ctx, String id, String src, File file, boolean resume, boolean yt, long baseBytes, int p0, int p1) throws Exception {
+        try {
+            fetchOnce(ctx, id, src, file, resume, yt, baseBytes, p0, p1);
+        } catch (HttpStatus e) {
+            if (!yt || e.code != 403) throw e;
+            fetchChunked(ctx, id, src, file, baseBytes, p0, p1, e);
+        }
+    }
+
+    private static void fetchOnce(Context ctx, String id, String src, File file, boolean resume, boolean yt, long baseBytes, int p0, int p1) throws Exception {
+        if (!resume && file.exists()) file.delete();
+        long have = file.exists() ? file.length() : 0;
+        HttpURLConnection conn = open(src, yt);
+        try {
+            if (have > 0) conn.setRequestProperty("Range", "bytes=" + have + "-");
+            conn.connect();
+            int code = conn.getResponseCode();
+            if (code == 416) {                       // stale partial file: start over
+                file.delete();
+                throw new IOException("Partial file was invalid, tap again");
+            }
+            if (code != 200 && code != 206) throw new HttpStatus(code);
+            boolean resumed = code == 206 && have > 0;
+            if (!resumed) have = 0;
+            long len = conn.getContentLengthLong();
+            long total = len > 0 ? len + have : -1;
+            checkSpace(ctx, total, have);
+            try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(file, resumed)) {
+                pump(in, out, id, baseBytes, have, total, p0, p1);
+            }
+            if (total > 0 && file.length() < total) throw new IOException("Connection lost, tap again to resume");
+        } finally {
+            conn.disconnect();
+        }
+    }
+
+    /** Same thing YouTube's own players do: ask for the file in 4 MB pieces with the range= parameter. */
+    private static void fetchChunked(Context ctx, String id, String src, File file, long baseBytes, int p0, int p1, HttpStatus first) throws Exception {
+        long total = YtResolver.contentLength(src);
+        if (total <= 0) throw first;
+        checkSpace(ctx, total, 0);
+        if (file.exists()) file.delete();
+        final long chunk = 4L * 1024 * 1024;
+        long pos = 0;
+        while (pos < total) {
+            checkCancel(id);
+            long end = Math.min(total, pos + chunk) - 1;
+            HttpURLConnection conn = open(src + "&range=" + pos + "-" + end, true);
+            try {
+                conn.connect();
+                int code = conn.getResponseCode();
+                if (code != 200 && code != 206) throw new HttpStatus(code);
+                try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(file, true)) {
+                    pump(in, out, id, baseBytes, pos, total, p0, p1);
+                }
+            } finally {
+                conn.disconnect();
+            }
+            long now = file.length();
+            if (now <= pos) throw new IOException("Connection lost, tap again");
+            pos = now;
+        }
+    }
+
+    // ── merge video-only + audio-only into one mp4 (no ffmpeg needed) ───────
+
+    private static int firstTrack(MediaExtractor ex, String prefix) {
+        for (int i = 0; i < ex.getTrackCount(); i++) {
+            String mime = ex.getTrackFormat(i).getString(MediaFormat.KEY_MIME);
+            if (mime != null && mime.startsWith(prefix)) return i;
+        }
+        return -1;
+    }
+
+    private static void merge(File video, File audio, File out, String id) throws Exception {
+        MediaExtractor ve = new MediaExtractor(), ae = new MediaExtractor();
+        MediaMuxer mux = null;
+        boolean started = false;
+        try {
+            ve.setDataSource(video.getAbsolutePath());
+            ae.setDataSource(audio.getAbsolutePath());
+            int vt = firstTrack(ve, "video/"), at = firstTrack(ae, "audio/");
+            if (vt < 0 || at < 0) throw new IOException("downloaded file has no video or audio track");
+            ve.selectTrack(vt);
+            ae.selectTrack(at);
+            if (out.exists()) out.delete();
+            mux = new MediaMuxer(out.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            int vi = mux.addTrack(ve.getTrackFormat(vt));
+            int ai = mux.addTrack(ae.getTrackFormat(at));
+            mux.start();
+            started = true;
+            copySamples(ve, mux, vi, id);
+            copySamples(ae, mux, ai, id);
+            mux.stop();
+            started = false;
+        } finally {
+            try { ve.release(); } catch (Exception ignored) { }
+            try { ae.release(); } catch (Exception ignored) { }
+            if (mux != null) {
+                try { if (started) mux.stop(); } catch (Exception ignored) { }
+                try { mux.release(); } catch (Exception ignored) { }
+            }
+        }
+    }
+
+    private static void copySamples(MediaExtractor ex, MediaMuxer mux, int track, String id) {
+        ByteBuffer buf = ByteBuffer.allocate(4 * 1024 * 1024);
+        MediaCodec.BufferInfo bi = new MediaCodec.BufferInfo();
+        while (true) {
+            int size = ex.readSampleData(buf, 0);
+            if (size < 0) break;
+            checkCancel(id);
+            bi.offset = 0;
+            bi.size = size;
+            bi.presentationTimeUs = ex.getSampleTime();
+            bi.flags = (ex.getSampleFlags() & MediaExtractor.SAMPLE_FLAG_SYNC) != 0 ? MediaCodec.BUFFER_FLAG_KEY_FRAME : 0;
+            mux.writeSampleData(track, buf, bi);
+            ex.advance();
+        }
     }
 
     private static final class CancelledException extends RuntimeException { }
