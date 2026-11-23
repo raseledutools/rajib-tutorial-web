@@ -54,8 +54,9 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true    // NewPipeExtractor needs java.time etc. below API 33
     }
 
     buildFeatures {
@@ -91,6 +92,10 @@ dependencies {
     implementation 'com.google.guava:listenablefuture:1.0'   // work-runtime API needs this class at compile time
     implementation 'com.google.guava:guava:31.1-android'   // ListenableFuture (needed to compile WorkManager's Worker)
     implementation 'com.google.firebase:firebase-firestore'
+
+    // YouTube lesson save (Android counterpart of the exe's yt-dlp): resolves a watch URL to a direct MP4
+    implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.27.1'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.0.4'
 }
 
 // Apply the Google services plugin only when google-services.json exists,
