@@ -27,6 +27,8 @@ final class PushManager {
     /** Explicit vibration pattern (same for the channel on API 26+ and the builder below it). */
     static final long[] VIBE = {0, 350, 200, 350};
     static final String TOPIC_ALL   = "all";
+    /** CI sends an "app_update" data push to this topic when a new APK release is published. */
+    static final String TOPIC_UPDATE = "app_update";
     static final String TOPIC_DISCUSSION = "discussion";
     static final String TOPIC_ADMINS = "admins";
     static final String CHAT_CHANNEL = "rt_chat_v1";
@@ -109,6 +111,7 @@ final class PushManager {
             if (FirebaseApp.getApps(app).isEmpty()) return;
             FirebaseMessaging fm = FirebaseMessaging.getInstance();
             fm.subscribeToTopic(TOPIC_ALL);
+            fm.subscribeToTopic(TOPIC_UPDATE);
             fm.getToken().addOnSuccessListener(t -> onToken(app, t));
         } catch (Throwable ignored) {}
     }
@@ -116,8 +119,10 @@ final class PushManager {
     static void onToken(Context c, String token) {
         if (token == null || token.isEmpty()) return;
         p(c).edit().putString(K_TOKEN, token).apply();
-        try { FirebaseMessaging.getInstance().subscribeToTopic(TOPIC_ALL); }
-        catch (Throwable ignored) {}
+        try {
+            FirebaseMessaging.getInstance().subscribeToTopic(TOPIC_ALL);
+            FirebaseMessaging.getInstance().subscribeToTopic(TOPIC_UPDATE);
+        } catch (Throwable ignored) {}
         saveTokenToFirestore(c, token, p(c).getString(K_MOBILE, ""));
     }
 

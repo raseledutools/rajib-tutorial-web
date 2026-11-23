@@ -127,3 +127,15 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Release published -> instant "update available" push to every installed phone (FCM topic).
+      # Skipped (build still succeeds) until the FIREBASE_SERVICE_ACCOUNT secret is added.
+      - name: Push update notification to phones (FCM)
+        if: success()
+        continue-on-error: true
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          RELEASE_TAG: ${{ env.TAG }}
+        run: |
+          pip install --quiet google-auth requests
+          python3 scripts/send_update_push.py
