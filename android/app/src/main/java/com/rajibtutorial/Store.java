@@ -42,6 +42,16 @@ final class Store {
         "Microprocessor & Microcontroller", "Measurement & Instrumentation",
         "Electrical Installation & Wiring", "Mathematics", "Physics", "Computer & ICT", "Other"
     };
+    // Course categories (stored as `category` on each course doc; missing -> "diploma")
+    static final String[][] CATS = {
+        {"job", "EEE Job Preparation", "Job exam preparation", "💼"},
+        {"duet", "EEE DUET Admission", "University admission preparation", "🎓"},
+        {"diploma", "Diploma", "Diploma courses (Semesters 1–7)", "📘"}
+    };
+    static String[] catOf(String id) { for (String[] k : CATS) if (k[0].equals(id)) return k; return CATS[2]; }
+    static boolean isCat(String id) { for (String[] k : CATS) if (k[0].equals(id)) return true; return false; }
+    static int semRank(String x) { for (int i = 0; i < SEMESTERS.length; i++) if (SEMESTERS[i].equals(x)) return i; return 99; }
+
     static final String ADMIN_PW = "1111";
     static final String BACKEND = "https://rasfocus-backend.onrender.com";
     static final String WHATSAPP = "https://wa.me/8801566054963";
@@ -56,6 +66,7 @@ final class Store {
 
     static final class Course {
         String id = "", courseName = "", title = "", className = "", subject = "", description = "";
+        String category = "diploma";        // job | duet | diploma (same as the web `category` field)
         int price = 0;                      // taka, 0 = no price set
         List<Video> videos = new ArrayList<>();
     }
@@ -321,6 +332,8 @@ final class Store {
                 c.className = str(d.data, "className");
                 c.subject = str(d.data, "subject");
                 c.description = str(d.data, "description");
+                String cg = str(d.data, "category");
+                c.category = isCat(cg) ? cg : "diploma";
                 c.price = parsePrice(d.data.get("price"));
                 Object vo = d.data.get("videos");
                 if (vo instanceof List) {
