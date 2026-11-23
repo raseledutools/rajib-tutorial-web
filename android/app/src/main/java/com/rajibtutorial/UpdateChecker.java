@@ -151,6 +151,36 @@ public class UpdateChecker {
         }).start();
     }
 
+    /**
+     * Background check used by UpdateWorker (runs even when the app is closed).
+     * Blocking call — must NOT run on the main thread. Shows the "update available" notification
+     * once per new release (same last_tag guard as the in-app check, so no duplicates).
+     * Returns false only when the network lookup failed (WorkManager then retries later).
+     */
+    boolean checkAndNotifyBlocking() {
+        try {
+            String[] latest = fetchLatest();
+            String tagName = latest[0], apkUrl = latest[1], body = latest[2];
+            int remoteCode = 0;
+            try { remoteCode = Integer.parseInt(tagName.replace("v", "").trim()); }
+            catch (Exception ignored) {}
+            int installedCode = BuildConfig.VERSION_CODE;
+            try {
+                installedCode = context.getPackageManager()
+                    .getPackageInfo(context.getPackageName(), 0).versionCode;
+            } catch (Exception ignored) {}
+            if (remoteCode <= installedCode || apkUrl.isEmpty()) return true;
+
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            if (tagName.equals(prefs.getString(KEY_LAST_TAG, ""))) return true;   // already notified
+            showUpdateNotification(tagName, body, apkUrl);
+            prefs.edit().putString(KEY_LAST_TAG, tagName).apply();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private static final String REPO_URL =
         "https://github.com/" + BuildConfig.GITHUB_OWNER + "/" + BuildConfig.GITHUB_REPO;
 

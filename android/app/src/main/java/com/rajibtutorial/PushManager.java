@@ -103,6 +103,7 @@ final class PushManager {
     static void init(Context c) {
         final Context app = c.getApplicationContext();
         createChannel(app);
+        UpdateWorker.schedule(app);   // new-APK check keeps running while the app is closed
         try {
             if (FirebaseApp.getApps(app).isEmpty()) return;
             FirebaseMessaging fm = FirebaseMessaging.getInstance();
