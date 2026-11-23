@@ -190,6 +190,7 @@ final class CourseScreen extends Screen {
         renderList();
         clearPlayer();
         String embed = Store.ytEmbed(v.url, autoplay);
+        if (embed != null && VideoCache.getLocalPath(a, v.id) != null) embed = null;   // saved YouTube lesson: play the local file
         if (embed != null && !OfflineCache.online(a)) {
             showPlaceholder("YouTube lessons need an internet connection");
         } else if (embed == null && !v.url.isEmpty() && VideoCache.getLocalPath(a, v.id) == null && !OfflineCache.online(a)) {
@@ -431,16 +432,8 @@ final class CourseScreen extends Screen {
                 row.addView(Ui.tv(a, "🔒", 15, Ui.SUB, false));
             }
 
-            // ── YouTube lessons: stream-only, so show an "online only" sign ──
-            if (isYT && can) {
-                TextView net = Ui.tv(a, "🌐", 13, Ui.SUB, false);
-                net.setAlpha(0.6f);
-                net.setPadding(Ui.dp(a, 10), 0, Ui.dp(a, 2), 0);
-                row.addView(net);
-            }
-
             // ── offline / download indicator (only for direct video, not YouTube) ──
-            if (!isYT && !v.url.isEmpty() && can) {
+            if (!v.url.isEmpty() && can) {
                 boolean downloaded  = VideoCache.isDownloaded(a, v.id);
                 boolean downloading = VideoCache.isDownloading(v.id);
                 int     progress    = VideoCache.getProgress(v.id);
@@ -502,7 +495,11 @@ final class CourseScreen extends Screen {
                         } else {
                             a.toast("Downloading for offline…");
                             VideoCache.startDownload(a, vid, url,
-                                    (id, pct) -> { if (!released) renderList(); });
+                                    (id, pct) -> {
+                                        if (released) return;
+                                        if (pct < 0) a.toast(VideoCache.lastError(id));
+                                        renderList();
+                                    });
                             renderList();
                         }
                     });
