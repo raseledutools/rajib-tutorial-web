@@ -1,0 +1,90 @@
+Unable to strip the following libraries, packaging them as they are: libtwilio_voice_android_so.so.
+
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:checkReleaseDuplicateClasses
+--
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/CourseScreen.java:46: error: variable a might not have been initialized
+        if (pct == -1) a.toast(VideoCache.lastError(id));
+                       ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/CourseScreen.java:47: error: variable a might not have been initialized
+        else if (pct == -2) a.toast("Download cancelled");
+                            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/CourseScreen.java:48: error: variable a might not have been initialized
+        else if (pct == 100) a.toast("✅ Saved for offline · " + VideoCache.OFFLINE_DAYS + " days");
+                             ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+3 errors
+
+> Task :app:compileReleaseJavaWithJavac FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileReleaseJavaWithJavac'.
+> Compilation failed; see the compiler error output for details.
+
+* Try:
+--
+BUILD FAILED in 14s
+25 actionable tasks: 25 executed
+Daemon will be stopped at the end of the build 
+Warning: SDK processing. This version only understands SDK XML versions up to 3 but an SDK XML file of version 4 was encountered. This can happen if you use versions of Android Studio and the command-line tools that were released at different times.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:generateReleaseBuildConfig
+> Task :app:javaPreCompileRelease
+> Task :app:generateReleaseResValues
+> Task :app:processReleaseGoogleServices
+> Task :app:checkReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :app:mergeReleaseResources
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:extractProguardFiles
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:processReleaseManifestForPackage
+> Task :app:mergeReleaseNativeLibs
+> Task :app:mergeReleaseArtProfile
+
+> Task :app:stripReleaseDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libtwilio_voice_android_so.so.
+
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:processReleaseResources
+> Task :app:expandReleaseL8ArtProfileWildcards
+
+> Task :app:compileReleaseJavaWithJavac
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/CourseScreen.java:46: error: variable a might not have been initialized
+        if (pct == -1) a.toast(VideoCache.lastError(id));
+                       ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/CourseScreen.java:47: error: variable a might not have been initialized
+        else if (pct == -2) a.toast("Download cancelled");
+                            ^
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/CourseScreen.java:48: error: variable a might not have been initialized
+        else if (pct == 100) a.toast("✅ Saved for offline · " + VideoCache.OFFLINE_DAYS + " days");
+                             ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+3 errors
+
+> Task :app:compileReleaseJavaWithJavac FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileReleaseJavaWithJavac'.
+> Compilation failed; see the compiler error output for details.
+
+* Try:
+> Run with --info option to get more log output.
+> Run with --scan to get full insights.
+
+BUILD FAILED in 14s
+25 actionable tasks: 25 executed
