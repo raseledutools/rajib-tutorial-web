@@ -666,6 +666,8 @@ public class NativeHomeActivity extends AppCompatActivity {
         nav.addView(navItem("📢  Current Circular", currentView == V_RES && Store.R_CIRCULAR.equals(resType), false, () -> openResources(Store.R_CIRCULAR)));
         nav.addView(navItem("📚  Question Bank", currentView == V_RES && Store.R_QBANK.equals(resType), false, () -> openResources(Store.R_QBANK)));
         nav.addView(navItem("🆕  Recent Question Bank", currentView == V_RES && Store.R_RECENT.equals(resType), false, () -> openResources(Store.R_RECENT)));
+        nav.addView(navItem("🧰  Study Tools", false, false, () -> { closeDrawer(); startActivity(new Intent(this, StudyToolsActivity.class)); }));
+        nav.addView(navItem("🌐  Safe Browser", false, false, () -> openWeb("https://www.google.com/", "Safe Browser", false, true)));
         nav.addView(navLabel("Courses"));
         if (loading) {
             nav.addView(Ui.tv(this, "Loading…", 12, Ui.SUB, false));
