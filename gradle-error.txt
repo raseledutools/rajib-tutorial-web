@@ -1,3 +1,5 @@
+Downloading https://services.gradle.org/distributions/gradle-8.6-bin.zip
+............10%.............20%............30%.............40%.............50%............60%.............70%.............80%............90%.............100%
 
 Welcome to Gradle 8.6!
 
@@ -29,22 +31,22 @@ Warning: SDK processing. This version only understands SDK XML versions up to 3 
 > Task :app:processReleaseManifest
 > Task :app:extractProguardFiles
 > Task :app:mergeReleaseJniLibFolders
-> Task :app:processReleaseManifestForPackage
 > Task :app:mergeReleaseNativeLibs
-> Task :app:checkReleaseDuplicateClasses
+> Task :app:processReleaseManifestForPackage
 
 > Task :app:stripReleaseDebugSymbols
 Unable to strip the following libraries, packaging them as they are: libtwilio_voice_android_so.so.
 
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:extractReleaseNativeSymbolTables
 > Task :app:processReleaseResources
 > Task :app:desugarReleaseFileDependencies
 
 > Task :app:compileReleaseJavaWithJavac
-/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/StudyToolsActivity.java:181: error: cannot find symbol
-        tools.add(new ToolDef("📖", W.BLUE, "PDF Reader", pdf, PdfTools.Reader::new));
-                                                                       ^
-  symbol:   class Reader
-  location: class PdfTools
+/home/runner/work/rajib-tutorial-web/rajib-tutorial-web/android/app/src/main/java/com/rajibtutorial/UpdateWorker.java:21: error: cannot access ListenableFuture
+public class UpdateWorker extends Worker {
+       ^
+  class file for com.google.common.util.concurrent.ListenableFuture not found
 Note: Some input files use or override a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
 1 error
@@ -61,5 +63,5 @@ Execution failed for task ':app:compileReleaseJavaWithJavac'.
 > Run with --info option to get more log output.
 > Run with --scan to get full insights.
 
-BUILD FAILED in 17s
-23 actionable tasks: 23 executed
+BUILD FAILED in 57s
+24 actionable tasks: 24 executed
