@@ -15,8 +15,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Saves lesson videos into app-internal storage for offline play.
- * Direct files resume after a failure; YouTube links are resolved to an MP4 via YtResolver.
+ * Caches direct video files (non-YouTube) into app-internal storage.
+ * YouTube links are skipped — they cannot be downloaded directly.
  *
  * Usage:
  *   VideoCache.startDownload(ctx, videoId, url, listener)
@@ -89,22 +89,12 @@ final class VideoCache {
         return sProgress.containsKey(videoId);
     }
 
-    /** Always leave this much free on the device (same rule as the exe). */
-    private static final long MIN_FREE_BYTES = 300L * 1024 * 1024;
-    private static final Map<String, String> sError = new HashMap<>();
-
-    /** Short human-readable reason of the last failed download of this video. */
-    static String lastError(String videoId) {
-        String e = sError.get(videoId);
-        return e == null ? "Download failed" : e;
-    }
-
     /**
-     * Starts a background download (direct files resume after a failure; YouTube links are resolved to a
-     * direct MP4 first). Safe to call again if already downloading. Skips if already downloaded.
+     * Starts a background download. Safe to call again if already downloading
+     * (will attach the new listener and return). Skips if already downloaded.
      */
     static void startDownload(Context ctx, String videoId, String url, ProgressListener listener) {
-        if (url == null || url.isEmpty()) return;
+        if (url == null || url.isEmpty() || isYouTube(url)) return;
         if (isDownloaded(ctx, videoId)) {
             if (listener != null) MAIN.post(() -> listener.onProgress(videoId, 100));
             return;
@@ -114,82 +104,53 @@ final class VideoCache {
 
         sProgress.put(videoId, 0);
         sCancel.put(videoId, Boolean.FALSE);
-        sError.remove(videoId);
 
         final Context appCtx = ctx.getApplicationContext();
-        final boolean yt = isYouTube(url);
         EX.execute(() -> {
             HttpURLConnection conn = null;
             File tmpFile = new File(cacheFile(appCtx, videoId).getAbsolutePath() + ".tmp");
-            boolean keepTmp = false;
             try {
-                String src = url;
-                if (yt) {
-                    if (tmpFile.exists()) tmpFile.delete();   // signed YouTube links change: never resume those
-                    src = YtResolver.resolve(url);
-                    if (Boolean.TRUE.equals(sCancel.get(videoId))) throw new CancelledException();
-                }
-                long have = tmpFile.exists() ? tmpFile.length() : 0;
-                conn = (HttpURLConnection) new URL(src).openConnection();
+                conn = (HttpURLConnection) new URL(url).openConnection();
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(30000);
-                if (yt) conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; rv:128.0) Gecko/20100101 Firefox/128.0");
-                if (have > 0) conn.setRequestProperty("Range", "bytes=" + have + "-");
                 conn.connect();
-                int code = conn.getResponseCode();
-                if (code == 416) {                       // stale partial file: start over
-                    tmpFile.delete();
-                    throw new java.io.IOException("Partial file was invalid, tap again");
-                }
-                if (code != 200 && code != 206) throw new java.io.IOException("Server error " + code);
-                boolean resumed = code == 206 && have > 0;
-                if (!resumed) have = 0;
-                long len = conn.getContentLengthLong();
-                long total = len > 0 ? len + have : -1;
-                if (total > 0 && appCtx.getFilesDir().getUsableSpace() - (total - have) < MIN_FREE_BYTES) {
-                    throw new java.io.IOException("Not enough storage space");
-                }
+                int total = conn.getContentLength();
                 InputStream in = conn.getInputStream();
-                FileOutputStream out = new FileOutputStream(tmpFile, resumed);
-                byte[] buf = new byte[16384];
-                long downloaded = have;
+                FileOutputStream out = new FileOutputStream(tmpFile);
+                byte[] buf = new byte[8192];
+                long downloaded = 0;
                 int read;
                 int lastPct = -1;
-                keepTmp = !yt;
-                try {
-                    while ((read = in.read(buf)) != -1) {
-                        if (Boolean.TRUE.equals(sCancel.get(videoId))) throw new CancelledException();
-                        out.write(buf, 0, read);
-                        downloaded += read;
-                        if (total > 0) {
-                            int pct = (int) Math.min(99, downloaded * 100L / total);
-                            if (pct != lastPct) {
-                                lastPct = pct;
-                                sProgress.put(videoId, pct);
-                                notifyListener(videoId, pct);
-                            }
+                while ((read = in.read(buf)) != -1) {
+                    if (Boolean.TRUE.equals(sCancel.get(videoId))) {
+                        out.close();
+                        in.close();
+                        tmpFile.delete();
+                        sProgress.remove(videoId);
+                        sCancel.remove(videoId);
+                        return;
+                    }
+                    out.write(buf, 0, read);
+                    downloaded += read;
+                    if (total > 0) {
+                        int pct = (int) (downloaded * 100L / total);
+                        if (pct != lastPct) {
+                            lastPct = pct;
+                            sProgress.put(videoId, pct);
+                            notifyListener(videoId, pct);
                         }
                     }
-                } finally {
-                    try { out.close(); } catch (Exception ignored) { }
-                    try { in.close(); } catch (Exception ignored) { }
                 }
-                if (total > 0 && downloaded < total) throw new java.io.IOException("Connection lost, tap again to resume");
-                File dst = cacheFile(appCtx, videoId);
-                if (dst.exists()) dst.delete();
-                if (!tmpFile.renameTo(dst)) throw new java.io.IOException("Could not save file");
-                dst.setLastModified(System.currentTimeMillis()); // start the 7-day timer
+                out.close();
+                in.close();
+                // rename tmp → final
+                tmpFile.renameTo(cacheFile(appCtx, videoId));
+                cacheFile(appCtx, videoId).setLastModified(System.currentTimeMillis()); // start the 7-day timer
                 sProgress.remove(videoId);
                 sCancel.remove(videoId);
                 notifyListener(videoId, 100);
-            } catch (CancelledException ce) {
-                tmpFile.delete();
-                sProgress.remove(videoId);
-                sCancel.remove(videoId);
             } catch (Exception e) {
-                if (!keepTmp && tmpFile.exists()) tmpFile.delete();
-                String m = e.getMessage();
-                sError.put(videoId, yt ? "YouTube: " + (m == null ? "could not get video" : m) : (m == null ? "Download failed" : m));
+                if (tmpFile.exists()) tmpFile.delete();
                 sProgress.remove(videoId);
                 sCancel.remove(videoId);
                 notifyListener(videoId, -1);
@@ -198,8 +159,6 @@ final class VideoCache {
             }
         });
     }
-
-    private static final class CancelledException extends RuntimeException { }
 
     static void cancel(String videoId) {
         sCancel.put(videoId, Boolean.TRUE);
