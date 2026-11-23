@@ -88,6 +88,7 @@ dependencies {
     implementation 'com.google.firebase:firebase-messaging'
     // Background update check while the app is closed
     implementation 'androidx.work:work-runtime:2.9.1'
+    implementation 'com.google.guava:guava:31.1-android'   // ListenableFuture (needed to compile WorkManager's Worker)
     implementation 'com.google.firebase:firebase-firestore'
 }
 
