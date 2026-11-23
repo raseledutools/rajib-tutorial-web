@@ -78,6 +78,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        CrashLog.showIfAny(this);
 
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
