@@ -1,0 +1,80 @@
+name: Build Android APK (test only - offline-save UI branch, no release, no push)
+
+# Builds the app from a test branch and keeps the APK as a downloadable artifact.
+# It never creates a GitHub Release and never sends the FCM "update available" push.
+on:
+  push:
+    branches: [feat/apk-offline-save-ui]
+    paths:
+      - 'android/**'
+      - 'index.html'
+      - '.github/workflows/build-apk-test-offline.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bundle latest index.html into the APK (offline fallback)
+        run: |
+          mkdir -p android/app/src/main/assets
+          cp index.html android/app/src/main/assets/index.html
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Create local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+
+      - name: Accept Android licenses
+        run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      - name: Restore release keystore from secret
+        run: |
+          mkdir -p $HOME/.android
+          echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 -d > $HOME/.android/rajib-release.jks
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      # high versionCode so this test build can be installed over the installed app; uninstall it before going back to official builds
+      - name: Set test version
+        run: |
+          VC=$((900000 + ${{ github.run_number }}))
+          sed -i "s/versionCode [0-9]*/versionCode $VC/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"test-${{ github.run_number }}\"/" android/app/build.gradle
+          sed -i "s/buildConfigField \"int\", \"VERSION_CODE\", \"[0-9]*\"/buildConfigField \"int\", \"VERSION_CODE\", \"$VC\"/" android/app/build.gradle
+
+      - name: Build Release APK
+        working-directory: android
+        env:
+          STORE_FILE: /home/runner/.android/rajib-release.jks
+          STORE_PASS: ${{ secrets.RELEASE_STORE_PASS }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.RELEASE_KEY_PASS }}
+          TWILIO_TOKEN_URL: ${{ secrets.TWILIO_TOKEN_URL }}
+        run: ./gradlew assembleRelease --no-daemon 2>&1 | tee /tmp/gradle_output.txt; exit ${PIPESTATUS[0]}
+
+      - name: Push error log to this test branch on failure
+        if: failure()
+        run: |
+          git config user.email "ci@github.com"
+          git config user.name "GitHub CI"
+          grep -E "error:|warning: \[|FAILED|What went wrong|Execution failed|e: |Could not|symbol:|location:" -A3 /tmp/gradle_output.txt | head -300 > gradle-error-offline.txt || true
+          tail -60 /tmp/gradle_output.txt >> gradle-error-offline.txt
+          git add -f gradle-error-offline.txt
+          git commit -m "ci: gradle error log (test branch) [skip ci]"
+          git push origin HEAD:${GITHUB_REF_NAME}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RajibTutorial-test-${{ github.run_number }}
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 14
