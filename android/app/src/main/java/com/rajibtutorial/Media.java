@@ -105,6 +105,33 @@ final class Media {
             }
         };
 
+        private float tDownX, tDownY;
+        private long tDownAt;
+
+        /** Detects a short tap on the WebView natively and hands it to the page (window.__rtTap), so the on-screen
+         *  controls react even when YouTube's page scripts swallow the page's own touch/click events. */
+        @Override
+        @SuppressLint("ClickableViewAccessibility")
+        public boolean onTouchEvent(android.view.MotionEvent e) {
+            switch (e.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    tDownX = e.getX(); tDownY = e.getY(); tDownAt = SystemClock.uptimeMillis();
+                    break;
+                case android.view.MotionEvent.ACTION_UP: {
+                    float slop = 12 * getResources().getDisplayMetrics().density;
+                    if (Math.abs(e.getX() - tDownX) < slop && Math.abs(e.getY() - tDownY) < slop
+                        && SystemClock.uptimeMillis() - tDownAt < 600 && getWidth() > 0 && getHeight() > 0) {
+                        final float fx = e.getX() / getWidth(), fy = e.getY() / getHeight();
+                        // give the page's own handlers a moment first; __rtTap ignores the tap if they already acted
+                        h.postDelayed(() -> evaluateJavascript("window.__rtTap&&window.__rtTap(" + fx + "," + fy + ")", null), 160);
+                    }
+                    break;
+                }
+                default: break;
+            }
+            return super.onTouchEvent(e);
+        }
+
         void setFsHandler(Runnable r) {
             fsHandler = r;
             h.removeCallbacks(fsTicker);

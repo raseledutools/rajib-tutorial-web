@@ -139,6 +139,19 @@ function mount(){
   sk.onchange=function(){var dur=DUR(),s=dur*sk.value/1000;if(!F('seekTo',[s,true])){var v=V();if(v)v.currentTime=s}drag=false};
   return true;
 }
+/* Native tap fallback: the app (Media.java) detects a tap on the WebView itself and calls this with the position
+   (as a fraction of the view). If the page's own DOM event already handled the tap, do nothing; otherwise click
+   whatever control is under the finger. Works even if the page swallows touch/pointer/click events. */
+window.__rtLast=0;
+['pointerup','touchend','click'].forEach(function(n){document.addEventListener(n,function(){window.__rtLast=Date.now()},true)});
+window.__rtTap=function(fx,fy){
+  if(Date.now()-window.__rtLast<600)return 0;
+  var el=document.elementFromPoint(fx*window.innerWidth,fy*window.innerHeight);
+  if(!el)return 0;
+  window.__rtLast=Date.now();
+  el.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));
+  return 1;
+};
 window.__fsPrep=function(){window.__wp=playing};
 window.__fsRestore=function(){setTimeout(function(){try{if(window.__wp&&ST()!==1)F('playVideo')}catch(_){}},350)};
 

@@ -64,6 +64,19 @@ var FSX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width
 window.__rtFsReq=0;
 window.__rtFsState=function(on){$("fsb").innerHTML=on?FSX:FSI};
 var fsb=$("fsb");if(FS){fsb.style.display="flex";fsb.innerHTML=FSI;fsb.onclick=function(e){e.stopPropagation();window.__rtFsReq=1;showBar()}}
+/* Native tap fallback: the app (Media.java) detects a tap on the WebView itself and calls this with the position
+   (as a fraction of the view). If the page's own DOM event already handled the tap, do nothing; otherwise click
+   whatever control is under the finger. Works even if the page swallows touch/pointer/click events. */
+window.__rtLast=0;
+['pointerup','touchend','click'].forEach(function(n){document.addEventListener(n,function(){window.__rtLast=Date.now()},true)});
+window.__rtTap=function(fx,fy){
+  if(Date.now()-window.__rtLast<600)return 0;
+  var el=document.elementFromPoint(fx*window.innerWidth,fy*window.innerHeight);
+  if(!el)return 0;
+  window.__rtLast=Date.now();
+  el.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));
+  return 1;
+};
 var pl=null,playing=false,drag=false,hideT=null;
 function fmt(t){t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+":"+("0"+(t%60)).slice(-2)}
 function showBar(){bar.classList.remove("hide");clearTimeout(hideT);if(playing)hideT=setTimeout(function(){bar.classList.add("hide")},2800)}
