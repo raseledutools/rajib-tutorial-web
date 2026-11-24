@@ -511,6 +511,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (screen != null) screen.onResume();
+        OfflineGuard.checkIfDue(this);       // daily internet check that keeps offline lessons unlocked
         if (Store.sessionMobile != null) startPoll();
         updateBell(true);
         if (PaymentActivity.pending) {      // back from the bKash page: refresh member / premium status

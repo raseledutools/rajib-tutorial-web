@@ -60,14 +60,14 @@ final class VideoCache {
         return url != null && (url.contains("youtube.com") || url.contains("youtu.be"));
     }
 
-    /** Offline copies of directly-hosted videos are temporary: they expire after this many days. */
-    static final long OFFLINE_DAYS   = 7;
+    /** Offline copies are temporary: they expire (and are deleted) after this many days. */
+    static final long OFFLINE_DAYS   = 3;
     private static final long MAX_AGE_MS = OFFLINE_DAYS * 24L * 60 * 60 * 1000;
 
     /** Returns the cached file path if the video is fully downloaded and not expired, else null. */
     static String getLocalPath(Context ctx, String videoId) {
         File f = cacheFile(ctx, videoId);
-        if (!f.exists() || f.length() <= 0) return null;
+        if (!f.exists() || f.length() <= OfflineCrypto.HDR) return null;
         if (System.currentTimeMillis() - f.lastModified() > MAX_AGE_MS) {
             // expired temporary copy — remove it; it will be re-saved next time it is played online
             //noinspection ResultOfMethodCallIgnored
@@ -83,6 +83,14 @@ final class VideoCache {
         if (!f.exists()) return 0;
         long left = MAX_AGE_MS - (System.currentTimeMillis() - f.lastModified());
         return left <= 0 ? 0 : (int) Math.ceil(left / 86400000.0);
+    }
+
+    /** Opens the saved (encrypted) copy for MediaPlayer; decrypts on the fly, nothing plain is written to disk. */
+    @android.annotation.TargetApi(23)
+    static android.media.MediaDataSource openLocal(Context ctx, String videoId) throws IOException {
+        String p = getLocalPath(ctx, videoId);
+        if (p == null) throw new IOException("not saved");
+        return OfflineCrypto.open(ctx, new File(p));
     }
 
     static boolean isDownloaded(Context ctx, String videoId) {
@@ -118,23 +126,24 @@ final class VideoCache {
     /** Size in bytes of the saved copy (0 if none). */
     static long sizeOf(Context ctx, String videoId) {
         String p = getLocalPath(ctx, videoId);
-        return p == null ? 0 : new File(p).length();
+        return p == null ? 0 : OfflineCrypto.plainLength(new File(p));
     }
+
+    private static boolean sMigrating = false;
 
     /** Removes expired copies and stale partial files (the exe does the same every few hours). */
     static void purgeExpired(Context ctx) {
         try {
-            File dir = new File(ctx.getFilesDir(), "video_cache");
+            migrateLegacyAsync(ctx.getApplicationContext());
+            File dir = OfflineCrypto.hiddenDir(ctx);
             File[] fs = dir.listFiles();
             if (fs == null) return;
             long now = System.currentTimeMillis();
+            boolean busy = !sProgress.isEmpty();            // a download is running: leave its partial files alone
             for (File f : fs) {
                 String n = f.getName();
-                boolean tmp = n.endsWith(".tmp");
-                if (tmp) {
-                    String id = n.substring(0, n.length() - 8);          // strip ".mp4.tmp"
-                    if (isDownloading(id)) continue;
-                }
+                boolean tmp = n.contains(".tmp") || n.endsWith(".enc");
+                if (tmp && busy) continue;
                 long age = now - f.lastModified();
                 if ((!tmp && age > MAX_AGE_MS) || (tmp && age > 2 * 86400000L)) {
                     //noinspection ResultOfMethodCallIgnored
@@ -142,6 +151,39 @@ final class VideoCache {
                 }
             }
         } catch (Exception ignored) { }
+    }
+
+    /** Older versions kept plain .mp4 files in files/video_cache: encrypt them into the hidden store (timer kept) and delete the originals. */
+    private static synchronized void migrateLegacyAsync(final Context app) {
+        if (sMigrating) return;
+        File old = new File(app.getFilesDir(), "video_cache");
+        if (!old.exists()) return;
+        sMigrating = true;
+        EX.execute(() -> {
+            try {
+                File[] fs = old.listFiles();
+                if (fs != null) for (File f : fs) {
+                    String n = f.getName();
+                    if (OfflineCrypto.supported() && n.endsWith(".mp4") && f.length() > 0) {
+                        File dst = OfflineCrypto.fileFor(app, n.substring(0, n.length() - 4));
+                        if (!dst.exists()) {
+                            File enc = new File(dst.getAbsolutePath() + ".enc");
+                            try {
+                                OfflineCrypto.encrypt(app, f, enc);
+                                if (enc.renameTo(dst)) dst.setLastModified(f.lastModified()); else enc.delete();
+                            } catch (IOException e) { enc.delete(); }
+                        }
+                    }
+                    //noinspection ResultOfMethodCallIgnored
+                    f.delete();
+                }
+                //noinspection ResultOfMethodCallIgnored
+                old.delete();
+            } catch (Exception ignored) {
+            } finally {
+                sMigrating = false;
+            }
+        });
     }
 
     /** Always leave this much free on the device (same rule as the exe). */
@@ -160,6 +202,11 @@ final class VideoCache {
      */
     static void startDownload(Context ctx, String videoId, String url, ProgressListener listener) {
         if (url == null || url.isEmpty()) return;
+        if (!OfflineCrypto.supported()) {
+            sError.put(videoId, "Secure offline lessons need Android 6.0 or newer");
+            if (listener != null) MAIN.post(() -> listener.onProgress(videoId, -1));
+            return;
+        }
         if (isDownloaded(ctx, videoId)) {
             if (listener != null) MAIN.post(() -> listener.onProgress(videoId, 100));
             return;
@@ -203,9 +250,13 @@ final class VideoCache {
                     fetch(appCtx, videoId, src, tmpFile, !yt, yt, 0L, 0, 99);
                 }
                 File dst = cacheFile(appCtx, videoId);
+                setPct(videoId, 99);
+                File enc = new File(dst.getAbsolutePath() + ".enc");
+                OfflineCrypto.encrypt(appCtx, tmpFile, enc);     // the plain download never stays on disk
+                tmpFile.delete();
                 if (dst.exists()) dst.delete();
-                if (!tmpFile.renameTo(dst)) throw new IOException("Could not save file");
-                dst.setLastModified(System.currentTimeMillis()); // start the 7-day timer
+                if (!enc.renameTo(dst)) { enc.delete(); throw new IOException("Could not save file"); }
+                dst.setLastModified(System.currentTimeMillis()); // start the offline timer (OFFLINE_DAYS)
                 sProgress.remove(videoId);
                 sCancel.remove(videoId);
                 notifyListener(videoId, 100);
@@ -224,6 +275,7 @@ final class VideoCache {
             } finally {
                 vTmp.delete();
                 aTmp.delete();
+                new File(cacheFile(appCtx, videoId).getAbsolutePath() + ".enc").delete();
                 sBytes.remove(videoId);
                 sResolving.remove(videoId);
             }
@@ -411,6 +463,7 @@ final class VideoCache {
         File f = cacheFile(ctx, videoId);
         if (f.exists()) f.delete();
         new File(f.getAbsolutePath() + ".tmp").delete();
+        new File(f.getAbsolutePath() + ".enc").delete();
     }
 
     static void setListener(String videoId, ProgressListener listener) {
@@ -420,13 +473,9 @@ final class VideoCache {
 
     // ── private helpers ──────────────────────────────────────────────────────
 
+    /** Hidden + encrypted location of a lesson's offline copy (keyed-hash name, no extension, private no-backup storage). */
     private static File cacheFile(Context ctx, String videoId) {
-        File dir = new File(ctx.getFilesDir(), "video_cache");
-        //noinspection ResultOfMethodCallIgnored
-        dir.mkdirs();
-        // sanitise id to safe filename
-        String safe = videoId.replaceAll("[^A-Za-z0-9_\\-]", "_");
-        return new File(dir, safe + ".mp4");
+        return OfflineCrypto.fileFor(ctx, videoId.replaceAll("[^A-Za-z0-9_\\-]", "_"));
     }
 
     private static void notifyListener(String videoId, int pct) {

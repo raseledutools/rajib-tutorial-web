@@ -40,6 +40,7 @@ final class OfflineScreen extends Screen {
         list.setOrientation(LinearLayout.VERTICAL);
         root.addView(list, new LinearLayout.LayoutParams(MATCH, WRAP));
         render();
+        OfflineGuard.ensure(a, ok -> { if (list != null) render(); });     // online: verify now so the lock state is current
         return sv;
     }
 
@@ -80,6 +81,7 @@ final class OfflineScreen extends Screen {
         }
         sub.setText(items.isEmpty() ? "Saved inside this app — plays without internet"
             : items.size() + " saved · " + String.format(Locale.US, "%.1f MB", total / 1048576.0) + " · plays without internet");
+        if (!OfflineGuard.isValid(a)) sub.setText("🔒 Locked — connect to the internet once to unlock your saved lessons (checked every 24 hours)");
         if (items.isEmpty()) {
             message("No lessons saved yet.\nOpen a lesson and tap \"Save offline\" (or the ☁ icon next to it). Works for YouTube and direct videos — saved copies play without internet and remove themselves after " + VideoCache.OFFLINE_DAYS + " days.");
             return;
@@ -99,12 +101,14 @@ final class OfflineScreen extends Screen {
                 + " · " + left + (left == 1 ? " day" : " days") + " left", 11.5f, Ui.SUB, false));
             row.addView(txt, new LinearLayout.LayoutParams(0, WRAP, 1f));
 
-            TextView play = Ui.smallBtn(a, "▶ Play", Ui.WHITE, v -> {
+            TextView play = Ui.smallBtn(a, "▶ Play", Ui.WHITE, v -> OfflineGuard.ensure(a, ok -> {
+                if (!ok) { a.toast("Connect to the internet once to unlock offline lessons"); render(); return; }
                 Intent i = new Intent(a, PlayerActivity.class);
-                i.putExtra("url", "file://" + e.f.getAbsolutePath());
+                i.putExtra("url", e.v.url);
+                i.putExtra("vid", e.v.id);                      // encrypted copy, decrypted while playing
                 i.putExtra("title", e.v.title);
                 a.startActivity(i);
-            });
+            }));
             play.setBackground(Ui.bg(a, Ui.ACCENT, 10, 0));
             row.addView(play, Ui.lpm(a, WRAP, WRAP, 6, 0, 6, 0));
             row.addView(Ui.smallBtn(a, "🗑", Ui.SUB, v -> {

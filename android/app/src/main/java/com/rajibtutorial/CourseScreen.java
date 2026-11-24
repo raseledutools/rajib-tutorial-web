@@ -38,7 +38,7 @@ final class CourseScreen extends Screen {
     private TextView offBtn, offNote;                       // "Save offline" button + status line under the player
     private final Map<String, OffIcon> icons = new HashMap<>();   // lesson id -> its list indicator
     private WebView web;
-    private VideoView video;
+    private LessonPlayerView video;
     private boolean released      = false;
     /** One listener for every save started from this screen (list icon, player button, auto-save). */
     private final VideoCache.ProgressListener dl;
@@ -227,15 +227,34 @@ final class CourseScreen extends Screen {
         }
     }
 
-    private void startPlay(Store.Video v, boolean autoplay) {
+    private void startPlay(final Store.Video v, final boolean autoplay) {
+        // saved lessons only play while the app has been online within the last 24 hours (OfflineGuard)
+        if (VideoCache.getLocalPath(a, v.id) != null && !OfflineGuard.isValid(a)) {
+            a.curVideo = v;
+            renderList();
+            showPlaceholder(OfflineCache.online(a) ? "Checking connection…" : OfflineGuard.LOCK_MSG);
+            OfflineGuard.ensure(a, ok -> {
+                if (released || a.curVideo != v) return;
+                startPlay2(v, autoplay, !ok);
+            });
+            return;
+        }
+        startPlay2(v, autoplay, false);
+    }
+
+    private void startPlay2(Store.Video v, boolean autoplay, boolean locked) {
         a.curVideo = v;
+        resumeVideo = false;
         renderList();
         clearPlayer();
+        final boolean haveLocal = !locked && VideoCache.getLocalPath(a, v.id) != null;
         String embed = Store.ytEmbed(v.url, autoplay);
-        if (embed != null && VideoCache.getLocalPath(a, v.id) != null) embed = null;   // saved YouTube lesson: play the local file
-        if (embed != null && !OfflineCache.online(a)) {
+        if (embed != null && haveLocal) embed = null;   // saved YouTube lesson: play the local file
+        if (locked && !OfflineCache.online(a) && VideoCache.getLocalPath(a, v.id) != null) {
+            showPlaceholder(OfflineGuard.LOCK_MSG);
+        } else if (embed != null && !OfflineCache.online(a)) {
             showPlaceholder("This YouTube lesson isn't saved on this phone.\nConnect to the internet, or save it offline first.");
-        } else if (embed == null && !v.url.isEmpty() && VideoCache.getLocalPath(a, v.id) == null && !OfflineCache.online(a)) {
+        } else if (embed == null && !v.url.isEmpty() && !haveLocal && !OfflineCache.online(a)) {
             showPlaceholder("You're offline and this lesson isn't saved yet.\nTap \"Save offline\" while you have internet.");
         } else if (embed != null) {
             // YouTube, not saved yet — stream it (tap "Save offline" to keep a copy)
@@ -244,45 +263,16 @@ final class CourseScreen extends Screen {
             Media.setFullscreenHandler(web, this::openFullscreen);   // exe-style fullscreen button inside the player bar
             Media.load(web, embed);
         } else if (!v.url.isEmpty()) {
-            // Direct video — use cached file if available, else stream + auto-cache
-            String local = VideoCache.getLocalPath(a, v.id);
-            String playUri = (local != null) ? local : v.url;
-
-            video = new VideoView(a);
-            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(MATCH, MATCH);
-            lp.gravity = Gravity.CENTER;
-            playerFrame.addView(video, lp);
-            MediaController mc = new MediaController(a);
-            mc.setAnchorView(video);
-            video.setMediaController(mc);
-            video.setVideoURI(android.net.Uri.parse(
-                    local != null ? "file://" + playUri : playUri));
-            video.setOnErrorListener((mp, what, extra) -> {
-                a.toast("Could not play this video");
-                return true;
-            });
-            // buffering spinner until the first frame is ready
-            final android.widget.ProgressBar vSpin = new android.widget.ProgressBar(a);
-            FrameLayout.LayoutParams sLp = new FrameLayout.LayoutParams(Ui.dp(a, 44), Ui.dp(a, 44));
-            sLp.gravity = Gravity.CENTER;
-            playerFrame.addView(vSpin, sLp);
-            video.setOnPreparedListener(mp -> {
-                vSpin.setVisibility(View.GONE);
-                if (resumeVideo) {            // coming back from in-place fullscreen: continue where it was
-                    resumeVideo = false;
-                    try { if (fsPos > 0) video.seekTo(fsPos); if (fsWasPlaying) video.start(); } catch (Exception ignored) { }
-                }
-                mp.setOnInfoListener((m, what, extra) -> {
-                    if (what == android.media.MediaPlayer.MEDIA_INFO_BUFFERING_START) vSpin.setVisibility(View.VISIBLE);
-                    else if (what == android.media.MediaPlayer.MEDIA_INFO_BUFFERING_END
-                          || what == android.media.MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) vSpin.setVisibility(View.GONE);
-                    return false;
-                });
-            });
-            if (autoplay) video.start();
+            // Direct video (or a saved YouTube lesson) — encrypted offline copy if available, else stream + auto-cache
+            video = new LessonPlayerView(a);
+            playerFrame.addView(video, new FrameLayout.LayoutParams(MATCH, MATCH));
+            video.setOnFullscreen(this::openFullscreen);          // fullscreen button in the on-screen bar
+            video.setOnError(() -> a.toast(video != null ? video.lastError() : "Could not play this video"));
+            if (haveLocal) video.playLocal(v.id, autoplay);
+            else video.playUrl(v.url, autoplay);
 
             // Auto-cache: if not downloaded yet, start downloading in background
-            if (local == null && !VideoCache.isDownloading(v.id)) {
+            if (!haveLocal && !VideoCache.isDownloaded(a, v.id) && !VideoCache.isDownloading(v.id) && OfflineCrypto.supported()) {
                 VideoCache.startDownload(a, v.id, v.url, dl);
                 offTick(v.id, false);
             }
@@ -301,8 +291,9 @@ final class CourseScreen extends Screen {
         final View pv = web != null ? web : video;
         if (pv == null) {                     // no live player (placeholder) -> old separate-screen fullscreen
             Intent i = new Intent(a, PlayerActivity.class);
-            String local = VideoCache.getLocalPath(a, v.id);
-            i.putExtra("url", local != null ? "file://" + local : v.url);
+            boolean local = VideoCache.getLocalPath(a, v.id) != null && OfflineGuard.isValid(a);
+            i.putExtra("url", v.url);
+            if (local) i.putExtra("vid", v.id);                // saved copy: decrypted on the fly in the player
             i.putExtra("title", v.title);
             inlineSuspended = true;
             showPlaceholder("Playing in fullscreen…");
@@ -343,6 +334,7 @@ final class CourseScreen extends Screen {
         ViewGroup decor = (ViewGroup) a.getWindow().getDecorView();
         decor.addView(fsLayer, new FrameLayout.LayoutParams(MATCH, MATCH));
         if (web != null) Media.setFullscreenState(web, true);
+        if (video != null) video.setFullscreenState(true);
         fsPrevOrientation = a.getRequestedOrientation();
         a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         hideBars(decor);
@@ -369,6 +361,7 @@ final class CourseScreen extends Screen {
             playerFrame.addView(k, lp != null ? lp : new FrameLayout.LayoutParams(MATCH, MATCH));
         }
         if (web != null) Media.setFullscreenState(web, false);
+        if (video != null) video.setFullscreenState(false);
         a.setRequestedOrientation(fsPrevOrientation);
         decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
         afterMove();
