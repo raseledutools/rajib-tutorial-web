@@ -33,6 +33,7 @@ HIDE.join(',')+'{display:none!important}'+
 '#__rt_ui .rbar.rhide{opacity:0;pointer-events:none}'+
 '#__rt_ui .rbar button{background:none;border:0;color:#fff;font-size:12.5px;font-weight:700;min-width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0}'+
 '#__rt_ui .rbar button svg{width:18px;height:18px}'+
+'#__rt_ui .rbar button#rt_fs{min-width:26px;width:26px}#__rt_ui .rbar button#rt_fs svg{width:13px;height:13px}'+
 '#__rt_ui .rbar input{flex:1;min-width:0;accent-color:#e8365d}'+
 '#__rt_ui .rspin{position:absolute;inset:0;z-index:5;display:none;align-items:center;justify-content:center;pointer-events:none}'+
 '#__rt_ui .rspin.on{display:flex}'+
@@ -125,6 +126,15 @@ function mount(){
     maskVideo(2600);qTries=0;qReloaded=false;
     applyQ();setTimeout(applyQ,700);setTimeout(applyQ,2000);setTimeout(checkQ,2500);
   };
+  /* YouTube's own page scripts can swallow touch-generated 'click' events (the bar then never came back on tap).
+     Pointer events are not affected, so every control also reacts to a short pointerdown/pointerup tap (click is de-duplicated). */
+  function bindTap(el,fn){
+    var x=0,y=0,t=0,last=0;
+    el.addEventListener('pointerdown',function(e){x=e.clientX;y=e.clientY;t=Date.now()},true);
+    el.addEventListener('pointerup',function(e){if(Math.abs(e.clientX-x)<12&&Math.abs(e.clientY-y)<12&&Date.now()-t<700){last=Date.now();fn.call(el,e)}},true);
+    el.addEventListener('click',function(e){if(Date.now()-last<600){e.stopPropagation();return}fn.call(el,e)});
+  }
+  ['rt_sh','rt_cv','rt_pp','rt_sp','rt_qb','rt_qm','rt_fs'].forEach(function(id){var el=$(id);if(el&&el.onclick){var f=el.onclick;el.onclick=null;bindTap(el,f)}});
   sk.oninput=function(){drag=true;showBar()};
   sk.onchange=function(){var dur=DUR(),s=dur*sk.value/1000;if(!F('seekTo',[s,true])){var v=V();if(v)v.currentTime=s}drag=false};
   return true;

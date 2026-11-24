@@ -427,7 +427,7 @@ final class LessonPlayerView extends FrameLayout {
         }
         void setKind(int k) { if (k != kind) { kind = k; invalidate(); } }
         @Override protected void onDraw(Canvas cv) {
-            float w = getWidth(), h = getHeight(), s = Math.min(w, h) * 0.5f, cx = w / 2f, cy = h / 2f, u = s / 12f;   // 24-unit box
+            float w = getWidth(), h = getHeight(), s = Math.min(w, h) * (kind >= FS ? 0.34f : 0.5f), cx = w / 2f, cy = h / 2f, u = s / 12f;   // 24-unit box (fullscreen glyph smaller)
             p.setStyle(Paint.Style.FILL);
             if (kind == PLAY) {
                 Path t = new Path();
