@@ -241,6 +241,7 @@ final class CourseScreen extends Screen {
             // YouTube, not saved yet — stream it (tap "Save offline" to keep a copy)
             web = Media.newPlayerWebView(a);
             playerFrame.addView(web, new FrameLayout.LayoutParams(MATCH, MATCH));
+            Media.setFullscreenHandler(web, this::openFullscreen);   // exe-style fullscreen button inside the player bar
             Media.load(web, embed);
         } else if (!v.url.isEmpty()) {
             // Direct video — use cached file if available, else stream + auto-cache
@@ -329,8 +330,8 @@ final class CourseScreen extends Screen {
         fsClose.setBackgroundColor(0x88000000);
         int sz = Ui.dp(a, 44);
         FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(sz, sz);
-        cl.gravity = Gravity.TOP | Gravity.END;
-        cl.setMargins(0, Ui.dp(a, 8), Ui.dp(a, 8), 0);
+        cl.gravity = Gravity.TOP | Gravity.START;      // top-left like the exe's #fsCloseBtn (watermark sits top-right)
+        cl.setMargins(Ui.dp(a, 8), Ui.dp(a, 8), 0, 0);
         fsLayer.addView(fsClose, cl);
         fsClose.setOnClickListener(x -> closeFullscreen());
 
@@ -341,6 +342,7 @@ final class CourseScreen extends Screen {
 
         ViewGroup decor = (ViewGroup) a.getWindow().getDecorView();
         decor.addView(fsLayer, new FrameLayout.LayoutParams(MATCH, MATCH));
+        if (web != null) Media.setFullscreenState(web, true);
         fsPrevOrientation = a.getRequestedOrientation();
         a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         hideBars(decor);
@@ -366,6 +368,7 @@ final class CourseScreen extends Screen {
             ViewGroup.LayoutParams lp = k.getLayoutParams();
             playerFrame.addView(k, lp != null ? lp : new FrameLayout.LayoutParams(MATCH, MATCH));
         }
+        if (web != null) Media.setFullscreenState(web, false);
         a.setRequestedOrientation(fsPrevOrientation);
         decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
         afterMove();

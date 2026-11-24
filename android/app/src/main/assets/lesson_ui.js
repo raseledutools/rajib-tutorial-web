@@ -1,6 +1,6 @@
 (function(){
 if(window.__rtUI)return;window.__rtUI=1;
-var VID="__VID__",AUTO=__AUTOPLAY__;
+var VID="__VID__",AUTO=__AUTOPLAY__,FS=__FS__;
 var d=document;
 /* ---- hide everything YouTube draws except the <video> (same list/idea as the exe's WV_CSS) ---- */
 var HIDE=['.ytp-chrome-top','.ytp-chrome-bottom','.ytp-gradient-top','.ytp-gradient-bottom','.ytp-title','.ytp-title-channel','.ytp-title-beacon',
@@ -40,9 +40,17 @@ HIDE.join(',')+'{display:none!important}'+
 '@keyframes rtsp{to{transform:rotate(360deg)}}'+
 '#__rt_ui .rqm{position:absolute;right:10px;bottom:52px;z-index:6;display:none;min-width:84px;max-height:70%;overflow:auto;background:rgba(20,20,30,.95);border-radius:10px;padding:4px;color:#fff;font-size:13px;font-weight:600}'+
 '#__rt_ui .rqm div{padding:9px 14px;border-radius:7px;text-align:center}'+
-'#__rt_ui .rqm div.on{background:#e8365d}';
+'#__rt_ui .rqm div.on{background:#e8365d}'+
+/* exe-style "Rajib Tutorial" watermark (top-right, low opacity) */
+'#__rt_ui .rw{position:absolute;top:10px;right:12px;z-index:7;pointer-events:none;font:800 clamp(11px,2.5vw,17px)/1.2 system-ui,sans-serif;letter-spacing:.05em;background:linear-gradient(100deg,#ffb347 0%,#ff5c8a 30%,#c4b5fd 55%,#5eead4 75%,#ffb347 100%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;opacity:.6}';
 var PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>';
 var PAUSE='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+
+var FSI='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+var FSX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+/* the app polls this flag (Media.java) -> toggles native fullscreen; no JS bridge is exposed to youtube.com */
+window.__rtFsReq=0;
+window.__rtFsState=function(on){var b=d.getElementById('rt_fs');if(b)b.innerHTML=on?FSX:FSI};
 
 function P(){return d.getElementById('movie_player')||d.querySelector('.html5-video-player')}
 function V(){return d.querySelector('video')}
@@ -73,11 +81,13 @@ function mount(){
   if(!st){st=d.createElement('style');st.id='__rt_wvcss';st.textContent=CSS;d.head.appendChild(st)}
   var ui=d.createElement('div');ui.id='__rt_ui';
   ui.innerHTML='<div class="rs" id="rt_sh"></div><div class="rc" id="rt_cv" style="background-image:url(https://i.ytimg.com/vi/'+VID+'/hqdefault.jpg)"><div class="rb" id="rt_big"></div></div>'+
-   '<div class="rbar rhide" id="rt_bar"><button id="rt_pp"></button><span id="rt_t">0:00</span><input id="rt_sk" type="range" min="0" max="1000" value="0"><span id="rt_d">0:00</span><button id="rt_sp">1x</button><button id="rt_qb" style="min-width:44px">Auto</button></div>'+
+   '<div class="rbar rhide" id="rt_bar"><button id="rt_pp"></button><span id="rt_t">0:00</span><input id="rt_sk" type="range" min="0" max="1000" value="0"><span id="rt_d">0:00</span><button id="rt_sp">1x</button><button id="rt_qb" style="min-width:44px">Auto</button>'+(FS?'<button id="rt_fs"></button>':'')+'</div>'+
+   '<div class="rw">Rajib Tutorial</div>'+
    '<div class="rspin" id="rt_spin"><i></i></div><div class="rqm" id="rt_qm"></div>';
   d.body.appendChild(ui);
   cover=$('rt_cv');bar=$('rt_bar');pp=$('rt_pp');sk=$('rt_sk');tt=$('rt_t');dd=$('rt_d');sp=$('rt_sp');qb=$('rt_qb');qm=$('rt_qm');spin=$('rt_spin');
   $('rt_big').innerHTML=PLAY;pp.innerHTML=PLAY;
+  var fsb=$('rt_fs');if(fsb){fsb.innerHTML=FSI;fsb.onclick=function(e){e.stopPropagation();window.__rtFsReq=1;showBar()}}
   if(AUTO)setSpin(true);
   $('rt_sh').onclick=function(){if(qm.style.display==='block'){qm.style.display='none';return}bar.classList.contains('rhide')?showBar():toggle()};
   cover.onclick=toggle;

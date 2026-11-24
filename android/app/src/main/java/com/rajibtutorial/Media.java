@@ -92,6 +92,29 @@ final class Media {
         private int startSec;
         private String mode = "embed";          // embed | watch | legacy
         private long armAt, lastEsc;
+        private Runnable fsHandler;             // set => our bar shows a fullscreen button (like the exe's .ytp-fs)
+        private boolean fsOpen;
+
+        /** Polls the page flag the fullscreen button sets (no JS bridge is exposed to youtube.com). */
+        private final Runnable fsTicker = new Runnable() {
+            @Override public void run() {
+                evaluateJavascript("(function(){try{if(window.__rtFsReq){window.__rtFsReq=0;return 1}}catch(e){}return 0})()", v -> {
+                    if (("1".equals(v)) && fsHandler != null) fsHandler.run();
+                });
+                h.postDelayed(this, 300);
+            }
+        };
+
+        void setFsHandler(Runnable r) {
+            fsHandler = r;
+            h.removeCallbacks(fsTicker);
+            if (r != null) h.postDelayed(fsTicker, 300);
+        }
+
+        void setFsOpen(boolean on) {
+            fsOpen = on;
+            evaluateJavascript("window.__rtFsState&&window.__rtFsState(" + (on ? "true" : "false") + ")", null);
+        }
 
         private final Runnable ticker = new Runnable() {
             @Override public void run() { poll(); }
@@ -178,7 +201,9 @@ final class Media {
             if (u == null || !u.contains("youtube.com")) return;
             String js = uiTemplate(getContext());
             if (js.isEmpty()) return;
-            evaluateJavascript(js.replace("__VID__", vid).replace("__AUTOPLAY__", auto ? "1" : "0"), null);
+            evaluateJavascript(js.replace("__VID__", vid).replace("__AUTOPLAY__", auto ? "1" : "0")
+                .replace("__FS__", fsHandler != null ? "1" : "0"), null);
+            if (fsOpen) evaluateJavascript("window.__rtFsState&&window.__rtFsState(true)", null);
         }
 
         private void poll() {
@@ -226,13 +251,21 @@ final class Media {
             off = true;
             h.removeCallbacks(ticker);
             getSettings().setUserAgentString(null);
-            loadLegacy(this, embedUrl);
+            loadLegacy(this, embedUrl, fsHandler != null);
         }
 
         @Override
         protected void onDetachedFromWindow() {
             h.removeCallbacksAndMessages(null);
             super.onDetachedFromWindow();
+        }
+
+        @Override
+        protected void onAttachedToWindow() {
+            super.onAttachedToWindow();
+            // re-parenting (fullscreen) detaches/attaches the view: restart the button poll that detach cleared
+            if (fsHandler != null) { h.removeCallbacks(fsTicker); h.postDelayed(fsTicker, 300); }
+            if (!off && !halted && !got && vid.length() > 0) { h.removeCallbacks(ticker); h.postDelayed(ticker, 400); }
         }
 
         @Override
@@ -271,14 +304,24 @@ final class Media {
         } catch (Exception ignored) { }
     }
 
+    /** Shows a fullscreen button in the player's on-screen bar; tapping it runs {@code r}. Call before load(). */
+    static void setFullscreenHandler(WebView w, Runnable r) {
+        if (w instanceof LessonWebView) ((LessonWebView) w).setFsHandler(r);
+    }
+
+    /** Tells the on-screen button whether the player is fullscreen now (swaps its icon). */
+    static void setFullscreenState(WebView w, boolean on) {
+        if (w instanceof LessonWebView) ((LessonWebView) w).setFsOpen(on);
+    }
+
     /** Starts a lesson / live video in a WebView made by newPlayerWebView(). */
     static void load(WebView w, String embedUrl) {
         if (w instanceof LessonWebView) ((LessonWebView) w).start(embedUrl);
-        else loadLegacy(w, embedUrl);
+        else loadLegacy(w, embedUrl, false);
     }
 
     /** Last-resort player: custom controls on top of the YouTube IFrame API (assets/player.html). Falls back to a plain iframe. */
-    static void loadLegacy(WebView w, String embedUrl) {
+    static void loadLegacy(WebView w, String embedUrl, boolean fs) {
         String html = null;
         try {
             java.util.regex.Matcher m = java.util.regex.Pattern
@@ -294,7 +337,8 @@ final class Media {
                 html = out.toString("UTF-8")
                     .replace("__VID__", m.group(1))
                     .replace("__AUTOPLAY__", auto ? "1" : "0")
-                    .replace("__ORIGIN__", Store.EMBED_ORIGIN.replaceAll("/+$", ""));
+                    .replace("__ORIGIN__", Store.EMBED_ORIGIN.replaceAll("/+$", ""))
+                    .replace("__FS__", fs ? "1" : "0");
             }
         } catch (Exception ignored) { }
         if (html == null) {
