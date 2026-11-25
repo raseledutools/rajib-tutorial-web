@@ -44,6 +44,7 @@ public class AdultWatchService extends AccessibilityService {
         "com.android.systemui", "com.android.settings", "com.google.android.apps.nexuslauncher", "com.sec.android.app.launcher",
         "com.miui.home", "com.android.launcher3"));
 
+    private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
     private long lastAct = 0;
     private long lastScan = 0;
     private View overlay;
@@ -70,6 +71,7 @@ public class AdultWatchService extends AccessibilityService {
     public void onAccessibilityEvent(AccessibilityEvent e) {
         if (e == null || e.getPackageName() == null) return;
         if (!AppSettings.adultExternal(this)) return;
+        if (e.getEventType() == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return;   // still typing: nothing is blocked before the search is submitted
         String pkg = e.getPackageName().toString();
         if (getPackageName().equals(pkg) || SKIP.contains(pkg)) return;
         if (overlay != null) return;
@@ -78,6 +80,12 @@ public class AdultWatchService extends AccessibilityService {
         final boolean browser = BROWSERS.contains(pkg);
         if (!browser && now - lastScan < 900) return;          // other apps: scan at most about once a second (battery)
         lastScan = now;
+
+        if (browser && new FocusManager(this).isSessionActive()) {     // Focus is running: no browser / tab, shows the time left
+            lastAct = now;
+            showRemaining();
+            return;
+        }
 
         boolean bad = false;
         if (browser && e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getText() != null) {
@@ -123,8 +131,8 @@ public class AdultWatchService extends AccessibilityService {
             String lid = id == null ? "" : id.toLowerCase(Locale.ROOT);
             boolean urlish = lid.endsWith("url_bar") || lid.contains("url_view") || lid.contains("location_bar")
                 || lid.contains("omnibox") || lid.contains("search_box") || lid.contains("toolbar_text") || lid.contains("url_field");
-            if (urlish && urlBad(t.toString())) return true;
-            if (!urlish && n.isEditable() && n.isFocused() && (browser || web) && SafeGuard.isAdultQuery(t.toString())) return true;
+            boolean typing = n.isEditable() && n.isFocused();             // the person is still typing here
+            if (urlish && !typing && urlBad(t.toString())) return true;
             if (isWeb && SafeGuard.isAdultText(t.toString())) return true;            // WebView: the page title
         }
         if (isWeb) {
@@ -195,12 +203,7 @@ public class AdultWatchService extends AccessibilityService {
             status.setText("✅ Focus চলছে — " + (fm.getRemainingMs() / 60000) + " মিনিট বাকি");
         }
         start.setOnClickListener(v -> {
-            fm.setFocusEnabled(true);
-            fm.startSession(QUICK_FOCUS_MS);
-            try {
-                Intent si = new Intent(this, FocusOverlayService.class).setAction(FocusOverlayService.ACTION_START);
-                if (Build.VERSION.SDK_INT >= 26) ContextCompat.startForegroundService(this, si); else startService(si);
-            } catch (Exception ignored) { }
+            FocusManager.quickStart(this);
             start.setVisibility(View.GONE);
             status.setText("✅ Focus শুরু হয়েছে — ২৫ মিনিট");
         });
@@ -225,7 +228,61 @@ public class AdultWatchService extends AccessibilityService {
         }
     }
 
+    /** Focus is running and a browser was opened: full-screen "N minutes left" (live), no way into the browser. */
+    private void showRemaining() {
+        if (overlay != null) return;
+        if (wm == null) wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        final FocusManager fm = new FocusManager(this);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER);
+        root.setBackgroundColor(0xFF0B1F24);
+        root.setPadding(Ui.dp(this, 28), Ui.dp(this, 28), Ui.dp(this, 28), Ui.dp(this, 28));
+
+        TextView emoji = Ui.tv(this, "🎯", 56, 0xFFFFFFFF, false);
+        emoji.setGravity(Gravity.CENTER);
+        root.addView(emoji, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        TextView title = Ui.tv(this, "Focus চলছে", 22, 0xFFFFFFFF, true);
+        title.setGravity(Gravity.CENTER);
+        root.addView(title, Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 10, 0, 8));
+        final TextView left = Ui.tv(this, "", 40, 0xFF7FE0A0, true);
+        left.setGravity(Gravity.CENTER);
+        root.addView(left, Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 0, 0, 8));
+        TextView msg = Ui.tv(this, "এখন কোনো ব্রাউজার বা ট্যাব খোলা যাবে না।\nসময় শেষ হলে আবার ব্যবহার করতে পারবেন।", 14.5f, 0xFFB8C7CB, false);
+        msg.setGravity(Gravity.CENTER);
+        msg.setLineSpacing(0, 1.25f);
+        root.addView(msg, Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 0, 0, 22));
+        root.addView(Ui.btn(this, "ঠিক আছে", Ui.B_GHOST, v -> {
+            removeOverlay();
+            performGlobalAction(GLOBAL_ACTION_HOME);
+        }), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.OPAQUE);
+        try {
+            wm.addView(root, lp);
+            overlay = root;
+        } catch (Exception e) {
+            overlay = null;
+            return;
+        }
+        ui.post(new Runnable() {
+            @Override public void run() {
+                if (overlay != root) return;
+                if (!fm.isSessionActive()) { removeOverlay(); return; }        // time is over: the browser is free again
+                long sec = (fm.getRemainingMs() + 999) / 1000;
+                left.setText(String.format(Locale.US, "%02d:%02d", sec / 60, sec % 60) + " বাকি");
+                ui.postDelayed(this, 1000);
+            }
+        });
+    }
+
     private void removeOverlay() {
+        ui.removeCallbacksAndMessages(null);
         if (overlay != null && wm != null) {
             try { wm.removeView(overlay); } catch (Exception ignored) { }
         }

@@ -76,6 +76,8 @@ public class SafeBrowserActivity extends AppCompatActivity {
         WebView web;
         String title = "New tab", url = "";
         boolean priv;
+        boolean focus;          // this tab turned into the calm Focus page (adult search / site)
+        View focusView;
     }
 
     private final List<Tab> tabs = new ArrayList<>();
@@ -240,7 +242,10 @@ public class SafeBrowserActivity extends AppCompatActivity {
                     boolean main = r.isForMainFrame();
                     boolean bad = main ? SafeGuard.isBlocked(u.toString()) : SafeGuard.isAdultHost(u.getHost());
                     if (!bad) return null;
-                    if (main) return new WebResourceResponse("text/html", "utf-8", new ByteArrayInputStream(blockPage().getBytes("UTF-8")));
+                    if (main) {
+                        runOnUiThread(() -> toFocus(t));
+                        return new WebResourceResponse("text/html", "utf-8", new ByteArrayInputStream("<html><body style='background:#0B1F24'></body></html>".getBytes("UTF-8")));
+                    }
                     return new WebResourceResponse("text/plain", "utf-8", new ByteArrayInputStream(new byte[0]));
                 } catch (Exception e) {
                     return null;
@@ -254,6 +259,7 @@ public class SafeBrowserActivity extends AppCompatActivity {
                 if (sc == null) return true;
                 if (!(sc.equals("http") || sc.equals("https"))) return !(sc.equals("about") || sc.equals("data") || sc.equals("blob"));
                 if (r.isForMainFrame() && AppSettings.adultBlock(SafeBrowserActivity.this)) {
+                    if (SafeGuard.isBlocked(url)) { toFocus(t); return true; }
                     String safe = SafeGuard.safeSearchUrl(url);
                     if (!safe.isEmpty()) { v.loadUrl(safe); return true; }
                 }
@@ -262,12 +268,14 @@ public class SafeBrowserActivity extends AppCompatActivity {
 
             @Override
             public void onPageStarted(WebView v, String url, Bitmap fav) {
+                if (t.focus) return;
                 t.url = url == null ? "" : url;
                 if (t == cur) { omni.setText(t.url); bar.setVisibility(View.VISIBLE); btnReload.setText("✕"); }
             }
 
             @Override
             public void onPageFinished(WebView v, String url) {
+                if (t.focus) return;
                 t.url = url == null ? "" : url;
                 if (t == cur) { omni.setText(t.url); bar.setVisibility(View.INVISIBLE); btnReload.setText("⟳"); updateNav(); }
                 if (!t.priv && url != null && url.startsWith("http")) addHistory(t.title, url);
@@ -280,12 +288,14 @@ public class SafeBrowserActivity extends AppCompatActivity {
 
             @Override
             public void onReceivedTitle(WebView v, String title) {
+                if (t.focus) return;
                 t.title = title == null || title.isEmpty() ? "New tab" : title;
                 rebuildTabs();
             }
 
             @Override
             public boolean onCreateWindow(WebView v, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+                if (focusLocked()) { toastRemaining(); return false; }
                 Tab nt = new Tab();
                 nt.priv = t.priv;
                 nt.web = makeWeb(nt);
@@ -324,10 +334,14 @@ public class SafeBrowserActivity extends AppCompatActivity {
     }
 
     private void select(Tab t) {
+        Tab ft = focusTab();
+        if (focusLocked() && ft != null && t != ft && cur == ft) { toastRemaining(); return; }   // Focus running: stay on the focus tab
         cur = t;
         stage.removeAllViews();
-        stage.addView(t.web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        omni.setText(t.url);
+        View body = t.focus && t.focusView != null ? t.focusView : t.web;
+        if (body.getParent() != null) ((ViewGroup) body.getParent()).removeView(body);
+        stage.addView(body, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        omni.setText(t.focus ? "" : t.url);
         bar.setVisibility(View.INVISIBLE);
         btnReload.setText("⟳");
         updateNav();
@@ -337,6 +351,7 @@ public class SafeBrowserActivity extends AppCompatActivity {
     private void closeTab(Tab t) {
         int i = tabs.indexOf(t);
         if (i < 0) return;
+        if (t.focus && focusLocked()) { toastRemaining(); return; }
         tabs.remove(i);
         if (t.web != null) {
             if (t.web.getParent() != null) ((ViewGroup) t.web.getParent()).removeView(t.web);
@@ -376,7 +391,7 @@ public class SafeBrowserActivity extends AppCompatActivity {
             lp.setMargins(0, 0, Ui.dp(this, 4), 0);
             tabRow.addView(chip, lp);
         }
-        TextView plus = icon("＋", v -> newTab(HOME, false));
+        TextView plus = icon("＋", v -> openTab(false));
         plus.setMinWidth(Ui.dp(this, 34));
         plus.setMinHeight(Ui.dp(this, 32));
         tabRow.addView(plus);
@@ -394,16 +409,18 @@ public class SafeBrowserActivity extends AppCompatActivity {
         if (cur == null) return;
         String in = input == null ? "" : input.trim();
         if (in.isEmpty()) return;
+        if (cur.focus && focusLocked()) { toastRemaining(); return; }
         String url;
         if (in.matches("(?i)^https?://\\S+$")) url = in;
         else if (in.contains(" ") || !in.contains(".")) {
             try { url = "https://www.google.com/search?q=" + URLEncoder.encode(in, "UTF-8"); } catch (Exception e) { return; }
         } else url = "https://" + in;
         if (AppSettings.adultBlock(this)) {
-            if (SafeGuard.isBlocked(url)) { cur.url = url; omni.setText(url); cur.web.loadDataWithBaseURL(null, blockPage(), "text/html", "utf-8", null); return; }
+            if (SafeGuard.isBlocked(url)) { toFocus(cur); return; }
             String safe = SafeGuard.safeSearchUrl(url);
             if (!safe.isEmpty()) url = safe;
         }
+        if (cur.focus) { cur.focus = false; cur.title = "New tab"; select(cur); }   // leaving the focus page (no Focus running)
         cur.web.loadUrl(url);
     }
 
@@ -419,6 +436,122 @@ public class SafeBrowserActivity extends AppCompatActivity {
         InputMethodManager im = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         if (im != null) im.hideSoftInputFromWindow(omni.getWindowToken(), 0);
         omni.clearFocus();
+    }
+
+
+    // ── Focus tab (adult search → the tab turns into a calm Focus page, like the exe) ──────────
+
+    private static final String[][] QUOTES = {
+        {"ওঠো, জাগো এবং লক্ষ্যে না পৌঁছানো পর্যন্ত থেমো না।", "স্বামী বিবেকানন্দ"},
+        {"স্বপ্ন সেটা নয় যা তুমি ঘুমিয়ে দেখো, স্বপ্ন সেটাই যা তোমাকে ঘুমাতে দেয় না।", "এ. পি. জে. আবদুল কালাম"},
+        {"এক সময়ে একটি কাজ করো, আর তা করার সময় নিজের সমস্ত মন তাতে ঢেলে দাও।", "স্বামী বিবেকানন্দ"},
+        {"চিত্ত যেথা ভয়শূন্য, উচ্চ যেথা শির।", "রবীন্দ্রনাথ ঠাকুর"},
+        {"বল বীর — বল উন্নত মম শির!", "কাজী নজরুল ইসলাম"},
+        {"আমরা যা বারবার করি, আমরা তা-ই। তাই শ্রেষ্ঠত্ব কোনো একটি কাজ নয়, এটি একটি অভ্যাস।", "অ্যারিস্টটল"},
+        {"তুমি তোমার মনের ওপর ক্ষমতা রাখো, বাইরের ঘটনার ওপর নয়। এটা বুঝলেই তুমি শক্তি পাবে।", "মার্কাস অরেলিয়াস"},
+        {"বাস্তবের চেয়ে কল্পনাতেই আমরা বেশি কষ্ট পাই।", "সেনেকা"},
+        {"কাজটা শেষ না হওয়া পর্যন্ত সবসময় অসম্ভবই মনে হয়।", "নেলসন ম্যান্ডেলা"},
+        {"প্রকৃত শক্তিশালী সে নয় যে কুস্তিতে অন্যকে হারায়; বরং সে-ই শক্তিশালী যে রাগের সময় নিজেকে নিয়ন্ত্রণ করে।", "হাদিস (বুখারি ও মুসলিম)"}
+    };
+
+    private Tab focusTab() {
+        for (Tab x : tabs) if (x.focus) return x;
+        return null;
+    }
+
+    /** Focus is running AND this browser has its focus tab: no other tab can be opened / switched to / closed. */
+    private boolean focusLocked() {
+        return focusTab() != null && new FocusManager(this).isSessionActive();
+    }
+
+    private void toastRemaining() {
+        long ms = new FocusManager(this).getRemainingMs();
+        long min = (ms + 59999) / 60000;
+        Toast.makeText(this, "🎯 Focus চলছে — " + min + " মিনিট বাকি। এখন অন্য ট্যাব খোলা যাবে না।", Toast.LENGTH_SHORT).show();
+    }
+
+    private void openTab(boolean priv) {
+        if (focusLocked()) { toastRemaining(); return; }
+        newTab(HOME, priv);
+    }
+
+    /** The tab fades into the focus page (UI thread). Typing never gets here — only a submitted search / opened site. */
+    private void toFocus(final Tab t) {
+        if (t == null || t.focus || tabs.indexOf(t) < 0) return;
+        try { t.web.stopLoading(); t.web.loadUrl("about:blank"); } catch (Exception ignored) { }
+        t.focus = true;
+        t.title = "Focus time";
+        t.url = "";
+        if (t.focusView == null) t.focusView = buildFocusView(t);
+        if (t == cur) select(t); else rebuildTabs();
+        hideKeyboard();
+    }
+
+    private View buildFocusView(final Tab t) {
+        final FocusManager fm = new FocusManager(this);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER);
+        root.setBackgroundColor(0xFF0B1F24);
+        root.setPadding(Ui.dp(this, 26), Ui.dp(this, 20), Ui.dp(this, 26), Ui.dp(this, 20));
+
+        TextView title = Ui.tv(this, "একটু থামুন 🌿", 24, 0xFFFFFFFF, true);
+        title.setGravity(Gravity.CENTER);
+        root.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        TextView sub = Ui.tv(this, "আপনি যা খুঁজছিলেন তা আপনার লক্ষ্য থেকে মনোযোগ সরিয়ে দিতে পারে। এই মুহূর্তটা আপনার ভবিষ্যৎ গড়ার সময় — চলুন আবার পড়াশোনায় ফিরি।",
+            13.5f, 0xFFB8C7CB, false);
+        sub.setGravity(Gravity.CENTER);
+        sub.setLineSpacing(0, 1.25f);
+        root.addView(sub, Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 10, 0, 16));
+
+        final int[] qi = {(int) (Math.random() * QUOTES.length)};
+        final TextView quote = Ui.tv(this, "", 16, 0xFFFFFFFF, false);
+        quote.setGravity(Gravity.CENTER);
+        quote.setLineSpacing(0, 1.25f);
+        final TextView who = Ui.tv(this, "", 12.5f, 0xFF7FE0A0, true);
+        who.setGravity(Gravity.CENTER);
+        root.addView(quote, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(who, Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 6, 0, 18));
+        final Runnable showQuote = () -> {
+            quote.setText("“" + QUOTES[qi[0]][0] + "”");
+            who.setText("— " + QUOTES[qi[0]][1]);
+        };
+        showQuote.run();
+
+        final TextView timer = Ui.tv(this, "25:00", 46, 0xFFFFFFFF, true);
+        timer.setGravity(Gravity.CENTER);
+        root.addView(timer, Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 0, 0, 14));
+
+        final TextView start = Ui.btn(this, "▶  ২৫ মিনিট Focus শুরু করুন", Ui.B_PRIMARY, v -> {
+            FocusManager.quickStart(SafeBrowserActivity.this);
+            Toast.makeText(this, "Focus শুরু হয়েছে — ২৫ মিনিট", Toast.LENGTH_SHORT).show();
+        });
+        root.addView(start, Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 0, 0, 8));
+        root.addView(Ui.btn(this, "💬 আরেকটি উক্তি", Ui.B_GHOST, v -> { qi[0] = (qi[0] + 1) % QUOTES.length; showQuote.run(); }),
+            Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 0, 0, 8));
+        root.addView(Ui.btn(this, "📚 পড়াশোনায় ফিরুন", Ui.B_GHOST, v -> {
+            if (focusLocked()) { toastRemaining(); return; }
+            if (tabs.size() > 1) closeTab(t); else { t.focus = false; t.title = "New tab"; select(t); t.web.loadUrl(HOME); }
+        }), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        // live clock: the remaining time of the running Focus (or 25:00 when none runs)
+        final boolean[] wasOn = {fm.isSessionActive()};
+        final int[] tick = {0};
+        root.post(new Runnable() {
+            @Override public void run() {
+                if (!t.focus || tabs.indexOf(t) < 0) return;
+                boolean on = fm.isSessionActive();
+                long ms = on ? fm.getRemainingMs() : FocusManager.QUICK_FOCUS_MS;
+                long sec = (ms + 999) / 1000;
+                timer.setText(String.format(java.util.Locale.US, "%02d:%02d", sec / 60, sec % 60));
+                start.setVisibility(on ? View.GONE : View.VISIBLE);
+                if (wasOn[0] && !on) Toast.makeText(SafeBrowserActivity.this, "সাবাশ! ২৫ মিনিটের ফোকাস শেষ। এবার ৫ মিনিট বিরতি নিন।", Toast.LENGTH_LONG).show();
+                wasOn[0] = on;
+                if (++tick[0] % 12 == 0) { qi[0] = (qi[0] + 1) % QUOTES.length; showQuote.run(); }
+                root.postDelayed(this, 1000);
+            }
+        });
+        return root;
     }
 
     // ── menu ────────────────────────────────────────────────────────────────────────────────────
@@ -448,8 +581,8 @@ public class SafeBrowserActivity extends AppCompatActivity {
 
     private boolean onMenu(MenuItem it) {
         switch (it.getItemId()) {
-            case 1: newTab(HOME, false); break;
-            case 2: newTab(HOME, true); break;
+            case 1: openTab(false); break;
+            case 2: openTab(true); break;
             case 3: showHistory(); break;
             case 4: showDownloads(); break;
             case 5: showBookmarks(); break;
@@ -670,7 +803,8 @@ public class SafeBrowserActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         if (findBar.getVisibility() == View.VISIBLE) { closeFind(); return; }
-        if (cur != null && cur.web.canGoBack()) { cur.web.goBack(); return; }
+        if (cur != null && cur.focus && focusLocked()) { toastRemaining(); return; }
+        if (cur != null && !cur.focus && cur.web.canGoBack()) { cur.web.goBack(); return; }
         if (tabs.size() > 1) { closeTab(cur); return; }
         finish();
     }
@@ -685,6 +819,7 @@ public class SafeBrowserActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         for (Tab t : tabs) t.web.onResume();
+        if (cur != null && focusTab() == null && new FocusManager(this).isSessionActive()) toFocus(cur);
     }
 
     @Override
