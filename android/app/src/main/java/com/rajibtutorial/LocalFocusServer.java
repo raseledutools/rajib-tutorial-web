@@ -1,24 +1,37 @@
 package com.rajibtutorial;
 
 import android.content.Context;
+import android.content.SharedPreferences;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.SecureRandom;
+import java.util.Locale;
 
 /**
- * Tiny local web server (127.0.0.1 only), like the exe's localhost focus link.
- * Chrome (or any browser) can open http://localhost:PORT/focus - the page shows quotes and the live Focus clock.
- * Nothing leaves the phone.
+ * Local focus-page server (127.0.0.1 only) — the Android twin of web-exe/ext-server.js. It serves the SAME page
+ * (assets/focus/extfocus.html: quotes, 25-min timer, Pomodoro, allowed websites, calm noise) at http://localhost:PORT/focus
+ * and the same tiny JSON API:  GET /api/state · POST /api/start · POST /api/pomo · POST /api/sites.
+ * Every /api call needs the per-run token header + a localhost Host + no foreign Origin. Nothing leaves the phone.
  */
 final class LocalFocusServer {
     private LocalFocusServer() { }
 
     static final int PORT = 38417;
     static final String FOCUS_URL = "http://localhost:" + PORT + "/focus";
+    private static final int POMO_MAX = 8, BREAK_MIN = 5;
+    private static final String TOKEN = new BigInteger(128, new SecureRandom()).toString(16);
+    private static final Object LK = new Object();
     private static Thread th;
 
     static synchronized void start(final Context c) {
@@ -41,61 +54,189 @@ final class LocalFocusServer {
         th.start();
     }
 
+    // ── state: allowed sites + Pomodoro (kept in prefs; the 25-min session itself is FocusManager's) ──
+
+    private static SharedPreferences sp(Context c) { return c.getSharedPreferences("rt_focus_local", Context.MODE_PRIVATE); }
+
+    private static JSONArray sites(Context c) {
+        try { return new JSONArray(sp(c).getString("sites", "[]")); } catch (Exception e) { return new JSONArray(); }
+    }
+
+    private static JSONObject pomo(Context c) {
+        try { String s = sp(c).getString("pomo", ""); return s.isEmpty() ? null : new JSONObject(s); } catch (Exception e) { return null; }
+    }
+
+    private static void savePomo(Context c, JSONObject p) {
+        sp(c).edit().putString("pomo", p == null ? "" : p.toString()).apply();
+    }
+
+    private static String normHost(String in) {
+        String s = in == null ? "" : in.trim().toLowerCase(Locale.ROOT);
+        s = s.replaceFirst("^[a-z]+://", "");
+        int i = s.indexOf('/'); if (i >= 0) s = s.substring(0, i);
+        i = s.indexOf('?'); if (i >= 0) s = s.substring(0, i);
+        s = s.replaceFirst("^www\\.", "").replaceFirst(":\\d+$", "");
+        return s.matches("^[a-z0-9-]+(\\.[a-z0-9-]+)+$") && s.length() <= 80 ? s : null;
+    }
+
+    /** A site the person allowed on the focus page (sub-domains included). */
+    static boolean isAllowedHost(Context c, String host) {
+        if (host == null) return false;
+        String h = host.toLowerCase(Locale.ROOT).replaceFirst("^www\\.", "");
+        JSONArray a = sites(c);
+        for (int i = 0; i < a.length(); i++) {
+            String s = a.optString(i);
+            if (!s.isEmpty() && (h.equals(s) || h.endsWith("." + s))) return true;
+        }
+        return false;
+    }
+
+    /** Moves a Pomodoro on (focus → break → next focus → end). Called from the state API and from the accessibility service. */
+    static void tick(Context c) {
+        synchronized (LK) {
+            JSONObject p = pomo(c);
+            if (p == null) return;
+            FocusManager fm = new FocusManager(c);
+            try {
+                String ph = p.optString("phase");
+                if ("focus".equals(ph) && !fm.isSessionActive()) {
+                    if (p.optInt("idx") >= p.optInt("total")) savePomo(c, null);
+                    else { p.put("phase", "break"); p.put("breakEndAt", System.currentTimeMillis() + BREAK_MIN * 60000L); savePomo(c, p); }
+                } else if ("break".equals(ph) && System.currentTimeMillis() >= p.optLong("breakEndAt")) {
+                    p.put("idx", p.optInt("idx") + 1); p.put("phase", "focus"); p.put("breakEndAt", 0);
+                    savePomo(c, p);
+                    FocusManager.quickStart(c);
+                }
+            } catch (Exception ignored) { }
+        }
+    }
+
+    private static JSONObject state(Context c) throws Exception {
+        tick(c);
+        FocusManager fm = new FocusManager(c);
+        JSONObject st = new JSONObject();
+        st.put("active", fm.isSessionActive());
+        st.put("endAt", fm.getSessionEndMs());
+        st.put("now", System.currentTimeMillis());
+        st.put("sites", sites(c));
+        st.put("minutes", FocusManager.QUICK_FOCUS_MS / 60000);
+        st.put("breakMinutes", BREAK_MIN);
+        st.put("maxSessions", POMO_MAX);
+        st.put("sessions", 1);
+        JSONObject p = pomo(c);
+        st.put("pomo", p == null ? JSONObject.NULL : p);
+        return st;
+    }
+
+    private static JSONObject api(Context c, String method, String path, JSONObject o) throws Exception {
+        synchronized (LK) {
+            FocusManager fm = new FocusManager(c);
+            if (method.equals("GET") && path.equals("/api/state")) return state(c);
+            JSONObject r = new JSONObject();
+            if (path.equals("/api/start")) {
+                if (!fm.isSessionActive()) {
+                    int n = Math.max(1, Math.min(POMO_MAX, o.optInt("sessions", 1)));
+                    JSONObject p = null;
+                    if (n > 1) { p = new JSONObject(); p.put("total", n); p.put("idx", 1); p.put("phase", "focus"); p.put("breakEndAt", 0); }
+                    savePomo(c, p);
+                    FocusManager.quickStart(c);
+                }
+                return r.put("ok", true);
+            }
+            if (path.equals("/api/pomo")) {
+                JSONObject p = pomo(c);
+                if (p == null || !"break".equals(p.optString("phase"))) return r.put("ok", false);
+                if ("stop".equals(o.optString("action"))) { savePomo(c, null); return r.put("ok", true); }
+                if ("skip".equals(o.optString("action"))) { p.put("breakEndAt", 0); savePomo(c, p); tick(c); return r.put("ok", true); }
+                return r.put("ok", false);
+            }
+            if (path.equals("/api/sites")) {
+                if (fm.isSessionActive()) return r.put("ok", false);            // locked while a session runs
+                JSONArray a = sites(c);
+                JSONArray out = new JSONArray();
+                if (o.has("add")) {
+                    String h = normHost(o.optString("add"));
+                    if (h == null) return r.put("ok", false);
+                    boolean dup = false;
+                    for (int i = 0; i < a.length(); i++) { out.put(a.optString(i)); if (a.optString(i).equals(h)) dup = true; }
+                    if (!dup && a.length() < 40) out.put(h);
+                } else if (o.has("remove")) {
+                    String h = o.optString("remove");
+                    for (int i = 0; i < a.length(); i++) if (!a.optString(i).equals(h)) out.put(a.optString(i));
+                } else return r.put("ok", false);
+                sp(c).edit().putString("sites", out.toString()).apply();
+                return r.put("ok", true).put("sites", out);
+            }
+            return r.put("ok", false);
+        }
+    }
+
+    // ── tiny HTTP ──
+
+    private static String asset(Context c, String name) {
+        try (InputStream in = c.getAssets().open(name)) {
+            ByteArrayOutputStream bo = new ByteArrayOutputStream();
+            byte[] b = new byte[8192];
+            int n;
+            while ((n = in.read(b)) > 0) bo.write(b, 0, n);
+            return bo.toString("UTF-8");
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private static void send(Socket s, int code, String type, String body, String extra) throws Exception {
+        byte[] b = body.getBytes("UTF-8");
+        OutputStream o = s.getOutputStream();
+        o.write(("HTTP/1.1 " + code + (code == 200 ? " OK" : " Error") + "\r\nContent-Type: " + type + "\r\nContent-Length: " + b.length
+            + "\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n" + extra + "Connection: close\r\n\r\n").getBytes("UTF-8"));
+        o.write(b);
+        o.flush();
+    }
+
     private static void handle(Context c, Socket s) {
         try {
-            s.setSoTimeout(3000);
+            s.setSoTimeout(4000);
             BufferedReader r = new BufferedReader(new InputStreamReader(s.getInputStream(), "UTF-8"));
             String line = r.readLine();
             if (line == null) { s.close(); return; }
             String[] p = line.split(" ");
-            String path = p.length > 1 ? p[1] : "/";
-            String type = "text/html; charset=utf-8", body;
-            FocusManager fm = new FocusManager(c);
-            if (path.startsWith("/state")) {
-                type = "application/json";
-                body = "{\"on\":" + fm.isSessionActive() + ",\"ms\":" + fm.getRemainingMs() + "}";
-            } else if (path.startsWith("/start")) {
-                FocusManager.quickStart(c);
-                type = "application/json";
-                body = "{\"ok\":true}";
-            } else {
-                body = PAGE;
+            String method = p[0], path = p.length > 1 ? p[1].split("\\?")[0] : "/";
+            String host = "", origin = "", tok = "";
+            int len = 0;
+            String h;
+            while ((h = r.readLine()) != null && !h.isEmpty()) {
+                int i = h.indexOf(':');
+                if (i < 0) continue;
+                String k = h.substring(0, i).trim().toLowerCase(Locale.ROOT), v = h.substring(i + 1).trim();
+                if (k.equals("host")) host = v;
+                else if (k.equals("origin")) origin = v;
+                else if (k.equals("x-rf-token")) tok = v;
+                else if (k.equals("content-length")) { try { len = Integer.parseInt(v); } catch (Exception ignored) { } }
             }
-            byte[] b = body.getBytes("UTF-8");
-            OutputStream o = s.getOutputStream();
-            o.write(("HTTP/1.1 200 OK\r\nContent-Type: " + type + "\r\nContent-Length: " + b.length
-                + "\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n").getBytes("UTF-8"));
-            o.write(b);
-            o.flush();
+            boolean hostOk = host.matches("^(localhost|127\\.0\\.0\\.1):\\d+$");
+            boolean originOk = origin.isEmpty() || origin.equals("http://localhost:" + PORT) || origin.equals("http://127.0.0.1:" + PORT);
+            if (!hostOk) { send(s, 403, "text/plain", "forbidden", ""); s.close(); return; }
+            if (method.equals("GET") && !path.startsWith("/api/")) {
+                String html = asset(c, "focus/extfocus.html").replace("__RF_TOKEN__", TOKEN).replace("/*__NOISE_JS__*/", asset(c, "focus/focus-noise.js"));
+                send(s, 200, "text/html; charset=utf-8", html,
+                    "Content-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'\r\n");
+                s.close();
+                return;
+            }
+            if (!path.startsWith("/api/") || !TOKEN.equals(tok) || !originOk) { send(s, 403, "application/json", "{\"ok\":false}", ""); s.close(); return; }
+            JSONObject o = new JSONObject();
+            if (method.equals("POST")) {
+                if (len > 2000) { s.close(); return; }
+                char[] buf = new char[len];
+                int got = 0;
+                while (got < len) { int n = r.read(buf, got, len - got); if (n < 0) break; got += n; }
+                try { o = new JSONObject(new String(buf, 0, got)); } catch (Exception ignored) { }
+            } else if (!method.equals("GET")) { send(s, 405, "application/json", "{\"ok\":false}", ""); s.close(); return; }
+            send(s, 200, "application/json; charset=utf-8", api(c, method, path, o).toString(), "");
             s.close();
         } catch (Exception e) {
             try { s.close(); } catch (Exception ignored) { }
         }
     }
-
-    private static final String PAGE =
-        "<!doctype html><html><head><meta charset='utf-8'><title>Focus time</title>"
-        + "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-        + "<style>body{margin:0;min-height:100vh;background:#0B1F24;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;text-align:center}"
-        + ".w{padding:26px;max-width:520px}h2{font-size:26px;margin:0 0 10px}.s{color:#B8C7CB;line-height:1.5;font-size:14px}"
-        + "q{display:block;font-size:17px;line-height:1.5;margin:20px 0 6px;transition:opacity .4s}small{color:#7FE0A0;font-weight:bold}"
-        + ".t{font-size:52px;font-weight:bold;margin:22px 0}button{display:block;width:100%;padding:14px;margin:8px 0;border:0;border-radius:12px;font-size:15px;font-weight:bold;"
-        + "background:#1A9C8C;color:#fff}button.g{background:transparent;border:1px solid #3a5a60;color:#B8C7CB}</style></head><body><div class='w'>"
-        + "<h2>একটু থামুন 🌿</h2><div class='s'>আপনি যা খুঁজছিলেন তা আপনার লক্ষ্য থেকে মনোযোগ সরিয়ে দিতে পারে। এই মুহূর্তটা আপনার ভবিষ্যৎ গড়ার সময় — চলুন আবার পড়াশোনায় ফিরি।</div>"
-        + "<q id='q'></q><small id='a'></small><div class='t' id='t'>25:00</div>"
-        + "<button id='b' onclick=\"fetch('/start')\">▶ ২৫ মিনিট Focus শুরু করুন</button>"
-        + "<button class='g' onclick='nq()'>💬 আরেকটি উক্তি</button>"
-        + "<button class='g' onclick=\"location.href='https://www.google.com/'\">📚 পড়াশোনায় ফিরুন</button></div><script>"
-        + "var Q=[['ওঠো, জাগো এবং লক্ষ্যে না পৌঁছানো পর্যন্ত থেমো না।','স্বামী বিবেকানন্দ'],"
-        + "['স্বপ্ন সেটা নয় যা তুমি ঘুমিয়ে দেখো, স্বপ্ন সেটাই যা তোমাকে ঘুমাতে দেয় না।','এ. পি. জে. আবদুল কালাম'],"
-        + "['এক সময়ে একটি কাজ করো, আর তা করার সময় নিজের সমস্ত মন তাতে ঢেলে দাও।','স্বামী বিবেকানন্দ'],"
-        + "['চিত্ত যেথা ভয়শূন্য, উচ্চ যেথা শির।','রবীন্দ্রনাথ ঠাকুর'],['বল বীর — বল উন্নত মম শির!','কাজী নজরুল ইসলাম'],"
-        + "['আমরা যা বারবার করি, আমরা তা-ই। তাই শ্রেষ্ঠত্ব কোনো একটি কাজ নয়, এটি একটি অভ্যাস।','অ্যারিস্টটল'],"
-        + "['কাজটা শেষ না হওয়া পর্যন্ত সবসময় অসম্ভবই মনে হয়।','নেলসন ম্যান্ডেলা']];"
-        + "var i=Math.floor(Math.random()*Q.length);function nq(){i=(i+1)%Q.length;sh()}"
-        + "function sh(){document.getElementById('q').textContent='“'+Q[i][0]+'”';document.getElementById('a').textContent='— '+Q[i][1]}sh();setInterval(nq,12000);"
-        + "function p(n){return (n<10?'0':'')+n}"
-        + "function tick(){fetch('/state').then(function(r){return r.json()}).then(function(d){var s=d.on?Math.ceil(d.ms/1000):1500;"
-        + "document.getElementById('t').textContent=p(Math.floor(s/60))+':'+p(s%60);document.getElementById('b').style.display=d.on?'none':'block'}).catch(function(){})}"
-        + "tick();setInterval(tick,1000);</script></body></html>";
 }

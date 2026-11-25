@@ -48,6 +48,7 @@ public class AdultWatchService extends AccessibilityService {
     // typing is never judged; but adult words typed and then SUBMITTED (box no longer being typed in) count as a search.
     // (Chrome shows only "google.com" in the address bar after a search, so the typed words are remembered.)
     private boolean pendingAdult = false, scanTyping = false, scanAdult = false;
+    private boolean driving = false;      // typing the focus link into the address bar right now
     private long lastAct = 0;
     private long lastScan = 0;
     private View overlay;
@@ -78,16 +79,16 @@ public class AdultWatchService extends AccessibilityService {
         if (e.getEventType() == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return;   // still typing: nothing is blocked before the search is submitted
         String pkg = e.getPackageName().toString();
         if (getPackageName().equals(pkg) || SKIP.contains(pkg)) return;
-        if (overlay != null) return;
+        if (overlay != null || driving) return;
         long now = SystemClock.elapsedRealtime();
         if (now - lastAct < 2000) return;
         final boolean browser = BROWSERS.contains(pkg);
         if (!browser && now - lastScan < 900) return;          // other apps: scan at most about once a second (battery)
         lastScan = now;
 
-        if (browser && new FocusManager(this).isSessionActive()) {     // Focus is running: no browser / tab, shows the time left
-            lastAct = now;
-            showRemaining();
+        LocalFocusServer.tick(this);
+        if (browser && new FocusManager(this).isSessionActive()) {     // Focus is running: any tab / site that is not allowed becomes the focus page
+            if (!driving && enforceFocus()) lastAct = now;
             return;
         }
 
@@ -180,55 +181,99 @@ public class AdultWatchService extends AccessibilityService {
     // ── the Focus page ──────────────────────────────────────────────────────────────────────────
 
     private void act() {
-        if (!openFocusPageInSameTab()) {
+        if (!openFocusPageInSameTab(true)) {
             performGlobalAction(GLOBAL_ACTION_BACK);      // fallback: leave the page / search, cover it with the Focus page
             showOverlay();
         }
     }
 
-    /** The SAME tab becomes the Focus page: the address bar gets http://localhost:PORT/focus (served by LocalFocusServer) + Enter. */
-    private boolean openFocusPageInSameTab() {
-        if (Build.VERSION.SDK_INT < 30) return false;               // IME-Enter action needs Android 11+
+    /** Focus running: the tab must show the focus page, or an allowed site. Address bar is read only when nobody is typing in it. */
+    private boolean enforceFocus() {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) return false;
+        String txt = null;
+        boolean typing = false;
+        try {
+            AccessibilityNodeInfo bar = findUrlBar(root, new int[]{0}, false);
+            if (bar != null) {
+                CharSequence t = bar.getText();
+                txt = t == null ? "" : t.toString().trim();
+                typing = bar.isEditable() && bar.isFocused();
+                try { bar.recycle(); } catch (Exception ignored) { }
+            }
+        } finally { try { root.recycle(); } catch (Exception ignored) { } }
+        if (txt == null || txt.isEmpty() || typing) return false;
+        if (txt.contains("localhost")) return false;                 // our focus page
+        String host = null;
+        if (!txt.contains(" ") && txt.contains(".")) {
+            try { host = Uri.parse(txt.contains("://") ? txt : "https://" + txt).getHost(); } catch (Exception ignored) { }
+        }
+        if (host != null && LocalFocusServer.isAllowedHost(this, host)) return false;   // an allowed website
+        return openFocusPageInSameTab(false);
+    }
+
+    /** The SAME tab becomes the Focus page: the address bar gets http://localhost:PORT/focus (LocalFocusServer) + Enter, retried until it sticks. */
+    private boolean openFocusPageInSameTab(final boolean adult) {
+        if (Build.VERSION.SDK_INT < 30) { if (!adult) performGlobalAction(GLOBAL_ACTION_HOME); return !adult; }   // Enter action needs Android 11+
         LocalFocusServer.start(this);
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return false;
         AccessibilityNodeInfo bar;
-        try { bar = findUrlBar(root, new int[]{0}); } finally { try { root.recycle(); } catch (Exception ignored) { } }
+        try { bar = findUrlBar(root, new int[]{0}, false); } finally { try { root.recycle(); } catch (Exception ignored) { } }
         if (bar == null) return false;
         bar.performAction(AccessibilityNodeInfo.ACTION_CLICK);
         bar.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
         try { bar.recycle(); } catch (Exception ignored) { }
-        ui.postDelayed(() -> {
-            boolean ok = false;
-            AccessibilityNodeInfo r2 = getRootInActiveWindow();
-            if (r2 != null) {
-                try {
-                    AccessibilityNodeInfo b2 = findUrlBar(r2, new int[]{0});
-                    if (b2 != null) {
-                        android.os.Bundle a = new android.os.Bundle();
-                        a.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, LocalFocusServer.FOCUS_URL);
-                        ok = b2.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, a)
-                            && b2.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
-                        try { b2.recycle(); } catch (Exception ignored) { }
-                    }
-                } finally { try { r2.recycle(); } catch (Exception ignored) { } }
-            }
-            if (!ok) { performGlobalAction(GLOBAL_ACTION_BACK); showOverlay(); }   // could not type the link: old way
-        }, 350);
+        driving = true;
+        ui.postDelayed(() -> drive(adult, 0), 350);
         return true;
     }
 
-    private AccessibilityNodeInfo findUrlBar(AccessibilityNodeInfo n, int[] budget) {
+    private void drive(final boolean adult, final int attempt) {
+        boolean done = false, fail = false;
+        AccessibilityNodeInfo r = getRootInActiveWindow();
+        AccessibilityNodeInfo b = null;
+        if (r != null) {
+            try { b = findUrlBar(r, new int[]{0}, true); } finally { try { r.recycle(); } catch (Exception ignored) { } }
+        }
+        if (b == null) {
+            if (attempt >= 3) fail = true;
+        } else {
+            CharSequence cur = b.getText();
+            boolean has = cur != null && cur.toString().contains("localhost:" + LocalFocusServer.PORT);
+            if (has && !b.isFocused()) done = true;                    // the page is loading / loaded
+            else if (has) b.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
+            else {
+                android.os.Bundle a = new android.os.Bundle();
+                a.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, LocalFocusServer.FOCUS_URL);
+                b.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, a);
+            }
+            try { b.recycle(); } catch (Exception ignored) { }
+            if (!done && attempt >= 7) fail = true;
+        }
+        if (done || fail) {
+            driving = false;
+            lastAct = SystemClock.elapsedRealtime();
+            if (fail) {
+                if (adult) { performGlobalAction(GLOBAL_ACTION_BACK); showOverlay(); }
+                else performGlobalAction(GLOBAL_ACTION_HOME);
+            }
+            return;
+        }
+        ui.postDelayed(() -> drive(adult, attempt + 1), 450);
+    }
+
+    private AccessibilityNodeInfo findUrlBar(AccessibilityNodeInfo n, int[] budget, boolean editable) {
         if (n == null || budget[0]++ > 350) return null;
         String id = n.getViewIdResourceName();
         String lid = id == null ? "" : id.toLowerCase(Locale.ROOT);
-        if (n.isEditable() && (lid.endsWith("url_bar") || lid.contains("url_view") || lid.contains("location_bar")
+        if ((!editable || n.isEditable()) && (lid.endsWith("url_bar") || lid.contains("url_view") || lid.contains("location_bar")
             || lid.contains("omnibox") || lid.contains("url_field") || lid.contains("search_box"))) return AccessibilityNodeInfo.obtain(n);
         for (int i = 0; i < n.getChildCount(); i++) {
             AccessibilityNodeInfo c = n.getChild(i);
             if (c == null) continue;
             AccessibilityNodeInfo r;
-            try { r = findUrlBar(c, budget); } finally { try { c.recycle(); } catch (Exception ignored) { } }
+            try { r = findUrlBar(c, budget, editable); } finally { try { c.recycle(); } catch (Exception ignored) { } }
             if (r != null) return r;
         }
         return null;
@@ -290,61 +335,9 @@ public class AdultWatchService extends AccessibilityService {
         }
     }
 
-    /** Focus is running and a browser was opened: full-screen "N minutes left" (live), no way into the browser. */
-    private void showRemaining() {
-        if (overlay != null) return;
-        if (wm == null) wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-        final FocusManager fm = new FocusManager(this);
-
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER);
-        root.setBackgroundColor(0xFF0B1F24);
-        root.setPadding(Ui.dp(this, 28), Ui.dp(this, 28), Ui.dp(this, 28), Ui.dp(this, 28));
-
-        TextView emoji = Ui.tv(this, "🎯", 56, 0xFFFFFFFF, false);
-        emoji.setGravity(Gravity.CENTER);
-        root.addView(emoji, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView title = Ui.tv(this, "Focus চলছে", 22, 0xFFFFFFFF, true);
-        title.setGravity(Gravity.CENTER);
-        root.addView(title, Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 10, 0, 8));
-        final TextView left = Ui.tv(this, "", 40, 0xFF7FE0A0, true);
-        left.setGravity(Gravity.CENTER);
-        root.addView(left, Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 0, 0, 8));
-        TextView msg = Ui.tv(this, "এখন কোনো ব্রাউজার বা ট্যাব খোলা যাবে না।\nসময় শেষ হলে আবার ব্যবহার করতে পারবেন।", 14.5f, 0xFFB8C7CB, false);
-        msg.setGravity(Gravity.CENTER);
-        msg.setLineSpacing(0, 1.25f);
-        root.addView(msg, Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 0, 0, 22));
-        root.addView(Ui.btn(this, "ঠিক আছে", Ui.B_GHOST, v -> {
-            removeOverlay();
-            performGlobalAction(GLOBAL_ACTION_HOME);
-        }), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.OPAQUE);
-        try {
-            wm.addView(root, lp);
-            overlay = root;
-        } catch (Exception e) {
-            overlay = null;
-            return;
-        }
-        ui.post(new Runnable() {
-            @Override public void run() {
-                if (overlay != root) return;
-                if (!fm.isSessionActive()) { removeOverlay(); return; }        // time is over: the browser is free again
-                long sec = (fm.getRemainingMs() + 999) / 1000;
-                left.setText(String.format(Locale.US, "%02d:%02d", sec / 60, sec % 60) + " বাকি");
-                ui.postDelayed(this, 1000);
-            }
-        });
-    }
-
     private void removeOverlay() {
         ui.removeCallbacksAndMessages(null);
+        driving = false;
         if (overlay != null && wm != null) {
             try { wm.removeView(overlay); } catch (Exception ignored) { }
         }
