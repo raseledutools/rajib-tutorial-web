@@ -32,7 +32,20 @@ import java.util.Locale;
 public class AdultWatchService extends AccessibilityService {
     private static final long QUICK_FOCUS_MS = 25L * 60 * 1000;
 
+    /** Known browsers: their address bar and any focused text box are checked. */
+    private static final java.util.Set<String> BROWSERS = new java.util.HashSet<>(java.util.Arrays.asList(
+        "com.android.chrome", "com.chrome.beta", "com.chrome.dev", "com.chrome.canary", "org.mozilla.firefox", "org.mozilla.firefox_beta",
+        "org.mozilla.fenix", "org.mozilla.focus", "com.microsoft.emmx", "com.brave.browser", "com.opera.browser", "com.opera.mini.native",
+        "com.opera.gx", "com.sec.android.app.sbrowser", "com.duckduckgo.mobile.android", "com.vivaldi.browser", "com.kiwibrowser.browser",
+        "com.UCMobile.intl", "com.uc.browser.en", "com.android.browser", "com.google.android.apps.chrome", "com.mi.globalbrowser",
+        "com.miui.browser", "com.huawei.browser", "org.chromium.webview_shell", "com.yandex.browser", "com.ecosia.android"));
+    /** Never looked at: our own app, system UI and the launcher / settings. */
+    private static final java.util.Set<String> SKIP = new java.util.HashSet<>(java.util.Arrays.asList(
+        "com.android.systemui", "com.android.settings", "com.google.android.apps.nexuslauncher", "com.sec.android.app.launcher",
+        "com.miui.home", "com.android.launcher3"));
+
     private long lastAct = 0;
+    private long lastScan = 0;
     private View overlay;
     private WindowManager wm;
 
@@ -57,13 +70,17 @@ public class AdultWatchService extends AccessibilityService {
     public void onAccessibilityEvent(AccessibilityEvent e) {
         if (e == null || e.getPackageName() == null) return;
         if (!AppSettings.adultExternal(this)) return;
-        if (getPackageName().contentEquals(e.getPackageName())) return;
+        String pkg = e.getPackageName().toString();
+        if (getPackageName().equals(pkg) || SKIP.contains(pkg)) return;
         if (overlay != null) return;
         long now = SystemClock.elapsedRealtime();
         if (now - lastAct < 2000) return;
+        final boolean browser = BROWSERS.contains(pkg);
+        if (!browser && now - lastScan < 900) return;          // other apps: scan at most about once a second (battery)
+        lastScan = now;
 
         boolean bad = false;
-        if (e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getText() != null) {
+        if (browser && e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getText() != null) {
             StringBuilder sb = new StringBuilder();
             for (CharSequence cs : e.getText()) if (cs != null) sb.append(cs).append(' ');
             bad = SafeGuard.isAdultText(sb.toString());
@@ -71,7 +88,7 @@ public class AdultWatchService extends AccessibilityService {
         if (!bad) {
             AccessibilityNodeInfo root = getRootInActiveWindow();
             if (root == null) return;
-            try { bad = scan(root, new int[]{0}); } finally { try { root.recycle(); } catch (Exception ignored) { } }
+            try { bad = scan(root, new int[]{0}, browser, false); } finally { try { root.recycle(); } catch (Exception ignored) { } }
         }
         if (bad) {
             lastAct = now;
@@ -90,8 +107,16 @@ public class AdultWatchService extends AccessibilityService {
 
     // ── detection ───────────────────────────────────────────────────────────────────────────────
 
-    private boolean scan(AccessibilityNodeInfo n, int[] budget) {
+    /**
+     * browser: a known browser (address bar + any focused text box are checked).
+     * Other apps: only an address-bar-like view, the page title of a WebView, and a focused text box
+     * that sits INSIDE a WebView (a web search box) — chats and other app text are never looked at.
+     */
+    private boolean scan(AccessibilityNodeInfo n, int[] budget, boolean browser, boolean inWeb) {
         if (n == null || budget[0]++ > 350) return false;
+        CharSequence cls = n.getClassName();
+        boolean isWeb = cls != null && cls.toString().contains("WebView");
+        boolean web = inWeb || isWeb;
         CharSequence t = n.getText();
         if (t != null && t.length() > 0 && t.length() < 600) {
             String id = n.getViewIdResourceName();
@@ -99,13 +124,18 @@ public class AdultWatchService extends AccessibilityService {
             boolean urlish = lid.endsWith("url_bar") || lid.contains("url_view") || lid.contains("location_bar")
                 || lid.contains("omnibox") || lid.contains("search_box") || lid.contains("toolbar_text") || lid.contains("url_field");
             if (urlish && urlBad(t.toString())) return true;
-            if (!urlish && n.isEditable() && n.isFocused() && SafeGuard.isAdultQuery(t.toString())) return true;
+            if (!urlish && n.isEditable() && n.isFocused() && (browser || web) && SafeGuard.isAdultQuery(t.toString())) return true;
+            if (isWeb && SafeGuard.isAdultText(t.toString())) return true;            // WebView: the page title
+        }
+        if (isWeb) {
+            CharSequence d = n.getContentDescription();
+            if (d != null && d.length() > 0 && d.length() < 300 && SafeGuard.isAdultText(d.toString())) return true;
         }
         for (int i = 0; i < n.getChildCount(); i++) {
             AccessibilityNodeInfo c = n.getChild(i);
             if (c == null) continue;
             boolean r;
-            try { r = scan(c, budget); } finally { try { c.recycle(); } catch (Exception ignored) { } }
+            try { r = scan(c, budget, browser, web); } finally { try { c.recycle(); } catch (Exception ignored) { } }
             if (r) return true;
         }
         return false;
