@@ -63,15 +63,8 @@ final class LocalFocusServer {
         th.start();
     }
 
-    /** True when something already answers on the focus port (used before sending a tab there). */
-    static boolean isUp() {
-        try (Socket t = new Socket()) {
-            t.connect(new java.net.InetSocketAddress("127.0.0.1", PORT), 300);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
+    /** True once the server socket is bound and listening (a flag: a real connect on the main thread is refused by Android). */
+    static boolean isUp() { return listening; }
 
     // ── state: allowed sites + Pomodoro (kept in prefs; the 25-min session itself is FocusManager's) ──
 
