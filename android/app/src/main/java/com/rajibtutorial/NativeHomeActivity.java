@@ -316,7 +316,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         curVideo = null;
         renderUser();
         syncPushUser();
-        if (currentView == V_COURSE && curCourse != null) openCourse(curCourse.id); else refreshAll();
+        if (currentView == V_COURSE && curCourse != null) openCourseNow(curCourse.id); else refreshAll();
         toast("Logged out");
     }
 
@@ -395,7 +395,28 @@ public class NativeHomeActivity extends AppCompatActivity {
         closeDrawer();
     }
 
-    void openCourse(String id) {
+    /** true = "Play with Play Store" (official player, nothing can be saved); false = normal player. */
+    boolean playStoreMode = false;
+
+    /** Tapping a course asks how to play: Play Store mode (policy-safe) or Normal. */
+    void openCourse(final String id) {
+        final Store.Course c = Store.findCourse(id);
+        if (c == null) return;
+        closeDrawer();
+        new android.app.AlertDialog.Builder(this)
+            .setTitle(c.title)
+            .setItems(new String[]{
+                "🛡️  Play with Play Store\nঅফিসিয়াল YouTube player · কোনো Save/Download নেই",
+                "▶️  Play with Normal\nপুরো ফিচার · Save offline সহ"}, (d, which) -> {
+                playStoreMode = (which == 0);
+                openCourseNow(id);
+            })
+            .setNegativeButton("বাতিল", null)
+            .show();
+    }
+
+    /** Opens the course with the mode that is already chosen (also used to refresh after login / logout). */
+    void openCourseNow(String id) {
         Store.Course c = Store.findCourse(id);
         if (c == null) return;
         curCourse = c;

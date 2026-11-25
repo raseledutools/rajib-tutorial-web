@@ -32,6 +32,9 @@ final class CourseScreen extends Screen {
     private static final int COL_SAVED = 0xFF16A34A;   // green: saved, plays without internet
 
     private final NativeHomeActivity a;
+    /** "Play with Play Store" mode: official YouTube player only, no saving / downloading / caching at all. */
+    private final boolean ps;
+    private LinearLayout btnRow;
     private LinearLayout root, listWrap;
     private FrameLayout playerFrame;
     private TextView cpTitle, cpSub, playerTitle, playerMeta, buyBtn;
@@ -52,6 +55,7 @@ final class CourseScreen extends Screen {
 
     CourseScreen(NativeHomeActivity host) {
         a = host;
+        ps = host.playStoreMode;
         dl = (id, pct) -> {
             if (released) return;
             if (pct == -1) a.toast(VideoCache.lastError(id));
@@ -113,6 +117,7 @@ final class CourseScreen extends Screen {
         info.addView(playerMeta);
         info.addView(offNote, Ui.lpm(a, MATCH, WRAP, 0, 6, 0, 0));
         LinearLayout btns = new LinearLayout(a);
+        btnRow = btns;
         btns.setOrientation(LinearLayout.HORIZONTAL);
         offBtn = Ui.tv(a, "📥  Save offline", 13.5f, Ui.ACCENT2, true);
         offBtn.setOnClickListener(v -> onOffBtn());
@@ -128,6 +133,7 @@ final class CourseScreen extends Screen {
         l2.setMargins(Ui.dp(a, 5), 0, 0, 0);
         btns.addView(offBtn, l1);
         btns.addView(fsBtn, l2);
+        if (ps) offBtn.setVisibility(View.GONE);                 // Play Store mode: no save button at all
         info.addView(btns, Ui.lpm(a, MATCH, WRAP, 0, 10, 0, 0));
         root.addView(info, new LinearLayout.LayoutParams(MATCH, WRAP));
 
@@ -182,7 +188,7 @@ final class CourseScreen extends Screen {
             try { video.stopPlayback(); } catch (Exception ignored) { }
             video = null;
         }
-        if (web != null) { Media.destroy(web); web = null; }
+        if (web != null) { PlayStorePlayer.exitFullscreen(web); Media.destroy(web); web = null; }
         playerFrame.removeAllViews();
     }
 
@@ -229,7 +235,7 @@ final class CourseScreen extends Screen {
 
     private void startPlay(final Store.Video v, final boolean autoplay) {
         // saved lessons only play while the app has been online within the last 24 hours (OfflineGuard)
-        if (VideoCache.getLocalPath(a, v.id) != null && !OfflineGuard.isValid(a)) {
+        if (!ps && VideoCache.getLocalPath(a, v.id) != null && !OfflineGuard.isValid(a)) {
             a.curVideo = v;
             renderList();
             showPlaceholder(OfflineCache.online(a) ? "Checking connection…" : OfflineGuard.LOCK_MSG);
@@ -247,10 +253,17 @@ final class CourseScreen extends Screen {
         resumeVideo = false;
         renderList();
         clearPlayer();
-        final boolean haveLocal = !locked && VideoCache.getLocalPath(a, v.id) != null;
+        final boolean haveLocal = !ps && !locked && VideoCache.getLocalPath(a, v.id) != null;
         String embed = Store.ytEmbed(v.url, autoplay);
         if (embed != null && haveLocal) embed = null;   // saved YouTube lesson: play the local file
-        if (locked && !OfflineCache.online(a) && VideoCache.getLocalPath(a, v.id) != null) {
+        if (ps && !v.url.isEmpty() && !OfflineCache.online(a)) {
+            showPlaceholder("Connect to the internet to play this lesson.");
+        } else if (ps && embed != null) {
+            // Play Store mode: the official YouTube player, untouched (its own controls and fullscreen button)
+            web = PlayStorePlayer.create(a, embed, autoplay);
+            playerFrame.addView(web, new FrameLayout.LayoutParams(MATCH, MATCH));
+            if (btnRow != null) btnRow.setVisibility(View.GONE);
+        } else if (locked && !OfflineCache.online(a) && VideoCache.getLocalPath(a, v.id) != null) {
             showPlaceholder(OfflineGuard.LOCK_MSG);
         } else if (embed != null && !OfflineCache.online(a)) {
             showPlaceholder("This YouTube lesson isn't saved on this phone.\nConnect to the internet, or save it offline first.");
@@ -272,7 +285,7 @@ final class CourseScreen extends Screen {
             else video.playUrl(v.url, autoplay);
 
             // Auto-cache: if not downloaded yet, start downloading in background
-            if (!haveLocal && !VideoCache.isDownloaded(a, v.id) && !VideoCache.isDownloading(v.id) && OfflineCrypto.supported()) {
+            if (!ps && !haveLocal && !VideoCache.isDownloaded(a, v.id) && !VideoCache.isDownloading(v.id) && OfflineCrypto.supported()) {
                 VideoCache.startDownload(a, v.id, v.url, dl);
                 offTick(v.id, false);
             }
@@ -281,6 +294,7 @@ final class CourseScreen extends Screen {
         }
         playerTitle.setText(v.title);
         playerMeta.setText(v.durationMinutes > 0 ? v.durationMinutes + " min" : "");
+        if (ps && btnRow != null && web == null) btnRow.setVisibility(video != null ? View.VISIBLE : View.GONE);
         updateOffControls();
     }
 
@@ -291,7 +305,7 @@ final class CourseScreen extends Screen {
         final View pv = web != null ? web : video;
         if (pv == null) {                     // no live player (placeholder) -> old separate-screen fullscreen
             Intent i = new Intent(a, PlayerActivity.class);
-            boolean local = VideoCache.getLocalPath(a, v.id) != null && OfflineGuard.isValid(a);
+            boolean local = !ps && VideoCache.getLocalPath(a, v.id) != null && OfflineGuard.isValid(a);
             i.putExtra("url", v.url);
             if (local) i.putExtra("vid", v.id);                // saved copy: decrypted on the fly in the player
             i.putExtra("title", v.title);
@@ -400,6 +414,7 @@ final class CourseScreen extends Screen {
     @Override
     boolean onBack() {
         if (fsLayer != null) { closeFullscreen(); return true; }
+        if (ps && PlayStorePlayer.exitFullscreen(web)) return true;
         return false;
     }
 
@@ -467,7 +482,7 @@ final class CourseScreen extends Screen {
         offTick(v.id, false);
     }
 
-    private void onOffBtn() { offToggle(a.curVideo); }
+    private void onOffBtn() { if (!ps) offToggle(a.curVideo); }
 
     /** Refresh the indicator of one lesson (and the player button when it is the playing lesson). */
     private void offTick(String id, boolean rebuildRow) {
@@ -490,6 +505,11 @@ final class CourseScreen extends Screen {
 
     /** Button text/colour + the status line, exactly the exe's three states: Save offline / ⏳ 45% / ✅ Saved · 7 days. */
     private void updateOffControls() {
+        if (ps) {                                    // Play Store mode: no save button, no status line
+            if (offBtn != null) offBtn.setVisibility(View.GONE);
+            if (offNote != null) offNote.setVisibility(View.GONE);
+            return;
+        }
         if (offBtn == null) return;
         Store.Video v = a.curVideo;
         if (v == null || !savable(v)) {
@@ -537,7 +557,7 @@ final class CourseScreen extends Screen {
         for (int i = 0; i < c.videos.size(); i++) {
             final Store.Video v = c.videos.get(i);
             boolean playing = a.curVideo != null && a.curVideo.id.equals(v.id);
-            boolean saved = can && savable(v) && VideoCache.isDownloaded(a, v.id);
+            boolean saved = !ps && can && savable(v) && VideoCache.isDownloaded(a, v.id);
 
             LinearLayout row = new LinearLayout(a);
             row.setOrientation(LinearLayout.HORIZONTAL);
@@ -566,7 +586,7 @@ final class CourseScreen extends Screen {
             if (!can) {
                 // ── lock icon (non-member) ──
                 row.addView(Ui.tv(a, "🔒", 15, Ui.SUB, false));
-            } else if (savable(v)) {
+            } else if (!ps && savable(v)) {
                 // ── offline indicator: ☁ save · ring while downloading · ✓ saved (YouTube and direct videos) ──
                 OffIcon ic = new OffIcon(a);
                 ic.bind(a, v.id);
