@@ -286,12 +286,36 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        pushSplitGuard();
         // net ফিরে এলে আবার online (latest) version-এ যাও
         if (usingFallback && webView != null && isOnline()) loadSite();
         if (PaymentActivity.pending && webView != null) {   // back from the bKash page: refresh premium status
             PaymentActivity.pending = false;
             webView.reload();
         }
+    }
+
+    // ── Split-screen / floating-window guard for the web course/live/offline video views ──
+    private boolean inMultiWindow() {
+        return Build.VERSION.SDK_INT >= 24 && (isInMultiWindowMode() || isInPictureInPictureMode());
+    }
+
+    private void pushSplitGuard() {
+        if (webView == null) return;
+        try { webView.evaluateJavascript("window.__splitGuard&&window.__splitGuard(" + inMultiWindow() + ")", null); }
+        catch (Exception ignored) { }
+    }
+
+    @Override
+    public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode);
+        pushSplitGuard();
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        pushSplitGuard();                                   // freeform / pop-up resize
     }
 
     /** YouTube Studio opened inside this app (desktop site, file picker enabled for the video). */
@@ -351,6 +375,7 @@ public class MainActivity extends AppCompatActivity {
                 progressBar.setVisibility(View.GONE);
                 swipeRefresh.setRefreshing(false);
                 swipeRefresh.setEnabled(true);
+                pushSplitGuard();
             }
 
             @Override

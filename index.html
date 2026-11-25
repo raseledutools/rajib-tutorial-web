@@ -7754,5 +7754,23 @@ async function toggleFlashlight() {
 })();
 </script>
 <script src="study-tools.js"></script>
+<!-- Split-screen / floating-window guard: switched on ONLY by the Android app (MainActivity); never active in Chrome -->
+<div id="splitShield" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:2147483647;background:#000;color:#fff;align-items:center;justify-content:center;text-align:center;padding:24px;font:16px/1.6 sans-serif">🔒 Split-screen / floating window এ কোর্স ভিডিও দেখা যাবে না।<br>পুরো screen এ ফিরে আসুন।</div>
+<script>
+(function(){
+  var on=false,SEC={viewCourse:1,viewLive:1,viewOffline:1};
+  function apply(){
+    var sh=document.getElementById("splitShield");if(!sh)return;
+    var a=document.querySelector(".view.active"),hit=on&&a&&SEC[a.id];
+    sh.style.display=hit?"flex":"none";
+    if(hit){
+      try{document.querySelectorAll("video,audio").forEach(function(m){try{m.pause()}catch(e){}})}catch(e){}
+      try{document.querySelectorAll("iframe").forEach(function(f){try{f.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}',"*")}catch(e){}})}catch(e){}
+    }
+  }
+  window.__splitGuard=function(v){on=!!v;apply()};
+  setInterval(function(){if(on)apply()},400);
+})();
+</script>
 </body>
 </html>
