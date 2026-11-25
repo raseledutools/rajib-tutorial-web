@@ -45,6 +45,9 @@ public class AdultWatchService extends AccessibilityService {
         "com.miui.home", "com.android.launcher3"));
 
     private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
+    // typing is never judged; but adult words typed and then SUBMITTED (box no longer being typed in) count as a search.
+    // (Chrome shows only "google.com" in the address bar after a search, so the typed words are remembered.)
+    private boolean pendingAdult = false, scanTyping = false, scanAdult = false;
     private long lastAct = 0;
     private long lastScan = 0;
     private View overlay;
@@ -88,6 +91,7 @@ public class AdultWatchService extends AccessibilityService {
         }
 
         boolean bad = false;
+        scanTyping = false; scanAdult = false;
         if (browser && e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getText() != null) {
             StringBuilder sb = new StringBuilder();
             for (CharSequence cs : e.getText()) if (cs != null) sb.append(cs).append(' ');
@@ -98,7 +102,13 @@ public class AdultWatchService extends AccessibilityService {
             if (root == null) return;
             try { bad = scan(root, new int[]{0}, browser, false); } finally { try { root.recycle(); } catch (Exception ignored) { } }
         }
+        if (!bad && browser) {
+            if (scanAdult) pendingAdult = true;                       // adult words are being typed: wait for the search
+            else if (scanTyping) pendingAdult = false;               // typing something else / cleared
+            else if (pendingAdult) { pendingAdult = false; bad = true; }   // typing ended: the search was submitted
+        }
         if (bad) {
+            pendingAdult = false;
             lastAct = now;
             act();
         }
@@ -132,6 +142,7 @@ public class AdultWatchService extends AccessibilityService {
             boolean urlish = lid.endsWith("url_bar") || lid.contains("url_view") || lid.contains("location_bar")
                 || lid.contains("omnibox") || lid.contains("search_box") || lid.contains("toolbar_text") || lid.contains("url_field");
             boolean typing = n.isEditable() && n.isFocused();             // the person is still typing here
+            if (typing && (browser || web)) { scanTyping = true; if (SafeGuard.isAdultQuery(t.toString())) scanAdult = true; }
             if (urlish && !typing && urlBad(t.toString())) return true;
             if (isWeb && SafeGuard.isAdultText(t.toString())) return true;            // WebView: the page title
         }
