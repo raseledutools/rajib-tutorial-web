@@ -29,16 +29,16 @@ public class UpdateWorker extends Worker {
         return ok ? Result.success() : Result.retry();
     }
 
-    /** Safe to call any number of times: KEEP leaves the already-scheduled job untouched. */
+    /** Safe to call any number of times (UPDATE moves old 30-min jobs to the 15-min interval). */
     static void schedule(Context c) {
         try {
             Constraints net = new Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED).build();
-            PeriodicWorkRequest req = new PeriodicWorkRequest.Builder(UpdateWorker.class, 30, TimeUnit.MINUTES)
+            PeriodicWorkRequest req = new PeriodicWorkRequest.Builder(UpdateWorker.class, 15, TimeUnit.MINUTES)
                 .setConstraints(net)
                 .build();
             WorkManager.getInstance(c.getApplicationContext())
-                .enqueueUniquePeriodicWork(UNIQUE, ExistingPeriodicWorkPolicy.KEEP, req);
+                .enqueueUniquePeriodicWork(UNIQUE, ExistingPeriodicWorkPolicy.UPDATE, req);
         } catch (Throwable ignored) { }
     }
 }

@@ -70,6 +70,7 @@ final class PushManager {
             NotificationManager nm = c.getSystemService(NotificationManager.class);
             if (nm == null) return;
             // Channel sound/vibration are frozen once created -> new id + drop the old ones
+            try { nm.deleteNotificationChannel("rt_poll_v1"); } catch (Exception ignored) {}   // old "Watching for updates" channel
             try { nm.deleteNotificationChannel("rt_push_v1"); } catch (Exception ignored) {}
             try { nm.deleteNotificationChannel("rt_push_v2"); } catch (Exception ignored) {}
             NotificationChannel ch = new NotificationChannel(
@@ -104,8 +105,7 @@ final class PushManager {
     static void init(Context c) {
         final Context app = c.getApplicationContext();
         createChannel(app);
-        UpdateWorker.schedule(app);   // 30-min fallback
-        UpdatePollService.start(app); // 5-second check while the app is closed
+        UpdateWorker.schedule(app);   // background fallback (works with the app closed)
         try {
             if (FirebaseApp.getApps(app).isEmpty()) return;
             FirebaseMessaging fm = FirebaseMessaging.getInstance();

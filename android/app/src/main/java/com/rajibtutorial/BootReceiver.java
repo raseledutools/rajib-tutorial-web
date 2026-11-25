@@ -15,7 +15,6 @@ public class BootReceiver extends BroadcastReceiver {
         }
         if (!Intent.ACTION_BOOT_COMPLETED.equals(act)) return;
         UpdateWorker.schedule(ctx);
-        UpdatePollService.start(ctx);
         AppLock.ensureService(ctx);
         FocusManager fm = new FocusManager(ctx);
         // Reboot এর পর session এখনো active থাকলে service restart করো
