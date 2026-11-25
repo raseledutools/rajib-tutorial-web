@@ -342,6 +342,48 @@ public class NativeHomeActivity extends AppCompatActivity {
         } else {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
         }
+        applySplitGuard();
+    }
+
+    // ── Split-screen / floating-window guard (course + live views only) ──
+    private TextView splitShield;
+
+    private boolean inMultiWindow() {
+        return Build.VERSION.SDK_INT >= 24 && (isInMultiWindowMode() || isInPictureInPictureMode());
+    }
+
+    private void applySplitGuard() {
+        if (content == null) return;
+        boolean guard = inMultiWindow() && (currentView == V_COURSE || currentView == V_LIVE);
+        if (guard) {
+            if (screen != null) screen.onPause();                 // stop any playing lesson video
+            if (splitShield == null) {
+                splitShield = new TextView(this);
+                splitShield.setBackgroundColor(Color.BLACK);
+                splitShield.setTextColor(Color.WHITE);
+                splitShield.setTextSize(16);
+                splitShield.setGravity(Gravity.CENTER);
+                splitShield.setPadding(48, 48, 48, 48);
+                splitShield.setText("🔒 Split-screen / floating window এ কোর্স ভিডিও দেখা যাবে না।\nপুরো screen এ ফিরে আসুন।");
+                splitShield.setClickable(true);                   // swallow touches
+            }
+            if (splitShield.getParent() == null) content.addView(splitShield, new FrameLayout.LayoutParams(MATCH, MATCH));
+            splitShield.bringToFront();
+        } else if (splitShield != null && splitShield.getParent() instanceof ViewGroup) {
+            ((ViewGroup) splitShield.getParent()).removeView(splitShield);
+        }
+    }
+
+    @Override
+    public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode);
+        applySplitGuard();
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        applySplitGuard();                                        // freeform / pop-up resize
     }
 
     void goHome() {
@@ -512,7 +554,8 @@ public class NativeHomeActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (screen != null) screen.onResume();
+        applySplitGuard();
+        if (screen != null && !(inMultiWindow() && (currentView == V_COURSE || currentView == V_LIVE))) screen.onResume();
         OfflineGuard.checkIfDue(this);       // daily internet check that keeps offline lessons unlocked
         if (Store.sessionMobile != null) startPoll();
         updateBell(true);

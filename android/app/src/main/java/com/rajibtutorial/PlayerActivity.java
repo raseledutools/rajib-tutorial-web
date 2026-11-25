@@ -20,6 +20,11 @@ public class PlayerActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        if (inMultiWindow()) {                 // split-screen / floating window: never play course video here
+            android.widget.Toast.makeText(this, "Split-screen / floating window এ ভিডিও চলবে না", android.widget.Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE
             | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
@@ -58,6 +63,28 @@ public class PlayerActivity extends Activity {
         cl.setMargins(0, 8, 8, 0);
         root.addView(close, cl);
         close.setOnClickListener(v -> finish());
+    }
+
+    private boolean inMultiWindow() {
+        return android.os.Build.VERSION.SDK_INT >= 24 && (isInMultiWindowMode() || isInPictureInPictureMode());
+    }
+
+    @Override
+    public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode);
+        if (isInMultiWindowMode) {
+            if (video != null && video.isPlaying()) video.pause();
+            finish();
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        if (inMultiWindow()) {                 // freeform / pop-up window (configChanges swallows the restart)
+            if (video != null && video.isPlaying()) video.pause();
+            finish();
+        }
     }
 
     private void hideSystemBars() {
