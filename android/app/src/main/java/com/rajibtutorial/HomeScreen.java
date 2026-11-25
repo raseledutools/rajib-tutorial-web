@@ -49,7 +49,7 @@ final class HomeScreen extends Screen {
     // ── helpers ─────────────────────────────────────────────
     private TextView badge(String t) {
         TextView b = Ui.tv(a, t, 12, Ui.ACCENT2, true);
-        b.setBackground(Ui.bg(a, Ui.ACCENT_SOFT, 20, 0));
+        b.setBackground(Ui.bg(a, 0xFFE0F5F6, 20, 0xFFB6E3E6));
         b.setPadding(Ui.dp(a, 12), Ui.dp(a, 5), Ui.dp(a, 12), Ui.dp(a, 5));
         return b;
     }
@@ -83,7 +83,7 @@ final class HomeScreen extends Screen {
     @Override
     View build() {
         sv = new ScrollView(a);
-        sv.setBackgroundColor(Ui.BG);
+        sv.setBackgroundColor(Ui.PAGE);
         sv.setFillViewport(true);
         LinearLayout root = new LinearLayout(a);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -92,9 +92,9 @@ final class HomeScreen extends Screen {
         // ── Hero ──
         LinearLayout hero = new LinearLayout(a);
         hero.setOrientation(LinearLayout.VERTICAL);
-        hero.setBackgroundColor(0xFFFFF5F8);
-        hero.setPadding(Ui.dp(a, 18), Ui.dp(a, 24), Ui.dp(a, 18), Ui.dp(a, 22));
-        root.addView(hero, new LinearLayout.LayoutParams(MATCH, WRAP));
+        hero.setBackground(Ui.bg(a, Ui.WHITE, 18, Ui.LINE));       // white framed card, like the website hero
+        hero.setPadding(Ui.dp(a, 18), Ui.dp(a, 22), Ui.dp(a, 18), Ui.dp(a, 20));
+        root.addView(hero, Ui.lpm(a, MATCH, WRAP, 12, 12, 12, 0));
 
         hero.addView(badge("Diploma in EEE"), new LinearLayout.LayoutParams(WRAP, WRAP));
         String full = "Learn EEE the Smart & Simple Way";
@@ -109,27 +109,30 @@ final class HomeScreen extends Screen {
         hero.addView(Ui.btn(a, "Browse Courses", Ui.B_PRIMARY, v -> sv.post(() -> sv.smoothScrollTo(0, anchor.getTop()))),
             Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 16));
 
-        LinearLayout box = Ui.card(a);
+        LinearLayout box = new LinearLayout(a);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setBackground(Ui.bg(a, Ui.TEAL, 14, 0));
+        box.setPadding(Ui.dp(a, 16), Ui.dp(a, 16), Ui.dp(a, 16), Ui.dp(a, 16));
         LinearLayout brandRow = new LinearLayout(a);
         brandRow.setOrientation(LinearLayout.HORIZONTAL);
         brandRow.setGravity(Gravity.CENTER_VERTICAL);
-        TextView logo = Ui.tv(a, "✳", 24, Ui.ACCENT, true);
+        TextView logo = Ui.tv(a, "✳", 24, Ui.TEAL2, true);
         logo.setGravity(Gravity.CENTER);
-        logo.setBackground(Ui.circle(Ui.ACCENT_SOFT));
+        logo.setBackground(Ui.circle(Ui.WHITE));
         brandRow.addView(logo, Ui.lpm(a, Ui.dp(a, 52), Ui.dp(a, 52), 0, 0, 12, 0));
         LinearLayout bt = new LinearLayout(a);
         bt.setOrientation(LinearLayout.VERTICAL);
-        bt.addView(Ui.tv(a, "Rajib Tutorial", 17, Ui.TEXT, true));
-        bt.addView(Ui.tv(a, "Diploma in EEE", 12, Ui.SUB, false));
+        bt.addView(Ui.tv(a, "Rajib Tutorial", 17, Ui.WHITE, true));
+        bt.addView(Ui.tv(a, "Diploma in EEE", 12, 0xCCFFFFFF, false));
         brandRow.addView(bt);
         box.addView(brandRow);
         LinearLayout stats = new LinearLayout(a);
         stats.setOrientation(LinearLayout.HORIZONTAL);
-        statC = Ui.tv(a, "–", 22, Ui.TEXT, true);
-        statV = Ui.tv(a, "–", 22, Ui.TEXT, true);
+        statC = Ui.tv(a, "–", 22, Ui.WHITE, true);
+        statV = Ui.tv(a, "–", 22, Ui.WHITE, true);
         stats.addView(statCell(statC, "Courses"), new LinearLayout.LayoutParams(0, WRAP, 1f));
         stats.addView(statCell(statV, "Video Lessons"), new LinearLayout.LayoutParams(0, WRAP, 1f));
-        stats.addView(statCell(Ui.tv(a, "8", 22, Ui.TEXT, true), "Semesters"), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        stats.addView(statCell(Ui.tv(a, "8", 22, Ui.WHITE, true), "Semesters"), new LinearLayout.LayoutParams(0, WRAP, 1f));
         box.addView(stats, Ui.lpm(a, MATCH, WRAP, 0, 16, 0, 0));
         hero.addView(box, new LinearLayout.LayoutParams(MATCH, WRAP));
 
@@ -152,8 +155,9 @@ final class HomeScreen extends Screen {
         // ── Course catalog ──
         LinearLayout sec = new LinearLayout(a);
         sec.setOrientation(LinearLayout.VERTICAL);
-        sec.setPadding(Ui.dp(a, 16), Ui.dp(a, 22), Ui.dp(a, 16), Ui.dp(a, 22));
-        root.addView(sec, new LinearLayout.LayoutParams(MATCH, WRAP));
+        sec.setBackground(Ui.bg(a, Ui.WHITE, 18, Ui.LINE));        // white framed courses card (.hm-courses)
+        sec.setPadding(Ui.dp(a, 14), Ui.dp(a, 18), Ui.dp(a, 14), Ui.dp(a, 18));
+        root.addView(sec, Ui.lpm(a, MATCH, WRAP, 12, 18, 12, 0));
         anchor = sec;
         sec.addView(Ui.tv(a, "Course Catalog", 19, Ui.TEXT, true));
         cnt = Ui.tv(a, "", 12.5f, Ui.SUB, false);
@@ -194,13 +198,16 @@ final class HomeScreen extends Screen {
         // ── Free resources band ──
         LinearLayout band = new LinearLayout(a);
         band.setOrientation(LinearLayout.VERTICAL);
-        band.setBackgroundColor(Ui.BG2);
+        band.setBackgroundColor(Ui.TEAL2);                           // teal band (.hm-band)
         band.setPadding(Ui.dp(a, 16), Ui.dp(a, 24), Ui.dp(a, 16), Ui.dp(a, 20));
-        band.addView(badge("Free Resources"), new LinearLayout.LayoutParams(WRAP, WRAP));
-        band.addView(Ui.tv(a, "All Your Study Resources in One Place", 20, Ui.TEXT, true), Ui.lpm(a, MATCH, WRAP, 0, 10, 0, 0));
-        band.addView(Ui.tv(a, "Circulars, question bank, MCQ practice and much more", 13, Ui.SUB, false), Ui.lpm(a, MATCH, WRAP, 0, 4, 0, 14));
-        premT = Ui.tv(a, "Go Premium", 14, Ui.TEXT, true);
-        premS = Ui.tv(a, "Unlock all features", 11.5f, Ui.SUB, false);
+        TextView bb = Ui.tv(a, "Free Resources", 12, Ui.WHITE, true);
+        bb.setBackground(Ui.bg(a, 0x29FFFFFF, 20, 0x59FFFFFF));
+        bb.setPadding(Ui.dp(a, 12), Ui.dp(a, 5), Ui.dp(a, 12), Ui.dp(a, 5));
+        band.addView(bb, new LinearLayout.LayoutParams(WRAP, WRAP));
+        band.addView(Ui.tv(a, "All Your Study Resources in One Place", 20, Ui.WHITE, true), Ui.lpm(a, MATCH, WRAP, 0, 10, 0, 0));
+        band.addView(Ui.tv(a, "Circulars, question bank, MCQ practice and much more", 13, 0xCCFFFFFF, false), Ui.lpm(a, MATCH, WRAP, 0, 4, 0, 14));
+        premT = Ui.tv(a, "Go Premium", 14, Ui.WHITE, true);
+        premS = Ui.tv(a, "Unlock all features", 11.5f, 0xCCFFFFFF, false);
         View[] tiles = {
             tile("📢", "Current Circular", "Latest notices and circulars", false, null, null, v -> a.openResources(Store.R_CIRCULAR)),
             tile("📚", "Question Bank", "Past questions with solutions", false, null, null, v -> a.openResources(Store.R_QBANK)),
@@ -222,7 +229,7 @@ final class HomeScreen extends Screen {
             r.addView(tiles[i + 1], new LinearLayout.LayoutParams(0, MATCH, 1f));
             band.addView(r, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 10));
         }
-        root.addView(band, new LinearLayout.LayoutParams(MATCH, WRAP));
+        root.addView(band, Ui.lpm(a, MATCH, WRAP, 0, 18, 0, 0));
 
         // ── FAQ ──
         LinearLayout faq = new LinearLayout(a);
@@ -246,14 +253,15 @@ final class HomeScreen extends Screen {
     private View liveCard(final boolean exam) {
         LinearLayout c = new LinearLayout(a);
         c.setOrientation(LinearLayout.VERTICAL);
-        c.setBackground(Ui.bg(a, Ui.BG, 16, Ui.BORDER));
+        c.setBackground(Ui.bg(a, Ui.BG, 14, Ui.LINE));
         LinearLayout head = new LinearLayout(a);
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        head.setBackground(topRound(exam ? 0xFF1E1B18 : Ui.ACCENT));
+        head.setBackground(topRound(exam ? Ui.CREAM : Ui.TEAL3));
         head.setPadding(Ui.dp(a, 14), Ui.dp(a, 10), Ui.dp(a, 14), Ui.dp(a, 10));
-        head.addView(Ui.tv(a, exam ? "Live Exam" : "Live Class", 14, Ui.WHITE, true), new LinearLayout.LayoutParams(0, WRAP, 1f));
-        head.addView(Ui.tv(a, exam ? "✔" : "▶", 14, Ui.WHITE, true));
+        int headTxt = exam ? 0xFF5A4A00 : Ui.WHITE;
+        head.addView(Ui.tv(a, exam ? "Live Exam" : "Live Class", 14, headTxt, true), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        head.addView(Ui.tv(a, exam ? "✔" : "▶", 14, headTxt, true));
         c.addView(head, new LinearLayout.LayoutParams(MATCH, WRAP));
         LinearLayout body = new LinearLayout(a);
         body.setOrientation(LinearLayout.VERTICAL);
@@ -279,17 +287,17 @@ final class HomeScreen extends Screen {
     private View tile(String icon, String title, String sub, boolean pro, TextView tT, TextView tS, View.OnClickListener l) {
         LinearLayout t = new LinearLayout(a);
         t.setOrientation(LinearLayout.VERTICAL);
-        t.setBackground(Ui.bg(a, Ui.BG, 16, Ui.BORDER));
+        t.setBackground(Ui.bg(a, 0x1AFFFFFF, 12, 0x38FFFFFF));     // translucent tile (.hm-tile)
         t.setPadding(Ui.dp(a, 14), Ui.dp(a, 14), Ui.dp(a, 14), Ui.dp(a, 14));
         LinearLayout top = new LinearLayout(a);
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
         TextView ic = Ui.tv(a, icon, 22, Ui.TEXT, false);
         top.addView(ic, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        if (pro) top.addView(Ui.pill(a, "PRO", Ui.ACCENT2, Ui.ACCENT_SOFT));
+        if (pro) top.addView(Ui.pill(a, "PRO", Ui.WHITE, 0x33FFFFFF));
         t.addView(top);
-        TextView title2 = tT != null ? tT : Ui.tv(a, title, 14, Ui.TEXT, true);
-        TextView sub2 = tS != null ? tS : Ui.tv(a, sub, 11.5f, Ui.SUB, false);
+        TextView title2 = tT != null ? tT : Ui.tv(a, title, 14, Ui.WHITE, true);
+        TextView sub2 = tS != null ? tS : Ui.tv(a, sub, 11.5f, 0xCCFFFFFF, false);
         t.addView(title2, Ui.lpm(a, MATCH, WRAP, 0, 8, 0, 0));
         t.addView(sub2, Ui.lpm(a, MATCH, WRAP, 0, 2, 0, 0));
         Ui.pressFx(t);
@@ -325,7 +333,7 @@ final class HomeScreen extends Screen {
         l.setGravity(Gravity.CENTER_HORIZONTAL);
         num.setGravity(Gravity.CENTER);
         l.addView(num);
-        TextView t = Ui.tv(a, label, 11.5f, Ui.SUB, false);
+        TextView t = Ui.tv(a, label, 11.5f, 0xCCFFFFFF, false);
         t.setGravity(Gravity.CENTER);
         l.addView(t);
         return l;

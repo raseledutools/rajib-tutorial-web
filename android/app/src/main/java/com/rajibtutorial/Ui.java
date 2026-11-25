@@ -28,9 +28,11 @@ import java.util.List;
 final class Ui {
     private Ui() {}
 
-    static final int ACCENT = 0xFFE8365D, ACCENT2 = 0xFFC81E4E, ACCENT_SOFT = 0x1AE8365D;
-    static final int BG = 0xFFFFFFFF, BG2 = 0xFFFBF8F6, CARD2 = 0xFFF3EEEA;
-    static final int TEXT = 0xFF1E1B18, SUB = 0xFF6C665F, BORDER = 0x1A1E1B18;
+    // website/exe theme (index.html --rd-*): teal header + sidebar, light grey page, white framed cards
+    static final int TEAL = 0xFF00959C, TEAL2 = 0xFF00808C, TEAL3 = 0xFF0EA5B0, LEAF = 0xFF5AA717, CREAM = 0xFFFFF8DC, PAGE = 0xFFF7F8FA, LINE = 0xFFE3E6EA;
+    static final int ACCENT = TEAL3, ACCENT2 = TEAL2, ACCENT_SOFT = 0x1A00959C;
+    static final int BG = 0xFFFFFFFF, BG2 = PAGE, CARD2 = 0xFFF0F2F4;
+    static final int TEXT = 0xFF1E1B18, SUB = 0xFF6C665F, BORDER = LINE;
     static final int GREEN = 0xFF17915A, RED = 0xFFD6483A, WHITE = 0xFFFFFFFF;
 
     static int dp(Context c, float v) {
