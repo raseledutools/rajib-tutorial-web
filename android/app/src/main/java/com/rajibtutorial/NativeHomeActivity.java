@@ -337,13 +337,15 @@ public class NativeHomeActivity extends AppCompatActivity {
         }
         content.addView(v, new FrameLayout.LayoutParams(MATCH, MATCH));
         titleTv.setText(title);
-        if (view == V_COURSE || view == V_LIVE) {
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        } else {
-            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        }
+        refreshSecureFlag(view);
         applySplitGuard();
     }
+
+    /** Course + live video are always protected; every other screen follows Settings → Screenshot Protection. */
+    void refreshSecureFlag(int view) {
+        AppSettings.applySecureFlag(this, view == V_COURSE || view == V_LIVE);
+    }
+    void refreshSecureFlag() { refreshSecureFlag(currentView); }
 
     // ── Split-screen / floating-window guard (course + live views only) ──
     private TextView splitShield;

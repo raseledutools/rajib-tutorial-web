@@ -47,7 +47,7 @@ final class SettingsScreen extends Screen {
         card.addView(switchRow(AppSettings.NOTIFY_SOUND, "🔊 Notification Sound",
             "বন্ধ থাকলে নোটিফিকেশন নিঃশব্দে আসবে।"));
         card.addView(switchRow(AppSettings.SCREEN_PROTECT, "🛡️ Screenshot / Screen-Record Protection",
-            "চালু থাকলে Safe Browser ও Office Reader-এ স্ক্রিনশট/স্ক্রিন রেকর্ডে কালো আসবে। কোর্স ও লাইভ ভিডিও সবসময় সুরক্ষিত থাকে।"));
+            "চালু থাকলে পুরো অ্যাপে স্ক্রিনশট/স্ক্রিন রেকর্ডে কালো আসবে। বন্ধ করলে স্ক্রিনশট নেওয়া যাবে। কোর্স/লাইভ ভিডিও, পেমেন্ট ও গ্রুপ কল সবসময় সুরক্ষিত থাকে।"));
         card.addView(switchRow(AppSettings.ADULT_BLOCK, "🔞 Adult Block (Safe Browsing)",
             "চালু থাকলে Safe Browser-এ অ্যাডাল্ট সাইট বন্ধ থাকবে এবং Google / Bing / DuckDuckGo-তে SafeSearch জোর করে চালু থাকবে।"));
 
@@ -228,7 +228,10 @@ final class SettingsScreen extends Screen {
         row.addView(txt, new LinearLayout.LayoutParams(0, WRAP, 1f));
         Switch sw = new Switch(a);
         sw.setChecked(AppSettings.get(a, key));
-        sw.setOnCheckedChangeListener((CompoundButton b, boolean on) -> AppSettings.set(a, key, on));
+        sw.setOnCheckedChangeListener((CompoundButton b, boolean on) -> {
+            AppSettings.set(a, key, on);
+            if (AppSettings.SCREEN_PROTECT.equals(key)) a.refreshSecureFlag();   // takes effect immediately
+        });
         row.addView(sw, new LinearLayout.LayoutParams(WRAP, WRAP));
         return row;
     }

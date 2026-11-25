@@ -80,9 +80,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         CrashLog.install(this);
 
-        getWindow().setFlags(
-            WindowManager.LayoutParams.FLAG_SECURE,
-            WindowManager.LayoutParams.FLAG_SECURE);
+        AppSettings.applySecureFlag(this, false);   // follows Settings → Screenshot Protection
 
         setContentView(R.layout.activity_main);
 
@@ -286,6 +284,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        AppSettings.applySecureFlag(this, false);
         pushSplitGuard();
         // net ফিরে এলে আবার online (latest) version-এ যাও
         if (usingFallback && webView != null && isOnline()) loadSite();

@@ -25,6 +25,11 @@ final class AppSettings {
     static boolean notifySound(Context c) { return get(c, NOTIFY_SOUND); }
     /** Browser / reader screens only; course videos stay protected no matter what. */
     static boolean screenProtect(Context c) { return get(c, SCREEN_PROTECT); }
+    /** Applies the screenshot-protection switch to a window. force = always protected (course video, payment, calls). */
+    static void applySecureFlag(android.app.Activity act, boolean force) {
+        if (force || screenProtect(act)) act.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+        else act.getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+    }
     static boolean adultBlock(Context c) { return get(c, ADULT_BLOCK); }
     static boolean adultExternal(Context c) { return get(c, ADULT_EXTERNAL); }
 }
