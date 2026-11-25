@@ -315,6 +315,16 @@
             android:name=".UpdateChecker$DownloadReceiver"
             android:exported="false" />
 
+        <activity
+            android:name=".SafeBrowserActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".OfficeReaderActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard" />
+
         <!-- FileProvider -->
         <provider
             android:name="androidx.core.content.FileProvider"

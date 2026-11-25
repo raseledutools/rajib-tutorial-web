@@ -31,7 +31,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
 
     static final String EXTRA_OPEN = "open";
-    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6, V_INBOX = 7, V_RES = 8, V_OFFLINE = 9, V_QB = 10;
+    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6, V_INBOX = 7, V_RES = 8, V_OFFLINE = 9, V_QB = 10, V_FEEDBACK = 11, V_SETTINGS = 12;
     String resType = "";
 
     // state shared with screens / dialogs
@@ -496,6 +496,17 @@ public class NativeHomeActivity extends AppCompatActivity {
         closeDrawer();
     }
 
+    void openFeedbackInbox() {
+        if (!Store.adminIn) return;
+        show(new FeedbackScreen(this), V_FEEDBACK, "Feedback");
+        closeDrawer();
+    }
+
+    void openSettings() {
+        show(new SettingsScreen(this), V_SETTINGS, "Settings");
+        closeDrawer();
+    }
+
     void openInbox() {
         if (bellDot != null) bellDot.setVisibility(View.GONE);
         show(new InboxScreen(this), V_INBOX, "Notifications");
@@ -740,7 +751,10 @@ public class NativeHomeActivity extends AppCompatActivity {
         nav.addView(navItem("🆕  Recent Question Bank", currentView == V_RES && Store.R_RECENT.equals(resType), false, () -> openResources(Store.R_RECENT)));
         nav.addView(navItem("📝  MCQ Practice", currentView == V_QB, false, this::openQb));
         nav.addView(navItem("🧰  Study Tools", false, false, () -> { closeDrawer(); startActivity(new Intent(this, StudyToolsActivity.class)); }));
-        nav.addView(navItem("🌐  Safe Browser", false, false, () -> openWeb("https://www.google.com/", "Safe Browser", false, true)));
+        nav.addView(navItem("🌐  Safe Browser", false, false, () -> { closeDrawer(); startActivity(new Intent(this, SafeBrowserActivity.class)); }));
+        nav.addView(navItem("📖  Office Reader", false, false, () -> { closeDrawer(); startActivity(new Intent(this, OfficeReaderActivity.class)); }));
+        nav.addView(navItem("💬  Feedback", false, false, () -> { closeDrawer(); FeedbackScreen.showSendDialog(this); }));
+        nav.addView(navItem("⚙️  Settings", currentView == V_SETTINGS, false, this::openSettings));
         nav.addView(navLabel("Courses"));
         if (loading) {
             TextView lt = Ui.tv(this, "Loading…", 12, 0xBFFFFFFF, false);
@@ -773,7 +787,8 @@ public class NativeHomeActivity extends AppCompatActivity {
             adm.addView(adminBtn("📚  Manage Courses", false, this::openManage));
             adm.addView(adminBtn("⭐  Premium Members", false, this::openMembers));
             adm.addView(adminBtn("🔔  Notification Center", false, this::openNotify));
-            adm.addView(adminBtn("🌐  Safe Browser", false, () -> openWeb("https://www.google.com/", "Safe Browser", false, true)));
+            adm.addView(adminBtn("💬  Feedback Inbox", false, this::openFeedbackInbox));
+            adm.addView(adminBtn("🌐  Safe Browser", false, () -> { closeDrawer(); startActivity(new Intent(this, SafeBrowserActivity.class)); }));
             adm.addView(adminBtn("▶️  YouTube", false, () -> openWeb("https://m.youtube.com/", "YouTube", false, false)));
             adm.addView(adminBtn("🔍  Google", false, () -> openWeb("https://www.google.com/", "Google", false, true)));
             adm.addView(adminBtn("🎬  YouTube Studio", false, () -> openWeb("https://studio.youtube.com/", "YouTube Studio", true, false)));

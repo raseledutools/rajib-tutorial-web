@@ -93,6 +93,7 @@ public class PushService extends FirebaseMessagingService {
         } catch (NumberFormatException ignored) { }
 
         PushManager.inboxAdd(this, mid, title, body, when);
+        if (!AppSettings.notifications(this)) return;      // Settings → Notifications off: message stays in the inbox only
 
         // Detail page (full message)
         Intent detail = new Intent(this, NotificationDetailActivity.class)
@@ -128,6 +129,7 @@ public class PushService extends FirebaseMessagingService {
             .setOnlyAlertOnce(true)                        // same message id arriving twice alerts once
             .setAutoCancel(true)
             .setContentIntent(pi);
+        if (!AppSettings.notifySound(this)) b.setSilent(true);
         if (url != null) b.addAction(0, "View message", detailPi);
         try {
             NotificationManagerCompat.from(this).notify(nid, b.build());
