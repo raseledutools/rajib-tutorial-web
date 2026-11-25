@@ -44,14 +44,26 @@ HIDE.join(',')+'{display:none!important}'+
 '#__rt_ui .rqm div.on{background:#e8365d}'+
 /* exe-style "Rajib Tutorial" watermark (top-right, low opacity) */
 '#__rt_ui .rw{position:absolute;top:10px;right:12px;z-index:7;pointer-events:none;font:800 clamp(11px,2.5vw,17px)/1.2 system-ui,sans-serif;letter-spacing:.05em;background:linear-gradient(100deg,#ffb347 0%,#ff5c8a 30%,#c4b5fd 55%,#5eead4 75%,#ffb347 100%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;opacity:.6}';
-var PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>';
-var PAUSE='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
-
-var FSI='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
-var FSX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+/* youtube.com pages enforce Trusted Types: assigning an HTML string to innerHTML THROWS there, which used to stop the
+   controls from ever being built (only the bare video was left and a tap just paused it). So the controls are built
+   with DOM calls only — no innerHTML / insertAdjacentHTML / inline style attributes anywhere. */
+var SVGNS='http://www.w3.org/2000/svg';
+var ICO={play:['M7 4.5v15l13-7.5z',1],pause:['M6 4h4v16H6zM14 4h4v16h-4z',1],
+  fs:['M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3',0],
+  fsx:['M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3',0]};
+function setIco(el,kind){
+  if(!el||el.__ico===kind)return;el.__ico=kind;
+  while(el.firstChild)el.removeChild(el.firstChild);
+  var def=ICO[kind],sv=d.createElementNS(SVGNS,'svg'),pa=d.createElementNS(SVGNS,'path');
+  sv.setAttribute('viewBox','0 0 24 24');
+  if(def[1]){sv.setAttribute('fill','currentColor')}
+  else{sv.setAttribute('fill','none');sv.setAttribute('stroke','currentColor');sv.setAttribute('stroke-width','2');sv.setAttribute('stroke-linecap','round');sv.setAttribute('stroke-linejoin','round')}
+  pa.setAttribute('d',def[0]);sv.appendChild(pa);el.appendChild(sv);
+}
+function mk(tag,id,cls,txt){var e=d.createElement(tag);if(id)e.id=id;if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 /* the app polls this flag (Media.java) -> toggles native fullscreen; no JS bridge is exposed to youtube.com */
 window.__rtFsReq=0;
-window.__rtFsState=function(on){var b=d.getElementById('rt_fs');if(b)b.innerHTML=on?FSX:FSI};
+window.__rtFsState=function(on){var b=d.getElementById('rt_fs');if(b)setIco(b,on?'fsx':'fs')};
 
 function P(){return d.getElementById('movie_player')||d.querySelector('.html5-video-player')}
 function V(){return d.querySelector('video')}
@@ -96,15 +108,26 @@ function mount(){
   if($('__rt_ui'))return true;
   var st=$('__rt_wvcss');
   if(!st){st=d.createElement('style');st.id='__rt_wvcss';st.textContent=CSS;d.head.appendChild(st)}
-  var ui=d.createElement('div');ui.id='__rt_ui';
-  ui.innerHTML='<div class="rs" id="rt_sh"></div><div class="rc" id="rt_cv" style="background-image:url(https://i.ytimg.com/vi/'+VID+'/hqdefault.jpg)"><div class="rb" id="rt_big"></div></div>'+
-   '<div class="rbar rhide" id="rt_bar"><button id="rt_pp"></button><span id="rt_t">0:00</span><input id="rt_sk" type="range" min="0" max="1000" value="0"><span id="rt_d">0:00</span><button id="rt_sp">1x</button><button id="rt_qb" style="min-width:44px">Auto</button>'+(FS?'<button id="rt_fs"></button>':'')+'</div>'+
-   '<div class="rw">Rajib Tutorial</div>'+
-   '<div class="rspin" id="rt_spin"><i></i></div><div class="rqm" id="rt_qm"></div>';
+  var ui=mk('div','__rt_ui');
+  var sh=mk('div','rt_sh','rs');
+  var cv=mk('div','rt_cv','rc');cv.style.backgroundImage='url(https://i.ytimg.com/vi/'+VID+'/hqdefault.jpg)';
+  cv.appendChild(mk('div','rt_big','rb'));
+  var br=mk('div','rt_bar','rbar rhide');
+  br.appendChild(mk('button','rt_pp'));
+  br.appendChild(mk('span','rt_t',null,'0:00'));
+  var rg=mk('input','rt_sk');rg.type='range';rg.min='0';rg.max='1000';rg.value='0';br.appendChild(rg);
+  br.appendChild(mk('span','rt_d',null,'0:00'));
+  br.appendChild(mk('button','rt_sp',null,'1x'));
+  var qbtn=mk('button','rt_qb',null,'Auto');qbtn.style.minWidth='44px';br.appendChild(qbtn);
+  if(FS)br.appendChild(mk('button','rt_fs'));
+  var spn=mk('div','rt_spin','rspin');spn.appendChild(d.createElement('i'));
+  ui.appendChild(sh);ui.appendChild(cv);ui.appendChild(br);
+  ui.appendChild(mk('div',null,'rw','Rajib Tutorial'));
+  ui.appendChild(spn);ui.appendChild(mk('div','rt_qm','rqm'));
   d.body.appendChild(ui);
   cover=$('rt_cv');bar=$('rt_bar');pp=$('rt_pp');sk=$('rt_sk');tt=$('rt_t');dd=$('rt_d');sp=$('rt_sp');qb=$('rt_qb');qm=$('rt_qm');spin=$('rt_spin');
-  $('rt_big').innerHTML=PLAY;pp.innerHTML=PLAY;
-  var fsb=$('rt_fs');if(fsb){fsb.innerHTML=FSI;fsb.onclick=function(e){e.stopPropagation();window.__rtFsReq=1;showBar()}}
+  setIco($('rt_big'),'play');setIco(pp,'play');
+  var fsb=$('rt_fs');if(fsb){setIco(fsb,'fs');fsb.onclick=function(e){e.stopPropagation();window.__rtFsReq=1;showBar()}}
   if(AUTO)setSpin(true);
   $('rt_sh').onclick=function(){if(qm.style.display==='block'){qm.style.display='none';return}bar.classList.contains('rhide')?showBar():toggle()};
   cover.onclick=toggle;
@@ -116,7 +139,8 @@ function mount(){
     if(qm.style.display==='block'){qm.style.display='none';return}
     var lv=[];try{lv=F('getAvailableQualityLevels')||[]}catch(_){}
     lv=lv.filter(function(x){return QL[x]});if(!lv.length)lv=['hd1080','hd720','large','medium','small','tiny'];
-    qm.innerHTML=['auto'].concat(lv).map(function(x){return '<div data-q="'+x+'" class="'+(x===curQ?'on':'')+'">'+(x==='auto'?'Auto (480p)':QL[x])+'</div>'}).join('');
+    while(qm.firstChild)qm.removeChild(qm.firstChild);
+    ['auto'].concat(lv).forEach(function(x){var it=mk('div',null,x===curQ?'on':'',x==='auto'?'Auto (480p)':QL[x]);it.setAttribute('data-q',x);qm.appendChild(it)});
     qm.style.display='block';showBar();
   };
   qm.onclick=function(e){
@@ -167,7 +191,7 @@ setInterval(function(){
     if(AUTO&&!started&&(ticks===4||ticks===12||ticks===25))F('playVideo');
     cover.classList.toggle('off',started&&!atEnd);
     if(s===3)setSpin(true);else if(s===1||s===2||s===0||s===5)setSpin(false);
-    pp.innerHTML=playing?PAUSE:PLAY;
+    setIco(pp,playing?'pause':'play');
     if(s===1){if(bar.classList.contains('rhide')===false&&!hideT)showBar()}else{bar.classList.remove('rhide');clearTimeout(hideT);hideT=null}
     var dur=DUR(),c=CUR(),live=!!((F('getVideoData')||{}).isLive);
     sk.style.visibility=dur>0?'visible':'hidden';sp.style.display=live?'none':'flex';qb.style.display=live?'none':'flex';
