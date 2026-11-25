@@ -48,6 +48,8 @@ public class AdultWatchService extends AccessibilityService {
     // typing is never judged; but adult words typed and then SUBMITTED (box no longer being typed in) count as a search.
     // (Chrome shows only "google.com" in the address bar after a search, so the typed words are remembered.)
     private boolean pendingAdult = false, scanTyping = false, scanAdult = false;
+    private int enters = 0;               // how many times Enter was pressed for the focus link
+    private long drivingSince = 0;
     private boolean driving = false;      // typing the focus link into the address bar right now
     private long lastAct = 0;
     private long lastScan = 0;
@@ -79,8 +81,9 @@ public class AdultWatchService extends AccessibilityService {
         if (e.getEventType() == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return;   // still typing: nothing is blocked before the search is submitted
         String pkg = e.getPackageName().toString();
         if (getPackageName().equals(pkg) || SKIP.contains(pkg)) return;
-        if (overlay != null || driving) return;
         long now = SystemClock.elapsedRealtime();
+        if (driving && now - drivingSince > 6000) driving = false;     // never stay stuck
+        if (overlay != null || driving) return;
         if (now - lastAct < 2000) return;
         final boolean browser = BROWSERS.contains(pkg);
         if (!browser && now - lastScan < 900) return;          // other apps: scan at most about once a second (battery)
@@ -225,6 +228,8 @@ public class AdultWatchService extends AccessibilityService {
         bar.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
         try { bar.recycle(); } catch (Exception ignored) { }
         driving = true;
+        drivingSince = SystemClock.elapsedRealtime();
+        enters = 0;
         ui.postDelayed(() -> drive(adult, 0), 350);
         return true;
     }
@@ -240,16 +245,18 @@ public class AdultWatchService extends AccessibilityService {
             if (attempt >= 3) fail = true;
         } else {
             CharSequence cur = b.getText();
-            boolean has = cur != null && cur.toString().contains("localhost:" + LocalFocusServer.PORT);
-            if (has && !b.isFocused()) done = true;                    // the page is loading / loaded
-            else if (has) b.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
+            String ct = cur == null ? "" : cur.toString();
+            boolean has = ct.contains("localhost:" + LocalFocusServer.PORT);
+            if (has && enters >= 1 && !ct.contains("://")) done = true;      // the browser shows the loaded page's short address
+            else if (has && enters >= 2 && !b.isFocused()) done = true;      // Enter pressed twice and the box is left
+            else if (has) { b.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId()); enters++; }   // typed link: press Enter
             else {
                 android.os.Bundle a = new android.os.Bundle();
                 a.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, LocalFocusServer.FOCUS_URL);
                 b.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, a);
             }
             try { b.recycle(); } catch (Exception ignored) { }
-            if (!done && attempt >= 7) fail = true;
+            if (!done && attempt >= 7) { if (enters > 0) done = true; else fail = true; }
         }
         if (done || fail) {
             driving = false;
