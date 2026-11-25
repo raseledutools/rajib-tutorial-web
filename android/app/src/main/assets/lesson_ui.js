@@ -29,12 +29,12 @@ HIDE.join(',')+'{display:none!important}'+
 '#__rt_ui .rc.off{opacity:0;pointer-events:none}'+
 '#__rt_ui .rb{width:64px;height:64px;border-radius:50%;background:#e8365d;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.45)}'+
 '#__rt_ui .rb svg{width:28px;height:28px;margin-left:3px}'+
-'#__rt_ui .rbar{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:center;gap:8px;padding:22px 12px 8px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-size:12px;font-variant-numeric:tabular-nums;transition:opacity .25s}'+
+'#__rt_ui .rbar{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:center;gap:2px;padding:22px 6px 6px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;transition:opacity .25s}'+
 '#__rt_ui .rbar.rhide{opacity:0;pointer-events:none}'+
-'#__rt_ui .rbar button{background:none;border:0;color:#fff;font-size:12.5px;font-weight:700;min-width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0}'+
-'#__rt_ui .rbar button svg{width:18px;height:18px}'+
-'#__rt_ui .rbar button#rt_fs{min-width:26px;width:26px}#__rt_ui .rbar button#rt_fs svg{width:13px;height:13px}'+
-'#__rt_ui .rbar input{flex:1;min-width:0;accent-color:#e8365d}'+
+'#__rt_ui .rbar button{background:none;border:0;color:#fff;font-size:11.5px;font-weight:700;min-width:28px;height:30px;display:flex;align-items:center;justify-content:center;padding:0}'+
+'#__rt_ui .rbar button svg{width:17px;height:17px}'+
+'#__rt_ui .rbar button#rt_fs{min-width:24px;width:24px}#__rt_ui .rbar button#rt_fs svg{width:13px;height:13px}#__rt_ui .rbar button#rt_sp{min-width:30px}#__rt_ui .rbar button#rt_qb{min-width:38px}'+
+'#__rt_ui .rbar input{flex:1 1 auto;min-width:0;margin:0 2px;height:28px;accent-color:#e8365d}'+
 '#__rt_ui .rspin{position:absolute;inset:0;z-index:5;display:none;align-items:center;justify-content:center;pointer-events:none}'+
 '#__rt_ui .rspin.on{display:flex}'+
 '#__rt_ui .rspin i{width:46px;height:46px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:#e8365d;animation:rtsp .8s linear infinite;background:rgba(0,0,0,.35)}'+
@@ -118,7 +118,7 @@ function mount(){
   var rg=mk('input','rt_sk');rg.type='range';rg.min='0';rg.max='1000';rg.value='0';br.appendChild(rg);
   br.appendChild(mk('span','rt_d',null,'0:00'));
   br.appendChild(mk('button','rt_sp',null,'1x'));
-  var qbtn=mk('button','rt_qb',null,'Auto');qbtn.style.minWidth='44px';br.appendChild(qbtn);
+  var qbtn=mk('button','rt_qb',null,'Auto');br.appendChild(qbtn);
   if(FS)br.appendChild(mk('button','rt_fs'));
   var spn=mk('div','rt_spin','rspin');spn.appendChild(d.createElement('i'));
   ui.appendChild(sh);ui.appendChild(cv);ui.appendChild(br);

@@ -100,20 +100,21 @@ final class LessonPlayerView extends FrameLayout {
         bar = new LinearLayout(c);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(dp(8), dp(22), dp(8), dp(6));
+        bar.setPadding(dp(6), dp(22), dp(6), dp(6));
         GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0x00000000, 0xCC000000});
         bar.setBackground(g);
         bar.setOnClickListener(v -> { /* swallow taps on the bar */ });
 
         pp = new Icon(c, Icon.PLAY);
         pp.setOnClickListener(v -> { toggle(); showBar(); });
-        bar.addView(pp, new LinearLayout.LayoutParams(dp(36), dp(36)));
+        bar.addView(pp, new LinearLayout.LayoutParams(dp(30), dp(30)));
 
         tTime = label(c, "0:00");
         bar.addView(tTime);
 
         seek = new SeekBar(c);
         seek.setMax(1000);
+        seek.setPadding(dp(8), 0, dp(8), 0);              // default SeekBar side padding is ~16dp: trim it so the track is longer
         seek.setProgressTintList(android.content.res.ColorStateList.valueOf(ACCENT));
         seek.setThumbTintList(android.content.res.ColorStateList.valueOf(ACCENT));
         seek.setSecondaryProgressTintList(android.content.res.ColorStateList.valueOf(0x66FFFFFF));
@@ -130,30 +131,30 @@ final class LessonPlayerView extends FrameLayout {
                 }
             }
         });
-        bar.addView(seek, new LinearLayout.LayoutParams(0, dp(36), 1f));
+        bar.addView(seek, new LinearLayout.LayoutParams(0, dp(30), 1f));
 
         tDur = label(c, "0:00");
         bar.addView(tDur);
 
         tSpeed = label(c, "1x");
         tSpeed.setTypeface(Typeface.DEFAULT_BOLD);
-        tSpeed.setMinWidth(dp(34));
+        tSpeed.setMinWidth(dp(30));
         tSpeed.setGravity(Gravity.CENTER);
         tSpeed.setOnClickListener(v -> cycleSpeed());
-        bar.addView(tSpeed, new LinearLayout.LayoutParams(-2, dp(36)));
+        bar.addView(tSpeed, new LinearLayout.LayoutParams(-2, dp(30)));
         if (Build.VERSION.SDK_INT < 23) tSpeed.setVisibility(GONE);     // playback speed needs API 23
 
         tQual = label(c, "");
         tQual.setTypeface(Typeface.DEFAULT_BOLD);
-        tQual.setMinWidth(dp(44));
+        tQual.setMinWidth(dp(38));
         tQual.setGravity(Gravity.CENTER);
         tQual.setOnClickListener(v -> toggleQualityMenu());
-        bar.addView(tQual, new LinearLayout.LayoutParams(-2, dp(36)));
+        bar.addView(tQual, new LinearLayout.LayoutParams(-2, dp(30)));
         tQual.setVisibility(GONE);
 
         fs = new Icon(c, Icon.FS);
         fs.setOnClickListener(v -> { if (onFullscreen != null) onFullscreen.run(); showBar(); });
-        bar.addView(fs, new LinearLayout.LayoutParams(dp(36), dp(36)));
+        bar.addView(fs, new LinearLayout.LayoutParams(dp(26), dp(30)));
         fs.setVisibility(GONE);
 
         addView(bar, new LayoutParams(-1, -2, Gravity.BOTTOM));
@@ -168,7 +169,7 @@ final class LessonPlayerView extends FrameLayout {
         qMenu.setBackground(mb);
         qMenu.setPadding(dp(4), dp(4), dp(4), dp(4));
         LayoutParams ql = new LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.END);
-        ql.setMargins(0, 0, dp(10), dp(52));
+        ql.setMargins(0, 0, dp(10), dp(44));
         addView(qMenu, ql);
         qMenu.setVisibility(GONE);
     }
@@ -391,8 +392,8 @@ final class LessonPlayerView extends FrameLayout {
         TextView t = new TextView(c);
         t.setText(s);
         t.setTextColor(Color.WHITE);
-        t.setTextSize(12);
-        t.setPadding(dp(4), 0, dp(4), 0);
+        t.setTextSize(11);
+        t.setPadding(dp(2), 0, dp(2), 0);
         t.setGravity(Gravity.CENTER_VERTICAL);
         return t;
     }
@@ -427,7 +428,7 @@ final class LessonPlayerView extends FrameLayout {
         }
         void setKind(int k) { if (k != kind) { kind = k; invalidate(); } }
         @Override protected void onDraw(Canvas cv) {
-            float w = getWidth(), h = getHeight(), s = Math.min(w, h) * (kind >= FS ? 0.34f : 0.5f), cx = w / 2f, cy = h / 2f, u = s / 12f;   // 24-unit box (fullscreen glyph smaller)
+            float w = getWidth(), h = getHeight(), s = Math.min(w, h) * (kind >= FS ? 0.42f : 0.5f), cx = w / 2f, cy = h / 2f, u = s / 12f;   // 24-unit box (fullscreen glyph smaller)
             p.setStyle(Paint.Style.FILL);
             if (kind == PLAY) {
                 Path t = new Path();
