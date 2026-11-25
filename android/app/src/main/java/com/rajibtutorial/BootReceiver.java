@@ -7,7 +7,15 @@ import android.content.Intent;
 public class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context ctx, Intent intent) {
-        if (!Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) return;
+        String act = intent.getAction();
+        if (Intent.ACTION_MY_PACKAGE_REPLACED.equals(act)) {   // after an app update: re-arm background checks
+            UpdateWorker.schedule(ctx);
+            PushManager.init(ctx);
+            return;
+        }
+        if (!Intent.ACTION_BOOT_COMPLETED.equals(act)) return;
+        UpdateWorker.schedule(ctx);
+        UpdatePollService.start(ctx);
         AppLock.ensureService(ctx);
         FocusManager fm = new FocusManager(ctx);
         // Reboot এর পর session এখনো active থাকলে service restart করো

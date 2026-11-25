@@ -98,12 +98,22 @@ final class PhoneMode {
         } catch (Exception ignored) { }
     }
 
-    /** Turns the HOME alias on/off. On only while Phone Mode is active, so the normal launcher is untouched otherwise. */
+    /**
+     * Android 10+ (API 29+): NO launcher / Home-app system at all. Phone Mode is locked by the guard
+     * service + bounce-back only, so the user is never asked to pick a Home app.
+     * Android 9 and below keep the separate HOME-alias system.
+     */
+    static boolean useHomeLauncher() {
+        return Build.VERSION.SDK_INT < 29;
+    }
+
+    /** Turns the HOME alias on/off. Only ever ON for Android 9 and below, and only while Phone Mode is active. */
     static void setHomeEnabled(Context c, boolean on) {
+        boolean enable = on && useHomeLauncher();   // always OFF on Android 10+ (also cleans up a state saved by older builds)
         try {
             c.getPackageManager().setComponentEnabledSetting(
                 new ComponentName(c, "com.rajibtutorial.PhoneHomeAlias"),
-                on ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                enable ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                 PackageManager.DONT_KILL_APP);
         } catch (Exception ignored) { }
     }
@@ -114,6 +124,7 @@ final class PhoneMode {
     /** One-time ask: make this app the Home app so the Home button does nothing during Phone Mode. */
     static void requestDefaultHome(Activity a, int reqCode) {
         try {
+            if (!useHomeLauncher()) return;   // Android 10+: no Home-app request
             if (Build.VERSION.SDK_INT >= 29) {
                 android.app.role.RoleManager rm = (android.app.role.RoleManager) a.getSystemService(Context.ROLE_SERVICE);
                 if (rm != null && rm.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {

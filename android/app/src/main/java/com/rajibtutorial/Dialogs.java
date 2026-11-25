@@ -392,6 +392,9 @@ final class Dialogs {
         final Ui.Field name = Ui.field(a, "Course Name *", "e.g. EEE Foundation Course", Ui.IN_TEXT);
         final Ui.Field title = Ui.field(a, "Title *", "e.g. Basic Electricity & Circuit Analysis", Ui.IN_TEXT);
         final Ui.Field desc = Ui.field(a, "Description", "Short description of the course…", Ui.IN_MULTI);
+        final List<String> cats = new ArrayList<>();
+        for (String[] k : Store.CATS) cats.add(k[1]);
+        final Spinner catSp = Ui.spinner(a, cats, Store.catOf(ec == null ? "diploma" : ec.category)[1]);
         final List<String> sems = new ArrayList<>();
         sems.add("Select semester");
         sems.addAll(semItems(ec == null ? "" : ec.className));
@@ -403,7 +406,7 @@ final class Dialogs {
         final Spinner subSp = Ui.spinner(a, subs, ec == null || ec.subject.isEmpty() ? "Select subject" : ec.subject);
         final Ui.Field price = Ui.field(a, "Price (৳) — shown to students when buying", "e.g. 500 (leave empty = no price)", Ui.IN_PHONE);
         if (ec != null) { name.et.setText(ec.courseName); title.et.setText(ec.title); desc.et.setText(ec.description); if (ec.price > 0) price.et.setText(String.valueOf(ec.price)); }
-        m.add(name.root).add(title.root).add(Ui.labeled(a, "Semester", semSp)).add(Ui.labeled(a, "Subject", subSp)).add(price.root).add(desc.root);
+        m.add(name.root).add(title.root).add(Ui.labeled(a, "Category", catSp)).add(Ui.labeled(a, "Semester", semSp)).add(Ui.labeled(a, "Subject", subSp)).add(price.root).add(desc.root);
         m.actions("Cancel", "Save", Ui.B_PRIMARY, () -> {
             final String n = name.text(), t = title.text();
             if (n.isEmpty() || t.isEmpty()) { a.toast("Please enter Course Name and Title"); return; }
@@ -413,6 +416,7 @@ final class Dialogs {
             data.put("courseName", n);
             data.put("title", t);
             data.put("className", cls);
+            data.put("category", Store.CATS[Math.max(0, catSp.getSelectedItemPosition())][0]);
             data.put("subject", sub);
             data.put("description", desc.text());
             data.put("price", Long.valueOf(Store.parsePrice(price.text())));

@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Menu, Tray, nativeImage, session, shell, clipboard, globalShortcut, ipcMain, Notification, protocol, net, safeStorage, dialog } = require('electron');
+const { app, BrowserWindow, Menu, Tray, nativeImage, session, shell, clipboard, globalShortcut, ipcMain, Notification, protocol, net, safeStorage, dialog, screen, webFrameMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -7,6 +7,7 @@ const { Readable } = require('stream');
 const vidstore = require('./vidstore');
 const focus = require('./focus');
 const pdfreader = require('./pdfreader');
+const osk = require('./osk');   // on-screen keyboard for Wine / Winlator (Android phones), see osk.js
 
 const SITE = 'https://raseledutools.github.io/rajib-tutorial-web/';
 const SITE_ORIGIN = new URL(SITE).origin;
@@ -704,6 +705,7 @@ const AUTH_HOST_RE = /(^|\.)(accounts\.google\.com|appleid\.apple\.com|login\.mi
 const AD_HOST_RE = new RegExp('(^|\\.)(' + AD_DOMAINS.map((d) => d.replace(/\./g, '\\.')).join('|') + ')$', 'i');
 app.on('web-contents-created', (_e, wc) => {
   guard(wc);
+  osk.attach(wc);
   // The main window may embed external sites in a <webview>; lock those guests down.
   wc.on('will-attach-webview', (e, webPreferences, params) => {
     let ok = false;
@@ -838,6 +840,7 @@ function setupBrowserSession(ext, persistent) {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  osk.init({ BrowserWindow, ipcMain, screen, globalShortcut, webFrameMain, getWin: () => win, readPrefs });
   setupBrowserSession(session.fromPartition(EXT_PARTITION), true);
   session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) =>
     cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));

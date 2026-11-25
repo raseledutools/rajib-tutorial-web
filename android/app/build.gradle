@@ -54,8 +54,9 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true    // NewPipeExtractor needs java.time etc. below API 33
     }
 
     buildFeatures {
@@ -63,6 +64,8 @@ android {
     }
 
     configurations.all {
+        // (Firestore SDK removed: the app talks to Firestore over REST via Fs.java, so there is no
+        //  protobuf-javalite 3.x vs 4.x (NewPipeExtractor) conflict any more.)
         resolutionStrategy {
             force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.0'
             force 'org.jetbrains.kotlin:kotlin-stdlib-common:1.9.0'
@@ -86,7 +89,14 @@ dependencies {
     // Admin push notifications (works only once google-services.json is added)
     implementation platform('com.google.firebase:firebase-bom:33.1.2')
     implementation 'com.google.firebase:firebase-messaging'
-    implementation 'com.google.firebase:firebase-firestore'
+    // Background update check while the app is closed
+    implementation 'androidx.work:work-runtime:2.9.1'
+    implementation 'com.google.guava:listenablefuture:1.0'   // work-runtime API needs this class at compile time
+    implementation 'com.google.guava:guava:31.1-android'   // ListenableFuture (needed to compile WorkManager's Worker)
+
+    // YouTube lesson save (Android counterpart of the exe's yt-dlp): resolves a watch URL to a direct MP4
+    implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.27.1'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.0.4'
 }
 
 // Apply the Google services plugin only when google-services.json exists,

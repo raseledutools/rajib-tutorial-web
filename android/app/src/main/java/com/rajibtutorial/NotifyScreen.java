@@ -10,13 +10,9 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import com.google.firebase.firestore.AggregateSource;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.Query;
-
 import java.text.DateFormat;
 import java.util.Date;
+import java.util.List;
 
 /**
  * Admin: Notification Center (native version of the web "viewNotify").
@@ -332,54 +328,48 @@ final class NotifyScreen extends Screen {
 
     private void loadHistory() {
         stat.setText("Loading…");
-        try {
-            final FirebaseFirestore db = FirebaseFirestore.getInstance();
-            db.collection("push_tokens").count().get(AggregateSource.SERVER)
-                .addOnSuccessListener(r -> { if (!released) stat.setText("📱 Registered devices: " + r.getCount()); })
-                .addOnFailureListener(e -> { if (!released) stat.setText("❌ " + e.getMessage()); });
-            db.collection("push_messages").orderBy("at", Query.Direction.DESCENDING).limit(50).get()
-                .addOnSuccessListener(snap -> {
-                    if (released) return;
-                    history.removeAllViews();
-                    if (snap.isEmpty()) {
-                        history.addView(Ui.tv(a, "No notifications sent yet", 12.5f, Ui.SUB, false));
-                        return;
-                    }
-                    DateFormat df = DateFormat.getDateTimeInstance();
-                    boolean first = true;
-                    for (DocumentSnapshot d : snap.getDocuments()) {
-                        String title = str(d.getString("title")), body = str(d.getString("body"));
-                        String target = str(d.getString("target"));
-                        Long at = d.getLong("at");
-                        String tg = target;
-                        String to = "all".equals(tg) ? "All members"
-                            : "batch".equals(tg) ? "🎓 " + str(d.getString("batch")) : "👤 " + str(d.getString("mobile"));
-                        String when = at == null ? "" : df.format(new Date(at));
-                        LinearLayout row = new LinearLayout(a);
-                        row.setOrientation(LinearLayout.VERTICAL);
-                        row.setPadding(0, Ui.dp(a, 10), 0, Ui.dp(a, 10));
-                        row.addView(Ui.tv(a, title, 13.5f, Ui.TEXT, true));
-                        TextView bodyTv = Ui.tv(a, body, 12.5f, Ui.TEXT, false);
-                        Links.linkify(bodyTv, Ui.ACCENT2);
-                        row.addView(bodyTv, Ui.lpm(a, MATCH, WRAP, 0, 3, 0, 3));
-                        row.addView(Ui.tv(a, to + " · " + when, 11.5f, Ui.SUB, false));
-                        if (!first) {
-                            View line = new View(a);
-                            line.setBackgroundColor(Ui.BORDER);
-                            history.addView(line, new LinearLayout.LayoutParams(MATCH, 1));
-                        }
-                        history.addView(row);
-                        first = false;
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    if (released) return;
-                    history.removeAllViews();
-                    history.addView(Ui.tv(a, "❌ " + e.getMessage(), 12.5f, Ui.RED, false));
-                });
-        } catch (Throwable t) {
-            stat.setText("❌ " + t.getMessage());
-        }
+        Store.async(() -> Fs.count("push_tokens"), (Long n, Exception err) -> {
+            if (released) return;
+            if (err != null || n == null) stat.setText("❌ " + (err == null ? "" : err.getMessage()));
+            else stat.setText("📱 Registered devices: " + n);
+        });
+        Store.async(() -> Fs.query("push_messages", null, null, null, "at", true, 50), (List<Fs.Doc> docs, Exception err) -> {
+            if (released) return;
+            history.removeAllViews();
+            if (err != null || docs == null) {
+                history.addView(Ui.tv(a, "❌ " + (err == null ? "" : err.getMessage()), 12.5f, Ui.RED, false));
+                return;
+            }
+            if (docs.isEmpty()) {
+                history.addView(Ui.tv(a, "No notifications sent yet", 12.5f, Ui.SUB, false));
+                return;
+            }
+            DateFormat df = DateFormat.getDateTimeInstance();
+            boolean first = true;
+            for (Fs.Doc d : docs) {
+                String title = Fs.text(d.data, "title"), body = Fs.text(d.data, "body");
+                String tg = Fs.text(d.data, "target");
+                long at = Fs.num(d.data, "at");
+                String to = "all".equals(tg) ? "All members"
+                    : "batch".equals(tg) ? "🎓 " + Fs.text(d.data, "batch") : "👤 " + Fs.text(d.data, "mobile");
+                String when = at == 0 ? "" : df.format(new Date(at));
+                LinearLayout row = new LinearLayout(a);
+                row.setOrientation(LinearLayout.VERTICAL);
+                row.setPadding(0, Ui.dp(a, 10), 0, Ui.dp(a, 10));
+                row.addView(Ui.tv(a, title, 13.5f, Ui.TEXT, true));
+                TextView bodyTv = Ui.tv(a, body, 12.5f, Ui.TEXT, false);
+                Links.linkify(bodyTv, Ui.ACCENT2);
+                row.addView(bodyTv, Ui.lpm(a, MATCH, WRAP, 0, 3, 0, 3));
+                row.addView(Ui.tv(a, to + " · " + when, 11.5f, Ui.SUB, false));
+                if (!first) {
+                    View line = new View(a);
+                    line.setBackgroundColor(Ui.BORDER);
+                    history.addView(line, new LinearLayout.LayoutParams(MATCH, 1));
+                }
+                history.addView(row);
+                first = false;
+            }
+        });
     }
 
     private static String str(String s) { return s == null ? "" : s; }

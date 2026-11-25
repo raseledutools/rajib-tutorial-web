@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keyboard</title>
+<style>
+  *{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:#111827;overflow:hidden;font-family:'Nirmala UI','Noto Sans Bengali','Segoe UI',Arial,sans-serif;touch-action:manipulation}
+  #kb{display:flex;flex-direction:column;height:100%;padding:4px 4px 5px;gap:4px}
+  .row{display:flex;flex:1 1 0;gap:4px;min-height:0}
+  .k{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;background:#374151;color:#f9fafb;border-radius:7px;
+     font-size:clamp(14px,3.6vh,24px);cursor:pointer;touch-action:manipulation}
+  .k:active,.k.on{background:#2563eb}
+  .k.fn{background:#1f2937;color:#d1d5db;font-size:clamp(12px,2.8vh,18px)}
+  .k.fn.on{background:#2563eb;color:#fff}
+  .k.go{background:#16a34a}
+  .k.w15{flex-grow:1.5}.k.w2{flex-grow:2}.k.w5{flex-grow:5}
+  #bar .k{flex-grow:0;flex-basis:auto;padding:0 12px}
+  #bar .sp{flex:1}
+  #bar{flex:0 0 auto;height:clamp(30px,8.5vh,44px)}
+  #fabBtn{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#1f2937;color:#fff;font-size:26px;border-radius:10px;border:2px solid #4b5563}
+  #fabBtn:active{background:#2563eb}
+  body.fab #kb{display:none} body.fab #fabBtn{display:flex}
+</style></head>
+<body>
+<div id="kb">
+  <div class="row" id="bar"></div>
+  <div id="rows" style="display:flex;flex-direction:column;gap:4px;flex:1 1 0;min-height:0"></div>
+</div>
+<div id="fabBtn">⌨</div>
+<script>
+'use strict';
+var api = window.oskApi;
+if (location.hash === '#fab') document.body.classList.add('fab');
+
+var shift = 0, lastShift = 0, mode = 'abc';
+function K(t, o) { o = o || {}; o.t = t; return o; }
+function chars(s, sig) { return s.split(' ').map(function (c) { return K(c, sig ? { l: '\u25CC' + c } : {}); }); }
+
+var BN_SIGNS = chars('া ি ী ু ূ ৃ ে ৈ ো ৌ ্ ঁ', true);
+var LAYOUTS = {
+  abc: function () {
+    var up = shift > 0, c = function (s) { return s.split('').map(function (x) { return K(up ? x.toUpperCase() : x); }); };
+    return [
+      '1234567890'.split('').map(function (x) { return K(x); }),
+      c('qwertyuiop'),
+      c('asdfghjkl'),
+      [K('{SHIFT}', { l: shift === 2 ? '⇪' : '⇧', fn: 1, w: 1.5, on: shift > 0 })].concat(c('zxcvbnm'), [K('{BS}', { l: '⌫', fn: 1, w: 1.5, rep: 1 })]),
+      [K('{SYM}', { l: '?123', fn: 1, w: 1.5 }), K('{BN}', { l: 'বাং', fn: 1, w: 1.5 }), K(','), K(' ', { l: 'space', w: 5 }), K('.'), K('{ENTER}', { l: '⏎', go: 1, w: 1.5 })]
+    ];
+  },
+  sym: function () {
+    var c = function (s) { return s.split('').map(function (x) { return K(x); }); };
+    return [
+      c('1234567890'), c('@#$%&*-+()'), c('!?:;"\'_=/\\'),
+      c('~^<>[]{}|').concat([K('{BS}', { l: '⌫', fn: 1, w: 1.5, rep: 1 })]),
+      [K('{ABC}', { l: 'ABC', fn: 1, w: 1.5 }), K('{BN}', { l: 'বাং', fn: 1, w: 1.5 }), K(','), K(' ', { l: 'space', w: 5 }), K('.'), K('{ENTER}', { l: '⏎', go: 1, w: 1.5 })]
+    ];
+  },
+  bn: function () {
+    return [
+      chars('০ ১ ২ ৩ ৪ ৫ ৬ ৭ ৮ ৯'),
+      chars('অ আ ই ঈ উ ঊ ঋ এ ঐ ও ঔ'),
+      BN_SIGNS,
+      chars('ক খ গ ঘ ঙ চ ছ জ ঝ ঞ ট ঠ ড ঢ ণ'),
+      chars('ত থ দ ধ ন প ফ ব ভ ম য র ল শ ষ'),
+      chars('স হ ড় ঢ় য় ৎ ং ঃ ।').concat([K('{BS}', { l: '⌫', fn: 1, w: 1.5, rep: 1 })]),
+      [K('{ABC}', { l: 'ABC', fn: 1, w: 1.5 }), K('{SYM}', { l: '?123', fn: 1, w: 1.5 }), K(','), K(' ', { l: 'space', w: 5 }), K('.'), K('{ENTER}', { l: '⏎', go: 1, w: 1.5 })]
+    ];
+  }
+};
+
+function press(k) {
+  switch (k) {
+    case '{SHIFT}': var now = Date.now(); shift = (shift === 1 && now - lastShift < 450) ? 2 : (shift ? 0 : 1); lastShift = now; return render();
+    case '{SYM}': mode = 'sym'; return render();
+    case '{ABC}': mode = 'abc'; return render();
+    case '{BN}': mode = 'bn'; return render();
+  }
+  api.key(k);
+  if (mode === 'abc' && shift === 1 && k.length === 1) { shift = 0; render(); }
+}
+
+var repTimer = null, repDelay = null;
+function stopRep() { clearTimeout(repDelay); clearInterval(repTimer); repDelay = repTimer = null; }
+function bind(el, k, rep) {
+  el.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); stopRep(); press(k);
+    if (rep) repDelay = setTimeout(function () { repTimer = setInterval(function () { api.key(k); }, 55); }, 420);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { el.addEventListener(n, stopRep); });
+}
+function btn(label, k, cls, rep, grow) {
+  var d = document.createElement('div');
+  d.className = 'k ' + (cls || '');
+  d.textContent = label;
+  if (grow) d.style.flexGrow = grow;
+  bind(d, k, rep);
+  return d;
+}
+
+function render() {
+  var bar = document.getElementById('bar'), rows = document.getElementById('rows');
+  bar.innerHTML = ''; rows.innerHTML = '';
+  bar.appendChild(btn('✕', '{CLOSE}', 'fn'));
+  var sp = document.createElement('div'); sp.className = 'sp'; bar.appendChild(sp);
+  [['Tab', '{TAB}'], ['◀', '{LEFT}'], ['▶', '{RIGHT}'], ['▲', '{UP}'], ['▼', '{DOWN}'], ['Del', '{DEL}']].forEach(function (a) { bar.appendChild(btn(a[0], a[1], 'fn', 1)); });
+  bar.appendChild(btn('⇅', '{FLIP}', 'fn'));
+  LAYOUTS[mode]().forEach(function (r) {
+    var row = document.createElement('div'); row.className = 'row';
+    r.forEach(function (k) {
+      var d = btn(k.l || k.t, k.t, (k.fn ? 'fn ' : '') + (k.go ? 'go ' : '') + (k.on ? 'on' : ''), k.rep, k.w);
+      row.appendChild(d);
+    });
+    rows.appendChild(row);
+  });
+}
+
+// toolbar specials handled here (they are not typed into the page)
+var _press = press;
+press = function (k) {
+  if (k === '{CLOSE}') return api.hide();
+  if (k === '{FLIP}') return api.flip();
+  _press(k);
+};
+
+if (document.body.classList.contains('fab')) {
+  document.getElementById('fabBtn').addEventListener('pointerdown', function (e) { e.preventDefault(); api.toggle(); });
+} else render();
+</script></body></html>

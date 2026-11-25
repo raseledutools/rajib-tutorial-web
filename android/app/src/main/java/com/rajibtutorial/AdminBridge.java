@@ -5,8 +5,6 @@ import android.os.Build;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
-import com.google.firebase.firestore.FirebaseFirestore;
-
 import org.json.JSONObject;
 
 import java.io.OutputStream;
@@ -297,20 +295,11 @@ public class AdminBridge {
     }
 
     private java.util.Set<String> getAllTokens() {
-        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
-        final java.util.Set<String> result = java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<String>());
+        final java.util.Set<String> result = new java.util.LinkedHashSet<>();
         try {
-            FirebaseFirestore.getInstance().collection("push_tokens").limit(2000).get()
-                .addOnSuccessListener(snap -> {
-                    for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) {
-                        String tok = d.getString("token");
-                        if (tok != null && !tok.isEmpty()) result.add(tok);
-                    }
-                    latch.countDown();
-                })
-                .addOnFailureListener(e -> { lastLookupError = e.getMessage(); latch.countDown(); });
-            if (!latch.await(15, java.util.concurrent.TimeUnit.SECONDS) && result.isEmpty()) {
-                lastLookupError = "timeout (internet?)";
+            for (Fs.Doc d : Fs.query("push_tokens", null, null, null, null, false, 2000)) {
+                String tok = Fs.text(d.data, "token");
+                if (!tok.isEmpty()) result.add(tok);
             }
         } catch (Exception e) { lastLookupError = e.getMessage(); }
         return result;
@@ -318,35 +307,21 @@ public class AdminBridge {
 
     /** Device tokens whose saved mobile number is in the given set (numbers already normalised). */
     private java.util.Set<String> getTokensForMobileSet(final java.util.Set<String> mobiles) {
-        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
-        final java.util.Set<String> result = java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<String>());
+        final java.util.Set<String> result = new java.util.LinkedHashSet<>();
         try {
-            FirebaseFirestore.getInstance().collection("push_tokens").limit(5000).get()
-                .addOnSuccessListener(snap -> {
-                    for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) {
-                        String tok = d.getString("token");
-                        String mob = d.getString("mobile");
-                        if (tok != null && !tok.isEmpty() && mob != null && mobiles.contains(PushManager.normMobile(mob))) result.add(tok);
-                    }
-                    latch.countDown();
-                })
-                .addOnFailureListener(e -> { lastLookupError = e.getMessage(); latch.countDown(); });
-            if (!latch.await(20, java.util.concurrent.TimeUnit.SECONDS) && result.isEmpty()) {
-                lastLookupError = "timeout (internet?)";
+            for (Fs.Doc d : Fs.query("push_tokens", null, null, null, null, false, 5000)) {
+                String tok = Fs.text(d.data, "token");
+                String mob = Fs.text(d.data, "mobile");
+                if (!tok.isEmpty() && !mob.isEmpty() && mobiles.contains(PushManager.normMobile(mob))) result.add(tok);
             }
         } catch (Exception e) { lastLookupError = e.getMessage(); }
         return result;
     }
 
-    /** Best effort: drop tokens FCM says no longer exist (uninstalled apps). */
+    /** Best effort: drop tokens FCM says no longer exist (uninstalled apps). Token docs are stored under their token id. */
     private void removeDeadTokens(java.util.List<String> dead) {
         for (final String tok : new java.util.ArrayList<>(dead)) {
-            try {
-                FirebaseFirestore.getInstance().collection("push_tokens").whereEqualTo("token", tok).get()
-                    .addOnSuccessListener(snap -> {
-                        for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) d.getReference().delete();
-                    });
-            } catch (Throwable ignored) { }
+            try { Fs.deleteIn("push_tokens", tok); } catch (Throwable ignored) { }
         }
     }
 
@@ -388,26 +363,13 @@ public class AdminBridge {
     private String[] getTokensForMobile(String mobile) {
         lastLookupError = null;
         lastSendError = null;
-        final java.util.concurrent.CountDownLatch latch =
-            new java.util.concurrent.CountDownLatch(1);
         final java.util.Set<String> result = new java.util.LinkedHashSet<>();
         final java.util.List<String> variants = PushManager.mobileVariants(mobile);
         if (variants.isEmpty()) return new String[0];
         try {
-            FirebaseFirestore.getInstance()
-                .collection("push_tokens")
-                .whereIn("mobile", variants)
-                .get()
-                .addOnSuccessListener(snap -> {
-                    for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) {
-                        String tok = d.getString("token");
-                        if (tok != null && !tok.isEmpty()) result.add(tok);
-                    }
-                    latch.countDown();
-                })
-                .addOnFailureListener(e -> { lastLookupError = e.getMessage(); latch.countDown(); });
-            if (!latch.await(15, java.util.concurrent.TimeUnit.SECONDS) && result.isEmpty()) {
-                lastLookupError = "timeout (internet?)";
+            for (Fs.Doc d : Fs.query("push_tokens", "mobile", "IN", variants, null, false, 0)) {
+                String tok = Fs.text(d.data, "token");
+                if (!tok.isEmpty()) result.add(tok);
             }
         } catch (Exception e) { lastLookupError = e.getMessage(); }
         return result.toArray(new String[0]);
@@ -430,10 +392,9 @@ public class AdminBridge {
             java.util.Map<String, Object> result = new java.util.HashMap<>();
             result.put("sent", target.equals("all") ? "all" : "token");
             data.put("result", result);
-            FirebaseFirestore.getInstance()
-                .collection("push_messages")
-                .document("msg_" + System.currentTimeMillis())
-                .set(data);
+            final String docId = "msg_" + System.currentTimeMillis();
+            final java.util.Map<String, Object> payload = data;
+            Store.async(() -> { Fs.setIn("push_messages", docId, payload); return Boolean.TRUE; }, null);
         } catch (Throwable ignored) {}
     }
 

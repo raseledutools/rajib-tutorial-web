@@ -86,6 +86,24 @@ final class Fs {
     }
 
 
+    /** All documents of another top-level collection (e.g. qb_questions), up to {@code max}. */
+    static List<Doc> listCol(String col, int max) throws Exception {
+        String base = "https://firestore.googleapis.com/v1/projects/mywebtools-f8d53/databases/(default)/documents/" + col;
+        List<Doc> out = new ArrayList<>();
+        String token = null;
+        do {
+            String url = base + "?pageSize=300&key=" + KEY
+                + (token != null ? "&pageToken=" + URLEncoder.encode(token, "UTF-8") : "");
+            JSONObject o = new JSONObject(request("GET", url, null));
+            JSONArray docs = o.optJSONArray("documents");
+            if (docs != null) {
+                for (int i = 0; i < docs.length(); i++) out.add(parseDoc(docs.getJSONObject(i)));
+            }
+            token = o.has("nextPageToken") ? o.getString("nextPageToken") : null;
+        } while (token != null && out.size() < max);
+        return out;
+    }
+
     /**
      * Newest documents whose id starts with {@code prefix} (ids sort chronologically),
      * newest first. Uses a __name__ range query, so no composite index is needed.
@@ -144,6 +162,87 @@ final class Fs {
             .put("field", new JSONObject().put("fieldPath", "__name__"))
             .put("op", op)
             .put("value", new JSONObject().put("referenceValue", ref)));
+    }
+
+
+    // ── Other collections (push_tokens, push_messages …) via REST — replaces the Firestore SDK ──
+
+    private static final String DB =
+        "https://firestore.googleapis.com/v1/projects/mywebtools-f8d53/databases/(default)/documents";
+
+    private static String colDocUrl(String col, String id) throws Exception {
+        return DB + "/" + URLEncoder.encode(col, "UTF-8") + "/" + URLEncoder.encode(id, "UTF-8") + "?key=" + KEY;
+    }
+
+    /** Replace the whole document {@code col/id} (create if missing). */
+    static void setIn(String col, String id, Map<String, Object> data) throws Exception {
+        request("PATCH", colDocUrl(col, id), body(data));
+    }
+
+    static void deleteIn(String col, String id) throws Exception {
+        try {
+            request("DELETE", colDocUrl(col, id), null);
+        } catch (NotFound ignored) { }
+    }
+
+    /**
+     * Query one collection: optional single-field filter (op = EQUAL / IN, value = a value or a List for IN),
+     * optional order by one field, optional limit (0 = no limit). Single-field only, so no index is needed.
+     */
+    static List<Doc> query(String col, String field, String op, Object value,
+                           String orderField, boolean desc, int limit) throws Exception {
+        JSONObject q = new JSONObject();
+        q.put("from", new JSONArray().put(new JSONObject().put("collectionId", col)));
+        if (field != null) {
+            q.put("where", new JSONObject().put("fieldFilter", new JSONObject()
+                .put("field", new JSONObject().put("fieldPath", field))
+                .put("op", op)
+                .put("value", enc(value))));
+        }
+        if (orderField != null) {
+            q.put("orderBy", new JSONArray().put(new JSONObject()
+                .put("field", new JSONObject().put("fieldPath", orderField))
+                .put("direction", desc ? "DESCENDING" : "ASCENDING")));
+        }
+        if (limit > 0) q.put("limit", limit);
+        String res = request("POST", DB + ":runQuery?key=" + KEY,
+            new JSONObject().put("structuredQuery", q).toString());
+        JSONArray arr = new JSONArray(res);
+        List<Doc> out = new ArrayList<>();
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject o = arr.getJSONObject(i);
+            if (o.has("document")) out.add(parseDoc(o.getJSONObject("document")));
+        }
+        return out;
+    }
+
+    /** Number of documents in a collection (server-side count). */
+    static long count(String col) throws Exception {
+        JSONObject sq = new JSONObject()
+            .put("from", new JSONArray().put(new JSONObject().put("collectionId", col)));
+        JSONObject agg = new JSONObject().put("alias", "n").put("count", new JSONObject());
+        JSONObject b = new JSONObject().put("structuredAggregationQuery", new JSONObject()
+            .put("structuredQuery", sq).put("aggregations", new JSONArray().put(agg)));
+        String res = request("POST", DB + ":runAggregationQuery?key=" + KEY, b.toString());
+        JSONArray arr = new JSONArray(res);
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject r = arr.getJSONObject(i).optJSONObject("result");
+            if (r == null) continue;
+            JSONObject f = r.optJSONObject("aggregateFields");
+            if (f != null && f.has("n")) return Long.parseLong(f.getJSONObject("n").optString("integerValue", "0"));
+        }
+        return 0;
+    }
+
+    /** Numeric field of a document (Firestore integers arrive as Long). */
+    static long num(Map<String, Object> m, String k) {
+        Object o = m.get(k);
+        return o instanceof Number ? ((Number) o).longValue() : 0L;
+    }
+
+    static String text(Map<String, Object> m, String k) {
+        Object o = m.get(k);
+        return o == null ? "" : String.valueOf(o);
     }
 
     // ── HTTP ────────────────────────────────────────────────

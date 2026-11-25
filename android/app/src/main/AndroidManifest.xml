@@ -157,6 +157,8 @@
         <activity
             android:name=".PlayerActivity"
             android:exported="false"
+            android:resizeableActivity="false"
+            android:supportsPictureInPicture="false"
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden" />
 
@@ -198,8 +200,8 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.RajibTutorial" />
 
-        <!-- HOME entry for Phone Mode. Enabled ONLY while Phone Mode runs (PhoneMode.setHomeEnabled),
-             so pressing Home keeps the user on the Phone Mode screen instead of the real launcher. -->
+        <!-- HOME entry for Phone Mode — ANDROID 9 AND BELOW ONLY (PhoneMode.useHomeLauncher()).
+             Android 10+ never enables it: no launcher system, the guard service bounces Home presses back. -->
         <activity-alias
             android:name=".PhoneHomeAlias"
             android:targetActivity=".PhoneLauncherActivity"
@@ -220,6 +222,16 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="phone_mode_guard" />
+        </service>
+
+        <!-- Update watcher: checks for a new APK release every few seconds while the app is closed -->
+        <service
+            android:name=".UpdatePollService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="update_watcher" />
         </service>
 
         <!-- Apps Lock -->
@@ -294,6 +306,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 

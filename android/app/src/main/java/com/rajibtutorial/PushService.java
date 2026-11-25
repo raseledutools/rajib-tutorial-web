@@ -61,6 +61,15 @@ public class PushService extends FirebaseMessagingService {
 
     @Override
     public void onMessageReceived(RemoteMessage m) {
+        // New APK release pushed by CI -> show the "update available" notification (works with the app closed)
+        if ("app_update".equals(m.getData().get("type"))) {
+            UpdateChecker uc = new UpdateChecker(this);
+            for (int i = 0; i < 3; i++) {                 // GitHub may need a moment to serve the new release
+                if (uc.checkAndNotifyBlocking()) break;
+                try { Thread.sleep(3000); } catch (InterruptedException e) { break; }
+            }
+            return;
+        }
         String title = null, body = null;
         if (m.getNotification() != null) {
             title = m.getNotification().getTitle();

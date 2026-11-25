@@ -78,6 +78,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        CrashLog.install(this);
 
         getWindow().setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
@@ -160,6 +161,7 @@ public class MainActivity extends AppCompatActivity {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 501);
         }
         PushManager.init(this);
+        CrashLog.showIfAny(this);   // shows the stack trace if the app crashed last time
 
         // ── WebView setup ──
         setupWebView();
@@ -212,7 +214,27 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
+        UpdateChecker.cleanupApks(this);   // drop leftover update file(s) from a previous update
         updateChecker.checkForUpdate();
+        handleUpdateIntent(getIntent());   // opened from the "update available" notification
+    }
+
+    /** Notification tap: download the new APK inside the app, then the install prompt opens by itself. */
+    private void handleUpdateIntent(Intent in) {
+        if (in == null) return;
+        String url = in.getStringExtra(UpdateChecker.EXTRA_APK_URL);
+        String ver = in.getStringExtra(UpdateChecker.EXTRA_VERSION);
+        if (url == null || url.isEmpty()) return;
+        in.removeExtra(UpdateChecker.EXTRA_APK_URL);   // do not restart the download on rotation / recreate
+        hideUpdateBanner();
+        beginUpdateDownload(url, ver == null ? "" : ver);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleUpdateIntent(intent);
     }
 
     // ── Open web section ─────────────────────────────────────────────────
@@ -264,12 +286,36 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        pushSplitGuard();
         // net ফিরে এলে আবার online (latest) version-এ যাও
         if (usingFallback && webView != null && isOnline()) loadSite();
         if (PaymentActivity.pending && webView != null) {   // back from the bKash page: refresh premium status
             PaymentActivity.pending = false;
             webView.reload();
         }
+    }
+
+    // ── Split-screen / floating-window guard for the web course/live/offline video views ──
+    private boolean inMultiWindow() {
+        return Build.VERSION.SDK_INT >= 24 && (isInMultiWindowMode() || isInPictureInPictureMode());
+    }
+
+    private void pushSplitGuard() {
+        if (webView == null) return;
+        try { webView.evaluateJavascript("window.__splitGuard&&window.__splitGuard(" + inMultiWindow() + ")", null); }
+        catch (Exception ignored) { }
+    }
+
+    @Override
+    public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode);
+        pushSplitGuard();
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        pushSplitGuard();                                   // freeform / pop-up resize
     }
 
     /** YouTube Studio opened inside this app (desktop site, file picker enabled for the video). */
@@ -329,6 +375,7 @@ public class MainActivity extends AppCompatActivity {
                 progressBar.setVisibility(View.GONE);
                 swipeRefresh.setRefreshing(false);
                 swipeRefresh.setEnabled(true);
+                pushSplitGuard();
             }
 
             @Override

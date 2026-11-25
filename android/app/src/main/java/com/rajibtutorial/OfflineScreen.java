@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Lessons saved inside the app (direct videos only). Plays without internet. */
+/** Lessons saved inside the app (direct videos and YouTube lessons). Plays without internet; each copy removes itself after a few days. */
 final class OfflineScreen extends Screen {
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
@@ -32,6 +32,7 @@ final class OfflineScreen extends Screen {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(Ui.dp(a, 16), Ui.dp(a, 16), Ui.dp(a, 16), Ui.dp(a, 28));
         sv.addView(root, new ScrollView.LayoutParams(MATCH, WRAP));
+        VideoCache.purgeExpired(a);
         root.addView(Ui.tv(a, "📥 Offline Lessons", 20, Ui.TEXT, true), Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 4));
         sub = Ui.tv(a, "", 12.5f, Ui.SUB, false);
         root.addView(sub, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 14));
@@ -39,6 +40,7 @@ final class OfflineScreen extends Screen {
         list.setOrientation(LinearLayout.VERTICAL);
         root.addView(list, new LinearLayout.LayoutParams(MATCH, WRAP));
         render();
+        OfflineGuard.ensure(a, ok -> { if (list != null) render(); });     // online: verify now so the lock state is current
         return sv;
     }
 
@@ -79,8 +81,9 @@ final class OfflineScreen extends Screen {
         }
         sub.setText(items.isEmpty() ? "Saved inside this app — plays without internet"
             : items.size() + " saved · " + String.format(Locale.US, "%.1f MB", total / 1048576.0) + " · plays without internet");
+        if (!OfflineGuard.isValid(a)) sub.setText("🔒 Locked — connect to the internet once to unlock your saved lessons (checked every 24 hours)");
         if (items.isEmpty()) {
-            message("No lessons saved yet.\nA lesson is saved automatically the first time you play it with internet (YouTube lessons can't be saved).");
+            message("No lessons saved yet.\nOpen a lesson and tap \"Save offline\" (or the ☁ icon next to it). Works for YouTube and direct videos — saved copies play without internet and remove themselves after " + VideoCache.OFFLINE_DAYS + " days.");
             return;
         }
         for (final Item e : items) {
@@ -93,15 +96,21 @@ final class OfflineScreen extends Screen {
             LinearLayout txt = new LinearLayout(a);
             txt.setOrientation(LinearLayout.VERTICAL);
             txt.addView(Ui.ellipsized(a, e.v.title.isEmpty() ? "Lesson" : e.v.title, 14, Ui.TEXT, true, 2));
-            txt.addView(Ui.tv(a, e.course + " · " + String.format(Locale.US, "%.1f MB", e.f.length() / 1048576.0), 11.5f, Ui.SUB, false));
+            int left = Math.max(1, VideoCache.daysLeft(a, e.v.id));
+            txt.addView(Ui.tv(a, e.course + " · " + String.format(Locale.US, "%.1f MB", e.f.length() / 1048576.0)
+                + " · " + left + (left == 1 ? " day" : " days") + " left", 11.5f, Ui.SUB, false));
             row.addView(txt, new LinearLayout.LayoutParams(0, WRAP, 1f));
 
-            row.addView(Ui.smallBtn(a, "▶ Play", Ui.ACCENT, v -> {
+            TextView play = Ui.smallBtn(a, "▶ Play", Ui.WHITE, v -> OfflineGuard.ensure(a, ok -> {
+                if (!ok) { a.toast("Connect to the internet once to unlock offline lessons"); render(); return; }
                 Intent i = new Intent(a, PlayerActivity.class);
-                i.putExtra("url", "file://" + e.f.getAbsolutePath());
+                i.putExtra("url", e.v.url);
+                i.putExtra("vid", e.v.id);                      // encrypted copy, decrypted while playing
                 i.putExtra("title", e.v.title);
                 a.startActivity(i);
-            }), Ui.lpm(a, WRAP, WRAP, 6, 0, 6, 0));
+            }));
+            play.setBackground(Ui.bg(a, Ui.ACCENT, 10, 0));
+            row.addView(play, Ui.lpm(a, WRAP, WRAP, 6, 0, 6, 0));
             row.addView(Ui.smallBtn(a, "🗑", Ui.SUB, v -> {
                 VideoCache.delete(a, e.v.id);
                 render();

@@ -31,7 +31,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
 
     static final String EXTRA_OPEN = "open";
-    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6, V_INBOX = 7, V_RES = 8, V_OFFLINE = 9;
+    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6, V_INBOX = 7, V_RES = 8, V_OFFLINE = 9, V_QB = 10;
     String resType = "";
 
     // state shared with screens / dialogs
@@ -74,6 +74,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        CrashLog.install(this);
         Store.init(this);
         // warm up the YouTube player in the background so the first lesson starts faster
         if (OfflineCache.online(this)) Media.warmUp(this);
@@ -99,32 +100,35 @@ public class NativeHomeActivity extends AppCompatActivity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Ui.BG);
+        root.setBackgroundColor(Ui.PAGE);
 
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setBackgroundColor(Ui.BG);
-        bar.setPadding(Ui.dp(this, 4), 0, Ui.dp(this, 10), 0);
-        TextView burger = Ui.tv(this, "☰", 22, Ui.TEXT, false);
+        bar.setBackgroundColor(Ui.TEAL);                      // teal header like the website
+        bar.setPadding(Ui.dp(this, 8), 0, Ui.dp(this, 10), 0);
+        TextView burger = Ui.tv(this, "☰", 18, Ui.WHITE, false);
         burger.setGravity(Gravity.CENTER);
+        burger.setBackground(Ui.bg(this, 0x29FFFFFF, 9, 0));
         Ui.pressFx(burger);
         burger.setOnClickListener(v -> showDrawer());
-        bar.addView(burger, new LinearLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 52)));
-        titleTv = Ui.ellipsized(this, "Rajib Tutorial", 16.5f, Ui.TEXT, true, 1);
+        bar.addView(burger, Ui.lpm(this, Ui.dp(this, 34), Ui.dp(this, 34), 0, 0, 10, 0));
+        titleTv = Ui.ellipsized(this, "Rajib Tutorial", 17f, Ui.WHITE, true, 1);
         bar.addView(titleTv, new LinearLayout.LayoutParams(0, WRAP, 1f));
 
         // Notification bell (top of the home bar): opens the list of all admin notifications
         FrameLayout bell = new FrameLayout(this);
-        TextView bellIc = Ui.tv(this, "🔔", 20, Ui.TEXT, false);
+        TextView bellIc = Ui.tv(this, "🔔", 15, Ui.WHITE, false);
         bellIc.setGravity(Gravity.CENTER);
-        bell.addView(bellIc, new FrameLayout.LayoutParams(MATCH, MATCH));
+        bellIc.setBackground(Ui.bg(this, 0x24FFFFFF, 9, 0x47FFFFFF));
+        FrameLayout.LayoutParams bl = new FrameLayout.LayoutParams(Ui.dp(this, 32), Ui.dp(this, 32), Gravity.CENTER);
+        bell.addView(bellIc, bl);
         bellDot = new View(this);
         bellDot.setBackground(Ui.circle(Ui.RED));
         bellDot.setVisibility(View.GONE);
         FrameLayout.LayoutParams dotLp = new FrameLayout.LayoutParams(Ui.dp(this, 10), Ui.dp(this, 10), Gravity.TOP | Gravity.END);
-        dotLp.topMargin = Ui.dp(this, 11);
-        dotLp.rightMargin = Ui.dp(this, 7);
+        dotLp.topMargin = Ui.dp(this, 9);
+        dotLp.rightMargin = Ui.dp(this, 5);
         bell.addView(bellDot, dotLp);
         Ui.pressFx(bell);
         bell.setOnClickListener(v -> openInbox());
@@ -137,7 +141,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         root.addView(bar, new LinearLayout.LayoutParams(MATCH, Ui.dp(this, 52)));
 
         View line = new View(this);
-        line.setBackgroundColor(Ui.BORDER);
+        line.setBackgroundColor(Ui.TEAL);
         topLine = line;
         root.addView(line, new LinearLayout.LayoutParams(MATCH, 1));
 
@@ -174,10 +178,10 @@ public class NativeHomeActivity extends AppCompatActivity {
 
     private void styleSystemBars() {
         Window w = getWindow();
-        w.setStatusBarColor(Color.WHITE);
+        w.setStatusBarColor(Ui.TEAL);
         w.setNavigationBarColor(Color.WHITE);
         if (Build.VERSION.SDK_INT >= 23) {
-            int f = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            int f = 0;                                         // white status-bar icons on the teal header
             if (Build.VERSION.SDK_INT >= 26) f |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
             w.getDecorView().setSystemUiVisibility(f);
         }
@@ -188,12 +192,11 @@ public class NativeHomeActivity extends AppCompatActivity {
         if (topBar != null) topBar.setVisibility(on ? View.GONE : View.VISIBLE);
         if (topLine != null) topLine.setVisibility(on ? View.GONE : View.VISIBLE);
         Window w = getWindow();
-        w.setStatusBarColor(on ? 0xFF1F2C34 : Color.WHITE);
+        w.setStatusBarColor(on ? 0xFF1F2C34 : Ui.TEAL);
         w.setNavigationBarColor(on ? 0xFF0B141A : Color.WHITE);
         if (Build.VERSION.SDK_INT >= 23) {
             int f = 0;
             if (!on) {
-                f |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
                 if (Build.VERSION.SDK_INT >= 26) f |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
             }
             w.getDecorView().setSystemUiVisibility(f);
@@ -339,6 +342,48 @@ public class NativeHomeActivity extends AppCompatActivity {
         } else {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
         }
+        applySplitGuard();
+    }
+
+    // ── Split-screen / floating-window guard (course + live views only) ──
+    private TextView splitShield;
+
+    private boolean inMultiWindow() {
+        return Build.VERSION.SDK_INT >= 24 && (isInMultiWindowMode() || isInPictureInPictureMode());
+    }
+
+    private void applySplitGuard() {
+        if (content == null) return;
+        boolean guard = inMultiWindow() && (currentView == V_COURSE || currentView == V_LIVE);
+        if (guard) {
+            if (screen != null) screen.onPause();                 // stop any playing lesson video
+            if (splitShield == null) {
+                splitShield = new TextView(this);
+                splitShield.setBackgroundColor(Color.BLACK);
+                splitShield.setTextColor(Color.WHITE);
+                splitShield.setTextSize(16);
+                splitShield.setGravity(Gravity.CENTER);
+                splitShield.setPadding(48, 48, 48, 48);
+                splitShield.setText("🔒 Split-screen / floating window এ কোর্স ভিডিও দেখা যাবে না।\nপুরো screen এ ফিরে আসুন।");
+                splitShield.setClickable(true);                   // swallow touches
+            }
+            if (splitShield.getParent() == null) content.addView(splitShield, new FrameLayout.LayoutParams(MATCH, MATCH));
+            splitShield.bringToFront();
+        } else if (splitShield != null && splitShield.getParent() instanceof ViewGroup) {
+            ((ViewGroup) splitShield.getParent()).removeView(splitShield);
+        }
+    }
+
+    @Override
+    public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode);
+        applySplitGuard();
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        applySplitGuard();                                        // freeform / pop-up resize
     }
 
     void goHome() {
@@ -441,6 +486,11 @@ public class NativeHomeActivity extends AppCompatActivity {
         closeDrawer();
     }
 
+    void openQb() {
+        show(new QbScreen(this), V_QB, "MCQ Practice");
+        closeDrawer();
+    }
+
     void openOffline() {
         show(new OfflineScreen(this), V_OFFLINE, "Offline Lessons");
         closeDrawer();
@@ -460,19 +510,16 @@ public class NativeHomeActivity extends AppCompatActivity {
         if (now - lastUnreadCheck < 15000) return;
         lastUnreadCheck = now;
         try {
-            com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("push_messages")
-                .orderBy("at", com.google.firebase.firestore.Query.Direction.DESCENDING).limit(30).get()
-                .addOnSuccessListener(snap -> {
-                    if (isFinishing() || bellDot == null) return;
+            Store.async(() -> Fs.query("push_messages", null, null, null, "at", true, 30),
+                (java.util.List<Fs.Doc> docs, Exception err) -> {
+                    if (err != null || docs == null || isFinishing() || bellDot == null) return;
                     long seen = PushManager.inboxSeen(this);
                     if (seen == 0) { PushManager.inboxMarkSeen(this, now); return; }   // first run: nothing is "new"
                     boolean fresh = false;
-                    for (com.google.firebase.firestore.DocumentSnapshot d : snap.getDocuments()) {
-                        Long at = d.getLong("at");
-                        if (at == null || at <= seen) continue;
-                        String target = d.getString("target");
-                        boolean mine = Store.notifForMe(target, d.getString("mobile"), d.getString("batch"));
-                        if (mine) { fresh = true; break; }
+                    for (Fs.Doc d : docs) {
+                        long at = Fs.num(d.data, "at");
+                        if (at <= seen) continue;
+                        if (Store.notifForMe(Fs.text(d.data, "target"), Fs.text(d.data, "mobile"), Fs.text(d.data, "batch"))) { fresh = true; break; }
                     }
                     bellDot.setVisibility(fresh && currentView != V_INBOX ? View.VISIBLE : View.GONE);
                 });
@@ -507,7 +554,9 @@ public class NativeHomeActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (screen != null) screen.onResume();
+        applySplitGuard();
+        if (screen != null && !(inMultiWindow() && (currentView == V_COURSE || currentView == V_LIVE))) screen.onResume();
+        OfflineGuard.checkIfDue(this);       // daily internet check that keeps offline lessons unlocked
         if (Store.sessionMobile != null) startPoll();
         updateBell(true);
         if (PaymentActivity.pending) {      // back from the bKash page: refresh member / premium status
@@ -560,10 +609,14 @@ public class NativeHomeActivity extends AppCompatActivity {
         login.setMinHeight(Ui.dp(this, 36));
         login.setTextSize(12.5f);
         login.setPadding(Ui.dp(this, 12), Ui.dp(this, 6), Ui.dp(this, 12), Ui.dp(this, 6));
+        login.setTextColor(Ui.WHITE);
+        login.setBackground(Ui.bg(this, 0x24FFFFFF, 10, 0x59FFFFFF));
         TextView prem = Ui.btn(this, "★ Premium", Ui.B_PRIMARY, v -> dialogs.pay());
         prem.setMinHeight(Ui.dp(this, 36));
         prem.setTextSize(12.5f);
         prem.setPadding(Ui.dp(this, 12), Ui.dp(this, 6), Ui.dp(this, 12), Ui.dp(this, 6));
+        prem.setTextColor(Ui.TEAL2);
+        prem.setBackground(Ui.bg(this, Ui.WHITE, 10, 0));
         userArea.addView(login, Ui.lpm(this, WRAP, WRAP, 0, 0, 6, 0));
         userArea.addView(prem);
     }
@@ -572,13 +625,13 @@ public class NativeHomeActivity extends AppCompatActivity {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.HORIZONTAL);
         c.setGravity(Gravity.CENTER_VERTICAL);
-        c.setBackground(Ui.bg(this, Ui.BG2, 20, Ui.BORDER));
+        c.setBackground(Ui.bg(this, 0x24FFFFFF, 20, 0x59FFFFFF));
         c.setPadding(Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 12), Ui.dp(this, 4));
-        TextView av = Ui.tv(this, name.trim().isEmpty() ? "U" : name.trim().substring(0, 1).toUpperCase(), 13, Ui.WHITE, true);
+        TextView av = Ui.tv(this, name.trim().isEmpty() ? "U" : name.trim().substring(0, 1).toUpperCase(), 13, Ui.TEAL2, true);
         av.setGravity(Gravity.CENTER);
-        av.setBackground(Ui.circle(Ui.ACCENT));
+        av.setBackground(Ui.circle(Ui.WHITE));
         c.addView(av, Ui.lpm(this, Ui.dp(this, 28), Ui.dp(this, 28), 0, 0, 8, 0));
-        TextView n = Ui.ellipsized(this, name, 13, Ui.TEXT, true, 1);
+        TextView n = Ui.ellipsized(this, name, 13, Ui.WHITE, true, 1);
         n.setMaxWidth(Ui.dp(this, 110));
         c.addView(n);
         Ui.pressFx(c);
@@ -599,17 +652,18 @@ public class NativeHomeActivity extends AppCompatActivity {
         }
     }
 
+    /** Sidebar row like the website: full-width, white text on teal; the active row is a white bar with teal text. */
     private View navItem(String text, boolean active, boolean dot, final Runnable onClick) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(Ui.dp(this, 14), Ui.dp(this, 12), Ui.dp(this, 14), Ui.dp(this, 12));
-        if (active) row.setBackground(Ui.bg(this, Ui.ACCENT_SOFT, 12, 0));
-        TextView t = Ui.tv(this, text, 14.5f, active ? Ui.ACCENT2 : Ui.TEXT, active);
+        row.setPadding(Ui.dp(this, 16), Ui.dp(this, 11), Ui.dp(this, 16), Ui.dp(this, 11));
+        if (active) row.setBackgroundColor(Ui.WHITE);
+        TextView t = Ui.tv(this, text, 13.5f, active ? Ui.TEAL2 : Ui.WHITE, active);
         row.addView(t, new LinearLayout.LayoutParams(0, WRAP, 1f));
         if (dot) {
             View d = new View(this);
-            d.setBackground(Ui.circle(Ui.RED));
+            d.setBackground(Ui.circle(0xFFFF5A5A));
             row.addView(d, new LinearLayout.LayoutParams(Ui.dp(this, 9), Ui.dp(this, 9)));
         }
         Ui.pressFx(row);
@@ -618,9 +672,24 @@ public class NativeHomeActivity extends AppCompatActivity {
     }
 
     private TextView navLabel(String s) {
-        TextView t = Ui.tv(this, s.toUpperCase(), 11, Ui.SUB, true);
-        t.setPadding(Ui.dp(this, 14), Ui.dp(this, 14), 0, Ui.dp(this, 4));
+        TextView t = Ui.tv(this, s.toUpperCase(), 10, 0x99FFFFFF, true);
+        t.setLetterSpacing(0.09f);
+        t.setPadding(Ui.dp(this, 16), Ui.dp(this, 12), 0, Ui.dp(this, 5));
         return t;
+    }
+
+    /** Admin Panel buttons: translucent white rounded buttons, like .btn-admin-action. */
+    private View adminBtn(String text, boolean danger, final Runnable onClick) {
+        TextView b = Ui.tv(this, text, 13, danger ? 0xFFFCA5A5 : Ui.WHITE, true);
+        b.setGravity(Gravity.CENTER_VERTICAL);
+        b.setBackground(Ui.bg(this, 0x1FFFFFFF, 12, 0x2EFFFFFF));
+        b.setPadding(Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 10));
+        Ui.pressFx(b);
+        b.setOnClickListener(v -> onClick.run());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(MATCH, WRAP);
+        lp.setMargins(0, 0, 0, Ui.dp(this, 6));
+        b.setLayoutParams(lp);
+        return b;
     }
 
     void showDrawer() {
@@ -630,27 +699,30 @@ public class NativeHomeActivity extends AppCompatActivity {
         drawer = d;
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
-        col.setBackgroundColor(Ui.BG2);
+        col.setBackgroundColor(Ui.TEAL2);                  // solid dark teal sidebar
 
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setPadding(Ui.dp(this, 16), Ui.dp(this, 22), Ui.dp(this, 16), Ui.dp(this, 14));
-        TextView logo = Ui.tv(this, "✳", 20, Ui.ACCENT, true);
+        top.setPadding(Ui.dp(this, 14), Ui.dp(this, 14), Ui.dp(this, 14), Ui.dp(this, 13));
+        TextView logo = Ui.tv(this, "✳", 18, Ui.TEAL2, true);
         logo.setGravity(Gravity.CENTER);
-        logo.setBackground(Ui.circle(Ui.ACCENT_SOFT));
-        top.addView(logo, Ui.lpm(this, Ui.dp(this, 40), Ui.dp(this, 40), 0, 0, 12, 0));
+        logo.setBackground(Ui.circle(Ui.WHITE));
+        top.addView(logo, Ui.lpm(this, Ui.dp(this, 34), Ui.dp(this, 34), 0, 0, 10, 0));
         LinearLayout brand = new LinearLayout(this);
         brand.setOrientation(LinearLayout.VERTICAL);
-        brand.addView(Ui.tv(this, "Rajib Tutorial", 16, Ui.TEXT, true));
-        brand.addView(Ui.tv(this, "Diploma in EEE", 12, Ui.SUB, false));
+        brand.addView(Ui.tv(this, "Rajib Tutorial", 14, Ui.WHITE, true));
+        brand.addView(Ui.tv(this, "Diploma in EEE", 10.5f, 0xBFFFFFFF, false));
         top.addView(brand);
         col.addView(top);
+        View sep = new View(this);
+        sep.setBackgroundColor(0x24FFFFFF);
+        col.addView(sep, new LinearLayout.LayoutParams(MATCH, 1));
 
         ScrollView sv = new ScrollView(this);
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.VERTICAL);
-        nav.setPadding(Ui.dp(this, 8), 0, Ui.dp(this, 8), Ui.dp(this, 8));
+        nav.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 8));
         sv.addView(nav, new ScrollView.LayoutParams(MATCH, WRAP));
         col.addView(sv, new LinearLayout.LayoutParams(MATCH, 0, 1f));
 
@@ -666,12 +738,17 @@ public class NativeHomeActivity extends AppCompatActivity {
         nav.addView(navItem("📢  Current Circular", currentView == V_RES && Store.R_CIRCULAR.equals(resType), false, () -> openResources(Store.R_CIRCULAR)));
         nav.addView(navItem("📚  Question Bank", currentView == V_RES && Store.R_QBANK.equals(resType), false, () -> openResources(Store.R_QBANK)));
         nav.addView(navItem("🆕  Recent Question Bank", currentView == V_RES && Store.R_RECENT.equals(resType), false, () -> openResources(Store.R_RECENT)));
+        nav.addView(navItem("📝  MCQ Practice", currentView == V_QB, false, this::openQb));
+        nav.addView(navItem("🧰  Study Tools", false, false, () -> { closeDrawer(); startActivity(new Intent(this, StudyToolsActivity.class)); }));
+        nav.addView(navItem("🌐  Safe Browser", false, false, () -> openWeb("https://www.google.com/", "Safe Browser", false, true)));
         nav.addView(navLabel("Courses"));
         if (loading) {
-            nav.addView(Ui.tv(this, "Loading…", 12, Ui.SUB, false));
+            TextView lt = Ui.tv(this, "Loading…", 12, 0xBFFFFFFF, false);
+            lt.setPadding(Ui.dp(this, 16), Ui.dp(this, 4), 0, 0);
+            nav.addView(lt);
         } else if (Store.courses.isEmpty()) {
-            TextView t = Ui.tv(this, "No courses yet", 12, Ui.SUB, false);
-            t.setPadding(Ui.dp(this, 14), Ui.dp(this, 4), 0, 0);
+            TextView t = Ui.tv(this, "No courses yet", 12, 0xBFFFFFFF, false);
+            t.setPadding(Ui.dp(this, 16), Ui.dp(this, 4), 0, 0);
             nav.addView(t);
         }
         for (final Store.Course c : Store.courses) {
@@ -679,21 +756,40 @@ public class NativeHomeActivity extends AppCompatActivity {
             nav.addView(navItem("•  " + c.title, active, false, () -> openCourse(c.id)));
         }
 
+        View sep2 = new View(this);
+        sep2.setBackgroundColor(0x24FFFFFF);
+        col.addView(sep2, new LinearLayout.LayoutParams(MATCH, 1));
         LinearLayout bottom = new LinearLayout(this);
         bottom.setOrientation(LinearLayout.VERTICAL);
-        bottom.setPadding(Ui.dp(this, 12), Ui.dp(this, 8), Ui.dp(this, 12), Ui.dp(this, 14));
+        bottom.setPadding(Ui.dp(this, 12), Ui.dp(this, 10), Ui.dp(this, 12), Ui.dp(this, 14));
         if (Store.adminIn) {
-            bottom.addView(navLabel("Admin Panel"));
-            bottom.addView(navItem("📚  Manage Courses", currentView == V_MANAGE, false, this::openManage));
-            bottom.addView(navItem("⭐  Premium Members", currentView == V_MEMBERS, false, this::openMembers));
-            bottom.addView(navItem("🔔  Notification Center", currentView == V_NOTIFY, false, this::openNotify));
-            bottom.addView(navItem("▶  YouTube", false, false, () -> openWeb("https://m.youtube.com/", "YouTube", false, false)));
-            bottom.addView(navItem("🌐  Google", false, false, () -> openWeb("https://www.google.com/", "Google", false, true)));
-            bottom.addView(navItem("🎬  YouTube Studio", false, false, () -> openWeb("https://studio.youtube.com/", "YouTube Studio", true, false)));
-            bottom.addView(navItem("⚙  Live & Premium Settings", false, false, () -> { closeDrawer(); dialogs.liveSettings(); }));
-            bottom.addView(navItem("⎋  Logout", false, false, () -> { closeDrawer(); adminLogout(); }));
+            TextView al = Ui.tv(this, "ADMIN PANEL", 10, 0xFFFCD34D, true);
+            al.setLetterSpacing(0.1f);
+            al.setPadding(Ui.dp(this, 6), 0, 0, Ui.dp(this, 8));
+            bottom.addView(al);
+            // the admin list scrolls inside a bounded area so the course list above it keeps room on small phones
+            LinearLayout adm = new LinearLayout(this);
+            adm.setOrientation(LinearLayout.VERTICAL);
+            adm.addView(adminBtn("📚  Manage Courses", false, this::openManage));
+            adm.addView(adminBtn("⭐  Premium Members", false, this::openMembers));
+            adm.addView(adminBtn("🔔  Notification Center", false, this::openNotify));
+            adm.addView(adminBtn("🌐  Safe Browser", false, () -> openWeb("https://www.google.com/", "Safe Browser", false, true)));
+            adm.addView(adminBtn("▶️  YouTube", false, () -> openWeb("https://m.youtube.com/", "YouTube", false, false)));
+            adm.addView(adminBtn("🔍  Google", false, () -> openWeb("https://www.google.com/", "Google", false, true)));
+            adm.addView(adminBtn("🎬  YouTube Studio", false, () -> openWeb("https://studio.youtube.com/", "YouTube Studio", true, false)));
+            adm.addView(adminBtn("⚙️  Live & Premium Settings", false, () -> { closeDrawer(); dialogs.liveSettings(); }));
+            adm.addView(adminBtn("⎋  Logout", true, () -> { closeDrawer(); adminLogout(); }));
+            ScrollView asv = new ScrollView(this);
+            asv.addView(adm, new ScrollView.LayoutParams(MATCH, WRAP));
+            bottom.addView(asv, new LinearLayout.LayoutParams(MATCH, Math.round(getResources().getDisplayMetrics().heightPixels * 0.34f)));
         } else {
-            bottom.addView(Ui.btn(this, "🔒  Admin Login", Ui.B_GHOST, v -> { closeDrawer(); dialogs.adminLogin(); }));
+            TextView lg = Ui.tv(this, "🔒  Admin Login", 12.5f, Ui.WHITE, true);
+            lg.setGravity(Gravity.CENTER);
+            lg.setBackground(Ui.bg(this, 0x1FFFFFFF, 10, 0x4DFFFFFF));
+            lg.setPadding(Ui.dp(this, 10), Ui.dp(this, 10), Ui.dp(this, 10), Ui.dp(this, 10));
+            Ui.pressFx(lg);
+            lg.setOnClickListener(v -> { closeDrawer(); dialogs.adminLogin(); });
+            bottom.addView(lg, new LinearLayout.LayoutParams(MATCH, WRAP));
         }
         col.addView(bottom, new LinearLayout.LayoutParams(MATCH, WRAP));
 
@@ -701,7 +797,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         Window w = d.getWindow();
         if (w != null) {
             int sw = getResources().getDisplayMetrics().widthPixels;
-            int width = Math.min(Ui.dp(this, 310), Math.round(sw * 0.84f));
+            int width = Math.min(Ui.dp(this, 280), Math.round(sw * 0.80f));
             w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             w.setGravity(Gravity.START | Gravity.TOP);
             w.setLayout(width, MATCH);

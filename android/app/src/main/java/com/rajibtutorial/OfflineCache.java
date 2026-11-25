@@ -120,6 +120,7 @@ final class OfflineCache {
                 j.put("className", x.className);
                 j.put("subject", x.subject);
                 j.put("description", x.description);
+                j.put("category", x.category);
                 j.put("price", x.price);
                 JSONArray vs = new JSONArray();
                 for (Store.Video v : x.videos) {
@@ -188,6 +189,7 @@ final class OfflineCache {
                     c.className = j.optString("className");
                     c.subject = j.optString("subject");
                     c.description = j.optString("description");
+                    c.category = Store.isCat(j.optString("category")) ? j.optString("category") : "diploma";
                     c.price = j.optInt("price", 0);
                     JSONArray vs = j.optJSONArray("videos");
                     if (vs != null) {
