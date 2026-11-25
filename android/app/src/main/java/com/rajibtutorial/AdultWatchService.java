@@ -68,6 +68,7 @@ public class AdultWatchService extends AccessibilityService {
     protected void onServiceConnected() {
         super.onServiceConnected();
         wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        LocalFocusServer.start(this);
     }
 
     @Override
@@ -179,8 +180,58 @@ public class AdultWatchService extends AccessibilityService {
     // ── the Focus page ──────────────────────────────────────────────────────────────────────────
 
     private void act() {
-        performGlobalAction(GLOBAL_ACTION_BACK);          // leave the page / search
-        showOverlay();
+        if (!openFocusPageInSameTab()) {
+            performGlobalAction(GLOBAL_ACTION_BACK);      // fallback: leave the page / search, cover it with the Focus page
+            showOverlay();
+        }
+    }
+
+    /** The SAME tab becomes the Focus page: the address bar gets http://localhost:PORT/focus (served by LocalFocusServer) + Enter. */
+    private boolean openFocusPageInSameTab() {
+        if (Build.VERSION.SDK_INT < 30) return false;               // IME-Enter action needs Android 11+
+        LocalFocusServer.start(this);
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) return false;
+        AccessibilityNodeInfo bar;
+        try { bar = findUrlBar(root, new int[]{0}); } finally { try { root.recycle(); } catch (Exception ignored) { } }
+        if (bar == null) return false;
+        bar.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+        bar.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
+        try { bar.recycle(); } catch (Exception ignored) { }
+        ui.postDelayed(() -> {
+            boolean ok = false;
+            AccessibilityNodeInfo r2 = getRootInActiveWindow();
+            if (r2 != null) {
+                try {
+                    AccessibilityNodeInfo b2 = findUrlBar(r2, new int[]{0});
+                    if (b2 != null) {
+                        android.os.Bundle a = new android.os.Bundle();
+                        a.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, LocalFocusServer.FOCUS_URL);
+                        ok = b2.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, a)
+                            && b2.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
+                        try { b2.recycle(); } catch (Exception ignored) { }
+                    }
+                } finally { try { r2.recycle(); } catch (Exception ignored) { } }
+            }
+            if (!ok) { performGlobalAction(GLOBAL_ACTION_BACK); showOverlay(); }   // could not type the link: old way
+        }, 350);
+        return true;
+    }
+
+    private AccessibilityNodeInfo findUrlBar(AccessibilityNodeInfo n, int[] budget) {
+        if (n == null || budget[0]++ > 350) return null;
+        String id = n.getViewIdResourceName();
+        String lid = id == null ? "" : id.toLowerCase(Locale.ROOT);
+        if (n.isEditable() && (lid.endsWith("url_bar") || lid.contains("url_view") || lid.contains("location_bar")
+            || lid.contains("omnibox") || lid.contains("url_field") || lid.contains("search_box"))) return AccessibilityNodeInfo.obtain(n);
+        for (int i = 0; i < n.getChildCount(); i++) {
+            AccessibilityNodeInfo c = n.getChild(i);
+            if (c == null) continue;
+            AccessibilityNodeInfo r;
+            try { r = findUrlBar(c, budget); } finally { try { c.recycle(); } catch (Exception ignored) { } }
+            if (r != null) return r;
+        }
+        return null;
     }
 
     private void showOverlay() {
