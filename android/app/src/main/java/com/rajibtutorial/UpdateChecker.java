@@ -163,6 +163,30 @@ public class UpdateChecker {
      * once per new release (same last_tag guard as the in-app check, so no duplicates).
      * Returns false only when the network lookup failed (WorkManager then retries later).
      */
+    /**
+     * Shows the "update available" notification straight from the FCM push (the push carries the release tag),
+     * with no network call, so it works even when GitHub is slow or the phone has just woken up.
+     * Returns true when there is nothing left to do (notified, already notified, or not newer).
+     */
+    boolean notifyForTag(String tag) {
+        try {
+            if (tag == null || tag.trim().isEmpty()) return false;
+            tag = tag.trim();
+            int remoteCode = Integer.parseInt(tag.replace("v", "").trim());
+            int installedCode = BuildConfig.VERSION_CODE;
+            try { installedCode = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionCode; }
+            catch (Exception ignored) { }
+            if (remoteCode <= installedCode) return true;
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            if (tag.equals(prefs.getString(KEY_LAST_TAG, ""))) return true;
+            showUpdateNotification(tag, "", REPO_URL + "/releases/download/" + tag + "/RajibTutorial.apk");
+            prefs.edit().putString(KEY_LAST_TAG, tag).apply();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     boolean checkAndNotifyBlocking() {
         try {
             String[] latest = fetchLatest();

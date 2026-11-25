@@ -3,6 +3,8 @@ package com.rajibtutorial;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
@@ -56,6 +58,11 @@ final class SettingsScreen extends Screen {
         acts.setPadding(Ui.dp(a, 14), Ui.dp(a, 6), Ui.dp(a, 14), Ui.dp(a, 6));
         root.addView(acts, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 14));
         accDesc = Ui.tv(a, "", 12, Ui.SUB, false);
+        notifDesc = Ui.tv(a, "", 12, Ui.SUB, false);
+        bgDesc = Ui.tv(a, "", 12, Ui.SUB, false);
+        acts.addView(statusRow("🔔 Notification অনুমতি", notifDesc, "ঠিক করুন", v -> fixNotifications()));
+        acts.addView(statusRow("🔋 Background চালু রাখা", bgDesc, "চালু করুন", v -> fixBackground()));
+        refreshBg();
         acts.addView(accessRow());
         acts.addView(actionRow("🔔 Test Notification", "একটা টেস্ট নোটিফিকেশন পাঠিয়ে দেখুন।", "Test", v -> testNotify()));
         acts.addView(actionRow("⟳ Update", "নতুন ভার্সন আছে কিনা দেখুন।", "Check", v -> checkUpdate()));
@@ -69,7 +76,108 @@ final class SettingsScreen extends Screen {
         return sv;
     }
 
-    private TextView accDesc;
+    private TextView accDesc, notifDesc, bgDesc;
+
+    private View statusRow(String title, TextView desc, String btn, View.OnClickListener l) {
+        LinearLayout row = new LinearLayout(a);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, Ui.dp(a, 10), 0, Ui.dp(a, 10));
+        LinearLayout txt = new LinearLayout(a);
+        txt.setOrientation(LinearLayout.VERTICAL);
+        txt.addView(Ui.tv(a, title, 14, Ui.TEXT, true));
+        txt.addView(desc, Ui.lpm(a, MATCH, WRAP, 0, 3, 0, 0));
+        row.addView(txt, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        row.addView(Ui.smallBtn(a, btn, Ui.ACCENT, l), new LinearLayout.LayoutParams(WRAP, WRAP));
+        return row;
+    }
+
+    private boolean notifOk() {
+        try {
+            if (!androidx.core.app.NotificationManagerCompat.from(a).areNotificationsEnabled()) return false;
+            if (Build.VERSION.SDK_INT >= 26) {
+                android.app.NotificationManager nm = a.getSystemService(android.app.NotificationManager.class);
+                android.app.NotificationChannel ch = nm == null ? null : nm.getNotificationChannel("rt_update_v2");
+                if (ch != null && ch.getImportance() == android.app.NotificationManager.IMPORTANCE_NONE) return false;
+            }
+        } catch (Exception ignored) { }
+        return true;
+    }
+
+    private boolean batteryOk() {
+        try {
+            PowerManager pm = (PowerManager) a.getSystemService(android.content.Context.POWER_SERVICE);
+            return pm == null || pm.isIgnoringBatteryOptimizations(a.getPackageName());
+        } catch (Exception e) { return true; }
+    }
+
+    private void refreshBg() {
+        if (notifDesc != null) {
+            boolean ok = notifOk();
+            notifDesc.setText(ok ? "✅ চালু — অ্যাপ বন্ধ থাকলেও update ও মেসেজ আসবে।"
+                : "❌ বন্ধ — Update ও মেসেজ নোটিফিকেশন আসবে না। চালু করুন।");
+            notifDesc.setTextColor(ok ? Ui.GREEN : Ui.RED);
+        }
+        if (bgDesc != null) {
+            boolean ok = batteryOk();
+            bgDesc.setText(ok ? "✅ চালু — ফোন অ্যাপটিকে ব্যাকগ্রাউন্ডে বন্ধ করবে না।"
+                : "⚠️ সীমিত — অ্যাপ বন্ধ করলে ফোন একে ঘুম পাড়িয়ে দিতে পারে, তখন update নোটিফিকেশন নাও আসতে পারে।");
+            bgDesc.setTextColor(ok ? Ui.GREEN : 0xFFD97706);
+        }
+    }
+
+    private void fixNotifications() {
+        try {
+            Intent i = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, a.getPackageName());
+            a.startActivity(i);
+        } catch (Exception e) {
+            try { a.startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + a.getPackageName()))); }
+            catch (Exception e2) { a.toast("Settings খোলা যায়নি"); }
+        }
+    }
+
+    /** Battery-optimisation exemption + (Xiaomi / Oppo / Vivo / Huawei) auto-start screen, so closing the app doesn't stop update checks. */
+    private void fixBackground() {
+        new AlertDialog.Builder(a)
+            .setTitle("Background চালু রাখুন")
+            .setMessage("অ্যাপ বন্ধ থাকলেও update নোটিফিকেশন পেতে:\n\n১) \"Battery অপটিমাইজ করবেন না / Unrestricted\" দিন\n২) Xiaomi, Oppo, Vivo, Realme, Huawei ফোনে \"Autostart\" চালু করুন\n৩) Recent apps এ অ্যাপটি \"Lock\" করে রাখুন\n\nপ্রথমে Battery সেটিং খুলছি।")
+            .setNegativeButton("বাতিল", null)
+            .setPositiveButton("চালু করুন", (d, w) -> {
+                boolean opened = false;
+                try {
+                    a.startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + a.getPackageName())));
+                    opened = true;
+                } catch (Exception ignored) { }
+                if (!opened) {
+                    try { a.startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); opened = true; }
+                    catch (Exception ignored) { }
+                }
+                if (!opened) openAutostart();
+            })
+            .setNeutralButton("Autostart", (d, w) -> openAutostart())
+            .show();
+    }
+
+    private void openAutostart() {
+        String[][] oem = {
+            {"com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"},
+            {"com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity"},
+            {"com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity"},
+            {"com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"},
+            {"com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager"},
+            {"com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"},
+            {"com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity"},
+        };
+        for (String[] c : oem) {
+            try {
+                Intent i = new Intent().setClassName(c[0], c[1]);
+                a.startActivity(i);
+                return;
+            } catch (Exception ignored) { }
+        }
+        try { a.startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + a.getPackageName()))); }
+        catch (Exception e) { a.toast("Settings খোলা যায়নি"); }
+    }
 
     private View accessRow() {
         LinearLayout row = new LinearLayout(a);
@@ -106,7 +214,7 @@ final class SettingsScreen extends Screen {
     }
 
     @Override
-    void onResume() { refreshAcc(); }
+    void onResume() { refreshAcc(); refreshBg(); }
 
     private View switchRow(final String key, String title, String desc) {
         LinearLayout row = new LinearLayout(a);

@@ -64,6 +64,7 @@ public class PushService extends FirebaseMessagingService {
         // New APK release pushed by CI -> show the "update available" notification (works with the app closed)
         if ("app_update".equals(m.getData().get("type"))) {
             UpdateChecker uc = new UpdateChecker(this);
+            if (uc.notifyForTag(m.getData().get("tag"))) return;      // tag is in the push: no network needed
             for (int i = 0; i < 3; i++) {                 // GitHub may need a moment to serve the new release
                 if (uc.checkAndNotifyBlocking()) break;
                 try { Thread.sleep(3000); } catch (InterruptedException e) { break; }
