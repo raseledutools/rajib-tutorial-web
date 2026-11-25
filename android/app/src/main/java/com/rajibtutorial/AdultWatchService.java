@@ -78,6 +78,7 @@ public class AdultWatchService extends AccessibilityService {
     public void onAccessibilityEvent(AccessibilityEvent e) {
         if (e == null || e.getPackageName() == null) return;
         if (!AppSettings.adultExternal(this)) return;
+        LocalFocusServer.start(this);                                  // no-op when it already runs; restarts it if it died
         if (e.getEventType() == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return;   // still typing: nothing is blocked before the search is submitted
         String pkg = e.getPackageName().toString();
         if (getPackageName().equals(pkg) || SKIP.contains(pkg)) return;
@@ -219,6 +220,10 @@ public class AdultWatchService extends AccessibilityService {
     private boolean openFocusPageInSameTab(final boolean adult) {
         if (Build.VERSION.SDK_INT < 30) { if (!adult) performGlobalAction(GLOBAL_ACTION_HOME); return !adult; }   // Enter action needs Android 11+
         LocalFocusServer.start(this);
+        if (!LocalFocusServer.isUp()) {                                // give a just-started server a moment
+            try { Thread.sleep(250); } catch (InterruptedException ignored) { }
+            if (!LocalFocusServer.isUp()) return false;                // server cannot start: old way (overlay) instead of an error page
+        }
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return false;
         AccessibilityNodeInfo bar;

@@ -34,24 +34,43 @@ final class LocalFocusServer {
     private static final Object LK = new Object();
     private static Thread th;
 
+    private static volatile boolean listening = false;
+
+    /** Safe to call as often as wanted: starts the server if it is not running; if the port is busy it keeps retrying. */
     static synchronized void start(final Context c) {
         if (th != null && th.isAlive()) return;
         final Context app = c.getApplicationContext();
         th = new Thread(() -> {
-            ServerSocket ss;
-            try { ss = new ServerSocket(PORT, 8, InetAddress.getByName("127.0.0.1")); }
-            catch (Exception e) { return; }
-            while (!ss.isClosed()) {
+            while (true) {
+                ServerSocket ss = null;
                 try {
-                    final Socket s = ss.accept();
-                    new Thread(() -> handle(app, s), "rt-focus-conn").start();
-                } catch (Exception e) {
-                    if (ss.isClosed()) break;
+                    ss = new ServerSocket();
+                    ss.setReuseAddress(true);
+                    ss.bind(new java.net.InetSocketAddress(InetAddress.getByName("127.0.0.1"), PORT), 8);
+                    listening = true;
+                    while (!ss.isClosed()) {
+                        final Socket s = ss.accept();
+                        new Thread(() -> handle(app, s), "rt-focus-conn").start();
+                    }
+                } catch (Throwable e) {
+                    listening = false;
+                    try { if (ss != null) ss.close(); } catch (Exception ignored) { }
+                    try { Thread.sleep(2000); } catch (InterruptedException ie) { return; }   // port busy / socket error: try again
                 }
             }
         }, "rt-focus-local");
         th.setDaemon(true);
         th.start();
+    }
+
+    /** True when something already answers on the focus port (used before sending a tab there). */
+    static boolean isUp() {
+        try (Socket t = new Socket()) {
+            t.connect(new java.net.InetSocketAddress("127.0.0.1", PORT), 300);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     // ── state: allowed sites + Pomodoro (kept in prefs; the 25-min session itself is FocusManager's) ──
