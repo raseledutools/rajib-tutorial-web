@@ -11,6 +11,7 @@ final class AppSettings {
     static final String NOTIFY_SOUND = "notifySound";
     static final String SCREEN_PROTECT = "screenProtect";
     static final String ADULT_BLOCK = "adultBlock";
+    static final String ADULT_EXTERNAL = "adultExternal";
 
     private static SharedPreferences p(Context c) {
         return c.getApplicationContext().getSharedPreferences("rt_settings", Context.MODE_PRIVATE);
@@ -25,4 +26,5 @@ final class AppSettings {
     /** Browser / reader screens only; course videos stay protected no matter what. */
     static boolean screenProtect(Context c) { return get(c, SCREEN_PROTECT); }
     static boolean adultBlock(Context c) { return get(c, ADULT_BLOCK); }
+    static boolean adultExternal(Context c) { return get(c, ADULT_EXTERNAL); }
 }

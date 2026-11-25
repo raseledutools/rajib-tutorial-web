@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Rajib Tutorial</string>
+    <string name="adult_watch_label">Rajib Tutorial — Adult Block</string>
+    <string name="adult_watch_desc">অন্য ব্রাউজারে (Chrome, Edge, Firefox, Brave…) অ্যাডাল্ট সাইট বা সার্চ খুললে সেটি বন্ধ করে Focus পর্দা দেখায়। শুধু ব্রাউজারের ঠিকানা-বার ও সার্চ বক্স পড়া হয়; কোনো তথ্য সেভ বা পাঠানো হয় না।</string>
 </resources>

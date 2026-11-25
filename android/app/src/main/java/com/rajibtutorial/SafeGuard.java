@@ -98,4 +98,23 @@ final class SafeGuard {
         b.appendQueryParameter(key, val);
         return b.build().toString();
     }
+
+    private static final java.util.List<String> SITE_CORES = new java.util.ArrayList<>();
+    static {
+        for (String d : SET) { String c = d.substring(0, d.indexOf('.')); if (c.length() >= 5) SITE_CORES.add(c); }
+    }
+
+    /** Adult words typed into a search box / address bar. */
+    static boolean isAdultQuery(String text) {
+        return text != null && !text.isEmpty() && ADULT_Q.matcher(text).find();
+    }
+
+    /** A page title / address-bar text of an external browser (same idea as the exe's isAdultTitle). */
+    static boolean isAdultText(String text) {
+        if (text == null || text.isEmpty()) return false;
+        String t = text.toLowerCase(Locale.ROOT);
+        if (ADULT_Q.matcher(t).find() || SUBSTR.matcher(t).find()) return true;
+        for (String c : SITE_CORES) if (t.contains(c)) return true;
+        return false;
+    }
 }

@@ -3,6 +3,7 @@ package com.rajibtutorial;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -48,9 +49,14 @@ final class SettingsScreen extends Screen {
         card.addView(switchRow(AppSettings.ADULT_BLOCK, "🔞 Adult Block (Safe Browsing)",
             "চালু থাকলে Safe Browser-এ অ্যাডাল্ট সাইট বন্ধ থাকবে এবং Google / Bing / DuckDuckGo-তে SafeSearch জোর করে চালু থাকবে।"));
 
+        card.addView(switchRow(AppSettings.ADULT_EXTERNAL, "🔞 Adult Block — সব ব্রাউজার (Chrome, Edge, Firefox, Brave...)",
+            "চালু থাকলে অন্য যেকোনো ব্রাউজারে অ্যাডাল্ট সার্চ বা সাইট খুললে সেই পাতা বন্ধ হয়ে Focus পর্দা আসবে, যেখান থেকে Focus শুরু করা যায়। এর জন্য নিচের Accessibility অনুমতি লাগবে।"));
+
         LinearLayout acts = Ui.card(a);
         acts.setPadding(Ui.dp(a, 14), Ui.dp(a, 6), Ui.dp(a, 14), Ui.dp(a, 6));
         root.addView(acts, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 14));
+        accDesc = Ui.tv(a, "", 12, Ui.SUB, false);
+        acts.addView(accessRow());
         acts.addView(actionRow("🔔 Test Notification", "একটা টেস্ট নোটিফিকেশন পাঠিয়ে দেখুন।", "Test", v -> testNotify()));
         acts.addView(actionRow("⟳ Update", "নতুন ভার্সন আছে কিনা দেখুন।", "Check", v -> checkUpdate()));
         acts.addView(actionRow("🧹 Clear Cache", "টেম্প ক্যাশ মুছবে। লগইন ও অফলাইন ভিডিও মুছবে না।", "Clear", v -> clearCache()));
@@ -62,6 +68,45 @@ final class SettingsScreen extends Screen {
         root.addView(vt, Ui.lpm(a, MATCH, WRAP, 0, 4, 0, 0));
         return sv;
     }
+
+    private TextView accDesc;
+
+    private View accessRow() {
+        LinearLayout row = new LinearLayout(a);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, Ui.dp(a, 10), 0, Ui.dp(a, 10));
+        LinearLayout txt = new LinearLayout(a);
+        txt.setOrientation(LinearLayout.VERTICAL);
+        txt.addView(Ui.tv(a, "♿ Accessibility অনুমতি", 14, Ui.TEXT, true));
+        txt.addView(accDesc, Ui.lpm(a, MATCH, WRAP, 0, 3, 0, 0));
+        row.addView(txt, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        row.addView(Ui.smallBtn(a, "চালু করুন", Ui.ACCENT, v -> askAccessibility()), new LinearLayout.LayoutParams(WRAP, WRAP));
+        refreshAcc();
+        return row;
+    }
+
+    private void refreshAcc() {
+        if (accDesc == null) return;
+        boolean on = AdultWatchService.isEnabled(a);
+        accDesc.setText(on ? "✅ চালু আছে — অন্য ব্রাউজারের Adult Block কাজ করছে।"
+            : "❌ বন্ধ — চালু না করলে অন্য ব্রাউজারে Adult Block কাজ করবে না।");
+        accDesc.setTextColor(on ? Ui.GREEN : Ui.RED);
+    }
+
+    private void askAccessibility() {
+        new AlertDialog.Builder(a)
+            .setTitle("Accessibility অনুমতি")
+            .setMessage("এই অনুমতি শুধু অন্য ব্রাউজারের ঠিকানা-বার ও সার্চ বক্সে অ্যাডাল্ট শব্দ আছে কিনা দেখে, আর পেলে পাতাটি বন্ধ করে Focus পর্দা দেখায়। কোনো তথ্য সেভ বা ইন্টারনেটে পাঠানো হয় না।\n\nSettings এ গিয়ে \"Rajib Tutorial — Adult Block\" খুঁজে চালু করুন।")
+            .setNegativeButton("বাতিল", null)
+            .setPositiveButton("Settings খুলুন", (d, w) -> {
+                try { a.startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); }
+                catch (Exception e) { a.toast("Settings খোলা যায়নি"); }
+            }).show();
+    }
+
+    @Override
+    void onResume() { refreshAcc(); }
 
     private View switchRow(final String key, String title, String desc) {
         LinearLayout row = new LinearLayout(a);

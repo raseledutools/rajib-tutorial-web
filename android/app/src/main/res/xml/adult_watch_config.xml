@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged|typeViewTextChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds|flagIncludeNotImportantViews"
+    android:canRetrieveWindowContent="true"
+    android:notificationTimeout="300"
+    android:description="@string/adult_watch_desc"
+    android:packageNames="com.android.chrome,com.chrome.beta,com.chrome.dev,com.chrome.canary,org.mozilla.firefox,org.mozilla.firefox_beta,org.mozilla.fenix,org.mozilla.focus,com.microsoft.emmx,com.brave.browser,com.opera.browser,com.opera.mini.native,com.opera.gx,com.sec.android.app.sbrowser,com.duckduckgo.mobile.android,com.vivaldi.browser,com.kiwibrowser.browser,com.UCMobile.intl,com.uc.browser.en,com.android.browser,com.google.android.apps.chrome,com.mi.globalbrowser,com.miui.browser,com.huawei.browser,org.chromium.webview_shell,com.yandex.browser,com.ecosia.android,com.cloudmosa.puffinFree" />
