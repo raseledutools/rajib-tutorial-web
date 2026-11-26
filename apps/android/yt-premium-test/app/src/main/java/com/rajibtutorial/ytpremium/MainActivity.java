@@ -80,7 +80,7 @@ public class MainActivity extends Activity {
 
     private FrameLayout drawer;
     private LinearLayout panel;
-    private TextView updItem, floatItem, battItem;
+    private TextView updItem, floatItem, battItem, adultItem;
 
     private LinearLayout mini;
     private TextureView miniTv;
@@ -94,6 +94,7 @@ public class MainActivity extends Activity {
     private volatile boolean webPlaying = false;
     private volatile long webInfoAt = 0, lastPlayAt = 0, handoffAt = 0;
     private volatile String prefetched = "";
+    private volatile String infoPrefetched = "";
 
     private boolean leaving, stopped, resumeToWeb, slideIn, qualityBusy;
 
@@ -158,13 +159,14 @@ public class MainActivity extends Activity {
                 String h = u.getHost() == null ? "" : u.getHost().toLowerCase(Locale.ROOT);
                 boolean ok = h.equals("youtube.com") || h.endsWith(".youtube.com") || h.equals("youtu.be")
                     || h.endsWith(".google.com") || h.equals("google.com") || h.endsWith(".gstatic.com");
+                if (ok && blockIfAdult(v, u.toString())) return true;
                 return !ok;                                    // links that leave YouTube are not followed
             }
 
-            @Override public void onPageStarted(WebView v, String url, Bitmap icon) { inject(); }
+            @Override public void onPageStarted(WebView v, String url, Bitmap icon) { if (!blockIfAdult(v, url)) inject(); }
             @Override public void onPageFinished(WebView v, String url) { inject(); }
-            // YouTube is a single-page app: video -> video navigation only fires this
-            @Override public void doUpdateVisitedHistory(WebView v, String url, boolean isReload) { inject(); }
+            // YouTube is a single-page app: video -> video and search navigation only fire this
+            @Override public void doUpdateVisitedHistory(WebView v, String url, boolean isReload) { if (!blockIfAdult(v, url)) inject(); }
 
             @SuppressWarnings("deprecation")
             @Override
@@ -215,6 +217,7 @@ public class MainActivity extends Activity {
 
         UpdateWorker.schedule(this);
         checkUpdate(false);
+        new Thread(YtResolver::warmUp).start();
 
         String start = HOME;
         Intent in = getIntent();
@@ -284,6 +287,10 @@ public class MainActivity extends Activity {
             webPlaying = ok && p;
             webInfoAt = now;
             if (webPlaying) lastPlayAt = now;
+            if (ok && !id.equals(infoPrefetched)) {
+                infoPrefetched = id;
+                YtResolver.prefetchInfo(id);        // Save's quality list is ready before the button is tapped
+            }
             if (ok && p && !id.equals(prefetched)) {
                 prefetched = id;
                 NativePlayer.prefetch(id);          // get the stream links ready so a hand-over is instant
@@ -320,14 +327,23 @@ public class MainActivity extends Activity {
         if (qualityBusy) return;
         final String ttl = title == null ? "" : title.replaceAll("\\s*-\\s*YouTube\\s*$", "");
         qualityBusy = true;
-        Toast.makeText(this, "Checking available qualities…", Toast.LENGTH_SHORT).show();
+        final AlertDialog wait = new AlertDialog.Builder(this)
+            .setTitle("Save")
+            .setMessage("Getting qualities…")
+            .setCancelable(false)
+            .show();
         new Thread(() -> {
             try {
                 final List<YtResolver.Opt> opts = YtResolver.options("https://www.youtube.com/watch?v=" + id);
-                runOnUiThread(() -> { qualityBusy = false; if (!isFinishing()) showQualityDialog(id, ttl, opts); });
+                runOnUiThread(() -> {
+                    qualityBusy = false;
+                    try { wait.dismiss(); } catch (Exception ignored) { }
+                    if (!isFinishing()) showQualityDialog(id, ttl, opts);
+                });
             } catch (final Exception e) {
                 runOnUiThread(() -> {
                     qualityBusy = false;
+                    try { wait.dismiss(); } catch (Exception ignored) { }
                     Toast.makeText(this, "Could not get qualities: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
             }
@@ -701,6 +717,59 @@ public class MainActivity extends Activity {
             .show();
     }
 
+    // ── adult block (sidebar toggle): searching adult words shows a block page ─────────────────────────
+
+    private static final java.util.regex.Pattern ADULT_RE = java.util.regex.Pattern.compile(
+        "\\b(porn\\w*|xxx|xx video|sex\\w*|nude\\w*|naked|nsfw|hentai|erotic\\w*|onlyfans|blowjob|boobs?|milf|xvideos|xnxx|xhamster|redtube|blue ?film|chodachudi)\\b"
+        + "|পর্ন|পর্নো|চটি|সেক্স|নগ্ন|ন্যাংটা|যৌন");
+
+    private static final String BLOCK_HTML = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head>"
+        + "<body style='margin:0;background:#0f0f0f;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center'>"
+        + "<div style='padding:24px'><div style='font-size:64px'>🚫</div><h2>Blocked</h2>"
+        + "<p style='color:#aaa'>Adult search is blocked.<br>Adult block is ON in the sidebar.</p>"
+        + "<a href='https://m.youtube.com/' style='display:inline-block;margin-top:16px;padding:12px 28px;border-radius:24px;background:#272727;color:#fff;text-decoration:none'>Go Home</a>"
+        + "</div></body></html>";
+
+    private boolean adultOn() { return getSharedPreferences("ytp", MODE_PRIVATE).getBoolean("adultBlock", false); }
+
+    private static boolean isAdultQuery(String q) {
+        return q != null && ADULT_RE.matcher(q.toLowerCase(Locale.ROOT)).find();
+    }
+
+    /** True (and the block page is shown) when Adult block is ON and this URL is a search for adult words. */
+    private boolean blockIfAdult(final WebView v, String url) {
+        if (url == null || !adultOn()) return false;
+        try {
+            Uri u = Uri.parse(url);
+            String h = u.getHost() == null ? "" : u.getHost().toLowerCase(Locale.ROOT);
+            if (!(h.equals("youtube.com") || h.endsWith(".youtube.com"))) return false;
+            String path = u.getPath() == null ? "" : u.getPath();
+            String q = null;
+            if (path.startsWith("/results")) q = u.getQueryParameter("search_query");
+            else if (path.startsWith("/hashtag/")) q = path.substring(9);
+            if (!isAdultQuery(q)) return false;
+        } catch (Exception e) {
+            return false;
+        }
+        v.post(() -> {
+            v.stopLoading();
+            v.loadDataWithBaseURL(null, BLOCK_HTML, "text/html", "utf-8", null);
+        });
+        return true;
+    }
+
+    private void updateAdultItem() {
+        if (adultItem != null) adultItem.setText(adultOn() ? "🔞   Adult block: ON" : "🔞   Adult block: OFF");
+    }
+
+    private void toggleAdult() {
+        boolean on = !adultOn();
+        getSharedPreferences("ytp", MODE_PRIVATE).edit().putBoolean("adultBlock", on).apply();
+        updateAdultItem();
+        Toast.makeText(this, on ? "Adult block ON — adult searches will be blocked" : "Adult block OFF", Toast.LENGTH_SHORT).show();
+        if (on) blockIfAdult(web, web.getUrl());          // already on an adult search page
+    }
+
     // ── buttons + sidebar ───────────────────────────────────────────────────
 
     private TextView round(String text) {
@@ -771,6 +840,8 @@ public class MainActivity extends Activity {
             if (batteryFree()) Toast.makeText(this, "Already allowed to run in the background", Toast.LENGTH_SHORT).show();
             else openBatterySettings();
         }, true);
+        adultItem = drawerItem("🔞   Adult block: OFF", v -> toggleAdult(), false);   // stays open so the ON/OFF change is visible
+        updateAdultItem();
 
         int w = Math.min(dp(290), (int) (getResources().getDisplayMetrics().widthPixels * 0.82f));
         root.addView(drawer, new FrameLayout.LayoutParams(-1, -1));
@@ -779,6 +850,7 @@ public class MainActivity extends Activity {
 
     private void openDrawer() {
         if (drawer == null || drawer.getVisibility() == View.VISIBLE) return;
+        updateAdultItem();
         floatItem.setText(FloatingWindow.can(this) ? "🪟   Floating window: ON" : "🪟   Floating window: tap to allow");
         battItem.setText(batteryFree() ? "🔋   Background play: OK" : "🔋   Background play fix: tap to allow");
         panel.setTranslationX(-dp(300));

@@ -45,6 +45,55 @@ final class YtResolver {
         inited = true;
     }
 
+    /** Call once at app start (background thread) so the first Save does not pay the NewPipe start-up cost. */
+    static void warmUp() { try { init(); } catch (Exception ignored) { } }
+
+    // ── StreamInfo cache: the slow part of Save is StreamInfo.getInfo (a few seconds of network). It is fetched once per video
+    // (normally ahead of time, while the video page is open) and shared by Save's quality list and the mini player. ──
+    private static final Map<String, Object[]> INFO = new HashMap<>();          // watchUrl -> {StreamInfo, time}
+    private static final Map<String, Object> LOCKS = new HashMap<>();           // one fetch per video at a time
+    private static final long INFO_TTL = 20 * 60 * 1000L;
+
+    private static Object lockFor(String key) {
+        synchronized (LOCKS) {
+            Object l = LOCKS.get(key);
+            if (l == null) { if (LOCKS.size() > 16) LOCKS.clear(); l = new Object(); LOCKS.put(key, l); }
+            return l;
+        }
+    }
+
+    private static StreamInfo cachedInfo(String key) {
+        synchronized (INFO) {
+            Object[] o = INFO.get(key);
+            if (o != null && System.currentTimeMillis() - (Long) o[1] < INFO_TTL) return (StreamInfo) o[0];
+            return null;
+        }
+    }
+
+    private static StreamInfo info(String watchUrl) throws Exception {
+        StreamInfo c = cachedInfo(watchUrl);
+        if (c != null) return c;
+        synchronized (lockFor(watchUrl)) {                  // a prefetch already running? wait for it instead of fetching twice
+            c = cachedInfo(watchUrl);
+            if (c != null) return c;
+            init();
+            StreamInfo si = StreamInfo.getInfo(watchUrl);
+            synchronized (INFO) {
+                if (INFO.size() > 6) INFO.clear();
+                INFO.put(watchUrl, new Object[]{si, System.currentTimeMillis()});
+            }
+            return si;
+        }
+    }
+
+    /** Fetch the stream info of a video in the background so Save opens the quality list instantly. */
+    static void prefetchInfo(final String videoId) {
+        if (videoId == null) return;
+        final String url = "https://www.youtube.com/watch?v=" + videoId;
+        if (cachedInfo(url) != null) return;
+        new Thread(() -> { try { info(url); } catch (Exception ignored) { } }).start();
+    }
+
     /** What to download: `url` alone is a ready video+audio file; with `audioUrl` the two must be merged on the phone. */
     static final class Res {
         final String url, audioUrl;
@@ -57,8 +106,7 @@ final class YtResolver {
      * @throws Exception when nothing downloadable was found.
      */
     static Res resolve(String watchUrl) throws Exception {
-        init();
-        StreamInfo info = StreamInfo.getInfo(watchUrl);
+        StreamInfo info = info(watchUrl);
         VideoStream muxed = bestMuxed(info.getVideoStreams());
         VideoStream vo = bestVideoOnly(info.getVideoOnlyStreams());
         AudioStream au = bestAudio(info.getAudioStreams());
@@ -79,8 +127,7 @@ final class YtResolver {
 
     /** Every quality that can be saved (H.264 mp4 up to 1080p + AAC audio, or a ready 360p file), biggest first, with sizes. */
     static List<Opt> options(String watchUrl) throws Exception {
-        init();
-        StreamInfo info = StreamInfo.getInfo(watchUrl);
+        StreamInfo info = info(watchUrl);
         AudioStream au = bestAudio(info.getAudioStreams());
         long aBytes = au == null ? -1 : contentLength(au.getContent());
         List<Opt> out = new ArrayList<>();
