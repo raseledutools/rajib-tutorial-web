@@ -96,6 +96,12 @@
 
         <!-- Study Tools: native PDF / photo / QR utilities (no WebView, WPS-style UI) -->
         <activity
+            android:name=".GitHubActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden" />
+
+        <activity
             android:name=".StudyToolsActivity"
             android:exported="false"
             android:screenOrientation="portrait"

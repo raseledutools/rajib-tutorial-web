@@ -140,6 +140,10 @@ public class MainActivity extends AppCompatActivity {
             homeScreen.closeDrawers();
             startActivity(new Intent(this, StudyToolsActivity.class));
         });
+        findViewById(R.id.drawerGithub).setOnClickListener(v -> {
+            homeScreen.closeDrawers();
+            startActivity(new Intent(this, GitHubActivity.class));
+        });
         findViewById(R.id.drawerFocus).setOnClickListener(v -> {
             homeScreen.closeDrawers();
             startActivity(new Intent(this, FocusActivity.class));
