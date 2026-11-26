@@ -61,6 +61,10 @@ android {
 dependencies {
     implementation 'androidx.core:core:1.13.1'
     implementation 'androidx.webkit:webkit:1.11.0'
+    // background update check while the app is closed
+    implementation 'androidx.work:work-runtime:2.9.1'
+    implementation 'com.google.guava:listenablefuture:1.0'
+    implementation 'com.google.guava:guava:31.1-android'
     // Same YouTube resolver the course "save" system uses
     implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.27.1'
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.0.4'

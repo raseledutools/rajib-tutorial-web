@@ -40,6 +40,8 @@ final class YtSaver {
     private static final Map<String, Listener> sListeners = new ConcurrentHashMap<>();
     private static final ExecutorService EX = Executors.newFixedThreadPool(2);
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static final Map<String, String> sTitle = new ConcurrentHashMap<>();
+    private static volatile Context sApp;
     private static final long MIN_FREE_BYTES = 200L * 1024 * 1024;
 
     // ── public API ──────────────────────────────────────────────────────────
@@ -78,6 +80,8 @@ final class YtSaver {
         if (l != null) sListeners.put(id, l);
         if (find(ctx, id) != null) { notifyL(id, 100); return; }
         if (isDownloading(id)) return;
+        sApp = ctx.getApplicationContext();
+        sTitle.put(id, safeName(title));
         sProgress.put(id, 0);
         sCancel.put(id, Boolean.FALSE);
         sError.remove(id);
@@ -144,6 +148,9 @@ final class YtSaver {
     private static void notifyL(String id, int pct) {
         Listener l = sListeners.get(id);
         if (l != null) MAIN.post(() -> l.onProgress(id, pct));
+        Context a = sApp;
+        String t = sTitle.get(id);
+        if (a != null && t != null) Notifs.save(a, id, t, pct);
     }
 
     private static void checkSpace(Context ctx, long total) throws IOException {
