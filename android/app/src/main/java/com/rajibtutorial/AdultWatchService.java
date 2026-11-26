@@ -209,8 +209,9 @@ public class AdultWatchService extends AccessibilityService {
         if (rp == null || !BROWSERS.contains(rp.toString())) { newTabSince = 0; try { root.recycle(); } catch (Exception ignored) { } return false; }
         lastBrowserPkg = rp.toString();
         String txt = null;
-        boolean typing = false;
+        boolean typing = false, mark = false;
         try {
+            mark = hasFocusMark(root, new int[]{0});
             AccessibilityNodeInfo bar = findUrlBar(root, new int[]{0}, false);
             if (bar != null) {
                 CharSequence t = bar.getText();
@@ -220,6 +221,7 @@ public class AdultWatchService extends AccessibilityService {
             }
         } finally { try { root.recycle(); } catch (Exception ignored) { } }
         if (txt == null) newTabSince = 0;
+        if (mark) { newTabSince = 0; return false; }                  // this tab already shows OUR focus page: leave it alone, never reload it
         if (txt == null || typing) return false;                     // no address bar on screen (tab grid, menu …) or still typing
         if (txt.contains("localhost")) return false;                 // our focus page
         long nowE = SystemClock.elapsedRealtime();
@@ -243,6 +245,42 @@ public class AdultWatchService extends AccessibilityService {
         }
         if (host != null && LocalFocusServer.isAllowedHost(this, host)) return false;   // an allowed website
         return openFocusPageInSameTab(false);
+    }
+
+    /** True when the page on screen is our focus page (its brand / heading text is in the web content). */
+    private static boolean hasFocusMark(AccessibilityNodeInfo n, int[] budget) {
+        if (n == null || budget[0]++ > 600) return false;
+        CharSequence t = n.getText();
+        if (t != null && (t.toString().contains("Focus Mode") || t.toString().contains("মনোযোগের সময়"))) return true;
+        for (int i = 0; i < n.getChildCount(); i++) {
+            AccessibilityNodeInfo c = n.getChild(i);
+            if (c == null) continue;
+            boolean r;
+            try { r = hasFocusMark(c, budget); } finally { try { c.recycle(); } catch (Exception ignored) { } }
+            if (r) return true;
+        }
+        return false;
+    }
+
+    /** Enter did not register: tap the address-bar suggestion that shows our link instead. */
+    private boolean clickLinkSuggestion(AccessibilityNodeInfo n, int[] budget) {
+        if (n == null || budget[0]++ > 500) return false;
+        CharSequence t = n.getText();
+        if (t != null && !n.isEditable() && t.toString().contains("localhost:" + LocalFocusServer.PORT)) {
+            AccessibilityNodeInfo x = AccessibilityNodeInfo.obtain(n);
+            for (int up = 0; x != null && up < 4; up++) {
+                if (x.isClickable() && x.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true;
+                x = x.getParent();
+            }
+        }
+        for (int i = 0; i < n.getChildCount(); i++) {
+            AccessibilityNodeInfo c = n.getChild(i);
+            if (c == null) continue;
+            boolean r;
+            try { r = clickLinkSuggestion(c, budget); } finally { try { c.recycle(); } catch (Exception ignored) { } }
+            if (r) return true;
+        }
+        return false;
     }
 
     private static boolean isChromium(String p) {
@@ -331,7 +369,10 @@ public class AdultWatchService extends AccessibilityService {
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return false;
         AccessibilityNodeInfo bar;
-        try { bar = findUrlBar(root, new int[]{0}, false); } finally { try { root.recycle(); } catch (Exception ignored) { } }
+        try {
+            bar = findUrlBar(root, new int[]{0}, true);
+            if (bar == null) bar = findUrlBar(root, new int[]{0}, false);
+        } finally { try { root.recycle(); } catch (Exception ignored) { } }
         if (bar == null) return false;
         bar.performAction(AccessibilityNodeInfo.ACTION_CLICK);
         bar.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
@@ -358,7 +399,14 @@ public class AdultWatchService extends AccessibilityService {
             boolean has = ct.contains("localhost:" + LocalFocusServer.PORT);
             if (has && enters >= 1 && !ct.contains("://")) done = true;      // the browser shows the loaded page's short address
             else if (has && enters >= 2 && !b.isFocused()) done = true;      // Enter pressed twice and the box is left
-            else if (has) { b.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId()); enters++; }   // typed link: press Enter
+            else if (has) {                                                   // typed link: press Enter; if that does not take, tap the suggestion
+                b.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
+                enters++;
+                if (enters >= 2) {
+                    AccessibilityNodeInfo r2 = getRootInActiveWindow();
+                    if (r2 != null) { try { clickLinkSuggestion(r2, new int[]{0}); } finally { try { r2.recycle(); } catch (Exception ignored) { } } }
+                }
+            }
             else {
                 android.os.Bundle a = new android.os.Bundle();
                 a.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, LocalFocusServer.FOCUS_URL);
@@ -372,6 +420,7 @@ public class AdultWatchService extends AccessibilityService {
             lastAct = SystemClock.elapsedRealtime();
             if (done) focusLoadedAt = lastAct;
             if (fail) {
+                focusLoadedAt = lastAct + 9000;                          // failed: wait ~15 s before trying again (no endless retry / refresh)
                 if (adult) { performGlobalAction(GLOBAL_ACTION_BACK); showOverlay(); }
                 else performGlobalAction(GLOBAL_ACTION_HOME);
             }
