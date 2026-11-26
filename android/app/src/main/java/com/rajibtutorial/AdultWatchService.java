@@ -52,6 +52,7 @@ public class AdultWatchService extends AccessibilityService {
     private long drivingSince = 0;
     private boolean driving = false;      // typing the focus link into the address bar right now
     private long lastAct = 0;
+    private String lastBrowserPkg = "";
     private long newTabSince = 0, focusLoadedAt = 0;   // new-tab debounce / cooldown after the focus page was loaded
     private long lastScan = 0;
     private View overlay;
@@ -88,8 +89,9 @@ public class AdultWatchService extends AccessibilityService {
         long now = SystemClock.elapsedRealtime();
         if (driving && now - drivingSince > 6000) driving = false;     // never stay stuck
         if (overlay != null || driving) return;
-        if (now - lastAct < (focusOn ? 1200 : 2000)) return;
+        if (now - lastAct < (focusOn ? 700 : 2000)) return;
         final boolean browser = BROWSERS.contains(pkg);
+        if (browser) lastBrowserPkg = pkg;
         if (SKIP.contains(pkg)) return;
         if (focusOn && !BROWSERS.contains(pkg) && !AppSettings.adultExternal(this)) return;   // Focus only turns browser tabs into the focus page
         if (!browser && now - lastScan < 900) return;          // other apps: scan at most about once a second (battery)
@@ -201,6 +203,9 @@ public class AdultWatchService extends AccessibilityService {
     private boolean enforceFocus() {
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return false;
+        CharSequence rp = root.getPackageName();
+        if (rp == null || !BROWSERS.contains(rp.toString())) { newTabSince = 0; try { root.recycle(); } catch (Exception ignored) { } return false; }
+        lastBrowserPkg = rp.toString();
         String txt = null;
         boolean typing = false;
         try {
@@ -212,13 +217,20 @@ public class AdultWatchService extends AccessibilityService {
                 try { bar.recycle(); } catch (Exception ignored) { }
             }
         } finally { try { root.recycle(); } catch (Exception ignored) { } }
+        if (txt == null) newTabSince = 0;
         if (txt == null || typing) return false;                     // no address bar on screen (tab grid, menu …) or still typing
         if (txt.contains("localhost")) return false;                 // our focus page
         long nowE = SystemClock.elapsedRealtime();
         if (nowE - focusLoadedAt < 6000) return false;                // the focus page was just loaded: let it finish (no reload loop / flicker)
         if (isNewTabText(txt)) {                                      // a NEW TAB: only when it STAYS a new tab for a moment (a loading page also shows an empty bar for a blink)
-            if (newTabSince == 0) { newTabSince = nowE; return false; }
-            if (nowE - newTabSince < 900) return false;
+            if (newTabSince == 0) {
+                newTabSince = nowE;
+                ui.postDelayed(() -> {                                // look again shortly: no need to wait for another event
+                    if (!driving && overlay == null && new FocusManager(this).isSessionActive() && enforceFocus()) lastAct = SystemClock.elapsedRealtime();
+                }, 550);
+                return false;
+            }
+            if (nowE - newTabSince < 450) return false;
             newTabSince = 0;
             return openFocusPageInSameTab(false);
         }
@@ -229,6 +241,25 @@ public class AdultWatchService extends AccessibilityService {
         }
         if (host != null && LocalFocusServer.isAllowedHost(this, host)) return false;   // an allowed website
         return openFocusPageInSameTab(false);
+    }
+
+    private static boolean isChromium(String p) {
+        if (p == null) return false;
+        return p.startsWith("com.android.chrome") || p.startsWith("com.chrome.") || p.equals("com.google.android.apps.chrome")
+            || p.equals("com.microsoft.emmx") || p.equals("com.brave.browser") || p.equals("com.sec.android.app.sbrowser")
+            || p.startsWith("com.opera.") || p.equals("com.vivaldi.browser") || p.equals("com.kiwibrowser.browser");
+    }
+
+    private boolean openViaIntent(String pkg) {
+        try {
+            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(LocalFocusServer.FOCUS_URL)).setPackage(pkg)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra("com.android.browser.application_id", getPackageName());
+            startActivity(i);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /** The browser's new-tab page: empty address bar, the hint text of the bar, or an internal page (chrome://newtab, about:blank …). */
@@ -243,12 +274,21 @@ public class AdultWatchService extends AccessibilityService {
 
     /** The SAME tab becomes the Focus page: the address bar gets http://localhost:PORT/focus (LocalFocusServer) + Enter, retried until it sticks. */
     private boolean openFocusPageInSameTab(final boolean adult) {
-        if (Build.VERSION.SDK_INT < 30) { if (!adult) performGlobalAction(GLOBAL_ACTION_HOME); return !adult; }   // Enter action needs Android 11+
         LocalFocusServer.start(this);
         if (!LocalFocusServer.isUp()) {                                // give a just-started server a moment
             try { Thread.sleep(250); } catch (InterruptedException ignored) { }
             if (!LocalFocusServer.isUp()) return false;                // server cannot start: old way (overlay) instead of an error page
         }
+        // Chrome-type browsers: open the focus page with an Intent (instant, nothing is typed, no flicker). The same app-id makes
+        // the browser REUSE its one focus tab instead of piling up new ones.
+        if (isChromium(lastBrowserPkg) && openViaIntent(lastBrowserPkg)) {
+            long t = SystemClock.elapsedRealtime();
+            lastAct = t;
+            focusLoadedAt = t - 3000;                                  // short cooldown (3 s) so it cannot loop
+            newTabSince = 0;
+            return true;
+        }
+        if (Build.VERSION.SDK_INT < 30) { if (!adult) performGlobalAction(GLOBAL_ACTION_HOME); return !adult; }   // Enter action needs Android 11+
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return false;
         AccessibilityNodeInfo bar;
@@ -260,7 +300,7 @@ public class AdultWatchService extends AccessibilityService {
         driving = true;
         drivingSince = SystemClock.elapsedRealtime();
         enters = 0;
-        ui.postDelayed(() -> drive(adult, 0), 350);
+        ui.postDelayed(() -> drive(adult, 0), 200);
         return true;
     }
 
@@ -272,7 +312,7 @@ public class AdultWatchService extends AccessibilityService {
             try { b = findUrlBar(r, new int[]{0}, true); } finally { try { r.recycle(); } catch (Exception ignored) { } }
         }
         if (b == null) {
-            if (attempt >= 3) fail = true;
+            if (attempt >= 4) fail = true;
         } else {
             CharSequence cur = b.getText();
             String ct = cur == null ? "" : cur.toString();
@@ -286,7 +326,7 @@ public class AdultWatchService extends AccessibilityService {
                 b.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, a);
             }
             try { b.recycle(); } catch (Exception ignored) { }
-            if (!done && attempt >= 7) { if (enters > 0) done = true; else fail = true; }
+            if (!done && attempt >= 10) { if (enters > 0) done = true; else fail = true; }
         }
         if (done || fail) {
             driving = false;
@@ -298,7 +338,7 @@ public class AdultWatchService extends AccessibilityService {
             }
             return;
         }
-        ui.postDelayed(() -> drive(adult, attempt + 1), 450);
+        ui.postDelayed(() -> drive(adult, attempt + 1), 300);
     }
 
     private AccessibilityNodeInfo findUrlBar(AccessibilityNodeInfo n, int[] budget, boolean editable) {
