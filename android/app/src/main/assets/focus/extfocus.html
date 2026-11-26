@@ -2,44 +2,70 @@
 <html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Focus time 🌿</title>
 <style>
-*{box-sizing:border-box}html,body{height:100%;margin:0}
-body{font-family:'Segoe UI','Noto Sans Bengali',system-ui,sans-serif;color:#e3e3e3;background:radial-gradient(1200px 600px at 50% 0%,#2a3b3a 0%,#3c3c3c 70%);display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;overflow:auto}
-.fp{display:flex;flex-direction:column;align-items:center;gap:22px;animation:fi .7s ease both}
-@keyframes fi{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-h2{margin:0;font-size:30px;font-weight:600;color:#e8f5f3}
-.sub{max-width:560px;font-size:15px;line-height:1.7;color:#c4c7c5}
-.fq{max-width:640px;min-height:120px;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:22px 28px;border-radius:18px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);transition:opacity .5s ease,transform .5s ease}
-.fq.out{opacity:0;transform:translateY(8px)}
-.fq q{quotes:none;font-size:20px;line-height:1.6;color:#fff}.fq small{font-size:13.5px;color:#8fd3c8}
-.tm{font:600 54px/1 'Segoe UI',system-ui,sans-serif;letter-spacing:2px;color:#e8f5f3;font-variant-numeric:tabular-nums}
-.fr{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-button{border:0;border-radius:20px;padding:9px 18px;font-size:13.5px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.1);color:#e3e3e3;font-family:inherit}
-button:hover{background:rgba(255,255,255,.18)}button.p{background:#8fd3c8;color:#10201d}button.p:hover{background:#a6e0d6}
-
-.sites{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:680px}
-.sites a{display:inline-flex;align-items:center;gap:6px;text-decoration:none;border-radius:20px;padding:9px 16px;font-size:13.5px;font-weight:600;background:rgba(143,211,200,.16);color:#d6f2ed;border:1px solid rgba(143,211,200,.35)}
-.sites a:hover{background:rgba(143,211,200,.28)}.sites a i{font-style:normal;opacity:.7;margin-left:4px;cursor:pointer}.sites a i:hover{opacity:1;color:#ffb4a8}
-.sh{font-size:13px;color:#9aa5a2}.add{display:flex;gap:8px}.add input{border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.25);color:#fff;border-radius:20px;padding:9px 16px;font-size:13.5px;width:230px;outline:0;font-family:inherit}
-.live{color:#8fd3c8;font-size:14px;font-weight:600}.lock{opacity:.5;pointer-events:none}
-.pm{display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap}.pm .pml{font-size:13.5px;color:#c4c7c5}.pm b{min-width:28px;font-size:22px;color:#e8f5f3;font-variant-numeric:tabular-nums}.pm button{padding:5px 14px;font-size:17px;line-height:1.2}
-.pmt{font-size:12.5px;color:#9aa5a2;min-height:16px}
+:root{--bg:#0A0F1E;--sf:#111833;--sf2:#18213F;--ln:rgba(255,255,255,.08);--tx:#E9EDFA;--mu:#8B95B5;--ac:#8EA2FF;--ak:#0A0F1E;--mt:#6FE3C1}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%}
+body{font-family:'Noto Sans Bengali','Hind Siliguri','Segoe UI',system-ui,sans-serif;color:var(--tx);background:radial-gradient(900px 500px at 50% -8%,#1E2A5A 0%,transparent 70%),var(--bg);padding:max(18px,env(safe-area-inset-top)) 16px max(28px,env(safe-area-inset-bottom));-webkit-tap-highlight-color:transparent}
+body.on{--ac:#8EA2FF}body.brk{--ac:var(--mt)}
+.wrap{max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.top{display:flex;align-items:center;justify-content:space-between;padding:4px 2px}
+.brand{font-size:14px;font-weight:600;color:var(--mu);letter-spacing:.2px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:99px;background:var(--sf);border:1px solid var(--ln);font-size:12.5px;font-weight:600;color:var(--mu)}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--mu)}
+body.on .pill,body.brk .pill{color:var(--tx)}body.on .pill i,body.brk .pill i{background:var(--ac);box-shadow:0 0 0 0 var(--ac);animation:pu 2s infinite}
+@keyframes pu{70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 0 4px}
+.ring{position:relative;width:min(72vw,270px);aspect-ratio:1}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:5;stroke-linecap:round}.trk{stroke:var(--sf2)}
+.rg{stroke:var(--ac);stroke-dasharray:339.29;stroke-dashoffset:0;transition:stroke-dashoffset .6s linear,stroke .4s}
+.tmw{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.tm{font:600 clamp(40px,13vw,56px)/1 'Segoe UI',system-ui,sans-serif;letter-spacing:1px;font-variant-numeric:tabular-nums}
+.tl{margin-top:8px;font-size:13px;color:var(--mu)}
+h2{margin:22px 0 8px;font-size:24px;font-weight:700;letter-spacing:-.2px}
+.sub{max-width:360px;font-size:14px;line-height:1.75;color:var(--mu)}
+.live{min-height:20px;margin-top:12px;font-size:13.5px;font-weight:600;color:var(--ac)}
+.pm{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px 12px 18px;background:var(--sf);border:1px solid var(--ln);border-radius:16px}
+.pm .pml{font-size:14px;font-weight:600}
+.pm b{min-width:46px;text-align:center;font-size:20px;font-variant-numeric:tabular-nums}
+.pm button{width:38px;height:38px;padding:0;border-radius:11px;font-size:20px;line-height:1}
+.pm>.st{display:flex;align-items:center;gap:6px}
+.pmt{min-height:16px;margin:-4px 4px 0;font-size:12.5px;color:var(--mu);text-align:center}
+.fr{display:flex;flex-wrap:wrap;gap:10px}.fr button{flex:1}
+button{border:0;border-radius:14px;padding:13px 18px;font:600 14.5px inherit;font-family:inherit;cursor:pointer;background:var(--sf2);color:var(--tx);transition:background .15s,transform .1s}
+button:hover{background:#222E58}button:active{transform:scale(.97)}
+button.p{background:var(--ac);color:var(--ak);font-size:16px;padding:16px 18px;box-shadow:0 8px 24px -10px var(--ac)}button.p:hover{filter:brightness(1.08);background:var(--ac)}
+.fq{display:flex;flex-direction:column;gap:10px;padding:18px 20px;border-radius:18px;background:var(--sf);border:1px solid var(--ln);transition:opacity .5s,transform .5s}
+.fq.out{opacity:0;transform:translateY(6px)}
+.fq q{quotes:none;font-size:16.5px;line-height:1.75}.fq small{font-size:13px;color:var(--ac)}
+.fq .g{align-self:flex-start;margin-top:4px;padding:7px 12px;font-size:12.5px;background:transparent;border:1px solid var(--ln);color:var(--mu)}
+.sec{padding:16px;border-radius:18px;background:var(--sf);border:1px solid var(--ln);display:flex;flex-direction:column;gap:12px}
+.sh{font-size:13px;font-weight:600;color:var(--mu)}
+.sites{display:flex;flex-wrap:wrap;gap:8px}
+.sites a{display:inline-flex;align-items:center;gap:6px;text-decoration:none;border-radius:11px;padding:8px 12px;font-size:13px;font-weight:600;background:var(--sf2);color:var(--tx);border:1px solid var(--ln)}
+.sites a:hover{border-color:var(--ac)}.sites a i{font-style:normal;opacity:.6;margin-left:4px;cursor:pointer}.sites a i:hover{opacity:1;color:#FF9C8F}
+.add{display:flex;gap:8px}.add input{flex:1;min-width:0;border:1px solid var(--ln);background:var(--bg);color:var(--tx);border-radius:12px;padding:11px 14px;font:14px inherit;font-family:inherit;outline:0}
+.add input:focus{border-color:var(--ac)}.add button{padding:11px 16px}
+.lock{opacity:.5;pointer-events:none}
 </style></head><body>
-<div class="fp">
-<h2>একটু থামুন 🌿</h2>
-<div class="sub">আপনি যা খুঁজছিলেন তা আপনার লক্ষ্য থেকে মনোযোগ সরিয়ে দিতে পারে। এই মুহূর্তটা আপনার ভবিষ্যৎ গড়ার সময় — চলুন আবার পড়াশোনায় ফিরি।</div>
-<div class="fq" id="fq"><q id="q"></q><small id="a"></small></div>
-<div class="tm" id="tm">25:00</div>
+<main class="wrap">
+<header class="top"><span class="brand">Focus Mode</span><span class="pill"><i></i><span id="pt">প্রস্তুত</span></span></header>
+<section class="hero">
+<div class="ring"><svg viewBox="0 0 120 120"><circle class="trk" cx="60" cy="60" r="54"/><circle class="rg" id="rg" cx="60" cy="60" r="54"/></svg>
+<div class="tmw"><div class="tm" id="tm">25:00</div><div class="tl" id="tl">মিনিট</div></div></div>
+<h2>এখন মনোযোগের সময়</h2>
+<div class="sub">আপনি যা খুঁজছিলেন তা লক্ষ্য থেকে মনোযোগ সরিয়ে দিতে পারে। চলুন আবার পড়াশোনায় ফিরি।</div>
 <div class="live" id="live"></div>
-<div class="pm" id="pm"><span class="pml">🍅 Pomodoro — কয়টা session?</span><button id="pmM" title="কমান">−</button><b id="pmN">1</b><button id="pmP" title="বাড়ান">＋</button></div>
-<div class="pm" id="mn"><span class="pml">⏱ সময় (মিনিট)</span><button id="mnM" title="কমান">−</button><b id="mnN">25</b><button id="mnP" title="বাড়ান">＋</button></div>
+</section>
+<div class="pm" id="mn"><span class="pml">সময় (মিনিট)</span><span class="st"><button id="mnM" title="কমান">−</button><b id="mnN">25</b><button id="mnP" title="বাড়ান">＋</button></span></div>
+<div class="pm" id="pm"><span class="pml">Pomodoro session</span><span class="st"><button id="pmM" title="কমান">−</button><b id="pmN">1</b><button id="pmP" title="বাড়ান">＋</button></span></div>
 <div class="pmt" id="pmT"></div>
-<div class="fr"><button class="p" id="bt">▶ ফোকাস শুরু</button><button id="bq">💬 আরেকটি উক্তি</button></div>
-<div class="fr" id="bk" style="display:none"><button class="p" id="bs">▶ এখনই পরের session শুরু</button><button id="bx">✕ Pomodoro বন্ধ</button></div>
-<div class="sh" id="sh">অনুমোদিত ওয়েবসাইট — ক্লিক করলে এই ট্যাবেই খুলবে</div>
-<div id="nz" style="margin:14px 0 4px"></div>
-<div class="sites" id="sites"></div>
-<div class="add" id="add"><input id="in" placeholder="যেমন: youtube.com" autocomplete="off"><button id="ba">＋ যোগ</button></div>
-</div>
+<div class="fr"><button class="p" id="bt">ফোকাস শুরু</button></div>
+<div class="fr" id="bk" style="display:none"><button class="p" id="bs">এখনই পরের session</button><button id="bx">Pomodoro বন্ধ</button></div>
+<section class="fq" id="fq"><q id="q"></q><small id="a"></small><button class="g" id="bq">↻ আরেকটি উক্তি</button></section>
+<section class="sec"><div class="sh" id="sh">অনুমোদিত ওয়েবসাইট — ক্লিক করলে এই ট্যাবেই খুলবে</div><div class="sites" id="sites"></div>
+<div class="add" id="add"><input id="in" placeholder="যেমন: youtube.com" autocomplete="off"><button id="ba">যোগ</button></div></section>
+<section class="sec"><div id="nz"></div></section>
+</main>
 <script>/*__NOISE_JS__*/</script>
 <script>
 const QUOTES=[
@@ -66,6 +92,7 @@ async function api(path,body){
 function left(){if(inBreak())return Math.max(0,Math.round((pomo.breakEndAt-(Date.now()+off))/1000));return active?Math.max(0,Math.round((endAt-(Date.now()+off))/1000)):mins*60}
 function fmt(){
   const l=left();$('tm').textContent=String(Math.floor(l/60)).padStart(2,'0')+':'+String(l%60).padStart(2,'0');
+  const bk0=inBreak(),tot=(bk0?brkM:mins)*60,fr=(active||bk0)&&tot?Math.min(1,l/tot):1;$('rg').style.strokeDashoffset=339.29*(1-fr);$('tl').textContent=(active||bk0)?(bk0?'বিরতি চলছে':'বাকি আছে'):'মিনিট';
   document.title=(active||inBreak())?(inBreak()?'☕ ':'')+$('tm').textContent+' · Focus time 🌿':'Focus time 🌿';
   if((active||inBreak())&&l<=0){
     if(pomo){if(!wait){wait=true;poll().then(()=>{wait=false},()=>{wait=false})}}   // the app moves on to the break / next session / end by itself
@@ -73,15 +100,15 @@ function fmt(){
   }
 }
 function render(){
-  const bk=inBreak();$('bt').style.display=(active||bk)?'none':'';$('pm').style.display=(active||bk)?'none':'flex';$('mn').style.display=(active||bk)?'none':'flex';$('pmT').style.display=(active||bk)?'none':'';$('bk').style.display=bk?'flex':'none';$('add').style.display=active?'none':'flex';paintPm();
-  if(active)$('live').textContent='🔒 ফোকাস চলছে — সময় শেষ না হওয়া পর্যন্ত নতুন ট্যাব / অন্য সাইট এই পাতায় ফিরে আসবে';
+  const bk=inBreak();$('pt').textContent=bk?'বিরতি':active?'ফোকাস চলছে':'প্রস্তুত';document.body.className=bk?'brk':active?'on':'';$('bt').style.display=(active||bk)?'none':'';$('pm').style.display=(active||bk)?'none':'flex';$('mn').style.display=(active||bk)?'none':'flex';$('pmT').style.display=(active||bk)?'none':'';$('bk').style.display=bk?'flex':'none';$('add').style.display=active?'none':'flex';paintPm();
+  if(active)$('live').textContent='ফোকাস চলছে — সময় শেষ না হওয়া পর্যন্ত নতুন ট্যাব ও অন্য সাইট এই পাতায় ফিরে আসবে';
   else if(left()>0&&$('live').textContent.indexOf('সাবাশ')<0)$('live').textContent='';
-  if(active&&pomo)$('live').textContent='🔒 Session '+pomo.idx+'/'+pomo.total+' চলছে — সময় শেষ না হওয়া পর্যন্ত নতুন ট্যাব / অন্য সাইট এই পাতায় ফিরে আসবে';
-  if(bk)$('live').textContent='☕ বিরতি — Session '+pomo.idx+'/'+pomo.total+' শেষ। '+(pomo.idx+1)+' নম্বর session নিজে থেকেই শুরু হবে।';
+  if(active&&pomo)$('live').textContent='Session '+pomo.idx+'/'+pomo.total+' চলছে — সময় শেষ না হওয়া পর্যন্ত নতুন ট্যাব / অন্য সাইট এই পাতায় ফিরে আসবে';
+  if(bk)$('live').textContent='বিরতি — Session '+pomo.idx+'/'+pomo.total+' শেষ। '+(pomo.idx+1)+' নম্বর session নিজে থেকেই শুরু হবে।';
   $('sh').style.display=sites.length?'':'none';
   const box=$('sites');box.textContent='';
   sites.forEach(s=>{
-    const a=document.createElement('a');a.href='https://'+s+'/';a.textContent='🌐 '+s;
+    const a=document.createElement('a');a.href='https://'+s+'/';a.textContent=s;
     if(!active){const x=document.createElement('i');x.textContent='✕';x.title='মুছুন';x.onclick=async e=>{e.preventDefault();e.stopPropagation();const r=await api('/api/sites',{remove:s});if(r&&r.ok){sites=r.sites;render()}};a.appendChild(x)}
     box.appendChild(a);
   });
@@ -93,7 +120,7 @@ function apply(st){if(!st)return;const was=pomo;active=!!st.active;endAt=st.endA
   render();
   if(was&&!pomo&&!active){if(stopped)$('live').textContent='';else $('live').textContent='সাবাশ! সব '+was.total+' টি session শেষ 🎉';stopped=false}
 }
-function paintPm(){$('mnN').textContent=mins;$('pmN').textContent=sess;$('bt').textContent=sess<2?'▶ '+mins+' মিনিট ফোকাস শুরু':'▶ '+sess+' × '+mins+' মিনিট ফোকাস শুরু';
+function paintPm(){$('mnN').textContent=mins;$('pmN').textContent=sess;$('bt').textContent=sess<2?mins+' মিনিট ফোকাস শুরু':sess+' × '+mins+' মিনিট ফোকাস শুরু';
   $('pmT').textContent=sess<2?'শুধু একটি '+mins+' মিনিটের session':'মোট '+sess+' টি session, মাঝে '+brkM+' মিনিট বিরতি (প্রায় '+(sess*mins+(sess-1)*brkM)+' মিনিট)'}
 $('mnM').onclick=()=>{mins=Math.max(5,mins-5);paintPm();fmt()};
 $('mnP').onclick=()=>{mins=Math.min(180,mins+5);paintPm();fmt()};
