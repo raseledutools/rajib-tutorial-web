@@ -53,6 +53,8 @@ public class AdultWatchService extends AccessibilityService {
     private boolean driving = false;      // typing the focus link into the address bar right now
     private long lastAct = 0;
     private String lastBrowserPkg = "";
+    private int intentFails = 0;
+    private boolean intentBroken = false;   // the Intent route did nothing twice: use the address-bar route only
     private long newTabSince = 0, focusLoadedAt = 0;   // new-tab debounce / cooldown after the focus page was loaded
     private long lastScan = 0;
     private View overlay;
@@ -281,13 +283,50 @@ public class AdultWatchService extends AccessibilityService {
         }
         // Chrome-type browsers: open the focus page with an Intent (instant, nothing is typed, no flicker). The same app-id makes
         // the browser REUSE its one focus tab instead of piling up new ones.
-        if (isChromium(lastBrowserPkg) && openViaIntent(lastBrowserPkg)) {
-            long t = SystemClock.elapsedRealtime();
-            lastAct = t;
-            focusLoadedAt = t - 3000;                                  // short cooldown (3 s) so it cannot loop
+        boolean canDraw = Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(this);   // Android only lets an app start another app from the background with this permission
+        if (canDraw && !intentBroken && isChromium(lastBrowserPkg) && openViaIntent(lastBrowserPkg)) {
+            // never trust it: Android can drop the Intent silently. Check that the focus page really opened, else type the link.
+            driving = true;
+            drivingSince = SystemClock.elapsedRealtime();
             newTabSince = 0;
+            ui.postDelayed(() -> verifyIntent(adult, 0), 1000);
             return true;
         }
+        return typeFocusLink(adult);
+    }
+
+    private void verifyIntent(final boolean adult, final int tries) {
+        String txt = null;
+        boolean browserFront = false;
+        AccessibilityNodeInfo r = getRootInActiveWindow();
+        if (r != null) {
+            try {
+                CharSequence rp = r.getPackageName();
+                browserFront = rp != null && BROWSERS.contains(rp.toString());
+                if (browserFront) {
+                    AccessibilityNodeInfo bar = findUrlBar(r, new int[]{0}, false);
+                    if (bar != null) {
+                        CharSequence t = bar.getText();
+                        txt = t == null ? "" : t.toString();
+                        try { bar.recycle(); } catch (Exception ignored) { }
+                    }
+                }
+            } finally { try { r.recycle(); } catch (Exception ignored) { } }
+        }
+        long now = SystemClock.elapsedRealtime();
+        if (txt != null && txt.contains("localhost")) {                // it worked
+            driving = false; lastAct = now; focusLoadedAt = now - 3000; intentFails = 0;
+            return;
+        }
+        if (!browserFront && r != null) { driving = false; lastAct = now; return; }   // the person already left the browser
+        if (tries < 2) { ui.postDelayed(() -> verifyIntent(adult, tries + 1), 600); return; }   // maybe just slow
+        if (++intentFails >= 2) intentBroken = true;                   // the Intent route does not work on this phone
+        driving = false;
+        if (!typeFocusLink(adult) && adult) { performGlobalAction(GLOBAL_ACTION_BACK); showOverlay(); }
+    }
+
+    /** The address-bar route: type http://localhost:PORT/focus into the bar and press Enter (also the fallback). */
+    private boolean typeFocusLink(final boolean adult) {
         if (Build.VERSION.SDK_INT < 30) { if (!adult) performGlobalAction(GLOBAL_ACTION_HOME); return !adult; }   // Enter action needs Android 11+
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return false;
