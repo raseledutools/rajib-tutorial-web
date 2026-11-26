@@ -9,17 +9,23 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.json.JSONArray;
@@ -34,7 +40,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * GitHub — native screen (no WebView): Repos / Actions / Releases.
+ * GitHub — native screen (no WebView).
+ * Tabs: Repos / Actions / Releases / Commits / Issues / PRs / Branches / Profile.
+ * Actions: run workflow, re-run, cancel, jobs, artifact download, new release / issue / repo, delete release.
  * Token user nijei app e boshay (hardcoded na), SharedPreferences (MODE_PRIVATE) e thake.
  * Scope lagbe: repo, workflow.
  */
@@ -43,24 +51,41 @@ public class GitHubActivity extends AppCompatActivity {
     private static final String PREF = "gh_prefs";
     private static final String KEY_TOKEN = "token";
     private static final String DEFAULT_REPO = "raseledutools/rajib-tutorial-web";
+    private static final String JSON_ACCEPT = "application/vnd.github+json";
 
     private static final int BG = 0xFF0D1117, CARD = 0xFF161B22, BORDER = 0xFF30363D;
     private static final int TXT = 0xFFE6EDF3, DIM = 0xFF8B949E;
     private static final int GREEN = 0xFF3FB950, RED = 0xFFF85149, AMBER = 0xFFD29922;
     private static final int BLUE = 0xFF58A6FF, PURPLE = 0xFF7B2FF7;
 
-    private final ExecutorService io = Executors.newSingleThreadExecutor();
+    private static final String[] TAB_NAMES =
+            {"Repos", "Actions", "Releases", "Commits", "Issues", "PRs", "Branches", "Profile"};
+    private static final int T_REPOS = 0, T_RUNS = 1, T_REL = 2, T_COMMITS = 3,
+            T_ISSUES = 4, T_PRS = 5, T_BRANCHES = 6, T_PROFILE = 7;
+
+    private final ExecutorService io = Executors.newCachedThreadPool();
     private final Handler ui = new Handler(Looper.getMainLooper());
 
     private String token = "";
     private String repo = DEFAULT_REPO;
     private int tab = 0;
     private int reqId = 0;
+    private JSONArray reposCache = new JSONArray();
+    private String repoFilter = "";
+    private volatile String lastScopes = "";
+    private volatile String rateInfo = "";
 
-    private LinearLayout root, list, tabBar, repoBar;
+    private LinearLayout root, list, tabBar, repoBar, actionBar;
     private TextView repoLabel;
     private ProgressBar bar;
-    private final TextView[] tabViews = new TextView[3];
+    private final TextView[] tabViews = new TextView[TAB_NAMES.length];
+
+    private static class Resp {
+        int code;
+        String body = "";
+        String scopes = "";
+        String location = "";
+    }
 
     @Override
     protected void onCreate(Bundle b) {
@@ -126,16 +151,29 @@ public class GitHubActivity extends AppCompatActivity {
         return t;
     }
 
+    private TextView smallBtn(String text, int color, View.OnClickListener l) {
+        TextView t = tv(text, 13, 0xFFFFFFFF, true);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(dp(14), dp(8), dp(14), dp(8));
+        t.setBackground(round(color, 18, 0));
+        t.setOnClickListener(l);
+        return t;
+    }
+
     private String str(JSONObject o, String k) {
-        return o.isNull(k) ? "" : o.optString(k, "");
+        return o == null || o.isNull(k) ? "" : o.optString(k, "");
     }
 
     private String day(String s) {
         return s != null && s.length() >= 10 ? s.substring(0, 10) : (s == null ? "" : s);
     }
 
+    private String sha7(String s) {
+        return s != null && s.length() > 7 ? s.substring(0, 7) : (s == null ? "" : s);
+    }
+
     private void toast(String m) {
-        Toast.makeText(this, m, Toast.LENGTH_SHORT).show();
+        if (!isFinishing()) Toast.makeText(this, m, Toast.LENGTH_SHORT).show();
     }
 
     private void openUrl(String url) {
@@ -144,6 +182,34 @@ public class GitHubActivity extends AppCompatActivity {
         } catch (Exception e) {
             toast("Open করা যায়নি");
         }
+    }
+
+    private String json(Object... kv) {
+        JSONObject o = new JSONObject();
+        try {
+            for (int i = 0; i + 1 < kv.length; i += 2) o.put((String) kv[i], kv[i + 1]);
+        } catch (Exception ignore) { }
+        return o.toString();
+    }
+
+    private LinearLayout form() {
+        LinearLayout f = new LinearLayout(this);
+        f.setOrientation(LinearLayout.VERTICAL);
+        f.setPadding(dp(20), dp(10), dp(20), 0);
+        return f;
+    }
+
+    private EditText field(String hint, boolean multi) {
+        EditText e = new EditText(this);
+        e.setHint(hint);
+        if (multi) {
+            e.setMinLines(3);
+            e.setGravity(Gravity.TOP);
+            e.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        } else {
+            e.setSingleLine(true);
+        }
+        return e;
     }
 
     // ───────────────────────── header ─────────────────────────
@@ -159,8 +225,8 @@ public class GitHubActivity extends AppCompatActivity {
         back.setOnClickListener(v -> finish());
         h.addView(back);
 
-        TextView title = tv("🐙  GitHub", 18, 0xFFFFFFFF, true);
-        h.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        h.addView(tv("🐙  GitHub", 18, 0xFFFFFFFF, true),
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         if (actions) {
             TextView refresh = tv("↻", 22, 0xFFFFFFFF, true);
@@ -232,20 +298,24 @@ public class GitHubActivity extends AppCompatActivity {
         root.removeAllViews();
         addHeader(true);
 
+        HorizontalScrollView hs = new HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        hs.setBackgroundColor(CARD);
         tabBar = new LinearLayout(this);
         tabBar.setOrientation(LinearLayout.HORIZONTAL);
-        tabBar.setBackgroundColor(CARD);
-        String[] names = {"Repos", "Actions", "Releases"};
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < TAB_NAMES.length; i++) {
             final int idx = i;
-            TextView t = tv(names[i], 14, DIM, true);
+            TextView t = tv(TAB_NAMES[i], 14, DIM, true);
             t.setGravity(Gravity.CENTER);
-            t.setPadding(0, dp(13), 0, dp(13));
+            t.setPadding(dp(18), dp(13), dp(18), dp(13));
             t.setOnClickListener(v -> setTab(idx));
             tabViews[i] = t;
-            tabBar.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            tabBar.addView(t, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         }
-        root.addView(tabBar, new LinearLayout.LayoutParams(
+        hs.addView(tabBar, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(hs, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         repoBar = new LinearLayout(this);
@@ -255,10 +325,17 @@ public class GitHubActivity extends AppCompatActivity {
         repoBar.addView(tv("Repo:  ", 13, DIM, false));
         repoLabel = tv(repo, 13, BLUE, true);
         repoLabel.setSingleLine(true);
-        repoLabel.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        repoLabel.setEllipsize(TextUtils.TruncateAt.END);
         repoBar.addView(repoLabel);
-        repoBar.setOnClickListener(v -> setTab(0));
+        repoBar.setOnClickListener(v -> setTab(T_REPOS));
         root.addView(repoBar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        actionBar = new LinearLayout(this);
+        actionBar.setOrientation(LinearLayout.HORIZONTAL);
+        actionBar.setGravity(Gravity.CENTER_VERTICAL);
+        actionBar.setPadding(dp(12), dp(8), dp(12), dp(4));
+        root.addView(actionBar, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
@@ -276,18 +353,59 @@ public class GitHubActivity extends AppCompatActivity {
         root.addView(sv, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        setTab(0);
+        setTab(T_REPOS);
     }
 
     private void setTab(int t) {
         tab = t;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < tabViews.length; i++) {
             tabViews[i].setTextColor(i == t ? BLUE : DIM);
             tabViews[i].setBackgroundColor(i == t ? 0xFF1F2937 : CARD);
         }
         repoLabel.setText(repo);
-        repoBar.setVisibility(t == 0 ? View.GONE : View.VISIBLE);
+        repoBar.setVisibility(t == T_REPOS || t == T_PROFILE ? View.GONE : View.VISIBLE);
+        buildActionBar(t);
         load();
+    }
+
+    private void buildActionBar(int t) {
+        actionBar.removeAllViews();
+        LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        gap.rightMargin = dp(8);
+        if (t == T_REPOS) {
+            final EditText s = new EditText(this);
+            s.setHint("🔍 Search repo");
+            s.setHintTextColor(DIM);
+            s.setTextColor(TXT);
+            s.setTextSize(13);
+            s.setSingleLine(true);
+            s.setText(repoFilter);
+            s.setPadding(dp(12), dp(8), dp(12), dp(8));
+            s.setBackground(round(CARD, 18, BORDER));
+            s.addTextChangedListener(new TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence c, int a, int b, int d) { }
+                @Override public void onTextChanged(CharSequence c, int a, int b, int d) { }
+                @Override public void afterTextChanged(Editable e) {
+                    repoFilter = e.toString().trim().toLowerCase(Locale.ROOT);
+                    if (tab == T_REPOS) {
+                        try { renderRepos(); } catch (Exception ignore) { }
+                    }
+                }
+            });
+            LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            slp.rightMargin = dp(8);
+            actionBar.addView(s, slp);
+            actionBar.addView(smallBtn("＋ Repo", GREEN, v -> newRepoDialog()));
+        } else if (t == T_RUNS) {
+            actionBar.addView(smallBtn("▶ Run workflow", GREEN, v -> runWorkflow()), gap);
+        } else if (t == T_REL) {
+            actionBar.addView(smallBtn("＋ New release", GREEN, v -> newReleaseDialog()), gap);
+            actionBar.addView(tv("long-press = delete", 11, DIM, false));
+        } else if (t == T_ISSUES) {
+            actionBar.addView(smallBtn("＋ New issue", GREEN, v -> newIssueDialog()), gap);
+        }
+        actionBar.setVisibility(actionBar.getChildCount() == 0 ? View.GONE : View.VISIBLE);
     }
 
     private void showMsg(String m, int color) {
@@ -298,37 +416,87 @@ public class GitHubActivity extends AppCompatActivity {
     }
 
     // ───────────────────────── network ─────────────────────────
-    private String readAll(InputStream is) throws Exception {
+    private String readAll(InputStream is) {
         if (is == null) return "";
-        ByteArrayOutputStream bo = new ByteArrayOutputStream();
-        byte[] buf = new byte[8192];
-        int n;
-        while ((n = is.read(buf)) > 0) bo.write(buf, 0, n);
-        is.close();
-        return bo.toString("UTF-8");
+        try {
+            ByteArrayOutputStream bo = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = is.read(buf)) > 0) bo.write(buf, 0, n);
+            is.close();
+            return bo.toString("UTF-8");
+        } catch (Exception e) {
+            return "";
+        }
     }
 
-    private HttpURLConnection open(String path, String accept) throws Exception {
+    private Resp call(String method, String path, String body, String accept, boolean follow) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL("https://api.github.com" + path).openConnection();
         c.setConnectTimeout(15000);
-        c.setReadTimeout(20000);
+        c.setReadTimeout(25000);
+        c.setRequestMethod(method);
+        c.setInstanceFollowRedirects(follow);
         c.setRequestProperty("Authorization", "Bearer " + token);
         c.setRequestProperty("Accept", accept);
         c.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
-        return c;
+        if (body != null) {
+            c.setDoOutput(true);
+            c.setRequestProperty("Content-Type", "application/json");
+            java.io.OutputStream os = c.getOutputStream();
+            os.write(body.getBytes("UTF-8"));
+            os.close();
+        }
+        Resp r = new Resp();
+        r.code = c.getResponseCode();
+        r.body = readAll(r.code >= 400 ? c.getErrorStream() : c.getInputStream());
+        String sc = c.getHeaderField("X-OAuth-Scopes");
+        r.scopes = sc == null ? "" : sc;
+        String loc = c.getHeaderField("Location");
+        r.location = loc == null ? "" : loc;
+        c.disconnect();
+        return r;
+    }
+
+    private String errMsg(Resp r) {
+        String m = r.body;
+        try { m = new JSONObject(r.body).optString("message", r.body); } catch (Exception ignore) { }
+        if (m.length() > 120) m = m.substring(0, 120);
+        return "HTTP " + r.code + ": " + m;
     }
 
     private String get(String path) throws Exception {
-        HttpURLConnection c = open(path, "application/vnd.github+json");
-        int code = c.getResponseCode();
-        String body = readAll(code >= 400 ? c.getErrorStream() : c.getInputStream());
-        c.disconnect();
-        if (code >= 400) {
-            String m = body;
-            try { m = new JSONObject(body).optString("message", body); } catch (Exception ignore) { }
-            throw new Exception("HTTP " + code + ": " + m);
-        }
-        return body;
+        Resp r = call("GET", path, null, JSON_ACCEPT, true);
+        if (r.code >= 400) throw new Exception(errMsg(r));
+        return r.body;
+    }
+
+    /** POST/DELETE style action: toast result, optionally reload current tab. */
+    private void act(final String method, final String path, final String body,
+                     final String okMsg, final boolean reload) {
+        toast("…");
+        io.execute(() -> {
+            String m;
+            boolean ok = false;
+            try {
+                Resp r = call(method, path, body, JSON_ACCEPT, true);
+                if (r.code >= 400) m = "✗ " + errMsg(r);
+                else { m = okMsg; ok = true; }
+            } catch (Exception e) {
+                m = "✗ " + (e.getMessage() == null ? "Network error" : e.getMessage());
+            }
+            final String fm = m;
+            final boolean fok = ok;
+            ui.post(() -> {
+                if (isFinishing()) return;
+                toast(fm);
+                if (fok && reload) load();
+            });
+        });
+    }
+
+    private void fail(Exception e) {
+        final String m = "✗ " + (e.getMessage() == null ? "Network error" : e.getMessage());
+        ui.post(() -> toast(m));
     }
 
     private void load() {
@@ -339,21 +507,36 @@ public class GitHubActivity extends AppCompatActivity {
         showMsg("Loading…", DIM);
         io.execute(() -> {
             try {
-                final JSONArray data;
-                if (t == 0) {
-                    data = new JSONArray(get("/user/repos?per_page=100&sort=updated"));
-                } else if (t == 1) {
-                    data = new JSONObject(get("/repos/" + r + "/actions/runs?per_page=30")).getJSONArray("workflow_runs");
-                } else {
-                    data = new JSONArray(get("/repos/" + r + "/releases?per_page=20"));
+                final Object data;
+                if (t == T_REPOS) data = new JSONArray(get("/user/repos?per_page=100&sort=updated"));
+                else if (t == T_RUNS) data = new JSONObject(get("/repos/" + r + "/actions/runs?per_page=30")).getJSONArray("workflow_runs");
+                else if (t == T_REL) data = new JSONArray(get("/repos/" + r + "/releases?per_page=20"));
+                else if (t == T_COMMITS) data = new JSONArray(get("/repos/" + r + "/commits?per_page=30"));
+                else if (t == T_ISSUES) data = new JSONArray(get("/repos/" + r + "/issues?state=open&per_page=40"));
+                else if (t == T_PRS) data = new JSONArray(get("/repos/" + r + "/pulls?state=open&per_page=30"));
+                else if (t == T_BRANCHES) data = new JSONArray(get("/repos/" + r + "/branches?per_page=50"));
+                else {
+                    Resp pr = call("GET", "/user", null, JSON_ACCEPT, true);
+                    if (pr.code >= 400) throw new Exception(errMsg(pr));
+                    lastScopes = pr.scopes;
+                    try {
+                        JSONObject core = new JSONObject(get("/rate_limit")).getJSONObject("resources").getJSONObject("core");
+                        rateInfo = core.optInt("remaining") + " / " + core.optInt("limit");
+                    } catch (Exception e) { rateInfo = ""; }
+                    data = new JSONObject(pr.body);
                 }
                 ui.post(() -> {
                     if (id != reqId || isFinishing()) return;
                     bar.setVisibility(View.INVISIBLE);
                     try {
-                        if (t == 0) renderRepos(data);
-                        else if (t == 1) renderRuns(data);
-                        else renderReleases(data);
+                        if (t == T_REPOS) { reposCache = (JSONArray) data; renderRepos(); }
+                        else if (t == T_RUNS) renderRuns((JSONArray) data);
+                        else if (t == T_REL) renderReleases((JSONArray) data);
+                        else if (t == T_COMMITS) renderCommits((JSONArray) data);
+                        else if (t == T_ISSUES) renderIssues((JSONArray) data);
+                        else if (t == T_PRS) renderPrs((JSONArray) data);
+                        else if (t == T_BRANCHES) renderBranches((JSONArray) data);
+                        else renderProfile((JSONObject) data);
                     } catch (Exception e) {
                         showMsg("Parse error: " + e.getMessage(), RED);
                     }
@@ -370,12 +553,36 @@ public class GitHubActivity extends AppCompatActivity {
     }
 
     // ───────────────────────── renderers ─────────────────────────
-    private void renderRepos(JSONArray a) throws Exception {
+    private LinearLayout rowCard(String title, String sub, String pillText, int pillColor,
+                                 int titleColor, View.OnClickListener click) {
+        LinearLayout c = card();
+        LinearLayout top = new LinearLayout(this);
+        top.setOrientation(LinearLayout.HORIZONTAL);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        TextView t = tv(title, 15, titleColor, true);
+        t.setMaxLines(2);
+        t.setEllipsize(TextUtils.TruncateAt.END);
+        top.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        if (pillText != null && !pillText.isEmpty()) top.addView(pill(pillText, pillColor));
+        c.addView(top);
+        if (sub != null && !sub.isEmpty()) {
+            TextView s = tv(sub, 12, DIM, false);
+            s.setPadding(0, dp(5), 0, 0);
+            c.addView(s);
+        }
+        if (click != null) c.setOnClickListener(click);
+        list.addView(c);
+        return c;
+    }
+
+    private void renderRepos() throws Exception {
         list.removeAllViews();
-        if (a.length() == 0) { showMsg("কোনো repo পাওয়া যায়নি", DIM); return; }
-        for (int i = 0; i < a.length(); i++) {
-            final JSONObject o = a.getJSONObject(i);
+        int shown = 0;
+        for (int i = 0; i < reposCache.length(); i++) {
+            final JSONObject o = reposCache.getJSONObject(i);
             final String full = str(o, "full_name");
+            if (!repoFilter.isEmpty() && !full.toLowerCase(Locale.ROOT).contains(repoFilter)) continue;
+            shown++;
             LinearLayout c = card();
 
             LinearLayout top = new LinearLayout(this);
@@ -383,7 +590,7 @@ public class GitHubActivity extends AppCompatActivity {
             top.setGravity(Gravity.CENTER_VERTICAL);
             TextView name = tv(full, 15, BLUE, true);
             name.setSingleLine(true);
-            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            name.setEllipsize(TextUtils.TruncateAt.END);
             top.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             boolean priv = o.optBoolean("private");
             top.addView(pill(priv ? "Private" : "Public", priv ? AMBER : DIM));
@@ -393,19 +600,22 @@ public class GitHubActivity extends AppCompatActivity {
             if (!desc.isEmpty()) {
                 TextView d = tv(desc, 13, DIM, false);
                 d.setMaxLines(2);
-                d.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                d.setEllipsize(TextUtils.TruncateAt.END);
                 d.setPadding(0, dp(4), 0, 0);
                 c.addView(d);
             }
             String lang = str(o, "language");
-            TextView meta = tv((lang.isEmpty() ? "" : "● " + lang + "     ") + "★ " + o.optInt("stargazers_count"),
+            TextView meta = tv((lang.isEmpty() ? "" : "● " + lang + "     ") + "★ " + o.optInt("stargazers_count")
+                    + "     ⑂ " + o.optInt("forks_count") + "     ⚠ " + o.optInt("open_issues_count"),
                     12, lang.isEmpty() ? DIM : GREEN, false);
             meta.setPadding(0, dp(6), 0, 0);
             c.addView(meta);
 
-            c.setOnClickListener(v -> { repo = full; setTab(1); });
+            c.setOnClickListener(v -> { repo = full; setTab(T_RUNS); });
+            c.setOnLongClickListener(v -> { openUrl(str(o, "html_url")); return true; });
             list.addView(c);
         }
+        if (shown == 0) showMsg("কোনো repo পাওয়া যায়নি", DIM);
     }
 
     private void renderRuns(JSONArray a) throws Exception {
@@ -416,33 +626,11 @@ public class GitHubActivity extends AppCompatActivity {
             String concl = str(o, "conclusion");
             String status = str(o, "status");
             int col = "success".equals(concl) ? GREEN : "failure".equals(concl) ? RED : AMBER;
-            LinearLayout c = card();
-
-            LinearLayout top = new LinearLayout(this);
-            top.setOrientation(LinearLayout.HORIZONTAL);
-            top.setGravity(Gravity.CENTER_VERTICAL);
-            View dot = new View(this);
-            GradientDrawable g = new GradientDrawable();
-            g.setShape(GradientDrawable.OVAL);
-            g.setColor(col);
-            dot.setBackground(g);
-            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(dp(10), dp(10));
-            dlp.rightMargin = dp(8);
-            top.addView(dot, dlp);
-            TextView name = tv(str(o, "name"), 15, TXT, true);
-            name.setSingleLine(true);
-            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            top.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            top.addView(pill(concl.isEmpty() ? status : concl, col));
-            c.addView(top);
-
-            TextView meta = tv(str(o, "head_branch") + "  •  " + day(str(o, "created_at")), 12, DIM, false);
-            meta.setPadding(0, dp(6), 0, 0);
-            c.addView(meta);
-
-            final String url = str(o, "html_url");
-            c.setOnClickListener(v -> openUrl(url));
-            list.addView(c);
+            String icon = "success".equals(concl) ? "✅ " : "failure".equals(concl) ? "❌ "
+                    : "cancelled".equals(concl) ? "⛔ " : "⏳ ";
+            rowCard(icon + str(o, "name") + " #" + o.optInt("run_number"),
+                    str(o, "head_branch") + "  •  " + str(o, "event") + "  •  " + day(str(o, "created_at")),
+                    concl.isEmpty() ? status : concl, col, TXT, v -> runMenu(o));
         }
     }
 
@@ -450,7 +638,7 @@ public class GitHubActivity extends AppCompatActivity {
         list.removeAllViews();
         if (a.length() == 0) { showMsg("কোনো release নেই", DIM); return; }
         for (int i = 0; i < a.length(); i++) {
-            JSONObject o = a.getJSONObject(i);
+            final JSONObject o = a.getJSONObject(i);
             LinearLayout c = card();
 
             LinearLayout top = new LinearLayout(this);
@@ -478,7 +666,7 @@ public class GitHubActivity extends AppCompatActivity {
                     row.setBackground(round(BG, 8, 0));
                     TextView an = tv("⬇  " + str(as, "name"), 13, BLUE, false);
                     an.setSingleLine(true);
-                    an.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                    an.setEllipsize(TextUtils.TruncateAt.END);
                     row.addView(an, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
                     row.addView(tv(String.format(Locale.US, "%.1f MB", as.optLong("size") / 1048576.0), 12, DIM, false));
                     row.setOnClickListener(v -> openAsset(as));
@@ -488,8 +676,259 @@ public class GitHubActivity extends AppCompatActivity {
                     c.addView(row, rlp);
                 }
             }
+            c.setOnLongClickListener(v -> { confirmDeleteRelease(o); return true; });
             list.addView(c);
         }
+    }
+
+    private void renderCommits(JSONArray a) throws Exception {
+        list.removeAllViews();
+        if (a.length() == 0) { showMsg("কোনো commit নেই", DIM); return; }
+        for (int i = 0; i < a.length(); i++) {
+            final JSONObject o = a.getJSONObject(i);
+            JSONObject cm = o.optJSONObject("commit");
+            String msg = cm == null ? "" : str(cm, "message");
+            int nl = msg.indexOf('\n');
+            if (nl > 0) msg = msg.substring(0, nl);
+            JSONObject au = cm == null ? null : cm.optJSONObject("author");
+            final String url = str(o, "html_url");
+            rowCard(msg, sha7(str(o, "sha")) + "  •  " + str(au, "name") + "  •  " + day(str(au, "date")),
+                    null, 0, TXT, v -> openUrl(url));
+        }
+    }
+
+    private void renderIssues(JSONArray a) throws Exception {
+        list.removeAllViews();
+        int shown = 0;
+        for (int i = 0; i < a.length(); i++) {
+            final JSONObject o = a.getJSONObject(i);
+            if (o.has("pull_request")) continue;   // issues API PR-o return kore
+            shown++;
+            JSONObject u = o.optJSONObject("user");
+            final String url = str(o, "html_url");
+            int cm = o.optInt("comments");
+            rowCard("#" + o.optInt("number") + "  " + str(o, "title"),
+                    str(u, "login") + "  •  " + day(str(o, "created_at")),
+                    cm > 0 ? "💬 " + cm : "", DIM, TXT, v -> openUrl(url));
+        }
+        if (shown == 0) showMsg("কোনো open issue নেই 🎉", DIM);
+    }
+
+    private void renderPrs(JSONArray a) throws Exception {
+        list.removeAllViews();
+        if (a.length() == 0) { showMsg("কোনো open pull request নেই", DIM); return; }
+        for (int i = 0; i < a.length(); i++) {
+            final JSONObject o = a.getJSONObject(i);
+            JSONObject u = o.optJSONObject("user");
+            JSONObject head = o.optJSONObject("head");
+            JSONObject base = o.optJSONObject("base");
+            boolean draft = o.optBoolean("draft");
+            final String url = str(o, "html_url");
+            rowCard("#" + o.optInt("number") + "  " + str(o, "title"),
+                    str(head, "ref") + " → " + str(base, "ref") + "  •  " + str(u, "login") + "  •  " + day(str(o, "created_at")),
+                    draft ? "Draft" : "Open", draft ? DIM : GREEN, TXT, v -> openUrl(url));
+        }
+    }
+
+    private void renderBranches(JSONArray a) throws Exception {
+        list.removeAllViews();
+        if (a.length() == 0) { showMsg("কোনো branch নেই", DIM); return; }
+        for (int i = 0; i < a.length(); i++) {
+            final JSONObject o = a.getJSONObject(i);
+            final String name = str(o, "name");
+            JSONObject cm = o.optJSONObject("commit");
+            final String r = repo;
+            rowCard("⑂  " + name, sha7(str(cm, "sha")),
+                    o.optBoolean("protected") ? "protected" : "", AMBER, BLUE,
+                    v -> openUrl("https://github.com/" + r + "/tree/" + Uri.encode(name, "/")));
+        }
+    }
+
+    private void renderProfile(JSONObject u) throws Exception {
+        list.removeAllViews();
+        final String url = str(u, "html_url");
+        LinearLayout c = card();
+        String nm = str(u, "name");
+        c.addView(tv(nm.isEmpty() ? str(u, "login") : nm, 20, TXT, true));
+        c.addView(tv("@" + str(u, "login"), 14, BLUE, false));
+        String bio = str(u, "bio");
+        if (!bio.isEmpty()) {
+            TextView b = tv(bio, 13, DIM, false);
+            b.setPadding(0, dp(6), 0, 0);
+            c.addView(b);
+        }
+        TextView st = tv("Public repos: " + u.optInt("public_repos") + "\nFollowers: " + u.optInt("followers")
+                + "   Following: " + u.optInt("following") + "\nJoined: " + day(str(u, "created_at")), 13, TXT, false);
+        st.setPadding(0, dp(10), 0, 0);
+        c.addView(st);
+        c.setOnClickListener(v -> openUrl(url));
+        list.addView(c);
+
+        LinearLayout c2 = card();
+        c2.addView(tv("Token", 14, TXT, true));
+        String sc = lastScopes.isEmpty() ? "(fine-grained token — scopes দেখানো যায় না)" : lastScopes;
+        TextView t = tv("Scopes: " + sc + (rateInfo.isEmpty() ? "" : "\nAPI rate limit left: " + rateInfo), 13, DIM, false);
+        t.setPadding(0, dp(6), 0, 0);
+        c2.addView(t);
+        list.addView(c2);
+    }
+
+    // ───────────────────────── Actions: run menu ─────────────────────────
+    private void runMenu(final JSONObject o) {
+        final long id = o.optLong("id");
+        final String r = repo;
+        final String[] items = {"Open in browser", "Jobs", "Artifacts (download)", "Re-run", "Cancel run"};
+        new AlertDialog.Builder(this)
+                .setTitle(str(o, "name") + " #" + o.optInt("run_number"))
+                .setItems(items, (d, i) -> {
+                    if (i == 0) openUrl(str(o, "html_url"));
+                    else if (i == 1) showJobs(r, id);
+                    else if (i == 2) showArtifacts(r, id);
+                    else if (i == 3) act("POST", "/repos/" + r + "/actions/runs/" + id + "/rerun", "{}", "✓ Re-run শুরু হয়েছে", true);
+                    else act("POST", "/repos/" + r + "/actions/runs/" + id + "/cancel", "{}", "✓ Cancel পাঠানো হয়েছে", true);
+                }).show();
+    }
+
+    private void showJobs(final String r, final long id) {
+        toast("Loading jobs…");
+        io.execute(() -> {
+            try {
+                JSONArray a = new JSONObject(get("/repos/" + r + "/actions/runs/" + id + "/jobs?per_page=50")).getJSONArray("jobs");
+                final int n = a.length();
+                final String[] labels = new String[n];
+                final String[] urls = new String[n];
+                for (int i = 0; i < n; i++) {
+                    JSONObject j = a.getJSONObject(i);
+                    String c = str(j, "conclusion");
+                    if (c.isEmpty()) c = str(j, "status");
+                    labels[i] = ("success".equals(c) ? "✅ " : "failure".equals(c) ? "❌ " : "⏳ ") + str(j, "name") + " — " + c;
+                    urls[i] = str(j, "html_url");
+                }
+                ui.post(() -> {
+                    if (isFinishing()) return;
+                    if (n == 0) { toast("কোনো job নেই"); return; }
+                    new AlertDialog.Builder(this).setTitle("Jobs")
+                            .setItems(labels, (d, i) -> openUrl(urls[i])).show();
+                });
+            } catch (Exception e) { fail(e); }
+        });
+    }
+
+    private void showArtifacts(final String r, final long id) {
+        toast("Loading artifacts…");
+        io.execute(() -> {
+            try {
+                JSONArray a = new JSONObject(get("/repos/" + r + "/actions/runs/" + id + "/artifacts")).getJSONArray("artifacts");
+                final int n = a.length();
+                final String[] labels = new String[n];
+                final long[] ids = new long[n];
+                for (int i = 0; i < n; i++) {
+                    JSONObject j = a.getJSONObject(i);
+                    ids[i] = j.optLong("id");
+                    labels[i] = "⬇  " + str(j, "name") + "  ("
+                            + String.format(Locale.US, "%.1f MB", j.optLong("size_in_bytes") / 1048576.0) + ")"
+                            + (j.optBoolean("expired") ? "  [expired]" : "");
+                }
+                ui.post(() -> {
+                    if (isFinishing()) return;
+                    if (n == 0) { toast("কোনো artifact নেই"); return; }
+                    new AlertDialog.Builder(this).setTitle("Artifacts")
+                            .setItems(labels, (d, i) -> downloadArtifact(r, ids[i])).show();
+                });
+            } catch (Exception e) { fail(e); }
+        });
+    }
+
+    private void downloadArtifact(final String r, final long artifactId) {
+        toast("Download শুরু হচ্ছে…");
+        io.execute(() -> {
+            try {
+                Resp resp = call("GET", "/repos/" + r + "/actions/artifacts/" + artifactId + "/zip", null, JSON_ACCEPT, false);
+                if (resp.code >= 300 && resp.code < 400 && !resp.location.isEmpty()) {
+                    final String u = resp.location;
+                    ui.post(() -> { if (!isFinishing()) openUrl(u); });
+                } else {
+                    final String m = "✗ " + errMsg(resp);
+                    ui.post(() -> toast(m));
+                }
+            } catch (Exception e) { fail(e); }
+        });
+    }
+
+    private void runWorkflow() {
+        final String r = repo;
+        toast("Loading workflows…");
+        io.execute(() -> {
+            try {
+                JSONArray a = new JSONObject(get("/repos/" + r + "/actions/workflows")).getJSONArray("workflows");
+                final int n = a.length();
+                final String[] names = new String[n];
+                final long[] ids = new long[n];
+                for (int i = 0; i < n; i++) {
+                    JSONObject w = a.getJSONObject(i);
+                    names[i] = str(w, "name");
+                    ids[i] = w.optLong("id");
+                }
+                ui.post(() -> {
+                    if (isFinishing()) return;
+                    if (n == 0) { toast("কোনো workflow নেই"); return; }
+                    new AlertDialog.Builder(this).setTitle("Run workflow")
+                            .setItems(names, (d, i) -> askBranch(r, ids[i], names[i])).show();
+                });
+            } catch (Exception e) { fail(e); }
+        });
+    }
+
+    private void askBranch(final String r, final long wfId, String wfName) {
+        LinearLayout f = form();
+        final EditText br = field("Branch", false);
+        br.setText("main");
+        f.addView(br);
+        new AlertDialog.Builder(this).setTitle(wfName).setView(f)
+                .setPositiveButton("Run", (d, w) -> {
+                    String b = br.getText().toString().trim();
+                    if (b.isEmpty()) b = "main";
+                    act("POST", "/repos/" + r + "/actions/workflows/" + wfId + "/dispatches",
+                            json("ref", b), "✓ Workflow trigger হয়েছে (workflow_dispatch লাগবে)", false);
+                    ui.postDelayed(() -> { if (!isFinishing() && tab == T_RUNS) load(); }, 3500);
+                })
+                .setNegativeButton("Cancel", null).show();
+    }
+
+    // ───────────────────────── Releases ─────────────────────────
+    private void newReleaseDialog() {
+        final String r = repo;
+        LinearLayout f = form();
+        final EditText tag = field("Tag (e.g. v1.0.0)", false);
+        final EditText nm = field("Title", false);
+        final EditText notes = field("Notes", true);
+        final CheckBox pre = new CheckBox(this);
+        pre.setText("Pre-release");
+        f.addView(tag);
+        f.addView(nm);
+        f.addView(notes);
+        f.addView(pre);
+        new AlertDialog.Builder(this).setTitle("New release").setView(f)
+                .setPositiveButton("Create", (d, w) -> {
+                    String t = tag.getText().toString().trim();
+                    if (t.isEmpty()) { toast("Tag দাও"); return; }
+                    String n = nm.getText().toString().trim();
+                    act("POST", "/repos/" + r + "/releases",
+                            json("tag_name", t, "name", n.isEmpty() ? t : n,
+                                    "body", notes.getText().toString(), "prerelease", pre.isChecked()),
+                            "✓ Release তৈরি হয়েছে", true);
+                })
+                .setNegativeButton("Cancel", null).show();
+    }
+
+    private void confirmDeleteRelease(final JSONObject o) {
+        final String r = repo;
+        final long id = o.optLong("id");
+        new AlertDialog.Builder(this).setTitle("Delete release?")
+                .setMessage(str(o, "tag_name") + " release মুছে যাবে (tag থেকে যাবে)।")
+                .setPositiveButton("Delete", (d, w) ->
+                        act("DELETE", "/repos/" + r + "/releases/" + id, null, "✓ Release মুছে গেছে", true))
+                .setNegativeButton("Cancel", null).show();
     }
 
     /** Private repo te browser_download_url kaj kore na, tai API theke signed redirect URL niye browser e khuli. */
@@ -499,18 +938,51 @@ public class GitHubActivity extends AppCompatActivity {
         io.execute(() -> {
             String url = str(asset, "browser_download_url");
             try {
-                HttpURLConnection c = open("/repos/" + r + "/releases/assets/" + asset.getLong("id"),
-                        "application/octet-stream");
-                c.setInstanceFollowRedirects(false);
-                int code = c.getResponseCode();
-                if (code >= 300 && code < 400) {
-                    String loc = c.getHeaderField("Location");
-                    if (loc != null && !loc.isEmpty()) url = loc;
-                }
-                c.disconnect();
+                Resp resp = call("GET", "/repos/" + r + "/releases/assets/" + asset.getLong("id"),
+                        null, "application/octet-stream", false);
+                if (resp.code >= 300 && resp.code < 400 && !resp.location.isEmpty()) url = resp.location;
             } catch (Exception ignore) { }
             final String u = url;
             ui.post(() -> { if (!isFinishing()) openUrl(u); });
         });
+    }
+
+    // ───────────────────────── Issues / Repos create ─────────────────────────
+    private void newIssueDialog() {
+        final String r = repo;
+        LinearLayout f = form();
+        final EditText title = field("Title", false);
+        final EditText body = field("Description", true);
+        f.addView(title);
+        f.addView(body);
+        new AlertDialog.Builder(this).setTitle("New issue").setView(f)
+                .setPositiveButton("Create", (d, w) -> {
+                    String t = title.getText().toString().trim();
+                    if (t.isEmpty()) { toast("Title দাও"); return; }
+                    act("POST", "/repos/" + r + "/issues", json("title", t, "body", body.getText().toString()),
+                            "✓ Issue তৈরি হয়েছে", true);
+                })
+                .setNegativeButton("Cancel", null).show();
+    }
+
+    private void newRepoDialog() {
+        LinearLayout f = form();
+        final EditText name = field("Repo name", false);
+        final EditText desc = field("Description (optional)", false);
+        final CheckBox priv = new CheckBox(this);
+        priv.setText("Private");
+        priv.setChecked(true);
+        f.addView(name);
+        f.addView(desc);
+        f.addView(priv);
+        new AlertDialog.Builder(this).setTitle("New repository").setView(f)
+                .setPositiveButton("Create", (d, w) -> {
+                    String n = name.getText().toString().trim();
+                    if (n.isEmpty()) { toast("Name দাও"); return; }
+                    act("POST", "/user/repos",
+                            json("name", n, "description", desc.getText().toString().trim(), "private", priv.isChecked()),
+                            "✓ Repo তৈরি হয়েছে", true);
+                })
+                .setNegativeButton("Cancel", null).show();
     }
 }
