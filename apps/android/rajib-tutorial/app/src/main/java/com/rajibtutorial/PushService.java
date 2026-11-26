@@ -19,7 +19,8 @@ public class PushService extends FirebaseMessagingService {
 
     /** Discussion message: skip own messages and when the chat is open; tap opens the Discussion. */
     private void showChat(RemoteMessage m) {
-        String from = m.getData().get("from");
+        String from = m.getData().get("sender");
+        if (from == null) from = m.getData().get("from");
         String me = PushManager.discussionMe(this);
         if (me.isEmpty() || me.equals(from)) return;          // not subscribed, or my own message
         if (DiscussionScreen.isOpen()) return;                // already looking at the chat

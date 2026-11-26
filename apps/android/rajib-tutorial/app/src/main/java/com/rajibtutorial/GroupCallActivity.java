@@ -53,7 +53,7 @@ public class GroupCallActivity extends AppCompatActivity {
     static final String EXTRA_UID = "uid", EXTRA_NAME = "name", EXTRA_VIDEO = "video";
     private static final String PREFIX = "_call_";
     private static final String ROOM = "discussion";
-    private static final long POLL_MS = 1500;
+    private static final long POLL_MS = 1000;
 
     private WebView wv;
     private String uid = "", name = "", peerId = "";
@@ -83,6 +83,8 @@ public class GroupCallActivity extends AppCompatActivity {
         if (name == null || name.isEmpty()) name = "Member";
         peerId = (uid.isEmpty() ? "u" : uid) + "_" + Integer.toString(new Random().nextInt(1679616) + 1679616, 36).substring(1);
 
+        setVolumeControlStream(android.media.AudioManager.STREAM_VOICE_CALL);
+        routeAudio(true);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON | WindowManager.LayoutParams.FLAG_SECURE);
         getWindow().setStatusBarColor(Color.BLACK);
@@ -186,6 +188,23 @@ public class GroupCallActivity extends AppCompatActivity {
             } catch (Exception e) { return "{}"; }
         }
 
+        /** STUN + optional TURN (from CI secrets) as JSON for RTCPeerConnection. */
+        @JavascriptInterface
+        public String iceServers() {
+            try {
+                JSONArray a = new JSONArray();
+                a.put(new JSONObject().put("urls", new JSONArray()
+                    .put("stun:stun.l.google.com:19302").put("stun:stun1.l.google.com:19302")));
+                if (!BuildConfig.TURN_URLS.isEmpty()) {
+                    JSONArray u = new JSONArray();
+                    for (String s : BuildConfig.TURN_URLS.split(",")) { if (!s.trim().isEmpty()) u.put(s.trim()); }
+                    a.put(new JSONObject().put("urls", u)
+                        .put("username", BuildConfig.TURN_USER).put("credential", BuildConfig.TURN_CREDENTIAL));
+                }
+                return a.toString();
+            } catch (Exception e) { return "[]"; }
+        }
+
         @JavascriptInterface
         public void ready() {
             if (running) return;
@@ -227,6 +246,33 @@ public class GroupCallActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String recStop() { return closeRec(); }
+    }
+
+    private int prevAudioMode = -1;
+    private boolean prevSpeaker = false;
+
+    /** Call audio: communication mode + loudspeaker (otherwise remote voice goes to the quiet earpiece). */
+    @SuppressWarnings("deprecation")
+    private void routeAudio(boolean on) {
+        try {
+            android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+            if (am == null) return;
+            if (on) {
+                prevAudioMode = am.getMode();
+                prevSpeaker = am.isSpeakerphoneOn();
+                am.setMode(android.media.AudioManager.MODE_IN_COMMUNICATION);
+                am.setSpeakerphoneOn(true);
+                if (Build.VERSION.SDK_INT >= 31) {
+                    for (android.media.AudioDeviceInfo d : am.getAvailableCommunicationDevices()) {
+                        if (d.getType() == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) { am.setCommunicationDevice(d); break; }
+                    }
+                }
+            } else if (prevAudioMode >= 0) {
+                if (Build.VERSION.SDK_INT >= 31) am.clearCommunicationDevice();
+                am.setSpeakerphoneOn(prevSpeaker);
+                am.setMode(prevAudioMode);
+            }
+        } catch (Throwable ignored) { }
     }
 
     private void js(final String code) {
@@ -351,15 +397,22 @@ public class GroupCallActivity extends AppCompatActivity {
         while (running) {
             try {
                 List<Fs.Doc> docs = Fs.latestChat(PREFIX, 100);
-                if (first) {                         // drop stale signals left by crashed calls
+                if (first) {
+                    // Everything that already exists is old: drop stale signals left by crashed calls and
+                    // mark the rest as seen. (No timestamp comparison between phones: their clocks differ,
+                    // which made new joiners ignore the offers of people already in the call.)
                     first = false;
                     long old = System.currentTimeMillis() - 10 * 60 * 1000L;
                     for (Fs.Doc d : docs) {
+                        seen.add(d.id);
                         Object t = d.data.get("ts");
                         if (t instanceof Number && ((Number) t).longValue() < old) {
                             try { Fs.delete(d.id); } catch (Exception ignored) { }
                         }
                     }
+                    js("window.onPollReady && window.onPollReady()");   // only now announce 'join'
+                    try { Thread.sleep(POLL_MS); } catch (InterruptedException e) { return; }
+                    continue;
                 }
                 Collections.sort(docs, (x, y) -> x.id.compareTo(y.id));    // oldest first
                 final JSONArray out = new JSONArray();
@@ -367,7 +420,6 @@ public class GroupCallActivity extends AppCompatActivity {
                     if (!seen.add(d.id)) continue;
                     Object t = d.data.get("ts");
                     long ts = t instanceof Number ? ((Number) t).longValue() : 0;
-                    if (ts < startTs) continue;
                     String from = str(d, "from"), to = str(d, "to");
                     if (from.equals(peerId) || !ROOM.equals(str(d, "room"))) continue;
                     if (!to.isEmpty() && !to.equals(peerId)) continue;
@@ -399,6 +451,7 @@ public class GroupCallActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         running = false;
+        routeAudio(false);
         ScreenCaptureService.cb = null;
         ScreenCaptureService.stop(this);
         closeRec();

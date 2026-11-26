@@ -5,7 +5,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-system,Roboto,Segoe UI,sans-serif;overflow:hidden}
 #top{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 12px;background:linear-gradient(#000a,#0000);font-size:14px}
-#top b{font-size:16px}#top span{opacity:.75;font-size:13px}
+#top b{font-size:16px}#top span{opacity:.75;font-size:13px}#count{max-width:62%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #grid{position:absolute;inset:0;display:grid;gap:6px;padding:62px 6px 104px;align-content:center}
 .tile{position:relative;background:#1b1e25;border-radius:16px;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center}
 .tile video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
@@ -42,10 +42,8 @@ html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-
 </div>
 <script>
 // STUN + a public TURN relay (best effort; replace with your own TURN for production reliability)
-const ICE=[
-  {urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']},
-  {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}
-];
+let ICE=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}];
+try{const x=JSON.parse(AndroidCall.iceServers());if(x&&x.length)ICE=x}catch(e){}
 const INFO=JSON.parse(AndroidCall.info());
 const me=INFO.id, myName=INFO.name||'Me';
 let local=null, peers={}, early={}, micOn=true, camOn=false, facing='user', joinTs=Date.now(), left=false;
@@ -60,12 +58,13 @@ function layout(){
   const cols=n<=1?1:(n<=4?2:3);
   grid.style.gridTemplateColumns='repeat('+cols+',1fr)';
   grid.style.gridAutoRows=(n<=2&&cols===1)?'1fr':'1fr';
-  document.getElementById('count').textContent=n+(n===1?' in call':' in call');
+  const names=[...grid.children].map(t=>t.dataset.name||'').filter(Boolean);
+  document.getElementById('count').textContent=n+' in call · '+names.join(', ');
   document.getElementById('wait').style.display=n<=1?'flex':'none';
 }
 function makeTile(id,name,isLocal){
   let t=document.getElementById('t_'+id); if(t) return t;
-  t=document.createElement('div');t.className='tile';t.id='t_'+id;
+  t=document.createElement('div');t.className='tile';t.id='t_'+id;t.dataset.name=isLocal?'You':(name||'Member');
   const v=document.createElement('video');v.autoplay=true;v.playsInline=true;if(isLocal){v.muted=true;if(facing==='user')v.style.transform='scaleX(-1)'}
   const av=document.createElement('div');av.className='av';av.style.background=colorOf(id);av.textContent=(name||'?').trim().charAt(0).toUpperCase();
   const nm=document.createElement('div');nm.className='nm';nm.textContent=isLocal?name+' (You)':name;
@@ -132,7 +131,17 @@ function newPeer(id,name){
   };
   pc.onconnectionstatechange=()=>{
     const s=pc.connectionState;
-    if(s==='failed'||s==='closed'){setTimeout(()=>{if(peers[id]&&peers[id].pc===pc&&pc.connectionState!=='connected')dropPeer(id)},4000)}
+    if(s==='connected'){p.tries=0}
+    if(s==='failed'||s==='disconnected'){
+      // give the network a moment, then try an ICE restart (the one who offered first renegotiates) before giving up
+      setTimeout(async()=>{
+        if(!peers[id]||peers[id].pc!==pc||pc.connectionState==='connected'||pc.connectionState==='closed')return;
+        p.tries=(p.tries||0)+1;
+        if(p.tries>3){dropPeer(id);return}
+        if(p.offerer){try{pc.restartIce();const o=await pc.createOffer({iceRestart:true});await pc.setLocalDescription(o);send(id,'offer',JSON.stringify(pc.localDescription))}catch(e){}}
+      },s==='failed'?500:4000);
+    }
+    if(s==='closed'){dropPeer(id)}
   };
   (early[id]||[]).forEach(c=>p.queue.push(c));delete early[id];
   return p;
@@ -144,6 +153,7 @@ function dropPeer(id){
 async function flush(p){p.remoteSet=true;for(const c of p.queue){try{await p.pc.addIceCandidate(c)}catch(e){}}p.queue=[]}
 async function callPeer(id,name){
   const p=newPeer(id,name);
+  p.offerer=true;
   const o=await p.pc.createOffer();await p.pc.setLocalDescription(o);
   send(id,'offer',JSON.stringify(p.pc.localDescription));
 }
@@ -164,7 +174,7 @@ window.onSignal=async function(arr){
         const a=await p.pc.createAnswer();await p.pc.setLocalDescription(a);
         send(from,'answer',JSON.stringify(p.pc.localDescription));
       }else if(s.kind==='answer'){
-        const p=peers[from];if(p&&!p.remoteSet){await p.pc.setRemoteDescription(JSON.parse(s.data));await flush(p)}
+        const p=peers[from];if(p&&(!p.remoteSet||p.pc.signalingState==='have-local-offer')){await p.pc.setRemoteDescription(JSON.parse(s.data));await flush(p)}
       }else if(s.kind==='ice'){
         const c=JSON.parse(s.data),p=peers[from];
         if(!p){(early[from]=early[from]||[]).push(c)}
@@ -367,7 +377,10 @@ async function endRecord(){
 }
 (async function(){
   await startLocal();
+  let joined=false;
+  const doJoin=()=>{if(joined)return;joined=true;send('','join',JSON.stringify({ts:joinTs}))};
+  window.onPollReady=doJoin;                 // native side finished its first look at the signalling room
   AndroidCall.ready();                       // native side starts listening for signals
-  setTimeout(()=>send('','join',JSON.stringify({ts:joinTs})),300);
+  setTimeout(doJoin,6000);                   // fallback if the first poll is slow
 })();
 </script></body></html>

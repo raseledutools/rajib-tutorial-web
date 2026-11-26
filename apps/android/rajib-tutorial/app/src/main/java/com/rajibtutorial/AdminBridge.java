@@ -201,7 +201,7 @@ public class AdminBridge {
                 data.put("title", title);
                 data.put("body", body);
                 data.put("kind", "chat");
-                data.put("from", fromId);
+                data.put("sender", fromId);   // NOTE: "from" is a reserved FCM key -> request was rejected (HTTP 400), so chat push never went out
                 data.put("id", mid);
                 data.put("time", String.valueOf(System.currentTimeMillis()));
                 JSONObject android = new JSONObject();

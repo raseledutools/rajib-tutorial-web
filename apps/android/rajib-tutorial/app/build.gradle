@@ -20,6 +20,10 @@ android {
         // Twilio token endpoint (https). Supplied by CI secret TWILIO_TOKEN_URL.
         def twilioUrl = System.getenv("TWILIO_TOKEN_URL") ?: ""
         buildConfigField "String", "TWILIO_TOKEN_URL", "\"" + twilioUrl + "\""
+        // Group call TURN relay (CI secrets TURN_URLS comma-separated, TURN_USER, TURN_CREDENTIAL)
+        buildConfigField "String", "TURN_URLS", "\"" + (System.getenv("TURN_URLS") ?: "") + "\""
+        buildConfigField "String", "TURN_USER", "\"" + (System.getenv("TURN_USER") ?: "") + "\""
+        buildConfigField "String", "TURN_CREDENTIAL", "\"" + (System.getenv("TURN_CREDENTIAL") ?: "") + "\""
 
         // Push is now handled via AdminBridge (Java → FCM REST) — no backend URL needed
     }

@@ -68,6 +68,9 @@ jobs:
           KEY_PASS: ${{ secrets.RELEASE_KEY_PASS }}
           TWILIO_TOKEN_URL: ${{ secrets.TWILIO_TOKEN_URL }}
           PUSH_BACKEND_URL: ${{ secrets.PUSH_BACKEND_URL }}
+          TURN_URLS: ${{ secrets.TURN_URLS }}
+          TURN_USER: ${{ secrets.TURN_USER }}
+          TURN_CREDENTIAL: ${{ secrets.TURN_CREDENTIAL }}
         run: ./gradlew assembleRelease --no-daemon 2>&1 | tee /tmp/gradle_output.txt; exit ${PIPESTATUS[0]}
 
       - name: Rename APK
