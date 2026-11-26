@@ -4,19 +4,24 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.PictureInPictureParams;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Rational;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.TextureView;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
@@ -39,11 +44,11 @@ import java.lang.ref.WeakReference;
 import java.util.Locale;
 
 /**
- * YouTube inside a WebView, behaving like an app:
- *  - ad blocking (blocked ad hosts + in-page script, see assets/ytp.js)
- *  - background playback (page told it is always visible, WebView never paused, foreground media service)
- *  - Save / Saved buttons injected into the player by ytp.js (talk to the app through the YTP bridge)
- *  - update check on start + every ~15 min in the background, with notification and in-app download/install
+ * YouTube inside a WebView, behaving like a native app:
+ *  - ad blocking, "Open app" banners hidden, Save button next to Subscribe (assets/ytp.js)
+ *  - Back button / swipe down on a playing video  -> the video shrinks into a mini player (native ExoPlayer) while you keep browsing
+ *  - Home button  -> floating window over other apps;  screen lock / background -> audio keeps playing (native ExoPlayer + foreground service)
+ *  - sidebar with Home, Saved videos, Apps update
  */
 public class MainActivity extends Activity {
 
@@ -52,6 +57,9 @@ public class MainActivity extends Activity {
         "googlesyndication.com", "doubleclick.net", "googleadservices.com", "adservice.google.com",
         "imasdk.googleapis.com", "googletagservices.com", "2mdn.net"
     };
+
+    static volatile boolean ALIVE;
+    private static WeakReference<MainActivity> LIVE;
 
     private WebView web;
     private FrameLayout root, fsBox;
@@ -62,14 +70,29 @@ public class MainActivity extends Activity {
     private String pageJs = "";
     private AlertDialog dlDialog;
     private boolean updateShown;
+
     private FrameLayout drawer;
     private LinearLayout panel;
-    private TextView updItem;
-    private volatile boolean playing;          // reported by ytp.js: is a video playing right now
-    private static WeakReference<MainActivity> LIVE;
+    private TextView updItem, floatItem, battItem;
+
+    private LinearLayout mini;
+    private TextureView miniTv;
+    private TextView miniTitle, miniPlay;
+    private final Handler ui = new Handler(Looper.getMainLooper());
+
+    // what the web player reports (ytp.js -> YTP.info)
+    private volatile String webId = null;
+    private volatile String webTitle = "";
+    private volatile double webPos = 0;
+    private volatile boolean webPlaying = false;
+    private volatile long webInfoAt = 0, lastPlayAt = 0, handoffAt = 0;
+    private volatile String prefetched = "";
+
+    private boolean leaving, stopped, resumeToWeb;
 
     /** Play/Pause button of the background-playback notification. */
     static void togglePlayback() {
+        if (NativePlayer.active()) { new Handler(Looper.getMainLooper()).post(NativePlayer::toggle); return; }
         final MainActivity a = LIVE == null ? null : LIVE.get();
         if (a == null) return;
         a.runOnUiThread(() -> { if (a.web != null) a.web.evaluateJavascript("window.__ytpToggle&&window.__ytpToggle()", null); });
@@ -79,6 +102,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        ALIVE = true;
         LIVE = new WeakReference<>(this);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         Notifs.init(this);
@@ -90,7 +114,7 @@ public class MainActivity extends Activity {
 
         web = new WebView(this);
         root.addView(web, new FrameLayout.LayoutParams(-1, -1));
-        fsBox = new FrameLayout(this);
+        fsBox = new SwipeFrame(this);
         fsBox.setBackgroundColor(Color.BLACK);
         fsBox.setVisibility(View.GONE);
         root.addView(fsBox, new FrameLayout.LayoutParams(-1, -1));
@@ -151,9 +175,10 @@ public class MainActivity extends Activity {
                 web.setVisibility(View.GONE);
                 fsBox.setVisibility(View.VISIBLE);
                 fsBox.addView(view);
-                if (!inPip()) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
                 if (bar != null) bar.setVisibility(View.GONE);
+                if (mini != null) mini.setVisibility(View.GONE);
             }
 
             @Override
@@ -167,12 +192,14 @@ public class MainActivity extends Activity {
                 customCb = null;
                 setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-                if (bar != null && !inPip()) bar.setVisibility(View.VISIBLE);
+                if (bar != null) bar.setVisibility(View.VISIBLE);
+                if (NativePlayer.active() && !resumeToWeb) showMini();
             }
         };
         web.setWebChromeClient(chrome);
 
         buildButtons();
+        buildMini();
         buildDrawer();
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
@@ -234,11 +261,41 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void playing(boolean p) { playing = p; }
-
-        @JavascriptInterface
         public void openSaved() {
             runOnUiThread(() -> { if (trusted()) startActivity(new Intent(MainActivity.this, SavedActivity.class)); });
+        }
+
+        /** every ~0.7 s from the page: which video, where it is, is it playing */
+        @JavascriptInterface
+        public void info(String id, String title, double pos, boolean p) {
+            boolean ok = idOk(id);
+            long now = System.currentTimeMillis();
+            webId = ok ? id : null;
+            webTitle = title == null ? "" : title;
+            webPos = pos;
+            webPlaying = ok && p;
+            webInfoAt = now;
+            if (webPlaying) lastPlayAt = now;
+            if (ok && p && !id.equals(prefetched)) {
+                prefetched = id;
+                NativePlayer.prefetch(id);          // get the stream links ready so a hand-over is instant
+                runOnUiThread(MainActivity.this::askOverlayOnce);
+            }
+            // a different video started on the web page: the mini player's video is obsolete
+            if (ok && p && NativePlayer.active() && !id.equals(NativePlayer.id()) && now - handoffAt > 3000) {
+                runOnUiThread(() -> {
+                    if (stopped || !NativePlayer.active() || webId == null || webId.equals(NativePlayer.id())) return;
+                    NativePlayer.stop();
+                    resumeToWeb = false;
+                    hideMini();
+                });
+            }
+        }
+
+        /** swipe down on the player */
+        @JavascriptInterface
+        public void minimize() {
+            runOnUiThread(() -> { if (trusted() && onWatchPage() && webActive() && customView == null) minimize(); });
         }
     }
 
@@ -255,14 +312,249 @@ public class MainActivity extends Activity {
         if (title != null) title = title.replaceAll("\\s*-\\s*YouTube\\s*$", "");
         Toast.makeText(this, "Saving…", Toast.LENGTH_SHORT).show();
         YtSaver.start(this, id, title, (vid, pct) -> {
-            if (pct == 100) Toast.makeText(this, "Saved ✓ — open 📁", Toast.LENGTH_SHORT).show();
+            if (pct == 100) Toast.makeText(this, "Saved ✓ — open the sidebar ☰ → Saved videos", Toast.LENGTH_SHORT).show();
             else if (pct == -1) Toast.makeText(this, YtSaver.lastError(vid), Toast.LENGTH_LONG).show();
         });
     }
 
-    // ── small native buttons: Saved + check for update (Save itself is injected into the player) ──
+    // ── web player <-> native player ────────────────────────────────────────
+
+    private boolean onWatchPage() {
+        String u = web.getUrl();
+        return u != null && u.contains("/watch");
+    }
+
+    private boolean webActive() {
+        long now = System.currentTimeMillis();
+        return webId != null && (webPlaying || now - lastPlayAt < 2000) && now - webInfoAt < 6000;
+    }
+
+    private long basePos() {
+        return (long) (webPos * 1000) + (webPlaying ? Math.max(0, System.currentTimeMillis() - webInfoAt) : 0);
+    }
+
+    private static String cleanTitle(String t) {
+        return t == null ? "" : t.replaceAll("\\s*-\\s*YouTube\\s*$", "");
+    }
+
+    private static String watchUrl(String id, long posMs) {
+        long sec = posMs / 1000;
+        return HOME + "watch?v=" + id + (sec > 2 ? "&t=" + sec + "s" : "");
+    }
+
+    private void pauseWeb(String id) {
+        if (id != null && webId != null && !id.equals(webId)) return;   // the web page already moved on
+        web.evaluateJavascript("(function(){window.__ytpUserPause=true;var v=document.querySelector('video');if(v)v.pause();})()", null);
+    }
+
+    /** The web video continues in the native player. Nothing changes if the stream cannot be resolved (the web video simply keeps playing). */
+    private void handoff(final boolean showMini, final boolean backToWeb) {
+        final String id = webId;
+        if (id == null) return;
+        final String ttl = cleanTitle(webTitle);
+        final long p0 = basePos(), t0 = System.currentTimeMillis();
+        handoffAt = t0;
+        NativePlayer.start(this, id, ttl, () -> p0 + (System.currentTimeMillis() - t0), (ok, err) -> {
+            if (!ok) {
+                if (showMini && !isFinishing()) {            // the page was already left: bring the video back
+                    web.loadUrl(watchUrl(id, p0 + (System.currentTimeMillis() - t0)));
+                    Toast.makeText(this, "Mini player unavailable: " + err, Toast.LENGTH_LONG).show();
+                }
+                return;
+            }
+            handoffAt = System.currentTimeMillis();
+            pauseWeb(id);
+            resumeToWeb = backToWeb;
+            if (stopped) { if (leaving) showFloat(); }
+            else if (showMini) showMini();
+        });
+    }
+
+    /** Back button / swipe down while a video plays: native mini player, and the page goes back to where you were. */
+    private void minimize() {
+        handoff(true, false);
+        if (web.canGoBack()) web.goBack(); else web.loadUrl(HOME);
+    }
+
+    /** mini player or floating window tapped: back to the full YouTube page of that video */
+    private void expand() {
+        String id = NativePlayer.id();
+        long pos = NativePlayer.posMs();
+        NativePlayer.stop();
+        resumeToWeb = false;
+        hideMini();
+        FloatingWindow.hide();
+        if (id != null) web.loadUrl(watchUrl(id, pos));
+    }
+
+    /** the app came back to the front after a lock / background hand-over: carry on in the web player, same second */
+    private void returnToWeb() {
+        String id = NativePlayer.id();
+        long pos = NativePlayer.posMs();
+        boolean playing = NativePlayer.isPlaying();
+        NativePlayer.stop();
+        resumeToWeb = false;
+        hideMini();
+        if (id == null) return;
+        if (id.equals(webId)) {
+            web.evaluateJavascript("(function(){var v=document.querySelector('video');if(!v)return;try{v.currentTime=" + (pos / 1000.0) + ";}catch(e){}"
+                + (playing ? "window.__ytpUserPause=false;var p=v.play();if(p&&p.catch)p.catch(function(){});" : "") + "})()", null);
+        } else {
+            web.loadUrl(watchUrl(id, pos));
+        }
+    }
+
+    private void showFloat() {
+        if (!NativePlayer.active() || !FloatingWindow.can(this)) return;
+        hideMini();
+        FloatingWindow.show(getApplicationContext());
+    }
+
+    // ── mini player bar (bottom, like the native YouTube app) ───────────────
 
     private int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density + 0.5f); }
+
+    private void buildMini() {
+        mini = new LinearLayout(this);
+        mini.setOrientation(LinearLayout.HORIZONTAL);
+        mini.setGravity(Gravity.CENTER_VERTICAL);
+        mini.setBackgroundColor(0xF2212121);
+        mini.setVisibility(View.GONE);
+
+        miniTv = new TextureView(this);
+        mini.addView(miniTv, new LinearLayout.LayoutParams(dp(107), dp(60)));
+
+        miniTitle = new TextView(this);
+        miniTitle.setTextColor(Color.WHITE);
+        miniTitle.setTextSize(13);
+        miniTitle.setMaxLines(2);
+        miniTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        miniTitle.setPadding(dp(10), 0, dp(6), 0);
+        mini.addView(miniTitle, new LinearLayout.LayoutParams(0, -2, 1f));
+
+        miniPlay = new TextView(this);
+        miniPlay.setText("⏸");
+        miniPlay.setTextColor(Color.WHITE);
+        miniPlay.setTextSize(20);
+        miniPlay.setGravity(Gravity.CENTER);
+        miniPlay.setOnClickListener(v -> { NativePlayer.toggle(); miniPlay.setText(NativePlayer.isPlaying() ? "⏸" : "▶"); });
+        mini.addView(miniPlay, new LinearLayout.LayoutParams(dp(48), dp(60)));
+
+        TextView close = new TextView(this);
+        close.setText("✕");
+        close.setTextColor(Color.WHITE);
+        close.setTextSize(18);
+        close.setGravity(Gravity.CENTER);
+        close.setOnClickListener(v -> { NativePlayer.stop(); resumeToWeb = false; hideMini(); });
+        mini.addView(close, new LinearLayout.LayoutParams(dp(48), dp(60)));
+
+        mini.setOnClickListener(v -> expand());
+        root.addView(mini, new FrameLayout.LayoutParams(-1, dp(60), Gravity.BOTTOM));
+    }
+
+    private final Runnable miniTick = new Runnable() {
+        @Override public void run() {
+            if (mini == null || mini.getVisibility() != View.VISIBLE) return;
+            if (!NativePlayer.active()) { hideMini(); return; }
+            miniPlay.setText(NativePlayer.isPlaying() ? "⏸" : "▶");
+            ui.postDelayed(this, 500);
+        }
+    };
+
+    private void layoutForMini(boolean on) {
+        FrameLayout.LayoutParams wp = (FrameLayout.LayoutParams) web.getLayoutParams();
+        wp.bottomMargin = on ? dp(60) : 0;
+        web.setLayoutParams(wp);
+        if (bar != null) {
+            FrameLayout.LayoutParams bp = (FrameLayout.LayoutParams) bar.getLayoutParams();
+            bp.bottomMargin = dp(96) + (on ? dp(60) : 0);
+            bar.setLayoutParams(bp);
+        }
+    }
+
+    private void showMini() {
+        if (mini == null || !NativePlayer.active() || customView != null) return;
+        miniTitle.setText(NativePlayer.title());
+        mini.setVisibility(View.VISIBLE);
+        layoutForMini(true);
+        if (NativePlayer.player() != null) NativePlayer.player().setVideoTextureView(miniTv);
+        ui.removeCallbacks(miniTick);
+        ui.post(miniTick);
+    }
+
+    private void hideMini() {
+        if (mini == null) return;
+        ui.removeCallbacks(miniTick);
+        if (NativePlayer.player() != null) NativePlayer.player().clearVideoTextureView(miniTv);
+        mini.setVisibility(View.GONE);
+        layoutForMini(false);
+    }
+
+    /** swipe down on the fullscreen video = same as Back: leave fullscreen and shrink into the mini player */
+    private final class SwipeFrame extends FrameLayout {
+        private float sx, sy;
+        private boolean fired;
+        SwipeFrame(Context c) { super(c); }
+
+        @Override public boolean onInterceptTouchEvent(MotionEvent e) {
+            switch (e.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN: sx = e.getX(); sy = e.getY(); fired = false; break;
+                case MotionEvent.ACTION_MOVE: {
+                    float dy = e.getY() - sy, dx = e.getX() - sx;
+                    if (!fired && dy > dp(90) && Math.abs(dx) < dy * 0.6f) {
+                        fired = true;
+                        post(() -> {
+                            chrome.onHideCustomView();
+                            if (webActive()) minimize();
+                        });
+                        return true;
+                    }
+                    break;
+                }
+                default: break;
+            }
+            return false;
+        }
+    }
+
+    // ── permissions the floating window / background play need ──────────────
+
+    private void openOverlaySettings() {
+        try {
+            if (Build.VERSION.SDK_INT >= 23) startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
+        } catch (Exception e) {
+            Toast.makeText(this, "Open Settings → Apps → this app → Display over other apps", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private boolean batteryFree() {
+        if (Build.VERSION.SDK_INT < 23) return true;
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        return pm == null || pm.isIgnoringBatteryOptimizations(getPackageName());
+    }
+
+    private void openBatterySettings() {
+        try {
+            startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getPackageName())));
+        } catch (Exception e) {
+            try { startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); } catch (Exception ignored) { }
+        }
+    }
+
+    private void askOverlayOnce() {
+        if (isFinishing() || FloatingWindow.can(this)) return;
+        SharedPreferences sp = getSharedPreferences("ytp", MODE_PRIVATE);
+        if (sp.getBoolean("askedOverlay", false)) return;
+        sp.edit().putBoolean("askedOverlay", true).apply();
+        new AlertDialog.Builder(this)
+            .setTitle("Floating window")
+            .setMessage("To keep the video in a floating window when you press Home, allow “Display over other apps” for this app.")
+            .setPositiveButton("Allow", (d, w) -> openOverlaySettings())
+            .setNegativeButton("Not now", null)
+            .show();
+    }
+
+    // ── buttons + sidebar ───────────────────────────────────────────────────
 
     private TextView round(String text) {
         TextView t = new TextView(this);
@@ -290,16 +582,14 @@ public class MainActivity extends Activity {
         root.addView(bar, fp);
     }
 
-    // ── sidebar: Home, Saved videos, Apps update ────────────────────────────
-
-    private TextView drawerItem(String text, View.OnClickListener l) {
+    private TextView drawerItem(String text, View.OnClickListener l, boolean closeAfter) {
         TextView t = new TextView(this);
         t.setText(text);
         t.setTextColor(Color.WHITE);
         t.setTextSize(16);
         t.setGravity(Gravity.CENTER_VERTICAL);
         t.setPadding(dp(20), 0, dp(20), 0);
-        t.setOnClickListener(v -> { closeDrawer(); l.onClick(v); });
+        t.setOnClickListener(v -> { if (closeAfter) closeDrawer(); l.onClick(v); });
         panel.addView(t, new LinearLayout.LayoutParams(-1, dp(54)));
         return t;
     }
@@ -323,9 +613,17 @@ public class MainActivity extends Activity {
         head.setPadding(dp(20), dp(44), dp(20), dp(20));
         panel.addView(head, new LinearLayout.LayoutParams(-1, -2));
 
-        drawerItem("🏠   Home", v -> web.loadUrl(HOME));
-        drawerItem("📁   Saved videos", v -> startActivity(new Intent(this, SavedActivity.class)));
-        updItem = drawerItem("⟳   Apps update", v -> checkUpdate(true));
+        drawerItem("🏠   Home", v -> web.loadUrl(HOME), true);
+        drawerItem("📁   Saved videos", v -> startActivity(new Intent(this, SavedActivity.class)), true);
+        updItem = drawerItem("⟳   Apps update", v -> checkUpdate(true), true);
+        floatItem = drawerItem("🪟   Floating window", v -> {
+            if (FloatingWindow.can(this)) Toast.makeText(this, "Floating window is ON — press Home while a video plays", Toast.LENGTH_LONG).show();
+            else openOverlaySettings();
+        }, true);
+        battItem = drawerItem("🔋   Background play fix", v -> {
+            if (batteryFree()) Toast.makeText(this, "Already allowed to run in the background", Toast.LENGTH_SHORT).show();
+            else openBatterySettings();
+        }, true);
 
         int w = Math.min(dp(290), (int) (getResources().getDisplayMetrics().widthPixels * 0.82f));
         root.addView(drawer, new FrameLayout.LayoutParams(-1, -1));
@@ -334,6 +632,8 @@ public class MainActivity extends Activity {
 
     private void openDrawer() {
         if (drawer == null || drawer.getVisibility() == View.VISIBLE) return;
+        floatItem.setText(FloatingWindow.can(this) ? "🪟   Floating window: ON" : "🪟   Floating window: tap to allow");
+        battItem.setText(batteryFree() ? "🔋   Background play: OK" : "🔋   Background play fix: tap to allow");
         panel.setTranslationX(-dp(300));
         drawer.setVisibility(View.VISIBLE);
         panel.animate().translationX(0).setDuration(180).start();
@@ -384,7 +684,7 @@ public class MainActivity extends Activity {
             @Override public void onReady(File apk) {
                 if (dlDialog != null) dlDialog.dismiss();
                 if (!Updater.install(MainActivity.this, apk)) {
-                    Toast.makeText(MainActivity.this, "Allow “Install unknown apps” for this app, then tap ⟳ again", Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "Allow “Install unknown apps” for this app, then open ☰ → Apps update again", Toast.LENGTH_LONG).show();
                 }
             }
             @Override public void onError(String why) {
@@ -410,11 +710,7 @@ public class MainActivity extends Activity {
         handleIntent(in);
     }
 
-    // ── lifecycle (background audio: never pause the WebView) ───────────────
-
-    private boolean inPip() {
-        return Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode();
-    }
+    // ── lifecycle ───────────────────────────────────────────────────────────
 
     private void setBg(boolean on) {
         if (web != null) web.evaluateJavascript("window.__ytpBg=" + on, null);
@@ -422,57 +718,59 @@ public class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        stopped = false;
+        leaving = false;
         setBg(false);
         web.onResume();
         web.resumeTimers();
         KeepAliveService.start(this);
+        FloatingWindow.hide();
+        if (NativePlayer.expandRequested) {
+            NativePlayer.expandRequested = false;
+            if (NativePlayer.active()) { if (resumeToWeb) returnToWeb(); else expand(); }
+        } else if (NativePlayer.active()) {
+            if (resumeToWeb) returnToWeb(); else showMini();
+        }
     }
 
     @Override protected void onPause() {
         super.onPause();
-        if (!inPip()) setBg(true);   // screen off / another app on top: a pause YouTube does by itself is undone
+        setBg(true);                 // fallback: a pause YouTube does by itself while hidden is undone
         web.onResume();              // keep the page "running" while the screen is off / another app is on top
         web.resumeTimers();
     }
 
-    @Override protected void onStop() {
-        super.onStop();
-        if (!inPip()) setBg(true);
-        web.onResume();
-        web.resumeTimers();
-    }
-
-    // Home button / gesture while a video plays -> floating Picture-in-Picture window
     @Override protected void onUserLeaveHint() {
         super.onUserLeaveHint();
-        if (Build.VERSION.SDK_INT < 26 || !playing || isInPictureInPictureMode()) return;
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return;
-        try {
-            enterPictureInPictureMode(new PictureInPictureParams.Builder().setAspectRatio(new Rational(16, 9)).build());
-        } catch (Exception ignored) { }
+        leaving = true;              // Home / recents (not the power button): show the floating window
     }
 
-    @Override public void onPictureInPictureModeChanged(boolean in, Configuration cfg) {
-        super.onPictureInPictureModeChanged(in, cfg);
-        if (in) {
-            setBg(false);                                  // PiP is visible: user pauses are real pauses
-            if (drawer != null) drawer.setVisibility(View.GONE);
-            if (bar != null) bar.setVisibility(View.GONE);
-        } else if (bar != null && customView == null) {
-            bar.setVisibility(View.VISIBLE);
+    @Override protected void onStop() {
+        super.onStop();
+        stopped = true;
+        setBg(true);
+        web.onResume();
+        web.resumeTimers();
+        if (NativePlayer.active()) {
+            if (leaving) showFloat();
+        } else if (webActive()) {
+            handoff(false, true);    // audio (and the floating window after Home) now comes from the native player
         }
-        web.evaluateJavascript("window.__ytpPip&&window.__ytpPip(" + in + ")", null);
     }
 
     @Override public void onBackPressed() {
         if (drawer != null && drawer.getVisibility() == View.VISIBLE) closeDrawer();
         else if (customView != null) chrome.onHideCustomView();
+        else if (onWatchPage() && webActive()) minimize();
         else if (web.canGoBack()) web.goBack();
         else moveTaskToBack(true);   // keep playing in the background instead of killing the video
     }
 
     @Override protected void onDestroy() {
-        KeepAliveService.stop(this);
+        ALIVE = false;
+        ui.removeCallbacks(miniTick);
+        if (!NativePlayer.active()) { FloatingWindow.hide(); KeepAliveService.stop(this); }
+        else hideMini();
         if (dlDialog != null && dlDialog.isShowing()) dlDialog.dismiss();
         web.stopLoading();
         web.destroy();

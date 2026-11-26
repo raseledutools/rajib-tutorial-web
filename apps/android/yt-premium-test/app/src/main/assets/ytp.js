@@ -103,7 +103,7 @@
   function rep() {
     try {
       var v = document.querySelector('video');
-      if (B && B.playing) B.playing(!!(v && !v.paused && !v.ended));
+      if (B && B.info) B.info(vid() || '', document.title || '', v ? (v.currentTime || 0) : 0, !!(v && !v.paused && !v.ended));
     } catch (e) {}
   }
   // the app tells us (window.__ytpBg) when the screen is off / the app is not visible: then a pause we did not ask for is undone
@@ -130,21 +130,48 @@
     if (v.paused) { window.__ytpUserPause = false; var p = v.play(); if (p && p.catch) p.catch(function(){}); }
     else { window.__ytpUserPause = true; v.pause(); }
   };
-  // Picture-in-Picture: show only the video, edge to edge
-  window.__ytpPip = function(on){
-    var de = document.documentElement, st = document.getElementById('ytp-pip-css');
-    if (!on) { if (st && st.parentNode) st.parentNode.removeChild(st); de.classList.remove('ytp-pip'); return; }
-    if (!st) {
-      st = document.createElement('style'); st.id = 'ytp-pip-css';
-      st.textContent = 'html.ytp-pip,html.ytp-pip body{background:#000!important;overflow:hidden!important}' +
-        'html.ytp-pip body *{visibility:hidden!important}' +
-        'html.ytp-pip body video{visibility:visible!important;position:fixed!important;top:0!important;left:0!important;' +
-        'width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;' +
-        'object-fit:contain!important;z-index:2147483647!important;background:#000!important;transform:none!important}';
-      de.appendChild(st);
-    }
-    de.classList.add('ytp-pip');
-  };
+  // ── swipe down on the player = minimize (same as the Back button) ──
+  var sw = null;
+  document.addEventListener('touchstart', function(e){
+    sw = null;
+    if (location.pathname !== '/watch' || e.touches.length !== 1) return;
+    var p = document.querySelector('.html5-video-player') || document.querySelector('#player-container-id') || document.querySelector('#player');
+    if (!p) return;
+    var t = e.touches[0], r = p.getBoundingClientRect();
+    if (t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom) sw = { x: t.clientX, y: t.clientY };
+  }, { passive: true, capture: true });
+  document.addEventListener('touchmove', function(e){
+    if (!sw || !e.touches.length) return;
+    var t = e.touches[0], dy = t.clientY - sw.y, dx = t.clientX - sw.x;
+    if (dy > 90 && Math.abs(dx) < dy * 0.6) { sw = null; if (B && B.minimize) B.minimize(); }
+  }, { passive: true, capture: true });
+  document.addEventListener('touchend', function(){ sw = null; }, { passive: true, capture: true });
+
+  // ── "Open app" / "Get the app" buttons and banners ──
+  try {
+    var css2 = document.createElement('style');
+    css2.textContent = 'ytm-open-app-button-renderer,ytm-app-promo-renderer,ytm-promo-banner-renderer,ytm-upsell-dialog-renderer,' +
+      'ytm-mealbar-promo-renderer,ytm-open-in-app-promo-renderer,.open-app-button,.mobile-topbar-header-content .open-app-link' +
+      '{display:none!important}';
+    (document.head || document.documentElement).appendChild(css2);
+  } catch (e) {}
+  var OPEN = /^(open app|open in app|open the app|open youtube app|get the app|install app|use the app|get app|\u0985\u09CD\u09AF\u09BE\u09AA \u0996\u09C1\u09B2\u09C1\u09A8)$/i;
+  function hideOpenApp() {
+    try {
+      var els = document.querySelectorAll('a,button,ytm-button-renderer'), n = Math.min(els.length, 150);
+      for (var i = 0; i < n; i++) {
+        var el = els[i];
+        if (el.getAttribute('data-ytp-h')) continue;
+        var t = ((el.getAttribute('aria-label') || '') + '').trim() || ((el.textContent || '') + '').trim();
+        var href = (el.getAttribute('href') || '');
+        if (OPEN.test(t) || href.indexOf('intent://') === 0 || href.indexOf('/app') === 0 && /app/i.test(t)) {
+          var tgt = el.closest('ytm-button-renderer,ytm-open-app-button-renderer') || el;
+          tgt.style.setProperty('display', 'none', 'important');
+          el.setAttribute('data-ytp-h', '1');
+        }
+      }
+    } catch (e) {}
+  }
 
   // ── video ads: skip button, otherwise mute + jump to the end of the ad ──
   var muted = false;
@@ -163,6 +190,6 @@
     } catch (e) {}
   }
   setInterval(function(){ ads(); }, 250);
-  setInterval(function(){ tick(); rep(); }, 700);
+  setInterval(function(){ tick(); rep(); hideOpenApp(); }, 700);
   tick();
 })();
