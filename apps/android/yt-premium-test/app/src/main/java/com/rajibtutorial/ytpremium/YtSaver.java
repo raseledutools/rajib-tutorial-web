@@ -13,6 +13,13 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.RandomAccessFile;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -99,12 +106,29 @@ final class YtSaver {
                 YtResolver.Res r = chosen != null ? chosen : YtResolver.resolve("https://www.youtube.com/watch?v=" + id);
                 checkCancel(id);
                 if (r.audioUrl != null) {
-                    fetch(app, id, r.url, vTmp, 0, 80);
-                    fetch(app, id, r.audioUrl, aTmp, 80, 92);
+                    // fast path: video + audio together, each cut into pieces fetched over several connections at once
+                    boolean fast = false;
+                    try {
+                        fetchParallel(app, id, new String[]{r.url, r.audioUrl}, new File[]{vTmp, aTmp}, 92);
+                        fast = true;
+                    } catch (CancelledException ce) {
+                        throw ce;
+                    } catch (Exception ignored) { /* fall back to the old single-connection download */ }
+                    if (!fast) {
+                        fetch(app, id, r.url, vTmp, 0, 80);
+                        fetch(app, id, r.audioUrl, aTmp, 80, 92);
+                    }
                     setPct(id, 93);
                     merge(vTmp, aTmp, mTmp, id);
                 } else {
-                    fetch(app, id, r.url, mTmp, 0, 99);
+                    boolean fast = false;
+                    try {
+                        fetchParallel(app, id, new String[]{r.url}, new File[]{mTmp}, 99);
+                        fast = true;
+                    } catch (CancelledException ce) {
+                        throw ce;
+                    } catch (Exception ignored) { }
+                    if (!fast) fetch(app, id, r.url, mTmp, 0, 99);
                 }
                 File dst = new File(d, name);
                 if (dst.exists()) dst.delete();
@@ -128,6 +152,104 @@ final class YtSaver {
                 mTmp.delete();
             }
         });
+    }
+
+    // ── fast download: YouTube slows a single long connection, but serves short ranges (&range=a-b) at full speed.
+    //    Cut the files into 2 MB pieces and fetch several at once (video and audio together). ──
+
+    private static final int WORKERS = 6;
+    private static final long PIECE = 2L * 1024 * 1024;
+
+    private static final class Piece {
+        final int file; final long start, end;
+        Piece(int file, long start, long end) { this.file = file; this.start = start; this.end = end; }
+    }
+
+    private static void fetchParallel(Context ctx, String id, String[] urls, File[] files, int pMax) throws Exception {
+        long[] totals = new long[urls.length];
+        long grand = 0;
+        for (int i = 0; i < urls.length; i++) {
+            totals[i] = YtResolver.contentLength(urls[i]);
+            if (totals[i] <= 0) throw new IOException("size unknown");
+            grand += totals[i];
+        }
+        checkSpace(ctx, grand);
+        final ConcurrentLinkedQueue<Piece> queue = new ConcurrentLinkedQueue<>();
+        for (int i = 0; i < urls.length; i++) {
+            if (files[i].exists()) files[i].delete();
+            try (RandomAccessFile raf = new RandomAccessFile(files[i], "rw")) { raf.setLength(totals[i]); }
+            for (long pos = 0; pos < totals[i]; pos += PIECE) queue.add(new Piece(i, pos, Math.min(totals[i], pos + PIECE) - 1));
+        }
+        final AtomicLong done = new AtomicLong();
+        final AtomicReference<Throwable> fail = new AtomicReference<>();
+        final long total = grand;
+        final int pm = pMax;
+        final int[] last = {-1};
+        final String[] u = urls;
+        final File[] f = files;
+        int n = Math.min(WORKERS, queue.size());
+        ExecutorService pool = Executors.newFixedThreadPool(n);
+        for (int w = 0; w < n; w++) {
+            pool.execute(() -> {
+                byte[] buf = new byte[65536];
+                Piece pc;
+                while (fail.get() == null && (pc = queue.poll()) != null) {
+                    int attempt = 0;
+                    while (true) {
+                        try {
+                            checkCancel(id);
+                            getPiece(u[pc.file], f[pc.file], pc, buf, done, id, total, pm, last);
+                            break;
+                        } catch (CancelledException ce) {
+                            fail.compareAndSet(null, ce);
+                            return;
+                        } catch (Throwable t) {
+                            done.addAndGet(-PARTIAL.get().get());           // the failed attempt is counted again on retry
+                            if (++attempt >= 3) { fail.compareAndSet(null, t); return; }
+                        }
+                    }
+                }
+            });
+        }
+        pool.shutdown();
+        pool.awaitTermination(6, TimeUnit.HOURS);
+        Throwable t = fail.get();
+        if (t instanceof CancelledException) throw (CancelledException) t;
+        if (t != null) throw new IOException(String.valueOf(t.getMessage()));
+        for (int i = 0; i < files.length; i++) if (files[i].length() != totals[i]) throw new IOException("Connection lost, try again");
+    }
+
+    private static final ThreadLocal<AtomicLong> PARTIAL = new ThreadLocal<AtomicLong>() {
+        @Override protected AtomicLong initialValue() { return new AtomicLong(); }
+    };
+
+    private static long getPiece(String src, File file, Piece pc, byte[] buf, AtomicLong done, String id, long total, int pMax, int[] last) throws Exception {
+        AtomicLong mine = PARTIAL.get();
+        mine.set(0);
+        HttpURLConnection conn = open(src + "&range=" + pc.start + "-" + pc.end);
+        try {
+            conn.connect();
+            int code = conn.getResponseCode();
+            if (code != 200 && code != 206) throw new HttpStatus(code);
+            long want = pc.end - pc.start + 1, got = 0;
+            try (InputStream in = conn.getInputStream(); RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
+                raf.seek(pc.start);
+                int n;
+                while (got < want && (n = in.read(buf, 0, (int) Math.min(buf.length, want - got))) != -1) {
+                    checkCancel(id);
+                    raf.write(buf, 0, n);
+                    got += n;
+                    mine.addAndGet(n);
+                    long d = done.addAndGet(n);
+                    int pct = (int) Math.min(pMax, pMax * d / total);
+                    synchronized (last) { if (pct != last[0]) { last[0] = pct; setPct(id, pct); } }
+                }
+            }
+            if (got < want) throw new IOException("Connection lost, try again");
+            return got;
+        } finally {
+            conn.disconnect();
+        }
     }
 
     // ── download helpers (same approach as VideoCache) ──────────────────────
@@ -161,7 +283,7 @@ final class YtSaver {
     }
 
     private static void pump(InputStream in, FileOutputStream out, String id, long done0, long total, int p0, int p1) throws IOException {
-        byte[] buf = new byte[32768];
+        byte[] buf = new byte[131072];
         long done = done0;
         int n, last = -1;
         while ((n = in.read(buf)) != -1) {
