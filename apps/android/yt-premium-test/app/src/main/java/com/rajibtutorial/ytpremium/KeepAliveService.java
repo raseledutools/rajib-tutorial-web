@@ -10,12 +10,15 @@ import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
+import android.net.wifi.WifiManager;
 import android.os.PowerManager;
 
 /** Foreground "media playback" service: keeps the process (and the WebView's audio) alive with the screen off or the app in the background. */
 public class KeepAliveService extends Service {
     private static final String CH = "ytp_bg";
     private PowerManager.WakeLock wl;
+    private WifiManager.WifiLock wfl;
+    static final String ACT_TOGGLE = "com.rajibtutorial.ytpremium.TOGGLE";
 
     static void start(Context c) {
         Intent i = new Intent(c, KeepAliveService.class);
@@ -30,6 +33,7 @@ public class KeepAliveService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACT_TOGGLE.equals(intent.getAction())) MainActivity.togglePlayback();
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= 26 && nm != null) {
             nm.createNotificationChannel(new NotificationChannel(CH, "Background playback", NotificationManager.IMPORTANCE_LOW));
@@ -43,6 +47,9 @@ public class KeepAliveService extends Service {
          .setContentText("Playing in the background")
          .setContentIntent(pi)
          .setOngoing(true);
+        Intent tg = new Intent(this, KeepAliveService.class).setAction(ACT_TOGGLE);
+        PendingIntent tpi = PendingIntent.getService(this, 1, tg, pf | PendingIntent.FLAG_UPDATE_CURRENT);
+        b.addAction(new Notification.Action.Builder(android.R.drawable.ic_media_pause, "Play / Pause", tpi).build());
         Notification n = b.build();
         try {
             if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
@@ -59,11 +66,23 @@ public class KeepAliveService extends Service {
                 wl.acquire(6 * 60 * 60 * 1000L);
             }
         }
+        if (wfl == null) {
+            try {
+                WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+                if (wm != null) {
+                    wfl = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "ytpremium:wifi");
+                    wfl.setReferenceCounted(false);
+                    wfl.acquire();
+                }
+            } catch (Exception ignored) { }
+        }
         return START_NOT_STICKY;
     }
 
     @Override
     public void onDestroy() {
+        try { if (wfl != null && wfl.isHeld()) wfl.release(); } catch (Exception ignored) { }
+        wfl = null;
         if (wl != null && wl.isHeld()) wl.release();
         wl = null;
         super.onDestroy();

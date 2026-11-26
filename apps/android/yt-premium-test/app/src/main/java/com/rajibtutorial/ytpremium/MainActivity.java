@@ -4,15 +4,18 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.PictureInPictureParams;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Rational;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -32,6 +35,7 @@ import android.widget.Toast;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
+import java.lang.ref.WeakReference;
 import java.util.Locale;
 
 /**
@@ -58,11 +62,24 @@ public class MainActivity extends Activity {
     private String pageJs = "";
     private AlertDialog dlDialog;
     private boolean updateShown;
+    private FrameLayout drawer;
+    private LinearLayout panel;
+    private TextView updItem;
+    private volatile boolean playing;          // reported by ytp.js: is a video playing right now
+    private static WeakReference<MainActivity> LIVE;
+
+    /** Play/Pause button of the background-playback notification. */
+    static void togglePlayback() {
+        final MainActivity a = LIVE == null ? null : LIVE.get();
+        if (a == null) return;
+        a.runOnUiThread(() -> { if (a.web != null) a.web.evaluateJavascript("window.__ytpToggle&&window.__ytpToggle()", null); });
+    }
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        LIVE = new WeakReference<>(this);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         Notifs.init(this);
         pageJs = readAsset("ytp.js");
@@ -134,7 +151,7 @@ public class MainActivity extends Activity {
                 web.setVisibility(View.GONE);
                 fsBox.setVisibility(View.VISIBLE);
                 fsBox.addView(view);
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                if (!inPip()) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
                 if (bar != null) bar.setVisibility(View.GONE);
             }
@@ -150,12 +167,13 @@ public class MainActivity extends Activity {
                 customCb = null;
                 setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
                 getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-                if (bar != null) bar.setVisibility(View.VISIBLE);
+                if (bar != null && !inPip()) bar.setVisibility(View.VISIBLE);
             }
         };
         web.setWebChromeClient(chrome);
 
         buildButtons();
+        buildDrawer();
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
         }
@@ -216,6 +234,9 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void playing(boolean p) { playing = p; }
+
+        @JavascriptInterface
         public void openSaved() {
             runOnUiThread(() -> { if (trusted()) startActivity(new Intent(MainActivity.this, SavedActivity.class)); });
         }
@@ -260,19 +281,67 @@ public class MainActivity extends Activity {
         bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.VERTICAL);
 
-        TextView saved = round("📁");
-        saved.setOnClickListener(v -> startActivity(new Intent(this, SavedActivity.class)));
-        TextView upd = round("⟳");
-        upd.setOnClickListener(v -> checkUpdate(true));
-
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(40), dp(40));
-        lp.topMargin = dp(8);
-        bar.addView(saved, lp);
-        bar.addView(upd, lp);
+        TextView menu = round("☰");
+        menu.setOnClickListener(v -> openDrawer());
+        bar.addView(menu, new LinearLayout.LayoutParams(dp(44), dp(44)));
 
         FrameLayout.LayoutParams fp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.END);
         fp.setMargins(0, 0, dp(8), dp(96));
         root.addView(bar, fp);
+    }
+
+    // ── sidebar: Home, Saved videos, Apps update ────────────────────────────
+
+    private TextView drawerItem(String text, View.OnClickListener l) {
+        TextView t = new TextView(this);
+        t.setText(text);
+        t.setTextColor(Color.WHITE);
+        t.setTextSize(16);
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setPadding(dp(20), 0, dp(20), 0);
+        t.setOnClickListener(v -> { closeDrawer(); l.onClick(v); });
+        panel.addView(t, new LinearLayout.LayoutParams(-1, dp(54)));
+        return t;
+    }
+
+    private void buildDrawer() {
+        drawer = new FrameLayout(this);
+        drawer.setBackgroundColor(0x99000000);
+        drawer.setVisibility(View.GONE);
+        drawer.setClickable(true);
+        drawer.setOnClickListener(v -> closeDrawer());
+
+        panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setBackgroundColor(0xFF1B1B1B);
+        panel.setClickable(true);                       // taps on the panel must not close it
+
+        TextView head = new TextView(this);
+        head.setText("YouTube Premium Test\nv1." + Updater.installedCode(this));
+        head.setTextColor(Color.WHITE);
+        head.setTextSize(17);
+        head.setPadding(dp(20), dp(44), dp(20), dp(20));
+        panel.addView(head, new LinearLayout.LayoutParams(-1, -2));
+
+        drawerItem("🏠   Home", v -> web.loadUrl(HOME));
+        drawerItem("📁   Saved videos", v -> startActivity(new Intent(this, SavedActivity.class)));
+        updItem = drawerItem("⟳   Apps update", v -> checkUpdate(true));
+
+        int w = Math.min(dp(290), (int) (getResources().getDisplayMetrics().widthPixels * 0.82f));
+        root.addView(drawer, new FrameLayout.LayoutParams(-1, -1));
+        drawer.addView(panel, new FrameLayout.LayoutParams(w, -1, Gravity.START));
+    }
+
+    private void openDrawer() {
+        if (drawer == null || drawer.getVisibility() == View.VISIBLE) return;
+        panel.setTranslationX(-dp(300));
+        drawer.setVisibility(View.VISIBLE);
+        panel.animate().translationX(0).setDuration(180).start();
+    }
+
+    private void closeDrawer() {
+        if (drawer == null || drawer.getVisibility() != View.VISIBLE) return;
+        panel.animate().translationX(-dp(300)).setDuration(150).withEndAction(() -> drawer.setVisibility(View.GONE)).start();
     }
 
     // ── updates ─────────────────────────────────────────────────────────────
@@ -284,6 +353,7 @@ public class MainActivity extends Activity {
                 final int mine = Updater.installedCode(this);
                 runOnUiThread(() -> {
                     if (isFinishing()) return;
+                    if (updItem != null) updItem.setText(l.code > mine ? "⟳   Apps update  •  new 1." + l.code : "⟳   Apps update");
                     if (l.code > mine) {
                         if (manual || !updateShown) { updateShown = true; showUpdateDialog(l.versionName(), l.url); }
                     } else if (manual) {
@@ -342,8 +412,17 @@ public class MainActivity extends Activity {
 
     // ── lifecycle (background audio: never pause the WebView) ───────────────
 
+    private boolean inPip() {
+        return Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode();
+    }
+
+    private void setBg(boolean on) {
+        if (web != null) web.evaluateJavascript("window.__ytpBg=" + on, null);
+    }
+
     @Override protected void onResume() {
         super.onResume();
+        setBg(false);
         web.onResume();
         web.resumeTimers();
         KeepAliveService.start(this);
@@ -351,17 +430,43 @@ public class MainActivity extends Activity {
 
     @Override protected void onPause() {
         super.onPause();
-        web.onResume();             // keep the page "running" while the screen is off / another app is on top
+        if (!inPip()) setBg(true);   // screen off / another app on top: a pause YouTube does by itself is undone
+        web.onResume();              // keep the page "running" while the screen is off / another app is on top
+        web.resumeTimers();
     }
 
     @Override protected void onStop() {
         super.onStop();
+        if (!inPip()) setBg(true);
         web.onResume();
         web.resumeTimers();
     }
 
+    // Home button / gesture while a video plays -> floating Picture-in-Picture window
+    @Override protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        if (Build.VERSION.SDK_INT < 26 || !playing || isInPictureInPictureMode()) return;
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return;
+        try {
+            enterPictureInPictureMode(new PictureInPictureParams.Builder().setAspectRatio(new Rational(16, 9)).build());
+        } catch (Exception ignored) { }
+    }
+
+    @Override public void onPictureInPictureModeChanged(boolean in, Configuration cfg) {
+        super.onPictureInPictureModeChanged(in, cfg);
+        if (in) {
+            setBg(false);                                  // PiP is visible: user pauses are real pauses
+            if (drawer != null) drawer.setVisibility(View.GONE);
+            if (bar != null) bar.setVisibility(View.GONE);
+        } else if (bar != null && customView == null) {
+            bar.setVisibility(View.VISIBLE);
+        }
+        web.evaluateJavascript("window.__ytpPip&&window.__ytpPip(" + in + ")", null);
+    }
+
     @Override public void onBackPressed() {
-        if (customView != null) chrome.onHideCustomView();
+        if (drawer != null && drawer.getVisibility() == View.VISIBLE) closeDrawer();
+        else if (customView != null) chrome.onHideCustomView();
         else if (web.canGoBack()) web.goBack();
         else moveTaskToBack(true);   // keep playing in the background instead of killing the video
     }
