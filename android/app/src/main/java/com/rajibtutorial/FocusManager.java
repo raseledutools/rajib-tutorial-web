@@ -90,6 +90,24 @@ public class FocusManager {
         } catch (Exception ignored) { }
     }
 
+    // ── Allowed apps (Focus চলাকালীন শুধু এই app গুলো চলবে — exe এর "Allow mode" এর মতো) ──
+    private static final String KEY_ALLOWED_APPS = "allowed_apps";
+
+    public java.util.Set<String> getAllowedApps() {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        try {
+            JSONArray a = new JSONArray(prefs.getString(KEY_ALLOWED_APPS, "[]"));
+            for (int i = 0; i < a.length(); i++) { String s = a.optString(i); if (!s.isEmpty()) out.add(s); }
+        } catch (Exception ignored) { }
+        return out;
+    }
+
+    public void setAllowedApps(java.util.Collection<String> pkgs) {
+        JSONArray a = new JSONArray();
+        for (String s : pkgs) a.put(s);
+        prefs.edit().putString(KEY_ALLOWED_APPS, a.toString()).apply();
+    }
+
     public void clearSession() {
         prefs.edit().remove(KEY_SESSION_END).remove(KEY_FOCUS_START_MS).apply();
     }

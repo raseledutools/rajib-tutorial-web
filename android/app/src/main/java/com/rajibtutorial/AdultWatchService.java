@@ -77,24 +77,34 @@ public class AdultWatchService extends AccessibilityService {
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
         if (e == null || e.getPackageName() == null) return;
-        if (!AppSettings.adultExternal(this)) return;
+        final boolean focusOn = new FocusManager(this).isSessionActive();
+        // Focus running = always enforced (even if the Adult Block switch is off); otherwise only when Adult Block is on
+        if (!focusOn && !AppSettings.adultExternal(this)) return;
         LocalFocusServer.start(this);                                  // no-op when it already runs; restarts it if it died
         if (e.getEventType() == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return;   // still typing: nothing is blocked before the search is submitted
         String pkg = e.getPackageName().toString();
-        if (getPackageName().equals(pkg) || SKIP.contains(pkg)) return;
+        if (getPackageName().equals(pkg)) return;
         long now = SystemClock.elapsedRealtime();
         if (driving && now - drivingSince > 6000) driving = false;     // never stay stuck
         if (overlay != null || driving) return;
-        if (now - lastAct < 2000) return;
+        if (now - lastAct < (focusOn ? 700 : 2000)) return;            // Focus: react almost at once (new tab → focus page)
         final boolean browser = BROWSERS.contains(pkg);
+        if (focusOn && !browser && e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+                && !FocusAllow.isAllowed(this, pkg)) {                  // Focus running: only allowed apps may run (like the exe)
+            lastAct = now;
+            blockApp();
+            return;
+        }
+        if (SKIP.contains(pkg)) return;
         if (!browser && now - lastScan < 900) return;          // other apps: scan at most about once a second (battery)
         lastScan = now;
 
         LocalFocusServer.tick(this);
-        if (browser && new FocusManager(this).isSessionActive()) {     // Focus is running: any tab / site that is not allowed becomes the focus page
+        if (browser && focusOn) {                                      // Focus is running: any tab / site that is not allowed becomes the focus page
             if (!driving && enforceFocus()) lastAct = now;
             return;
         }
+        if (!AppSettings.adultExternal(this)) return;                  // Focus-only run: no adult scan when that switch is off
 
         boolean bad = false;
         scanTyping = false; scanAdult = false;
@@ -206,14 +216,62 @@ public class AdultWatchService extends AccessibilityService {
                 try { bar.recycle(); } catch (Exception ignored) { }
             }
         } finally { try { root.recycle(); } catch (Exception ignored) { } }
-        if (txt == null || txt.isEmpty() || typing) return false;
+        if (txt == null || typing) return false;                     // no address bar on screen (tab grid, menu …) or still typing
         if (txt.contains("localhost")) return false;                 // our focus page
+        if (isNewTabText(txt)) return openFocusPageInSameTab(false); // a NEW TAB (empty bar / "Search or type web address" / chrome://newtab): focus page at once
         String host = null;
         if (!txt.contains(" ") && txt.contains(".")) {
             try { host = Uri.parse(txt.contains("://") ? txt : "https://" + txt).getHost(); } catch (Exception ignored) { }
         }
         if (host != null && LocalFocusServer.isAllowedHost(this, host)) return false;   // an allowed website
         return openFocusPageInSameTab(false);
+    }
+
+    /** The browser's new-tab page: empty address bar, the hint text of the bar, or an internal page (chrome://newtab, about:blank …). */
+    private static boolean isNewTabText(String txt) {
+        String t = txt.trim().toLowerCase(Locale.ROOT);
+        if (t.isEmpty()) return true;
+        if (t.startsWith("search or type") || t.startsWith("search google or type") || t.contains("type web address")
+            || t.startsWith("search or enter") || t.startsWith("type url") || t.startsWith("enter search")) return true;
+        return t.startsWith("chrome://") || t.startsWith("edge://") || t.startsWith("about:") || t.startsWith("brave://")
+            || t.startsWith("opera:") || t.startsWith("vivaldi://") || t.startsWith("chrome-search://");
+    }
+
+    /** Focus running and a not-allowed app came to the front: Home, plus a short full-screen notice with the time left. */
+    private void blockApp() {
+        performGlobalAction(GLOBAL_ACTION_HOME);
+        if (overlay != null) return;
+        if (wm == null) wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        FocusManager fm = new FocusManager(this);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER);
+        root.setBackgroundColor(0xFF0B1F24);
+        root.setPadding(Ui.dp(this, 28), Ui.dp(this, 28), Ui.dp(this, 28), Ui.dp(this, 28));
+        TextView emoji = Ui.tv(this, "🎯", 56, 0xFFFFFFFF, false);
+        emoji.setGravity(Gravity.CENTER);
+        root.addView(emoji, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        TextView title = Ui.tv(this, "Focus চলছে", 22, 0xFFFFFFFF, true);
+        title.setGravity(Gravity.CENTER);
+        root.addView(title, Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 10, 0, 8));
+        TextView msg = Ui.tv(this, "এখন শুধু Allowed app চলবে।\nআরও " + (fm.getRemainingMs() / 60000 + 1) + " মিনিট মন দিয়ে ফোকাস করুন 💪",
+            14.5f, 0xFFB8C7CB, false);
+        msg.setGravity(Gravity.CENTER);
+        msg.setLineSpacing(0, 1.25f);
+        root.addView(msg, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.OPAQUE);
+        try {
+            wm.addView(root, lp);
+            overlay = root;
+            ui.postDelayed(this::removeOverlay, 2200);                // never traps the person: gone after ~2 s, they are on Home
+        } catch (Exception ex) {
+            overlay = null;
+        }
     }
 
     /** The SAME tab becomes the Focus page: the address bar gets http://localhost:PORT/focus (LocalFocusServer) + Enter, retried until it sticks. */
