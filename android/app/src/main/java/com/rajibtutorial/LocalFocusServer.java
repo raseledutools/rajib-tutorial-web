@@ -70,6 +70,9 @@ final class LocalFocusServer {
 
     private static SharedPreferences sp(Context c) { return c.getSharedPreferences("rt_focus_local", Context.MODE_PRIVATE); }
 
+    /** Focus length in minutes chosen on the focus page (default 25, 5–180, kept for the next sessions / Pomodoro too). */
+    static int minutes(Context c) { return Math.max(5, Math.min(180, sp(c).getInt("min", 25))); }
+
     private static JSONArray sites(Context c) {
         try { return new JSONArray(sp(c).getString("sites", "[]")); } catch (Exception e) { return new JSONArray(); }
     }
@@ -117,7 +120,7 @@ final class LocalFocusServer {
                 } else if ("break".equals(ph) && System.currentTimeMillis() >= p.optLong("breakEndAt")) {
                     p.put("idx", p.optInt("idx") + 1); p.put("phase", "focus"); p.put("breakEndAt", 0);
                     savePomo(c, p);
-                    FocusManager.quickStart(c);
+                    FocusManager.quickStart(c, minutes(c) * 60000L);
                 }
             } catch (Exception ignored) { }
         }
@@ -131,7 +134,7 @@ final class LocalFocusServer {
         st.put("endAt", fm.getSessionEndMs());
         st.put("now", System.currentTimeMillis());
         st.put("sites", sites(c));
-        st.put("minutes", FocusManager.QUICK_FOCUS_MS / 60000);
+        st.put("minutes", minutes(c));
         st.put("breakMinutes", BREAK_MIN);
         st.put("maxSessions", POMO_MAX);
         st.put("sessions", 1);
@@ -151,7 +154,9 @@ final class LocalFocusServer {
                     JSONObject p = null;
                     if (n > 1) { p = new JSONObject(); p.put("total", n); p.put("idx", 1); p.put("phase", "focus"); p.put("breakEndAt", 0); }
                     savePomo(c, p);
-                    FocusManager.quickStart(c);
+                    int m = Math.max(5, Math.min(180, o.optInt("minutes", minutes(c))));
+                    sp(c).edit().putInt("min", m).apply();
+                    FocusManager.quickStart(c, m * 60000L);
                 }
                 return r.put("ok", true);
             }

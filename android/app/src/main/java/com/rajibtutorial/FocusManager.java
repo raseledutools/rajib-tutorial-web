@@ -80,10 +80,12 @@ public class FocusManager {
     /** The 25-minute quick Focus used by the Adult Block focus page (Safe Browser tab + other browsers' overlay). */
     public static final long QUICK_FOCUS_MS = 25L * 60 * 1000;
 
-    public static void quickStart(Context c) {
+    public static void quickStart(Context c) { quickStart(c, QUICK_FOCUS_MS); }
+
+    public static void quickStart(Context c, long durationMs) {
         FocusManager fm = new FocusManager(c);
         fm.setFocusEnabled(true);
-        fm.startSession(QUICK_FOCUS_MS);
+        fm.startSession(durationMs);
         try {
             android.content.Intent si = new android.content.Intent(c, FocusOverlayService.class).setAction(FocusOverlayService.ACTION_START);
             if (android.os.Build.VERSION.SDK_INT >= 26) androidx.core.content.ContextCompat.startForegroundService(c, si); else c.startService(si);

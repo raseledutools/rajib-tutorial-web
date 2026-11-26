@@ -31,8 +31,9 @@ button:hover{background:rgba(255,255,255,.18)}button.p{background:#8fd3c8;color:
 <div class="tm" id="tm">25:00</div>
 <div class="live" id="live"></div>
 <div class="pm" id="pm"><span class="pml">🍅 Pomodoro — কয়টা session?</span><button id="pmM" title="কমান">−</button><b id="pmN">1</b><button id="pmP" title="বাড়ান">＋</button></div>
+<div class="pm" id="mn"><span class="pml">⏱ সময় (মিনিট)</span><button id="mnM" title="কমান">−</button><b id="mnN">25</b><button id="mnP" title="বাড়ান">＋</button></div>
 <div class="pmt" id="pmT"></div>
-<div class="fr"><button class="p" id="bt">▶ ২৫ মিনিট ফোকাস শুরু</button><button id="bq">💬 আরেকটি উক্তি</button></div>
+<div class="fr"><button class="p" id="bt">▶ ফোকাস শুরু</button><button id="bq">💬 আরেকটি উক্তি</button></div>
 <div class="fr" id="bk" style="display:none"><button class="p" id="bs">▶ এখনই পরের session শুরু</button><button id="bx">✕ Pomodoro বন্ধ</button></div>
 <div class="sh" id="sh">অনুমোদিত ওয়েবসাইট — ক্লিক করলে এই ট্যাবেই খুলবে</div>
 <div id="nz" style="margin:14px 0 4px"></div>
@@ -72,7 +73,7 @@ function fmt(){
   }
 }
 function render(){
-  const bk=inBreak();$('bt').style.display=(active||bk)?'none':'';$('pm').style.display=(active||bk)?'none':'flex';$('pmT').style.display=(active||bk)?'none':'';$('bk').style.display=bk?'flex':'none';$('add').style.display=active?'none':'flex';paintPm();
+  const bk=inBreak();$('bt').style.display=(active||bk)?'none':'';$('pm').style.display=(active||bk)?'none':'flex';$('mn').style.display=(active||bk)?'none':'flex';$('pmT').style.display=(active||bk)?'none':'';$('bk').style.display=bk?'flex':'none';$('add').style.display=active?'none':'flex';paintPm();
   if(active)$('live').textContent='🔒 ফোকাস চলছে — সময় শেষ না হওয়া পর্যন্ত নতুন ট্যাব / অন্য সাইট এই পাতায় ফিরে আসবে';
   else if(left()>0&&$('live').textContent.indexOf('সাবাশ')<0)$('live').textContent='';
   if(active&&pomo)$('live').textContent='🔒 Session '+pomo.idx+'/'+pomo.total+' চলছে — সময় শেষ না হওয়া পর্যন্ত নতুন ট্যাব / অন্য সাইট এই পাতায় ফিরে আসবে';
@@ -87,16 +88,18 @@ function render(){
   fmt();
 }
 function apply(st){if(!st)return;const was=pomo;active=!!st.active;endAt=st.endAt||0;off=(st.now||Date.now())-Date.now();sites=st.sites||[];pomo=st.pomo||null;
-  if(st.maxSessions)maxS=st.maxSessions;if(st.minutes)mins=st.minutes;if(st.breakMinutes)brkM=st.breakMinutes;
+  if(st.maxSessions)maxS=st.maxSessions;if(st.minutes&&(!inited||st.active))mins=st.minutes;if(st.breakMinutes)brkM=st.breakMinutes;
   if(!inited){inited=true;sess=Math.min(maxS,Math.max(1,st.sessions||1))}
   render();
   if(was&&!pomo&&!active){if(stopped)$('live').textContent='';else $('live').textContent='সাবাশ! সব '+was.total+' টি session শেষ 🎉';stopped=false}
 }
-function paintPm(){$('pmN').textContent=sess;$('bt').textContent=sess<2?'▶ '+mins+' মিনিট ফোকাস শুরু':'▶ '+sess+' × '+mins+' মিনিট ফোকাস শুরু';
+function paintPm(){$('mnN').textContent=mins;$('pmN').textContent=sess;$('bt').textContent=sess<2?'▶ '+mins+' মিনিট ফোকাস শুরু':'▶ '+sess+' × '+mins+' মিনিট ফোকাস শুরু';
   $('pmT').textContent=sess<2?'শুধু একটি '+mins+' মিনিটের session':'মোট '+sess+' টি session, মাঝে '+brkM+' মিনিট বিরতি (প্রায় '+(sess*mins+(sess-1)*brkM)+' মিনিট)'}
+$('mnM').onclick=()=>{mins=Math.max(5,mins-5);paintPm();fmt()};
+$('mnP').onclick=()=>{mins=Math.min(180,mins+5);paintPm();fmt()};
 async function poll(){apply(await api('/api/state'))}
 $('bt').onclick=async()=>{
-  const r=await api('/api/start',{sessions:sess});
+  const r=await api('/api/start',{sessions:sess,minutes:mins});
   if(r&&r.ok){await poll()}else{$('live').textContent='শুরু করা যায়নি — Rajib Tutorial অ্যাপ চালু আছে কি না দেখুন।'}
 };
 $('ba').onclick=async()=>{const v=$('in').value.trim();if(!v)return;const r=await api('/api/sites',{add:v});if(r&&r.ok){sites=r.sites;$('in').value='';render()}else $('live').textContent='সঠিক ওয়েবসাইট লিখুন (যেমন example.com)'};
