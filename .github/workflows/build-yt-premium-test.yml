@@ -85,6 +85,10 @@ jobs:
           path: YouTubePremiumTest.apk
           retention-days: 30
 
+      - name: Write version.txt for the in-app updater
+        if: success()
+        run: echo "${{ github.run_number }}" > version.txt
+
       # make_latest: false -> this must NEVER become the repo's "latest" release:
       # RajibTutorial.apk download links and the app's update checker use /releases/latest.
       - name: Create GitHub Release (not latest)
@@ -102,6 +106,23 @@ jobs:
             - Build: #${{ github.run_number }}
             - Commit: ${{ github.sha }}
           files: YouTubePremiumTest.apk
+          draft: false
+          prerelease: false
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Fixed tag, overwritten on every build: the installed app reads version.txt + the APK from here.
+      - name: Update fixed "ytp-latest" release (used by the in-app updater)
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ytp-latest
+          name: "YouTube Premium Test (latest build)"
+          body: "Always the newest YouTube Premium Test build. Used by the app's auto-update."
+          files: |
+            YouTubePremiumTest.apk
+            version.txt
           draft: false
           prerelease: false
           make_latest: false

@@ -62,6 +62,20 @@ final class Updater {
 
     /** Blocking (background thread only). Newest ytp release, or throws with the reason. */
     static Latest latest() throws Exception {
+        // 1) fixed "ytp-latest" release: version.txt + APK are overwritten by every build, so it never scrolls out of
+        //    GitHub's releases list (the main app creates a new release on every push) and has no API rate limit.
+        try {
+            String base = "https://github.com/" + REPO + "/releases/download/ytp-latest/";
+            HttpURLConnection c = open(base + "version.txt");
+            c.setInstanceFollowRedirects(true);
+            if (c.getResponseCode() == 200) {
+                int n = Integer.parseInt(read(c.getInputStream()).trim());
+                c.disconnect();
+                return new Latest(n, "ytp-v" + n, base + ASSET);
+            }
+            c.disconnect();
+        } catch (Exception ignored) { }
+        // 2) fallback: releases list / feed
         String why;
         try {
             HttpURLConnection c = open("https://api.github.com/repos/" + REPO + "/releases?per_page=30");
