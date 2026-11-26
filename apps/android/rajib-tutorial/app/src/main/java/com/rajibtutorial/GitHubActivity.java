@@ -1,6 +1,8 @@
 package com.rajibtutorial;
 
 import android.content.Context;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
@@ -9,6 +11,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextUtils;
@@ -41,7 +44,7 @@ import java.util.concurrent.Executors;
 
 /**
  * GitHub — native screen (no WebView).
- * Tabs: Repos / Actions / Releases / Commits / Issues / PRs / Branches / Profile.
+ * Tabs: Repos / Code (browse, edit, commit) / Actions / Releases / Commits / Issues / PRs / Branches / Profile.
  * Actions: run workflow, re-run, cancel, jobs, artifact download, new release / issue / repo, delete release.
  * Token user nijei app e boshay (hardcoded na), SharedPreferences (MODE_PRIVATE) e thake.
  * Scope lagbe: repo, workflow.
@@ -59,9 +62,9 @@ public class GitHubActivity extends AppCompatActivity {
     private static final int BLUE = 0xFF58A6FF, PURPLE = 0xFF7B2FF7;
 
     private static final String[] TAB_NAMES =
-            {"Repos", "Actions", "Releases", "Commits", "Issues", "PRs", "Branches", "Profile"};
-    private static final int T_REPOS = 0, T_RUNS = 1, T_REL = 2, T_COMMITS = 3,
-            T_ISSUES = 4, T_PRS = 5, T_BRANCHES = 6, T_PROFILE = 7;
+            {"Repos", "Code", "Actions", "Releases", "Commits", "Issues", "PRs", "Branches", "Profile"};
+    private static final int T_REPOS = 0, T_CODE = 1, T_RUNS = 2, T_REL = 3, T_COMMITS = 4,
+            T_ISSUES = 5, T_PRS = 6, T_BRANCHES = 7, T_PROFILE = 8;
 
     private final ExecutorService io = Executors.newCachedThreadPool();
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -74,6 +77,8 @@ public class GitHubActivity extends AppCompatActivity {
     private String repoFilter = "";
     private volatile String lastScopes = "";
     private volatile String rateInfo = "";
+    private String codePath = "", codeBranch = "", codeText = "";
+    private JSONObject codeFile = null;
 
     private LinearLayout root, list, tabBar, repoBar, actionBar;
     private TextView repoLabel;
@@ -397,6 +402,9 @@ public class GitHubActivity extends AppCompatActivity {
             slp.rightMargin = dp(8);
             actionBar.addView(s, slp);
             actionBar.addView(smallBtn("＋ Repo", GREEN, v -> newRepoDialog()));
+        } else if (t == T_CODE) {
+            actionBar.addView(smallBtn("⑂ " + (codeBranch.isEmpty() ? "default" : codeBranch), BLUE, v -> pickBranch()), gap);
+            actionBar.addView(smallBtn("＋ File", GREEN, v -> newFileDialog()), gap);
         } else if (t == T_RUNS) {
             actionBar.addView(smallBtn("▶ Run workflow", GREEN, v -> runWorkflow()), gap);
         } else if (t == T_REL) {
@@ -500,6 +508,7 @@ public class GitHubActivity extends AppCompatActivity {
     }
 
     private void load() {
+        if (tab == T_CODE) { loadCode(); return; }
         final int id = ++reqId;
         final int t = tab;
         final String r = repo;
@@ -549,6 +558,266 @@ public class GitHubActivity extends AppCompatActivity {
                     showMsg(m, RED);
                 });
             }
+        });
+    }
+
+
+    // ───────────────────────── code browser / editor ─────────────────────────
+    private void resetCode() { codePath = ""; codeBranch = ""; codeFile = null; codeText = ""; }
+
+    private String refQ() { return codeBranch.isEmpty() ? "" : "?ref=" + Uri.encode(codeBranch); }
+
+    private String parentOf(String p) {
+        int i = p.lastIndexOf('/');
+        return i < 0 ? "" : p.substring(0, i);
+    }
+
+    private String fmtSize(long n) {
+        if (n < 1024) return n + " B";
+        if (n < 1024 * 1024) return (n / 1024) + " KB";
+        return String.format(Locale.US, "%.1f MB", n / 1048576.0);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (tab == T_CODE && (codeFile != null || !codePath.isEmpty())) {
+            codePath = parentOf(codePath);
+            codeFile = null;
+            load();
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    private void loadCode() {
+        final int id = ++reqId;
+        final String r = repo, p = codePath, q = refQ();
+        bar.setVisibility(View.VISIBLE);
+        showMsg("Loading…", DIM);
+        io.execute(() -> {
+            try {
+                final String body = get("/repos/" + r + "/contents/" + Uri.encode(p, "/") + q);
+                ui.post(() -> {
+                    if (id != reqId || isFinishing()) return;
+                    bar.setVisibility(View.INVISIBLE);
+                    try { renderCode(body); } catch (Exception e) { showMsg("Parse error: " + e.getMessage(), RED); }
+                });
+            } catch (Exception e) {
+                final String m = e.getMessage() == null ? "Network error" : e.getMessage();
+                ui.post(() -> {
+                    if (id != reqId || isFinishing()) return;
+                    bar.setVisibility(View.INVISIBLE);
+                    showMsg(m, RED);
+                });
+            }
+        });
+    }
+
+    private void renderCode(String body) throws Exception {
+        list.removeAllViews();
+        TextView crumb = tv("📂  " + repo + "/" + codePath, 12, DIM, false);
+        crumb.setPadding(dp(16), dp(6), dp(16), dp(4));
+        list.addView(crumb);
+        String t = body.trim();
+        if (t.startsWith("[")) { codeFile = null; renderDir(new JSONArray(t)); }
+        else renderFile(new JSONObject(t));
+    }
+
+    private void renderDir(JSONArray a) throws Exception {
+        if (!codePath.isEmpty()) {
+            rowCard("⬆  ..", "", "", DIM, DIM, v -> { codePath = parentOf(codePath); load(); });
+        }
+        for (int pass = 0; pass < 2; pass++) {
+            for (int i = 0; i < a.length(); i++) {
+                final JSONObject o = a.getJSONObject(i);
+                final boolean dir = "dir".equals(str(o, "type"));
+                if (dir != (pass == 0)) continue;
+                final String path = str(o, "path"), sha = str(o, "sha");
+                LinearLayout c = rowCard((dir ? "📁  " : "📄  ") + str(o, "name"),
+                        dir ? "" : fmtSize(o.optLong("size")), "", DIM, dir ? BLUE : TXT,
+                        v -> {
+                            if (!"dir".equals(str(o, "type")) && !"file".equals(str(o, "type"))) {
+                                openUrl(str(o, "html_url"));
+                            } else { codePath = path; load(); }
+                        });
+                if (!dir) c.setOnLongClickListener(v -> { confirmDeleteFile(path, sha); return true; });
+            }
+        }
+        if (a.length() == 0) showMsg("ফোল্ডার ফাঁকা", DIM);
+    }
+
+    private void renderFile(final JSONObject o) throws Exception {
+        codeFile = o;
+        final String name = str(o, "name"), path = str(o, "path"), sha = str(o, "sha");
+        String text = null;
+        if ("base64".equals(str(o, "encoding"))) {
+            byte[] b = Base64.decode(str(o, "content"), Base64.DEFAULT);
+            boolean bin = false;
+            for (int i = 0; i < Math.min(b.length, 8000); i++) if (b[i] == 0) { bin = true; break; }
+            if (!bin) text = new String(b, "UTF-8");
+        }
+        codeText = text == null ? "" : text;
+        final String fText = text;
+
+        LinearLayout c = card();
+        c.addView(tv(name, 15, BLUE, true));
+        c.addView(tv(fmtSize(o.optLong("size")) + "  •  " + path, 12, DIM, false));
+        HorizontalScrollView bs = new HorizontalScrollView(this);
+        bs.setHorizontalScrollBarEnabled(false);
+        LinearLayout br = new LinearLayout(this);
+        br.setOrientation(LinearLayout.HORIZONTAL);
+        br.setPadding(0, dp(8), 0, 0);
+        LinearLayout.LayoutParams g = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        g.rightMargin = dp(6);
+        if (fText != null) {
+            br.addView(smallBtn("✏ Edit", GREEN, v -> editFileDialog(name, path, sha, fText)), g);
+            br.addView(smallBtn("📋 Copy", BLUE, v -> {
+                ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm != null) { cm.setPrimaryClip(ClipData.newPlainText(name, fText)); toast("Copied"); }
+            }), g);
+        }
+        br.addView(smallBtn("🗑 Delete", RED, v -> confirmDeleteFile(path, sha)), g);
+        br.addView(smallBtn("🌐 GitHub", PURPLE, v -> openUrl(str(o, "html_url"))), g);
+        bs.addView(br);
+        c.addView(bs);
+        list.addView(c);
+
+        if (fText == null) {
+            showMsgAppend("Binary বা বড় ফাইল (>1MB) — GitHub এ খুলুন", AMBER);
+            return;
+        }
+        String[] lines = fText.split("\n", -1);
+        int n = Math.min(lines.length, 3000);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < n; i++) sb.append(lines[i]).append('\n');
+        if (lines.length > n) sb.append("\n… (").append(lines.length - n).append(" লাইন আর দেখানো হয়নি)");
+        TextView code = tv(sb.toString(), 11, TXT, false);
+        code.setTypeface(Typeface.MONOSPACE);
+        code.setTextIsSelectable(true);
+        code.setPadding(dp(10), dp(8), dp(10), dp(8));
+        HorizontalScrollView hs = new HorizontalScrollView(this);
+        hs.addView(code);
+        LinearLayout box = card();
+        box.setPadding(0, 0, 0, 0);
+        box.addView(hs);
+        list.addView(box);
+    }
+
+    private void showMsgAppend(String m, int color) {
+        TextView t = tv(m, 13, color, false);
+        t.setPadding(dp(18), dp(12), dp(18), dp(12));
+        list.addView(t);
+    }
+
+    private void editFileDialog(String name, final String path, final String sha, String text) {
+        LinearLayout f = form();
+        final EditText msg = field("Commit message", false);
+        msg.setText("Update " + name);
+        final EditText code = field("code", true);
+        code.setText(text);
+        code.setTypeface(Typeface.MONOSPACE);
+        code.setTextSize(12);
+        code.setMinLines(14);
+        f.addView(msg);
+        f.addView(code);
+        ScrollView sv = new ScrollView(this);
+        sv.addView(f);
+        new AlertDialog.Builder(this).setTitle("✏ " + path).setView(sv)
+                .setPositiveButton("Commit", (d, w) ->
+                        commitFile(path, sha, code.getText().toString(), msg.getText().toString().trim()))
+                .setNegativeButton("Cancel", null).show();
+    }
+
+    private void newFileDialog() {
+        LinearLayout f = form();
+        final EditText pth = field("path/to/file.ext", false);
+        pth.setText(codeFile == null && !codePath.isEmpty() ? codePath + "/" : "");
+        final EditText msg = field("Commit message", false);
+        final EditText code = field("content", true);
+        code.setTypeface(Typeface.MONOSPACE);
+        code.setMinLines(8);
+        f.addView(pth);
+        f.addView(msg);
+        f.addView(code);
+        ScrollView sv = new ScrollView(this);
+        sv.addView(f);
+        new AlertDialog.Builder(this).setTitle("＋ নতুন ফাইল").setView(sv)
+                .setPositiveButton("Commit", (d, w) -> {
+                    String pp = pth.getText().toString().trim();
+                    if (pp.startsWith("/")) pp = pp.substring(1);
+                    if (pp.isEmpty()) { toast("Path দিন"); return; }
+                    commitFile(pp, null, code.getText().toString(), msg.getText().toString().trim());
+                })
+                .setNegativeButton("Cancel", null).show();
+    }
+
+    private void commitFile(final String path, final String sha, final String content, String message) {
+        final String r = repo, bn = codeBranch;
+        final String m = message.isEmpty() ? (sha == null ? "Add " : "Update ") + path : message;
+        toast("Committing…");
+        io.execute(() -> {
+            try {
+                JSONObject b = new JSONObject();
+                b.put("message", m);
+                b.put("content", Base64.encodeToString(content.getBytes("UTF-8"), Base64.NO_WRAP));
+                if (sha != null && !sha.isEmpty()) b.put("sha", sha);
+                if (!bn.isEmpty()) b.put("branch", bn);
+                Resp resp = call("PUT", "/repos/" + r + "/contents/" + Uri.encode(path, "/"),
+                        b.toString(), JSON_ACCEPT, true);
+                if (resp.code >= 400) throw new Exception(errMsg(resp));
+                ui.post(() -> {
+                    if (isFinishing()) return;
+                    toast("✓ Commit হয়েছে");
+                    if (tab == T_CODE && r.equals(repo)) { codePath = path; load(); }
+                });
+            } catch (Exception e) { fail(e); }
+        });
+    }
+
+    private void confirmDeleteFile(final String path, final String sha) {
+        new AlertDialog.Builder(this).setTitle("ফাইল মুছবেন?").setMessage(path)
+                .setPositiveButton("Delete", (d, w) -> deleteFile(path, sha))
+                .setNegativeButton("Cancel", null).show();
+    }
+
+    private void deleteFile(final String path, final String sha) {
+        final String r = repo, bn = codeBranch;
+        toast("Deleting…");
+        io.execute(() -> {
+            try {
+                JSONObject b = new JSONObject();
+                b.put("message", "Delete " + path);
+                b.put("sha", sha);
+                if (!bn.isEmpty()) b.put("branch", bn);
+                Resp resp = call("DELETE", "/repos/" + r + "/contents/" + Uri.encode(path, "/"),
+                        b.toString(), JSON_ACCEPT, true);
+                if (resp.code >= 400) throw new Exception(errMsg(resp));
+                ui.post(() -> {
+                    if (isFinishing()) return;
+                    toast("✓ মুছে গেছে");
+                    if (tab == T_CODE && r.equals(repo)) { codePath = parentOf(path); codeFile = null; load(); }
+                });
+            } catch (Exception e) { fail(e); }
+        });
+    }
+
+    private void pickBranch() {
+        final String r = repo;
+        io.execute(() -> {
+            try {
+                JSONArray a = new JSONArray(get("/repos/" + r + "/branches?per_page=100"));
+                final String[] names = new String[a.length()];
+                for (int i = 0; i < names.length; i++) names[i] = a.getJSONObject(i).optString("name");
+                ui.post(() -> {
+                    if (isFinishing()) return;
+                    new AlertDialog.Builder(this).setTitle("Branch").setItems(names, (d, w) -> {
+                        codeBranch = names[w]; codePath = ""; codeFile = null;
+                        buildActionBar(T_CODE);
+                        load();
+                    }).show();
+                });
+            } catch (Exception e) { fail(e); }
         });
     }
 
@@ -611,7 +880,18 @@ public class GitHubActivity extends AppCompatActivity {
             meta.setPadding(0, dp(6), 0, 0);
             c.addView(meta);
 
-            c.setOnClickListener(v -> { repo = full; setTab(T_RUNS); });
+            LinearLayout qa = new LinearLayout(this);
+            qa.setOrientation(LinearLayout.HORIZONTAL);
+            qa.setPadding(0, dp(8), 0, 0);
+            LinearLayout.LayoutParams qg = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            qg.rightMargin = dp(6);
+            qa.addView(smallBtn("📁 Code", BLUE, v -> { repo = full; resetCode(); setTab(T_CODE); }), qg);
+            qa.addView(smallBtn("🚀 Releases", PURPLE, v -> { repo = full; resetCode(); setTab(T_REL); }), qg);
+            qa.addView(smallBtn("⚙ Actions", GREEN, v -> { repo = full; resetCode(); setTab(T_RUNS); }), qg);
+            c.addView(qa);
+
+            c.setOnClickListener(v -> { repo = full; resetCode(); setTab(T_CODE); });
             c.setOnLongClickListener(v -> { openUrl(str(o, "html_url")); return true; });
             list.addView(c);
         }
@@ -738,9 +1018,13 @@ public class GitHubActivity extends AppCompatActivity {
             final String name = str(o, "name");
             JSONObject cm = o.optJSONObject("commit");
             final String r = repo;
-            rowCard("⑂  " + name, sha7(str(cm, "sha")),
+            LinearLayout bc = rowCard("⑂  " + name, sha7(str(cm, "sha")),
                     o.optBoolean("protected") ? "protected" : "", AMBER, BLUE,
-                    v -> openUrl("https://github.com/" + r + "/tree/" + Uri.encode(name, "/")));
+                    v -> { codeBranch = name; codePath = ""; codeFile = null; setTab(T_CODE); });
+            bc.setOnLongClickListener(v -> {
+                openUrl("https://github.com/" + r + "/tree/" + Uri.encode(name, "/"));
+                return true;
+            });
         }
     }
 

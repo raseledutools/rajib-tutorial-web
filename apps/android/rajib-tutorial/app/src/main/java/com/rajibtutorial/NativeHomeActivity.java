@@ -776,6 +776,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         nav.addView(navItem("🧰  Study Tools", false, false, () -> { closeDrawer(); startActivity(new Intent(this, StudyToolsActivity.class)); }));
         nav.addView(navItem("🌐  Safe Browser", false, false, () -> { closeDrawer(); startActivity(new Intent(this, SafeBrowserActivity.class)); }));
         nav.addView(navItem("📖  Office Reader", false, false, () -> { closeDrawer(); startActivity(new Intent(this, OfficeReaderActivity.class)); }));
+        nav.addView(navItem("🐙  GitHub", false, false, () -> { closeDrawer(); startActivity(new Intent(this, GitHubActivity.class)); }));
         nav.addView(navItem("💬  Feedback", false, false, () -> { closeDrawer(); FeedbackScreen.showSendDialog(this); }));
         nav.addView(navItem("⚙️  Settings", currentView == V_SETTINGS, false, this::openSettings));
         nav.addView(navLabel("Courses"));
