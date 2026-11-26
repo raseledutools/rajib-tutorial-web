@@ -1,0 +1,67 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.rajibtutorial.ytpremium'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.rajibtutorial.ytpremium"
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            def envStoreFile = System.getenv("STORE_FILE")
+            def envStorePass = System.getenv("STORE_PASS")
+            def envKeyAlias  = System.getenv("KEY_ALIAS")
+            def envKeyPass   = System.getenv("KEY_PASS")
+
+            def resolvedStoreFile = (envStoreFile != null && !envStoreFile.isEmpty())
+                ? envStoreFile
+                : (System.getProperty("user.home") + "/.android/debug.keystore")
+            def resolvedStorePass = (envStorePass != null && !envStorePass.isEmpty()) ? envStorePass : "android"
+            def resolvedKeyAlias  = (envKeyAlias  != null && !envKeyAlias.isEmpty())  ? envKeyAlias  : "androiddebugkey"
+            def resolvedKeyPass   = (envKeyPass   != null && !envKeyPass.isEmpty())   ? envKeyPass   : "android"
+
+            storeFile     file(resolvedStoreFile)
+            storePassword resolvedStorePass
+            keyAlias      resolvedKeyAlias
+            keyPassword   resolvedKeyPass
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true    // NewPipeExtractor needs java.time etc. below API 33
+    }
+
+    configurations.all {
+        resolutionStrategy {
+            force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.0'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-common:1.9.0'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0'
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.webkit:webkit:1.11.0'
+    // Same YouTube resolver the course "save" system uses
+    implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.27.1'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.0.4'
+}

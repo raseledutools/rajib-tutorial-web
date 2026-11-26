@@ -1,0 +1,109 @@
+name: Build YouTube Premium Test APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/android/yt-premium-test/**'
+      - '.github/workflows/build-yt-premium-test.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Create local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > apps/android/yt-premium-test/local.properties
+
+      - name: Accept Android licenses
+        run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      - name: Restore release keystore from secret
+        run: |
+          mkdir -p $HOME/.android
+          echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 -d > $HOME/.android/rajib-release.jks
+          echo "Keystore size: $(wc -c < $HOME/.android/rajib-release.jks) bytes"
+
+      - name: Make gradlew executable
+        run: chmod +x apps/android/yt-premium-test/gradlew
+
+      - name: Set version from run number
+        run: |
+          sed -i "s/versionCode [0-9]*/versionCode ${{ github.run_number }}/" apps/android/yt-premium-test/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"1.${{ github.run_number }}\"/" apps/android/yt-premium-test/app/build.gradle
+          echo "VERSION_NAME=1.${{ github.run_number }}" >> $GITHUB_ENV
+          echo "TAG=ytp-v${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Build Release APK
+        working-directory: apps/android/yt-premium-test
+        env:
+          STORE_FILE: /home/runner/.android/rajib-release.jks
+          STORE_PASS: ${{ secrets.RELEASE_STORE_PASS }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.RELEASE_KEY_PASS }}
+        run: ./gradlew assembleRelease --no-daemon 2>&1 | tee /tmp/gradle_output.txt; exit ${PIPESTATUS[0]}
+
+      - name: Rename APK
+        run: |
+          OUT=apps/android/yt-premium-test/app/build/outputs/apk/release
+          if [ -f $OUT/app-release.apk ]; then cp $OUT/app-release.apk YouTubePremiumTest.apk
+          elif [ -f $OUT/app-release-unsigned.apk ]; then cp $OUT/app-release-unsigned.apk YouTubePremiumTest.apk
+          else echo "APK not found"; find apps/android/yt-premium-test/app/build/outputs -name "*.apk"; exit 1; fi
+          ls -lh YouTubePremiumTest.apk
+
+      - name: Push error log on failure
+        if: failure()
+        run: |
+          cp /tmp/gradle_output.txt gradle-error-ytpremium.txt || echo "build failed before gradle produced output" > gradle-error-ytpremium.txt
+          git config user.email "ci@github.com"
+          git config user.name "GitHub CI"
+          git add gradle-error-ytpremium.txt
+          git commit -m "ci: ytpremium gradle error log [skip ci]" || exit 0
+          git pull --rebase origin main || true
+          git push origin HEAD:main || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload APK artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: YouTubePremiumTest-${{ env.TAG }}
+          path: YouTubePremiumTest.apk
+          retention-days: 30
+
+      # make_latest: false -> this must NEVER become the repo's "latest" release:
+      # RajibTutorial.apk download links and the app's update checker use /releases/latest.
+      - name: Create GitHub Release (not latest)
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: "YouTube Premium Test ${{ env.VERSION_NAME }}"
+          body: |
+            ## YouTube Premium Test ${{ env.VERSION_NAME }}
+
+            YouTube in a WebView: ad blocking, background playback, ⬇ Save (offline videos).
+            Download **YouTubePremiumTest.apk** below and install (allow "Unknown sources" the first time).
+
+            - Build: #${{ github.run_number }}
+            - Commit: ${{ github.sha }}
+          files: YouTubePremiumTest.apk
+          draft: false
+          prerelease: false
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
