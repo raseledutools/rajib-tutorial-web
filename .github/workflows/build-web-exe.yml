@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['web-exe/**', '.github/workflows/build-web-exe.yml']
+    paths: ['apps/desktop/rajib-tutorial/**', '.github/workflows/build-web-exe.yml']
 
 jobs:
   build:
@@ -13,7 +13,7 @@ jobs:
       contents: write
     defaults:
       run:
-        working-directory: web-exe
+        working-directory: apps/desktop/rajib-tutorial
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,7 +32,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: RajibTutorial-Setup
-          path: web-exe/dist/RajibTutorial-Setup.exe
+          path: apps/desktop/rajib-tutorial/dist/RajibTutorial-Setup.exe
       # Fixed release "web-exe-latest": direct download link AND the update feed
       # (the APK workflow creates its own v<N> releases, so we keep the exe separate).
       - name: Publish to web-exe-latest

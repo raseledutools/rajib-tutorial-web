@@ -5,10 +5,10 @@ on:
     branches: [main]
     # Website redeploys only when the site files change (not for android/** or web-exe/**)
     paths:
-      - 'index.html'
-      - 'call.html'
-      - 'study-tools.js'
-      - 'firebase-messaging-sw.js'
+      - 'web/index.html'
+      - 'web/call.html'
+      - 'web/study-tools.js'
+      - 'web/firebase-messaging-sw.js'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -23,5 +23,5 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
+          publish_dir: ./web
           publish_branch: gh-pages
