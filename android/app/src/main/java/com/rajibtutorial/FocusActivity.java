@@ -121,20 +121,6 @@ public class FocusActivity extends AppCompatActivity {
 
         updateSessionStatus();
 
-        // "Allowed apps" button: Focus চলাকালীন শুধু এই app গুলো চলবে
-        TextView btnAllowed = new TextView(this);
-        btnAllowed.setText("✅ Allowed Apps বেছে নিন");
-        btnAllowed.setGravity(android.view.Gravity.CENTER);
-        btnAllowed.setTextSize(14f);
-        btnAllowed.setTextColor(0xFFE8365D);
-        btnAllowed.setClickable(true);
-        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, (int) (46 * getResources().getDisplayMetrics().density));
-        alp.bottomMargin = (int) (12 * getResources().getDisplayMetrics().density);
-        ViewGroup startParent = (ViewGroup) btnStartSession.getParent();
-        startParent.addView(btnAllowed, startParent.indexOfChild(btnStartSession), alp);
-        btnAllowed.setOnClickListener(v -> showAllowedAppsDialog());
-
         btnStartSession.setOnClickListener(v -> {
             if (!checkOverlayPermission()) return;
             if (!checkUsagePermission())   return;
@@ -160,7 +146,7 @@ public class FocusActivity extends AppCompatActivity {
             // Without the accessibility service nothing can be enforced (new tab → focus page, not-allowed apps → Home)
             new AlertDialog.Builder(this)
                 .setTitle("Focus Lock চালু করুন")
-                .setMessage("Focus চলাকালীন ব্রাউজারের নতুন ট্যাব ও Allowed ছাড়া অন্য app আটকাতে Accessibility তে \"Adult Block\" service চালু থাকতে হবে।")
+                .setMessage("Focus চলাকালীন ব্রাউজারের নতুন ট্যাব Focus page এ বদলাতে Accessibility তে \"Adult Block\" service চালু থাকতে হবে।")
                 .setPositiveButton("Settings খুলুন", (d, w) -> startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)))
                 .setNegativeButton("তবুও শুরু করুন", (d, w) -> doStartFocusSession(durationMs))
                 .show();
@@ -176,47 +162,6 @@ public class FocusActivity extends AppCompatActivity {
             .setAction(FocusOverlayService.ACTION_START));
         updateSessionStatus();
         Toast.makeText(this, "Focus Mode শুরু হয়েছে! ✅", Toast.LENGTH_SHORT).show();
-    }
-
-    private void showAllowedAppsDialog() {
-        if (fm.isSessionActive()) {
-            Toast.makeText(this, "Focus চলাকালীন Allowed list বদলানো যায় না", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        PackageManager pm = getPackageManager();
-        List<android.content.pm.ResolveInfo> ris = pm.queryIntentActivities(
-            new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0);
-        final List<String> pkgs = new ArrayList<>();
-        final List<String> labels = new ArrayList<>();
-        java.util.Set<String> seen = new java.util.HashSet<>();
-        Collections.sort(ris, (x, y) -> x.loadLabel(pm).toString().compareToIgnoreCase(y.loadLabel(pm).toString()));
-        for (android.content.pm.ResolveInfo ri : ris) {
-            String pkg = ri.activityInfo.packageName;
-            if (pkg.equals(getPackageName()) || !seen.add(pkg)) continue;
-            if (isBrowserPkg(pkg)) continue;      // browsers follow the allowed WEBSITES list on the focus page instead
-            pkgs.add(pkg);
-            labels.add(ri.loadLabel(pm).toString());
-        }
-        final java.util.Set<String> chosen = fm.getAllowedApps();
-        final boolean[] checked = new boolean[pkgs.size()];
-        for (int i = 0; i < pkgs.size(); i++) checked[i] = chosen.contains(pkgs.get(i));
-        new AlertDialog.Builder(this)
-            .setTitle("Focus চলাকালীন যে app চলবে")
-            .setMultiChoiceItems(labels.toArray(new String[0]), checked, (d, which, on) -> checked[which] = on)
-            .setPositiveButton("সেভ", (d, w) -> {
-                java.util.Set<String> out = new java.util.HashSet<>(chosen);
-                for (int i = 0; i < pkgs.size(); i++) { if (checked[i]) out.add(pkgs.get(i)); else out.remove(pkgs.get(i)); }
-                fm.setAllowedApps(out);
-                Toast.makeText(this, "Allowed apps সেভ হয়েছে ✅", Toast.LENGTH_SHORT).show();
-            })
-            .setNegativeButton("বাতিল", null)
-            .show();
-    }
-
-    private static boolean isBrowserPkg(String p) {
-        return p.contains("chrome") || p.contains("firefox") || p.contains("brave") || p.contains("opera")
-            || p.contains("emmx") || p.contains("sbrowser") || p.contains("vivaldi") || p.contains("duckduckgo")
-            || p.contains("browser");
     }
 
     private void updateSessionStatus() {

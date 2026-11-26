@@ -52,6 +52,7 @@ public class AdultWatchService extends AccessibilityService {
     private long drivingSince = 0;
     private boolean driving = false;      // typing the focus link into the address bar right now
     private long lastAct = 0;
+    private long newTabSince = 0, focusLoadedAt = 0;   // new-tab debounce / cooldown after the focus page was loaded
     private long lastScan = 0;
     private View overlay;
     private WindowManager wm;
@@ -87,15 +88,10 @@ public class AdultWatchService extends AccessibilityService {
         long now = SystemClock.elapsedRealtime();
         if (driving && now - drivingSince > 6000) driving = false;     // never stay stuck
         if (overlay != null || driving) return;
-        if (now - lastAct < (focusOn ? 700 : 2000)) return;            // Focus: react almost at once (new tab → focus page)
+        if (now - lastAct < (focusOn ? 1200 : 2000)) return;
         final boolean browser = BROWSERS.contains(pkg);
-        if (focusOn && !browser && e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-                && !FocusAllow.isAllowed(this, pkg)) {                  // Focus running: only allowed apps may run (like the exe)
-            lastAct = now;
-            blockApp();
-            return;
-        }
         if (SKIP.contains(pkg)) return;
+        if (focusOn && !BROWSERS.contains(pkg) && !AppSettings.adultExternal(this)) return;   // Focus only turns browser tabs into the focus page
         if (!browser && now - lastScan < 900) return;          // other apps: scan at most about once a second (battery)
         lastScan = now;
 
@@ -218,7 +214,15 @@ public class AdultWatchService extends AccessibilityService {
         } finally { try { root.recycle(); } catch (Exception ignored) { } }
         if (txt == null || typing) return false;                     // no address bar on screen (tab grid, menu …) or still typing
         if (txt.contains("localhost")) return false;                 // our focus page
-        if (isNewTabText(txt)) return openFocusPageInSameTab(false); // a NEW TAB (empty bar / "Search or type web address" / chrome://newtab): focus page at once
+        long nowE = SystemClock.elapsedRealtime();
+        if (nowE - focusLoadedAt < 6000) return false;                // the focus page was just loaded: let it finish (no reload loop / flicker)
+        if (isNewTabText(txt)) {                                      // a NEW TAB: only when it STAYS a new tab for a moment (a loading page also shows an empty bar for a blink)
+            if (newTabSince == 0) { newTabSince = nowE; return false; }
+            if (nowE - newTabSince < 900) return false;
+            newTabSince = 0;
+            return openFocusPageInSameTab(false);
+        }
+        newTabSince = 0;
         String host = null;
         if (!txt.contains(" ") && txt.contains(".")) {
             try { host = Uri.parse(txt.contains("://") ? txt : "https://" + txt).getHost(); } catch (Exception ignored) { }
@@ -235,43 +239,6 @@ public class AdultWatchService extends AccessibilityService {
             || t.startsWith("search or enter") || t.startsWith("type url") || t.startsWith("enter search")) return true;
         return t.startsWith("chrome://") || t.startsWith("edge://") || t.startsWith("about:") || t.startsWith("brave://")
             || t.startsWith("opera:") || t.startsWith("vivaldi://") || t.startsWith("chrome-search://");
-    }
-
-    /** Focus running and a not-allowed app came to the front: Home, plus a short full-screen notice with the time left. */
-    private void blockApp() {
-        performGlobalAction(GLOBAL_ACTION_HOME);
-        if (overlay != null) return;
-        if (wm == null) wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-        FocusManager fm = new FocusManager(this);
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER);
-        root.setBackgroundColor(0xFF0B1F24);
-        root.setPadding(Ui.dp(this, 28), Ui.dp(this, 28), Ui.dp(this, 28), Ui.dp(this, 28));
-        TextView emoji = Ui.tv(this, "🎯", 56, 0xFFFFFFFF, false);
-        emoji.setGravity(Gravity.CENTER);
-        root.addView(emoji, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView title = Ui.tv(this, "Focus চলছে", 22, 0xFFFFFFFF, true);
-        title.setGravity(Gravity.CENTER);
-        root.addView(title, Ui.lpm(this, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0, 10, 0, 8));
-        TextView msg = Ui.tv(this, "এখন শুধু Allowed app চলবে।\nআরও " + (fm.getRemainingMs() / 60000 + 1) + " মিনিট মন দিয়ে ফোকাস করুন 💪",
-            14.5f, 0xFFB8C7CB, false);
-        msg.setGravity(Gravity.CENTER);
-        msg.setLineSpacing(0, 1.25f);
-        root.addView(msg, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
-            PixelFormat.OPAQUE);
-        try {
-            wm.addView(root, lp);
-            overlay = root;
-            ui.postDelayed(this::removeOverlay, 2200);                // never traps the person: gone after ~2 s, they are on Home
-        } catch (Exception ex) {
-            overlay = null;
-        }
     }
 
     /** The SAME tab becomes the Focus page: the address bar gets http://localhost:PORT/focus (LocalFocusServer) + Enter, retried until it sticks. */
@@ -324,6 +291,7 @@ public class AdultWatchService extends AccessibilityService {
         if (done || fail) {
             driving = false;
             lastAct = SystemClock.elapsedRealtime();
+            if (done) focusLoadedAt = lastAct;
             if (fail) {
                 if (adult) { performGlobalAction(GLOBAL_ACTION_BACK); showOverlay(); }
                 else performGlobalAction(GLOBAL_ACTION_HOME);
