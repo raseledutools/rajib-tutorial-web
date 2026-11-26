@@ -76,7 +76,10 @@ final class YtSaver {
         return t.length() > 80 ? t.substring(0, 80).trim() : t;
     }
 
-    static void start(Context ctx, String id, String title, Listener l) {
+    static void start(Context ctx, String id, String title, Listener l) { start(ctx, id, title, null, l); }
+
+    /** `chosen` = the stream picked in the quality list (null: best available). */
+    static void start(Context ctx, String id, String title, final YtResolver.Res chosen, Listener l) {
         if (l != null) sListeners.put(id, l);
         if (find(ctx, id) != null) { notifyL(id, 100); return; }
         if (isDownloading(id)) return;
@@ -93,7 +96,7 @@ final class YtSaver {
             File aTmp = new File(d, ".tmp_" + id + ".a");
             File mTmp = new File(d, ".tmp_" + id + ".mp4");
             try {
-                YtResolver.Res r = YtResolver.resolve("https://www.youtube.com/watch?v=" + id);
+                YtResolver.Res r = chosen != null ? chosen : YtResolver.resolve("https://www.youtube.com/watch?v=" + id);
                 checkCancel(id);
                 if (r.audioUrl != null) {
                     fetch(app, id, r.url, vTmp, 0, 80);

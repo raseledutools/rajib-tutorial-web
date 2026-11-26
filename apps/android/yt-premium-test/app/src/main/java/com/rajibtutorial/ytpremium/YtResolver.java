@@ -19,6 +19,10 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -62,6 +66,50 @@ final class YtResolver {
         if (muxed != null) return new Res(muxed.getContent(), null);
         throw new IOException("No downloadable stream for this video (ready " + size(info.getVideoStreams())
             + ", video-only " + size(info.getVideoOnlyStreams()) + ", audio " + size(info.getAudioStreams()) + ")");
+    }
+
+    /** One choice in the "Save" quality list. bytes = total download size (video + audio), -1 when YouTube does not say. */
+    static final class Opt {
+        final String label;
+        final long bytes;
+        final Res res;
+        Opt(String label, long bytes, Res res) { this.label = label; this.bytes = bytes; this.res = res; }
+        int height() { try { return Integer.parseInt(label.replaceAll("[^0-9]", "")); } catch (Exception e) { return 0; } }
+    }
+
+    /** Every quality that can be saved (H.264 mp4 up to 1080p + AAC audio, or a ready 360p file), biggest first, with sizes. */
+    static List<Opt> options(String watchUrl) throws Exception {
+        init();
+        StreamInfo info = StreamInfo.getInfo(watchUrl);
+        AudioStream au = bestAudio(info.getAudioStreams());
+        long aBytes = au == null ? -1 : contentLength(au.getContent());
+        List<Opt> out = new ArrayList<>();
+        HashMap<Integer, VideoStream> byH = new HashMap<>();
+        if (au != null && info.getVideoOnlyStreams() != null) {
+            for (VideoStream v : info.getVideoOnlyStreams()) {
+                if (!v.isUrl() || v.getDeliveryMethod() != DeliveryMethod.PROGRESSIVE_HTTP) continue;
+                if (v.getFormat() != MediaFormat.MPEG_4) continue;
+                String cd = v.getCodec();
+                if (cd != null && !cd.toLowerCase().startsWith("avc1")) continue;
+                int h = height(v);
+                if (h <= 0 || h > 1080) continue;
+                VideoStream old = byH.get(h);
+                if (old == null || contentLength(v.getContent()) > contentLength(old.getContent())) byH.put(h, v);
+            }
+            for (java.util.Map.Entry<Integer, VideoStream> en : byH.entrySet()) {
+                long vb = contentLength(en.getValue().getContent());
+                out.add(new Opt(en.getKey() + "p", vb > 0 && aBytes > 0 ? vb + aBytes : -1, new Res(en.getValue().getContent(), au.getContent())));
+            }
+        }
+        VideoStream muxed = bestMuxed(info.getVideoStreams());
+        if (muxed != null && !byH.containsKey(height(muxed))) {
+            out.add(new Opt(height(muxed) + "p", contentLength(muxed.getContent()), new Res(muxed.getContent(), null)));
+        }
+        if (out.isEmpty()) throw new IOException("No downloadable stream for this video");
+        Collections.sort(out, new Comparator<Opt>() {
+            @Override public int compare(Opt a, Opt b) { return b.height() - a.height(); }
+        });
+        return out;
     }
 
     private static int size(List<?> l) { return l == null ? 0 : l.size(); }

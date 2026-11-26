@@ -4,6 +4,8 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -23,6 +25,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.TextureView;
 import android.view.View;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -39,6 +42,10 @@ import android.widget.Toast;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.List;
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
@@ -88,7 +95,7 @@ public class MainActivity extends Activity {
     private volatile long webInfoAt = 0, lastPlayAt = 0, handoffAt = 0;
     private volatile String prefetched = "";
 
-    private boolean leaving, stopped, resumeToWeb;
+    private boolean leaving, stopped, resumeToWeb, slideIn, qualityBusy;
 
     /** Play/Pause button of the background-playback notification. */
     static void togglePlayback() {
@@ -112,7 +119,8 @@ public class MainActivity extends Activity {
         root.setBackgroundColor(Color.BLACK);
         setContentView(root);
 
-        web = new WebView(this);
+        crashReporter();
+        web = new SwipeWebView(this);
         root.addView(web, new FrameLayout.LayoutParams(-1, -1));
         fsBox = new SwipeFrame(this);
         fsBox.setBackgroundColor(Color.BLACK);
@@ -299,7 +307,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void doSave(String id, String title) {
+    private void doSave(final String id, String title) {
         if (YtSaver.isDownloading(id)) {
             YtSaver.cancel(id);
             Toast.makeText(this, "Cancelling…", Toast.LENGTH_SHORT).show();
@@ -309,12 +317,44 @@ public class MainActivity extends Activity {
             startActivity(new Intent(this, SavedActivity.class));
             return;
         }
-        if (title != null) title = title.replaceAll("\\s*-\\s*YouTube\\s*$", "");
-        Toast.makeText(this, "Saving…", Toast.LENGTH_SHORT).show();
-        YtSaver.start(this, id, title, (vid, pct) -> {
-            if (pct == 100) Toast.makeText(this, "Saved ✓ — open the sidebar ☰ → Saved videos", Toast.LENGTH_SHORT).show();
-            else if (pct == -1) Toast.makeText(this, YtSaver.lastError(vid), Toast.LENGTH_LONG).show();
-        });
+        if (qualityBusy) return;
+        final String ttl = title == null ? "" : title.replaceAll("\\s*-\\s*YouTube\\s*$", "");
+        qualityBusy = true;
+        Toast.makeText(this, "Checking available qualities…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                final List<YtResolver.Opt> opts = YtResolver.options("https://www.youtube.com/watch?v=" + id);
+                runOnUiThread(() -> { qualityBusy = false; if (!isFinishing()) showQualityDialog(id, ttl, opts); });
+            } catch (final Exception e) {
+                runOnUiThread(() -> {
+                    qualityBusy = false;
+                    Toast.makeText(this, "Could not get qualities: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            }
+        }).start();
+    }
+
+    private static String fmtSize(long b) {
+        if (b <= 0) return "size unknown";
+        if (b >= 1024L * 1024 * 1024) return String.format(Locale.US, "%.2f GB", b / 1073741824.0);
+        return String.format(Locale.US, "%.1f MB", b / 1048576.0);
+    }
+
+    private void showQualityDialog(final String id, final String ttl, final List<YtResolver.Opt> opts) {
+        String[] items = new String[opts.size()];
+        for (int i = 0; i < items.length; i++) items[i] = opts.get(i).label + "     •     " + fmtSize(opts.get(i).bytes);
+        new AlertDialog.Builder(this)
+            .setTitle("Save — choose quality")
+            .setItems(items, (d, which) -> {
+                YtResolver.Opt o = opts.get(which);
+                Toast.makeText(this, "Saving " + o.label + "…", Toast.LENGTH_SHORT).show();
+                YtSaver.start(this, id, ttl, o.res, (vid, pct) -> {
+                    if (pct == 100) Toast.makeText(this, "Saved ✓ — open the sidebar ☰ → Saved videos", Toast.LENGTH_SHORT).show();
+                    else if (pct == -1) Toast.makeText(this, YtSaver.lastError(vid), Toast.LENGTH_LONG).show();
+                });
+            })
+            .setNegativeButton("Cancel", null)
+            .show();
     }
 
     // ── web player <-> native player ────────────────────────────────────────
@@ -372,8 +412,108 @@ public class MainActivity extends Activity {
 
     /** Back button / swipe down while a video plays: native mini player, and the page goes back to where you were. */
     private void minimize() {
-        handoff(true, false);
-        if (web.canGoBack()) web.goBack(); else web.loadUrl(HOME);
+        try {
+            ghostAnim();             // the video drops down into the mini player
+            slideIn = true;
+            handoff(true, false);
+            if (web.canGoBack()) web.goBack(); else web.loadUrl(HOME);
+        } catch (Exception e) {
+            Toast.makeText(this, "Minimize failed: " + e, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** a black frame the size of the player shrinks and slides down to the mini player's place */
+    private void ghostAnim() {
+        final int w = web.getWidth();
+        final int h = (int) Math.min(web.getHeight() * 0.6f, w * 9f / 16f);
+        if (w <= 0 || h <= 0) return;
+        final View g = new View(this);
+        GradientDrawable gd = new GradientDrawable();
+        gd.setColor(0xFF000000);
+        gd.setCornerRadius(dp(8));
+        g.setBackground(gd);
+        root.addView(g, new FrameLayout.LayoutParams(w, h));
+        g.setPivotX(0);
+        g.setPivotY(0);
+        g.animate()
+            .scaleX(dp(107) / (float) w).scaleY(dp(60) / (float) h)
+            .translationY(root.getHeight() - dp(60))
+            .alpha(0.25f)
+            .setDuration(280)
+            .setInterpolator(new AccelerateDecelerateInterpolator())
+            .withEndAction(() -> root.removeView(g))
+            .start();
+    }
+
+    /** Swipe down on the playing video (finger starts inside the player) = same as Back. Handled natively and consumed, so neither YouTube nor the system sees it. */
+    private final class SwipeWebView extends WebView {
+        private float sx, sy;
+        private boolean armed, fired;
+        SwipeWebView(Context c) { super(c); }
+
+        @Override public boolean dispatchTouchEvent(MotionEvent e) {
+            switch (e.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    fired = false;
+                    sx = e.getX();
+                    sy = e.getY();
+                    armed = customView == null && onWatchPage() && webActive() && sy < getWidth() * 9f / 16f + dp(8);
+                    break;
+                case MotionEvent.ACTION_MOVE:
+                    if (fired) return true;
+                    if (armed) {
+                        float dy = e.getY() - sy, dx = e.getX() - sx;
+                        if (dy > dp(70) && Math.abs(dx) < dy * 0.6f) {
+                            fired = true;
+                            MotionEvent c = MotionEvent.obtain(e);
+                            c.setAction(MotionEvent.ACTION_CANCEL);
+                            super.dispatchTouchEvent(c);
+                            c.recycle();
+                            ui.post(() -> minimize());
+                            return true;
+                        }
+                    }
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    armed = false;
+                    if (fired) { fired = false; return true; }
+                    break;
+                default: break;
+            }
+            return super.dispatchTouchEvent(e);
+        }
+    }
+
+    /** If the app ever closes by itself, the reason is shown the next time it opens. */
+    private void crashReporter() {
+        final File f = new File(getFilesDir(), "crash.txt");
+        final Thread.UncaughtExceptionHandler old = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+            try {
+                StringWriter sw = new StringWriter();
+                e.printStackTrace(new PrintWriter(sw));
+                try (FileOutputStream o = new FileOutputStream(f)) { o.write(sw.toString().getBytes("UTF-8")); }
+            } catch (Exception ignored) { }
+            if (old != null) old.uncaughtException(t, e);
+        });
+        if (!f.exists()) return;
+        String txt = "";
+        try (java.util.Scanner sc = new java.util.Scanner(f, "UTF-8")) { txt = sc.useDelimiter("\\A").hasNext() ? sc.next() : ""; } catch (Exception ignored) { }
+        //noinspection ResultOfMethodCallIgnored
+        f.delete();
+        if (txt.isEmpty()) return;
+        final String full = txt;
+        final String shown = txt.length() > 1500 ? txt.substring(0, 1500) + "…" : txt;
+        ui.post(() -> new AlertDialog.Builder(this)
+            .setTitle("The app closed last time")
+            .setMessage(shown)
+            .setPositiveButton("OK", null)
+            .setNeutralButton("Copy", (d, w) -> {
+                ClipboardManager cb = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (cb != null) cb.setPrimaryClip(ClipData.newPlainText("crash", full));
+            })
+            .show());
     }
 
     /** mini player or floating window tapped: back to the full YouTube page of that video */
@@ -477,6 +617,13 @@ public class MainActivity extends Activity {
         miniTitle.setText(NativePlayer.title());
         mini.setVisibility(View.VISIBLE);
         layoutForMini(true);
+        if (slideIn) {
+            slideIn = false;
+            mini.setTranslationY(dp(60));
+            mini.animate().translationY(0).setDuration(260).setInterpolator(new AccelerateDecelerateInterpolator()).start();
+        } else {
+            mini.setTranslationY(0);
+        }
         if (NativePlayer.player() != null) NativePlayer.player().setVideoTextureView(miniTv);
         ui.removeCallbacks(miniTick);
         ui.post(miniTick);

@@ -130,23 +130,6 @@
     if (v.paused) { window.__ytpUserPause = false; var p = v.play(); if (p && p.catch) p.catch(function(){}); }
     else { window.__ytpUserPause = true; v.pause(); }
   };
-  // ── swipe down on the player = minimize (same as the Back button) ──
-  var sw = null;
-  document.addEventListener('touchstart', function(e){
-    sw = null;
-    if (location.pathname !== '/watch' || e.touches.length !== 1) return;
-    var p = document.querySelector('.html5-video-player') || document.querySelector('#player-container-id') || document.querySelector('#player');
-    if (!p) return;
-    var t = e.touches[0], r = p.getBoundingClientRect();
-    if (t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom) sw = { x: t.clientX, y: t.clientY };
-  }, { passive: true, capture: true });
-  document.addEventListener('touchmove', function(e){
-    if (!sw || !e.touches.length) return;
-    var t = e.touches[0], dy = t.clientY - sw.y, dx = t.clientX - sw.x;
-    if (dy > 90 && Math.abs(dx) < dy * 0.6) { sw = null; if (B && B.minimize) B.minimize(); }
-  }, { passive: true, capture: true });
-  document.addEventListener('touchend', function(){ sw = null; }, { passive: true, capture: true });
-
   // ── "Open app" / "Get the app" buttons and banners ──
   try {
     var css2 = document.createElement('style');
