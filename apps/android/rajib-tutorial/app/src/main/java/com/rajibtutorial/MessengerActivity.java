@@ -57,16 +57,17 @@ import java.util.Set;
  * One-to-one chats (text, photos, files, voice notes, read ticks) and voice/video calls.
  * Messages live in the shared Firestore collection under the "_dm_" id prefix (ids sort by time),
  * files go to Cloudinary, calls reuse the WebRTC call page (GroupCallActivity) with a private room.
- * The look copies the dark WhatsApp palette of the Discussion screen.
+ * Dark messenger layout: search bar, filter chips, chat list, bottom tabs.
  */
 public class MessengerActivity extends Activity {
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
 
-    // WhatsApp dark palette (same constants as DiscussionScreen)
-    private static final int C_BG = 0xFF0B141A, C_BAR = 0xFF1F2C34, C_IN = 0xFF202C33, C_OUT = 0xFF005C4B;
-    private static final int C_TEXT = 0xFFE9EDEF, C_SUB = 0xFF8696A0, C_GREEN = 0xFF00A884, C_TICK = 0xFF53BDEB;
-    private static final int C_DIV = 0xFF1B262D, C_RED = 0xFFF15C6D, C_CHIP = 0xFF182229;
+    // Telephone's own dark palette
+    private static final int C_BG = 0xFF0B1014, C_BAR = 0xFF1B2126, C_IN = 0xFF20272C, C_OUT = 0xFF3A3480;
+    private static final int C_TEXT = 0xFFE9EDEF, C_SUB = 0xFF8D969C, C_GREEN = 0xFF8B7CFF, C_TICK = 0xFF53BDEB;
+    private static final int C_DIV = 0xFF1B2429, C_RED = 0xFFF15C6D, C_CHIP = 0xFF182229;
+    private static final int C_SEARCH = 0xFF23292E, C_ON = 0xFF2A2654, C_ON_TEXT = 0xFFD9D4FF, C_LINE = 0xFF2A3238;
 
     /** Read by PushService: Telephone is on screen (it polls & rings by itself) and which chat is open. */
     static volatile boolean ON_SCREEN = false;
@@ -134,7 +135,11 @@ public class MessengerActivity extends Activity {
     private int screen = S_HOME, tab = 0;
     private String curPeer = "";
     private String query = "";
-    private boolean searching = false;
+    private int filter = 0;                 // chat list chips: 0 all, 1 unread, 2 favourites
+    private boolean showArchived = false;
+    private final Set<String> favs = new HashSet<>();       // favourite chats (this phone only)
+    private final Set<String> archived = new HashSet<>();   // archived chats (this phone only)
+    private LinearLayout navBar;
     private boolean polling = false, fetching = false, released = false;
     private String lastSig = "";
     private final Map<String, Fs.Doc> cache = new HashMap<>();
@@ -158,7 +163,8 @@ public class MessengerActivity extends Activity {
     private LinearLayout listBox, msgBox, upWrap, inputBar, recRow;
     private ScrollView msgScroll;
     private EditText input, searchEt;
-    private TextView sendBtn, recTimeTv, upInfo;
+    private ImageView sendBtn;
+    private TextView recTimeTv, upInfo;
 
     // incoming call
     private Dialog callDlg;
@@ -273,13 +279,19 @@ public class MessengerActivity extends Activity {
         hidden.addAll(sp.getStringSet("hidden_" + meId, new HashSet<String>()));
         starred.clear();
         starred.addAll(sp.getStringSet("stars_" + meId, new HashSet<String>()));
+        favs.clear();
+        favs.addAll(sp.getStringSet("favs_" + meId, new HashSet<String>()));
+        archived.clear();
+        archived.addAll(sp.getStringSet("arch_" + meId, new HashSet<String>()));
     }
 
     private void saveLocalSets() {
         getSharedPreferences("rt_tel", MODE_PRIVATE).edit()
             .putStringSet("pins_" + meId, new HashSet<>(pins))
             .putStringSet("hidden_" + meId, new HashSet<>(hidden))
-            .putStringSet("stars_" + meId, new HashSet<>(starred)).apply();
+            .putStringSet("stars_" + meId, new HashSet<>(starred))
+            .putStringSet("favs_" + meId, new HashSet<>(favs))
+            .putStringSet("arch_" + meId, new HashSet<>(archived)).apply();
     }
 
     private void loadDiskCache() {
@@ -377,6 +389,9 @@ public class MessengerActivity extends Activity {
         lastFull = 0;
         screen = S_HOME;
         tab = 0;
+        filter = 0;
+        showArchived = false;
+        query = "";
         startSession();
     }
 
@@ -496,9 +511,11 @@ public class MessengerActivity extends Activity {
             curPeer = "";
             lastSig = "";
             render();
-        } else if (searching) {
-            searching = false;
+        } else if (!query.isEmpty() || showArchived || tab != 0) {
+            hideKeyboard();
             query = "";
+            showArchived = false;
+            tab = 0;
             render();
         } else {
             super.onBackPressed();
@@ -582,20 +599,44 @@ public class MessengerActivity extends Activity {
     }
 
     private TextView avatar(String name, String id, int sizeDp, float sp) {
-        String ini = name == null || name.trim().isEmpty() ? "?" : name.trim().substring(0, 1).toUpperCase(Locale.getDefault());
-        TextView a = Ui.tv(this, ini, sp, Color.WHITE, true);
+        String n = name == null ? "" : name.trim();
+        boolean number = n.isEmpty() || n.startsWith("+") || Character.isDigit(n.charAt(0));
+        int color = AV_COLORS[Math.abs(id.hashCode() % AV_COLORS.length)];
+        TextView a = Ui.tv(this, number ? "" : n.substring(0, 1).toUpperCase(Locale.getDefault()), sp, Color.WHITE, true);
         a.setGravity(Gravity.CENTER);
-        a.setBackground(Ui.circle(AV_COLORS[Math.abs(id.hashCode()) % AV_COLORS.length]));
+        if (number) {
+            android.graphics.drawable.LayerDrawable ld = new android.graphics.drawable.LayerDrawable(
+                new android.graphics.drawable.Drawable[]{Ui.circle(color), new TelIcon(TelIcon.PERSON, 0xE6FFFFFF)});
+            int pad = dp(sizeDp * 0.24f);
+            ld.setLayerInset(1, pad, pad, pad, pad);
+            a.setBackground(ld);
+        } else {
+            a.setBackground(Ui.circle(color));
+        }
         a.setLayoutParams(new LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp)));
         return a;
     }
 
-    private TextView iconBtn(String glyph, View.OnClickListener l) {
-        TextView t = Ui.tv(this, glyph, 20, C_TEXT, false);
-        t.setGravity(Gravity.CENTER);
-        Ui.pressFx(t);
-        t.setOnClickListener(l);
-        return t;
+    /** 01XXXXXXXXX is shown as +880 1XXX-XXXXXX (display only; stored numbers stay unchanged). */
+    private static String pretty(String s) {
+        if (s == null || !s.matches("01[0-9]{9}")) return s;
+        return "+880 " + s.substring(1, 5) + "-" + s.substring(5);
+    }
+
+    private ImageView icon(int kind, int color) {
+        ImageView v = new ImageView(this);
+        v.setImageDrawable(new TelIcon(kind, color));
+        v.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        return v;
+    }
+
+    /** Tappable icon; padDp is the space around the drawing inside the button. */
+    private ImageView ib(int kind, int color, int padDp, View.OnClickListener l) {
+        ImageView v = icon(kind, color);
+        v.setPadding(dp(padDp), dp(padDp), dp(padDp), dp(padDp));
+        Ui.pressFx(v);
+        v.setOnClickListener(l);
+        return v;
     }
 
     private View divider() {
@@ -969,6 +1010,9 @@ public class MessengerActivity extends Activity {
         if (screen != S_CHAT) replyTo = null;
         lastSig = "";
         CUR_PEER = screen == S_CHAT ? curPeer : "";
+        getWindow().setStatusBarColor(screen == S_CHAT ? C_BAR : C_BG);
+        getWindow().setNavigationBarColor(C_BG);
+        navBar = null;
         if (screen == S_CHAT) body.addView(buildChat(), new FrameLayout.LayoutParams(MATCH, MATCH));
         else if (screen == S_PICK) body.addView(buildPicker(), new FrameLayout.LayoutParams(MATCH, MATCH));
         else body.addView(buildHome(), new FrameLayout.LayoutParams(MATCH, MATCH));
@@ -1013,91 +1057,133 @@ public class MessengerActivity extends Activity {
         body.addView(c, new FrameLayout.LayoutParams(MATCH, MATCH));
     }
 
-    // ── rendering: home (Chats / Calls) ──────────────────────
+    // ── rendering: home (Chats / Calls / Contacts) ───────────
     private View buildHome() {
         FrameLayout wrap = new FrameLayout(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(C_BG);
+        root.setFocusableInTouchMode(true);     // keeps the search box from taking focus by itself
 
-        // top bar
+        // top bar: big title + menu (a back arrow only inside Archived)
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setBackgroundColor(C_BG);
-        top.setPadding(dp(4), dp(8), dp(8), dp(8));
-        TextView back = iconBtn("←", v -> finish());
-        back.setTextSize(24);
-        top.addView(back, new LinearLayout.LayoutParams(dp(44), dp(44)));
-        if (searching) {
-            searchEt = new EditText(this);
-            searchEt.setHint("Search…");
-            searchEt.setHintTextColor(C_SUB);
-            searchEt.setTextColor(C_TEXT);
-            searchEt.setTextSize(16);
-            searchEt.setSingleLine(true);
-            searchEt.setText(query);
-            searchEt.setBackground(Ui.bg(this, C_BAR, 22, 0));
-            searchEt.setPadding(dp(16), dp(8), dp(16), dp(8));
-            searchEt.addTextChangedListener(new TextWatcher() {
-                @Override public void beforeTextChanged(CharSequence c, int s0, int c0, int a0) { }
-                @Override public void onTextChanged(CharSequence c, int s0, int b0, int c0) { }
-                @Override public void afterTextChanged(Editable e) { query = e.toString(); renderHomeList(); }
-            });
-            top.addView(searchEt, new LinearLayout.LayoutParams(0, WRAP, 1f));
-            top.addView(iconBtn("✕", v -> { searching = false; query = ""; render(); }), new LinearLayout.LayoutParams(dp(44), dp(44)));
-            searchEt.requestFocus();
-        } else {
-            TextView title = Ui.tv(this, tab == 0 ? "Telephone" : "Calls", 22, C_TEXT, true);
-            top.addView(title, new LinearLayout.LayoutParams(0, WRAP, 1f));
-            top.addView(iconBtn("🔍", v -> { searching = true; render(); }), new LinearLayout.LayoutParams(dp(44), dp(44)));
-            top.addView(iconBtn("⋮", v -> homeMenu()), new LinearLayout.LayoutParams(dp(40), dp(44)));
-        }
+        top.setPadding(dp(16), dp(10), dp(6), dp(10));
+        if (showArchived) top.addView(ib(TelIcon.BACK, C_TEXT, 8, v -> onBackPressed()), Ui.lpm(this, dp(40), dp(44), -8, 0, 8, 0));
+        String name = showArchived ? "Archived" : tab == 0 ? "Telephone" : tab == 1 ? "Calls" : "Contacts";
+        top.addView(Ui.tv(this, name, tab == 0 && !showArchived ? 26 : 22, C_TEXT, true), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        top.addView(ib(TelIcon.MORE, C_TEXT, 11, v -> homeMenu()), new LinearLayout.LayoutParams(dp(44), dp(44)));
         root.addView(top, new LinearLayout.LayoutParams(MATCH, WRAP));
 
+        // rounded search bar
+        LinearLayout find = new LinearLayout(this);
+        find.setOrientation(LinearLayout.HORIZONTAL);
+        find.setGravity(Gravity.CENTER_VERTICAL);
+        find.setBackground(Ui.bg(this, C_SEARCH, 27, 0));
+        find.setPadding(dp(18), 0, dp(6), 0);
+        find.addView(icon(TelIcon.SEARCH, C_SUB), Ui.lpm(this, dp(24), dp(24), 0, 0, 14, 0));
+        searchEt = new EditText(this);
+        searchEt.setHint("Search");
+        searchEt.setHintTextColor(C_SUB);
+        searchEt.setTextColor(C_TEXT);
+        searchEt.setTextSize(16);
+        searchEt.setSingleLine(true);
+        searchEt.setBackground(null);
+        searchEt.setText(query);
+        find.addView(searchEt, new LinearLayout.LayoutParams(0, MATCH, 1f));
+        final ImageView clear = ib(TelIcon.CLOSE, C_SUB, 12, v -> { searchEt.setText(""); hideKeyboard(); });
+        clear.setVisibility(query.isEmpty() ? View.GONE : View.VISIBLE);
+        find.addView(clear, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        searchEt.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence c, int s0, int c0, int a0) { }
+            @Override public void onTextChanged(CharSequence c, int s0, int b0, int c0) { }
+            @Override public void afterTextChanged(Editable e) {
+                query = e.toString();
+                clear.setVisibility(query.isEmpty() ? View.GONE : View.VISIBLE);
+                renderHomeList();
+            }
+        });
+        root.addView(find, Ui.lpm(this, MATCH, dp(52), 12, 0, 12, 6));
+
         ScrollView sv = new ScrollView(this);
+        sv.setClipToPadding(false);
+        sv.setPadding(0, 0, 0, dp(88));        // last row can scroll above the round button
         listBox = new LinearLayout(this);
         listBox.setOrientation(LinearLayout.VERTICAL);
         sv.addView(listBox, new ScrollView.LayoutParams(MATCH, WRAP));
         root.addView(sv, new LinearLayout.LayoutParams(MATCH, 0, 1f));
 
-        // bottom nav
-        LinearLayout nav = new LinearLayout(this);
-        nav.setOrientation(LinearLayout.HORIZONTAL);
-        nav.setBackgroundColor(C_BAR);
-        nav.addView(navItem("💬", "Chats", 0), new LinearLayout.LayoutParams(0, WRAP, 1f));
-        nav.addView(navItem("📞", "Calls", 1), new LinearLayout.LayoutParams(0, WRAP, 1f));
-        root.addView(nav, new LinearLayout.LayoutParams(MATCH, WRAP));
+        // bottom tabs
+        View line = new View(this);
+        line.setBackgroundColor(C_LINE);
+        root.addView(line, new LinearLayout.LayoutParams(MATCH, 1));
+        navBar = new LinearLayout(this);
+        navBar.setOrientation(LinearLayout.HORIZONTAL);
+        root.addView(navBar, new LinearLayout.LayoutParams(MATCH, WRAP));
 
         wrap.addView(root, new FrameLayout.LayoutParams(MATCH, MATCH));
 
-        TextView fab = Ui.tv(this, tab == 0 ? "✉" : "📞", 22, Color.WHITE, true);
-        fab.setGravity(Gravity.CENTER);
-        fab.setBackground(Ui.bg(this, C_GREEN, 16, 0));
-        Ui.pressFx(fab);
-        fab.setOnClickListener(v -> { screen = S_PICK; query = ""; searching = false; render(); });
-        FrameLayout.LayoutParams fl = new FrameLayout.LayoutParams(dp(58), dp(58), Gravity.BOTTOM | Gravity.END);
-        fl.setMargins(0, 0, dp(18), dp(84));
+        ImageView fab = ib(tab == 1 ? TelIcon.PHONE : TelIcon.CHAT_PLUS, C_BG, 18,
+            v -> { screen = S_PICK; query = ""; render(); });
+        fab.setBackground(Ui.bg(this, C_GREEN, 20, 0));
+        fab.setElevation(dp(4));
+        FrameLayout.LayoutParams fl = new FrameLayout.LayoutParams(dp(64), dp(64), Gravity.BOTTOM | Gravity.END);
+        fl.setMargins(0, 0, dp(16), dp(94));
         wrap.addView(fab, fl);
 
         renderHomeList();
         return wrap;
     }
 
-    private View navItem(String icon, String label, final int idx) {
+    /** Bottom tabs with number badges (unread chats, new missed calls). */
+    private void renderNav() {
+        if (navBar == null) return;
+        android.content.SharedPreferences sp = getSharedPreferences("rt_tel", MODE_PRIVATE);
+        if (tab == 1) sp.edit().putLong("calls_seen_" + meId, System.currentTimeMillis()).apply();
+        long seen = sp.getLong("calls_seen_" + meId, 0);
+        Set<String> unreadChats = new HashSet<>();
+        int missed = 0;
+        for (Msg m : all) {
+            if (m.from.equals(meId)) continue;
+            if ("call".equals(m.type)) { if (m.ans != 1 && m.ts > seen) missed++; }
+            else if (!m.read && !archived.contains(m.from)) unreadChats.add(m.from);
+        }
+        navBar.removeAllViews();
+        navBar.addView(navItem(TelIcon.CHAT, "Chats", 0, unreadChats.size()), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        navBar.addView(navItem(TelIcon.PHONE, "Calls", 1, missed), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        navBar.addView(navItem(TelIcon.PEOPLE, "Contacts", 2, 0), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        navBar.addView(navItem(TelIcon.SETTINGS, "Settings", -1, 0), new LinearLayout.LayoutParams(0, WRAP, 1f));
+    }
+
+    private View navItem(int kind, String label, final int idx, int badge) {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         c.setGravity(Gravity.CENTER_HORIZONTAL);
         c.setPadding(0, dp(10), 0, dp(10));
         boolean on = tab == idx;
-        TextView ic = Ui.tv(this, icon, 18, C_TEXT, false);
-        ic.setGravity(Gravity.CENTER);
-        ic.setBackground(on ? Ui.bg(this, 0xFF0A3D35, 16, 0) : null);
-        ic.setPadding(dp(20), dp(4), dp(20), dp(4));
-        c.addView(ic);
-        c.addView(Ui.tv(this, label, 12, on ? C_TEXT : C_SUB, on), Ui.lpm(this, WRAP, WRAP, 0, 4, 0, 0));
+        FrameLayout top = new FrameLayout(this);
+        View bgv = new View(this);
+        if (on) bgv.setBackground(Ui.bg(this, C_ON, 17, 0));
+        top.addView(bgv, new FrameLayout.LayoutParams(dp(62), dp(34), Gravity.CENTER));
+        top.addView(icon(kind, on ? C_ON_TEXT : C_TEXT), new FrameLayout.LayoutParams(dp(25), dp(25), Gravity.CENTER));
+        if (badge > 0) {
+            TextView bd = Ui.tv(this, badge > 99 ? "99+" : String.valueOf(badge), 10.5f, C_BG, true);
+            bd.setGravity(Gravity.CENTER);
+            bd.setBackground(Ui.bg(this, C_GREEN, 10, 0));
+            bd.setMinWidth(dp(19));
+            bd.setPadding(dp(4), 0, dp(4), 0);
+            FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(WRAP, dp(19), Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+            bp.leftMargin = dp(30);
+            top.addView(bd, bp);
+        }
+        c.addView(top, new LinearLayout.LayoutParams(dp(72), dp(38)));
+        c.addView(Ui.tv(this, label, 12.5f, on ? C_TEXT : C_SUB, true), Ui.lpm(this, WRAP, WRAP, 0, 4, 0, 0));
         Ui.pressFx(c);
-        c.setOnClickListener(v -> { tab = idx; searching = false; query = ""; render(); });
+        c.setOnClickListener(v -> {
+            if (idx < 0) { homeMenu(); return; }
+            tab = idx; query = ""; showArchived = false; render();
+        });
         return c;
     }
 
@@ -1276,14 +1362,21 @@ public class MessengerActivity extends Activity {
     }
 
     private void renderHomeList() {
-        if (listBox == null) return;
+        if (listBox == null || screen != S_HOME) return;
         listBox.removeAllViews();
         if (!netError.isEmpty()) listBox.addView(errorBanner());
-        if (tab == 0) renderChatRows(); else renderCallRows();
+        if (tab == 0) renderChatRows(); else if (tab == 1) renderCallRows(); else renderContactRows();
+        renderNav();
+    }
+
+    private static int unreadIn(List<Msg> l, String me) {
+        int n = 0;
+        for (Msg m : l) if (!m.from.equals(me) && !m.read && !"call".equals(m.type)) n++;
+        return n;
     }
 
     private void renderChatRows() {
-        LinkedHashMap<String, List<Msg>> by = new LinkedHashMap<>();
+        final LinkedHashMap<String, List<Msg>> by = new LinkedHashMap<>();
         for (Msg m : all) {
             String p = peerOf(m);
             if (p.isEmpty()) continue;
@@ -1298,51 +1391,111 @@ public class MessengerActivity extends Activity {
             return Long.compare(by.get(y).get(by.get(y).size() - 1).ts, by.get(x).get(by.get(x).size() - 1).ts);
         });
         String q = query.trim().toLowerCase(Locale.getDefault());
+
+        int unreadChats = 0, archivedCount = 0;
+        for (String p : peers) {
+            if (archived.contains(p)) archivedCount++;
+            else if (unreadIn(by.get(p), meId) > 0) unreadChats++;
+        }
+        if (!showArchived && q.isEmpty()) {
+            listBox.addView(chips(unreadChats));
+            if (filter == 0 && archivedCount > 0) listBox.addView(archivedRow(archivedCount));
+        }
+
         int shown = 0;
         for (final String p : peers) {
             List<Msg> l = by.get(p);
             Msg last = l.get(l.size() - 1);
             String fn = last.from.equals(meId) ? last.toName : last.fromName;
             final Contact c = contactOf(p, fn);
-            if (!q.isEmpty() && !c.name.toLowerCase(Locale.getDefault()).contains(q) && !preview(last).toLowerCase(Locale.getDefault()).contains(q)) continue;
-            int unread = 0;
-            for (Msg m : l) if (!m.from.equals(meId) && !m.read && !"call".equals(m.type)) unread++;
+            int unread = unreadIn(l, meId);
+            if (!q.isEmpty()) {                     // search looks through every chat, archived ones too
+                if (!c.name.toLowerCase(Locale.getDefault()).contains(q) && !pretty(c.name).contains(q)
+                        && !preview(last).toLowerCase(Locale.getDefault()).contains(q)) continue;
+            } else if (showArchived) {
+                if (!archived.contains(p)) continue;
+            } else {
+                if (archived.contains(p) || (filter == 1 && unread == 0) || (filter == 2 && !favs.contains(p))) continue;
+            }
             listBox.addView(chatRow(c, last, unread));
             shown++;
         }
-        // everyone else who is on Telephone: tap to start a chat
-        boolean header = false;
+        if (shown == 0) {
+            String msg = !q.isEmpty() ? "No results" : showArchived ? "No archived chats"
+                : filter == 1 ? "No unread chats" : filter == 2 ? "No favourites yet.\nPress and hold a chat → Add to favourites."
+                : "No chats yet.\nTap the round button to start a chat.";
+            listBox.addView(emptyNote(msg), new LinearLayout.LayoutParams(MATCH, WRAP));
+        }
+    }
+
+    private View emptyNote(String msg) {
+        TextView e = Ui.tv(this, msg, 15, C_SUB, false);
+        e.setGravity(Gravity.CENTER);
+        e.setPadding(dp(24), dp(64), dp(24), 0);
+        return e;
+    }
+
+    private View chips(int unreadChats) {
+        android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(dp(12), dp(6), dp(12), dp(8));
+        String[] names = {"All", unreadChats > 0 ? "Unread  " + unreadChats : "Unread", "Favourites"};
+        for (int i = 0; i < names.length; i++) {
+            final int idx = i;
+            boolean on = filter == i;
+            TextView t = Ui.tv(this, names[i], 14.5f, on ? C_ON_TEXT : C_SUB, true);
+            t.setGravity(Gravity.CENTER);
+            t.setBackground(Ui.bg(this, on ? C_ON : C_BG, 20, on ? C_ON : C_LINE));
+            t.setPadding(dp(18), 0, dp(18), 0);
+            Ui.pressFx(t);
+            t.setOnClickListener(v -> { filter = idx; renderHomeList(); });
+            row.addView(t, Ui.lpm(this, WRAP, dp(38), 0, 0, 8, 0));
+        }
+        hs.addView(row);
+        return hs;
+    }
+
+    private View archivedRow(int count) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(16), dp(14), dp(20), dp(14));
+        FrameLayout ic = new FrameLayout(this);
+        ic.addView(icon(TelIcon.ARCHIVE, C_SUB), new FrameLayout.LayoutParams(dp(25), dp(25), Gravity.CENTER));
+        row.addView(ic, Ui.lpm(this, dp(56), dp(28), 0, 0, 14, 0));
+        row.addView(Ui.tv(this, "Archived", 16.5f, C_SUB, true), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        row.addView(Ui.tv(this, String.valueOf(count), 13, C_SUB, true));
+        Ui.pressFx(row);
+        row.setOnClickListener(v -> { showArchived = true; render(); });
+        return row;
+    }
+
+    private void renderContactRows() {
+        String q = query.trim().toLowerCase(Locale.getDefault());
+        int shown = 0;
         for (final Contact c : contacts) {
-            if (by.containsKey(c.id) || (!q.isEmpty() && !c.name.toLowerCase(Locale.getDefault()).contains(q))) continue;
-            if (!header) {
-                header = true;
-                TextView t = Ui.tv(this, "Telephone users", 13, C_SUB, true);
-                t.setPadding(dp(16), dp(14), dp(16), dp(4));
-                listBox.addView(t);
-            }
+            if (!q.isEmpty() && !c.name.toLowerCase(Locale.getDefault()).contains(q) && !pretty(c.name).contains(q)) continue;
             listBox.addView(userRow(c));
             shown++;
         }
-        if (shown == 0) {
-            TextView e = Ui.tv(this, q.isEmpty() ? "No users yet.\nTap ✉ and type a phone number to start a chat." : "No results", 15, C_SUB, false);
-            e.setGravity(Gravity.CENTER);
-            e.setPadding(dp(24), dp(80), dp(24), 0);
-            listBox.addView(e, new LinearLayout.LayoutParams(MATCH, WRAP));
-        }
+        if (shown == 0) listBox.addView(emptyNote(q.isEmpty() ? "No one has joined yet." : "No results"),
+            new LinearLayout.LayoutParams(MATCH, WRAP));
     }
 
     private View userRow(final Contact c) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(16), dp(9), dp(16), dp(9));
+        row.setPadding(dp(16), dp(10), dp(16), dp(10));
         Ui.pressFx(row);
         row.setOnClickListener(v -> openChat(c.id));
-        row.addView(avatar(c.name, c.id, 46, 18), Ui.lpm(this, dp(46), dp(46), 0, 0, 14, 0));
+        row.addView(avatar(c.name, c.id, 50, 19), Ui.lpm(this, dp(50), dp(50), 0, 0, 14, 0));
         LinearLayout mid = new LinearLayout(this);
         mid.setOrientation(LinearLayout.VERTICAL);
-        mid.addView(Ui.ellipsized(this, c.name, 16, C_TEXT, true, 1));
-        mid.addView(Ui.ellipsized(this, c.sub, 13, C_SUB, false, 1));
+        mid.addView(Ui.ellipsized(this, pretty(c.name), 16.5f, C_TEXT, true, 1));
+        mid.addView(Ui.ellipsized(this, pretty(c.sub), 13.5f, C_SUB, false, 1));
         row.addView(mid, new LinearLayout.LayoutParams(0, WRAP, 1f));
         return row;
     }
@@ -1351,41 +1504,42 @@ public class MessengerActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(16), dp(10), dp(16), dp(10));
+        row.setPadding(dp(16), dp(11), dp(16), dp(11));
         Ui.pressFx(row);
         row.setOnClickListener(v -> openChat(c.id));
         row.setOnLongClickListener(v -> { chatMenu(c); return true; });
-        row.addView(avatar(c.name, c.id, 52, 20), Ui.lpm(this, dp(52), dp(52), 0, 0, 14, 0));
+        row.addView(avatar(c.name, c.id, 56, 22), Ui.lpm(this, dp(56), dp(56), 0, 0, 14, 0));
 
         LinearLayout mid = new LinearLayout(this);
         mid.setOrientation(LinearLayout.VERTICAL);
-        mid.addView(Ui.ellipsized(this, c.name, 16.5f, C_TEXT, true, 1));
+
+        LinearLayout first = new LinearLayout(this);
+        first.setOrientation(LinearLayout.HORIZONTAL);
+        first.setGravity(Gravity.CENTER_VERTICAL);
+        first.addView(Ui.ellipsized(this, pretty(c.name), 17.5f, C_TEXT, true, 1), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        first.addView(Ui.tv(this, listTime(last.ts), 12.5f, unread > 0 ? C_GREEN : C_SUB, unread > 0), Ui.lpm(this, WRAP, WRAP, 8, 0, 0, 0));
+        mid.addView(first, new LinearLayout.LayoutParams(MATCH, WRAP));
+
+        boolean ty = isTyping(c.id);
         LinearLayout sub = new LinearLayout(this);
         sub.setOrientation(LinearLayout.HORIZONTAL);
         sub.setGravity(Gravity.CENTER_VERTICAL);
-        if (last.from.equals(meId)) {
-            TextView tk = Ui.tv(this, last.read ? "✓✓ " : last.dl ? "✓✓ " : "✓ ", 13, last.read ? C_TICK : C_SUB, false);
-            sub.addView(tk);
-        }
-        boolean ty = isTyping(c.id);
-        sub.addView(Ui.ellipsized(this, ty ? "typing…" : preview(last), 14, ty ? C_GREEN : (unread > 0 ? C_TEXT : C_SUB), false, 1), new LinearLayout.LayoutParams(0, WRAP, 1f));
-        mid.addView(sub, Ui.lpm(this, MATCH, WRAP, 0, 3, 0, 0));
-        row.addView(mid, new LinearLayout.LayoutParams(0, WRAP, 1f));
-
-        LinearLayout right = new LinearLayout(this);
-        right.setOrientation(LinearLayout.VERTICAL);
-        right.setGravity(Gravity.END);
-        right.addView(Ui.tv(this, listTime(last.ts), 12, unread > 0 ? C_GREEN : C_SUB, false));
-        if (pins.contains(c.id)) right.addView(Ui.tv(this, "📌", 12, C_SUB, false));
+        if (!ty && last.from.equals(meId) && !last.del && !"call".equals(last.type))
+            sub.addView(icon(last.read || last.dl ? TelIcon.CHECK2 : TelIcon.CHECK, last.read ? C_TICK : C_SUB),
+                Ui.lpm(this, dp(19), dp(19), 0, 0, 4, 0));
+        sub.addView(Ui.ellipsized(this, ty ? "typing…" : preview(last), 15, ty ? C_GREEN : (unread > 0 ? C_TEXT : C_SUB), false, 1),
+            new LinearLayout.LayoutParams(0, WRAP, 1f));
+        if (pins.contains(c.id)) sub.addView(icon(TelIcon.PIN, C_SUB), Ui.lpm(this, dp(17), dp(17), 8, 0, 0, 0));
         if (unread > 0) {
             TextView bd = Ui.tv(this, String.valueOf(unread), 12, C_BG, true);
             bd.setGravity(Gravity.CENTER);
             bd.setBackground(Ui.bg(this, C_GREEN, 12, 0));
             bd.setMinWidth(dp(22));
             bd.setPadding(dp(6), dp(1), dp(6), dp(1));
-            right.addView(bd, Ui.lpm(this, WRAP, WRAP, 0, 5, 0, 0));
+            sub.addView(bd, Ui.lpm(this, WRAP, WRAP, 8, 0, 0, 0));
         }
-        row.addView(right);
+        mid.addView(sub, Ui.lpm(this, MATCH, WRAP, 0, 4, 0, 0));
+        row.addView(mid, new LinearLayout.LayoutParams(0, WRAP, 1f));
         return row;
     }
 
@@ -1406,20 +1560,22 @@ public class MessengerActivity extends Activity {
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(dp(16), dp(10), dp(16), dp(10));
-            row.addView(avatar(c.name, c.id, 52, 20), Ui.lpm(this, dp(52), dp(52), 0, 0, 14, 0));
+            row.addView(avatar(c.name, c.id, 56, 22), Ui.lpm(this, dp(56), dp(56), 0, 0, 14, 0));
+            Ui.pressFx(row);
+            row.setOnClickListener(v -> openChat(c.id));
             LinearLayout mid = new LinearLayout(this);
             mid.setOrientation(LinearLayout.VERTICAL);
-            mid.addView(Ui.ellipsized(this, c.name, 16.5f, missed ? C_RED : C_TEXT, true, 1));
+            mid.addView(Ui.ellipsized(this, pretty(c.name), 17.5f, missed ? C_RED : C_TEXT, true, 1));
             String st = (out ? "↗ " : missed ? "↙ Missed · " : "↙ ") + listTime(m.ts) + ", " + timeFmt.format(new Date(m.ts));
             mid.addView(Ui.tv(this, st, 13, C_SUB, false), Ui.lpm(this, WRAP, WRAP, 0, 3, 0, 0));
             row.addView(mid, new LinearLayout.LayoutParams(0, WRAP, 1f));
-            TextView ci = iconBtn(video ? "🎥" : "📞", v -> callBack(c.id, video));
+            ImageView ci = ib(video ? TelIcon.VIDEO : TelIcon.PHONE, C_TEXT, 10, v -> callBack(c.id, video));
             row.addView(ci, new LinearLayout.LayoutParams(dp(44), dp(44)));
             listBox.addView(row);
             shown++;
         }
         if (shown == 0) {
-            TextView e = Ui.tv(this, "No calls yet.\nTap 📞 to call a member.", 15, C_SUB, false);
+            TextView e = Ui.tv(this, "No calls yet.\nTap the round button to call a member.", 15, C_SUB, false);
             e.setGravity(Gravity.CENTER);
             e.setPadding(dp(24), dp(80), dp(24), 0);
             listBox.addView(e, new LinearLayout.LayoutParams(MATCH, WRAP));
@@ -1437,7 +1593,7 @@ public class MessengerActivity extends Activity {
         top.setGravity(Gravity.CENTER_VERTICAL);
         top.setBackgroundColor(C_BG);
         top.setPadding(dp(4), dp(8), dp(8), dp(8));
-        top.addView(iconBtn("←", v -> onBackPressed()), new LinearLayout.LayoutParams(dp(44), dp(44)));
+        top.addView(ib(TelIcon.BACK, C_TEXT, 10, v -> onBackPressed()), new LinearLayout.LayoutParams(dp(44), dp(44)));
         LinearLayout t = new LinearLayout(this);
         t.setOrientation(LinearLayout.VERTICAL);
         t.addView(Ui.tv(this, "Select contact", 18, C_TEXT, true));
@@ -1486,8 +1642,8 @@ public class MessengerActivity extends Activity {
                 nr.setPadding(dp(16), dp(10), dp(16), dp(10));
                 Ui.pressFx(nr);
                 nr.setOnClickListener(v -> openChat(target));
-                TextView ic = Ui.tv(this, "💬", 20, Color.WHITE, false);
-                ic.setGravity(Gravity.CENTER);
+                ImageView ic = icon(TelIcon.CHAT, C_BG);
+                ic.setPadding(dp(11), dp(11), dp(11), dp(11));
                 ic.setBackground(Ui.circle(C_GREEN));
                 nr.addView(ic, Ui.lpm(this, dp(46), dp(46), 0, 0, 14, 0));
                 nr.addView(Ui.tv(this, "Chat with " + target, 16, C_TEXT, true));
@@ -1506,12 +1662,12 @@ public class MessengerActivity extends Activity {
             row.addView(avatar(c.name, c.id, 46, 18), Ui.lpm(this, dp(46), dp(46), 0, 0, 14, 0));
             LinearLayout mid = new LinearLayout(this);
             mid.setOrientation(LinearLayout.VERTICAL);
-            mid.addView(Ui.ellipsized(this, c.name, 16, C_TEXT, true, 1));
-            mid.addView(Ui.ellipsized(this, c.sub, 13, C_SUB, false, 1));
+            mid.addView(Ui.ellipsized(this, pretty(c.name), 16, C_TEXT, true, 1));
+            mid.addView(Ui.ellipsized(this, pretty(c.sub), 13, C_SUB, false, 1));
             row.addView(mid, new LinearLayout.LayoutParams(0, WRAP, 1f));
             if (tab == 1) {
-                row.addView(iconBtn("🎥", v -> { openChat(c.id); startCall(true); }), new LinearLayout.LayoutParams(dp(44), dp(44)));
-                row.addView(iconBtn("📞", v -> { openChat(c.id); startCall(false); }), new LinearLayout.LayoutParams(dp(44), dp(44)));
+                row.addView(ib(TelIcon.VIDEO, C_TEXT, 10, v -> { openChat(c.id); startCall(true); }), new LinearLayout.LayoutParams(dp(44), dp(44)));
+                row.addView(ib(TelIcon.PHONE, C_TEXT, 10, v -> { openChat(c.id); startCall(false); }), new LinearLayout.LayoutParams(dp(44), dp(44)));
             }
             listBox.addView(row);
             shown++;
@@ -1527,7 +1683,6 @@ public class MessengerActivity extends Activity {
     private void openChat(String peer) {
         curPeer = peer;
         screen = S_CHAT;
-        searching = false;
         query = "";
         peerSeenTs = 0; peerOn = false; typingFrom = ""; presFetchAt = 0;
         render();
@@ -1548,16 +1703,17 @@ public class MessengerActivity extends Activity {
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setBackgroundColor(C_BAR);
         head.setPadding(dp(4), dp(8), dp(8), dp(8));
-        head.addView(iconBtn("←", v -> onBackPressed()), new LinearLayout.LayoutParams(dp(44), dp(44)));
+        head.addView(ib(TelIcon.BACK, C_TEXT, 10, v -> onBackPressed()), new LinearLayout.LayoutParams(dp(44), dp(44)));
         head.addView(avatar(c.name, c.id, 40, 16), Ui.lpm(this, dp(40), dp(40), 0, 0, 10, 0));
         LinearLayout meta = new LinearLayout(this);
         meta.setOrientation(LinearLayout.VERTICAL);
-        meta.addView(Ui.ellipsized(this, c.name, 16.5f, C_TEXT, true, 1));
+        meta.addView(Ui.ellipsized(this, pretty(c.name), 16.5f, C_TEXT, true, 1));
         peerSub = Ui.ellipsized(this, c.sub, 12, C_SUB, false, 1);
         meta.addView(peerSub);
         head.addView(meta, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        head.addView(iconBtn("🎥", v -> startCall(true)), new LinearLayout.LayoutParams(dp(42), dp(42)));
-        head.addView(iconBtn("📞", v -> startCall(false)), new LinearLayout.LayoutParams(dp(42), dp(42)));
+        head.addView(ib(TelIcon.VIDEO, C_TEXT, 9, v -> startCall(true)), new LinearLayout.LayoutParams(dp(42), dp(42)));
+        head.addView(ib(TelIcon.PHONE, C_TEXT, 10, v -> startCall(false)), new LinearLayout.LayoutParams(dp(42), dp(42)));
+        head.addView(ib(TelIcon.MORE, C_TEXT, 10, v -> chatMenu(c)), new LinearLayout.LayoutParams(dp(36), dp(42)));
         root.addView(head, new LinearLayout.LayoutParams(MATCH, WRAP));
 
         msgScroll = new ScrollView(this);
@@ -1585,7 +1741,7 @@ public class MessengerActivity extends Activity {
         replyTv = Ui.tv(this, "", 13, C_SUB, false);
         replyTv.setMaxLines(2);
         replyBar.addView(replyTv, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        replyBar.addView(iconBtn("✕", v -> setReply(null)), new LinearLayout.LayoutParams(dp(40), dp(40)));
+        replyBar.addView(ib(TelIcon.CLOSE, C_TEXT, 10, v -> setReply(null)), new LinearLayout.LayoutParams(dp(40), dp(40)));
         replyBar.setVisibility(View.GONE);
         root.addView(replyBar, new LinearLayout.LayoutParams(MATCH, WRAP));
 
@@ -1599,9 +1755,12 @@ public class MessengerActivity extends Activity {
         pill.setOrientation(LinearLayout.HORIZONTAL);
         pill.setGravity(Gravity.CENTER_VERTICAL);
         pill.setBackground(Ui.bg(this, C_BAR, 26, 0));
-        TextView emoji = Ui.tv(this, "😊", 21, C_SUB, false);
-        emoji.setGravity(Gravity.CENTER);
-        pill.addView(emoji, new LinearLayout.LayoutParams(dp(42), dp(44)));
+        ImageView emoji = ib(TelIcon.SMILE, C_SUB, 10, v -> {       // opens the keyboard (emojis are on it)
+            input.requestFocus();
+            android.view.inputmethod.InputMethodManager im = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (im != null) im.showSoftInput(input, 0);
+        });
+        pill.addView(emoji, new LinearLayout.LayoutParams(dp(44), dp(44)));
         input = new EditText(this);
         input.setHint("Message");
         input.setTextSize(16);
@@ -1612,26 +1771,19 @@ public class MessengerActivity extends Activity {
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         input.setPadding(0, dp(10), 0, dp(10));
         pill.addView(input, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        TextView attach = Ui.tv(this, "📎", 20, C_SUB, false);
-        attach.setGravity(Gravity.CENTER);
-        Ui.pressFx(attach);
-        attach.setOnClickListener(v -> attachMenu());
-        pill.addView(attach, new LinearLayout.LayoutParams(dp(42), dp(44)));
+        pill.addView(ib(TelIcon.CLIP, C_SUB, 10, v -> attachMenu()), new LinearLayout.LayoutParams(dp(44), dp(44)));
         bar.addView(pill, new LinearLayout.LayoutParams(0, WRAP, 1f));
 
-        sendBtn = Ui.tv(this, "🎤", 19, Color.WHITE, true);
-        sendBtn.setGravity(Gravity.CENTER);
-        sendBtn.setBackground(Ui.circle(C_GREEN));
-        Ui.pressFx(sendBtn);
-        sendBtn.setOnClickListener(v -> {
+        sendBtn = ib(TelIcon.MIC, C_BG, 12, v -> {
             if (input.getText().toString().trim().isEmpty()) startRecording(); else sendText();
         });
+        sendBtn.setBackground(Ui.circle(C_GREEN));
         bar.addView(sendBtn, Ui.lpm(this, dp(48), dp(48), 6, 0, 0, 0));
         input.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence c0, int s0, int c1, int a0) { }
             @Override public void onTextChanged(CharSequence c0, int s0, int b0, int c1) { }
             @Override public void afterTextChanged(Editable e) {
-                sendBtn.setText(e.toString().trim().isEmpty() ? "🎤" : "➤");
+                sendBtn.setImageDrawable(new TelIcon(e.toString().trim().isEmpty() ? TelIcon.MIC : TelIcon.SEND, C_BG));
                 if (!e.toString().trim().isEmpty()) sendTyping();
             }
         });
@@ -1645,15 +1797,12 @@ public class MessengerActivity extends Activity {
         recRow.setGravity(Gravity.CENTER_VERTICAL);
         recRow.setBackgroundColor(C_BG);
         recRow.setPadding(dp(8), dp(8), dp(10), dp(8));
-        recRow.addView(iconBtn("🗑", v -> cancelRecording()), new LinearLayout.LayoutParams(dp(44), dp(44)));
+        recRow.addView(ib(TelIcon.TRASH, C_TEXT, 10, v -> cancelRecording()), new LinearLayout.LayoutParams(dp(44), dp(44)));
         recTimeTv = Ui.tv(this, "● 0:00", 16, C_RED, true);
         recTimeTv.setPadding(dp(10), 0, 0, 0);
         recRow.addView(recTimeTv, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        TextView sendV = Ui.tv(this, "➤", 19, Color.WHITE, true);
-        sendV.setGravity(Gravity.CENTER);
+        ImageView sendV = ib(TelIcon.SEND, C_BG, 12, v -> finishRecording());
         sendV.setBackground(Ui.circle(C_GREEN));
-        Ui.pressFx(sendV);
-        sendV.setOnClickListener(v -> finishRecording());
         recRow.addView(sendV, new LinearLayout.LayoutParams(dp(48), dp(48)));
         recRow.setVisibility(View.GONE);
         root.addView(recRow, new LinearLayout.LayoutParams(MATCH, WRAP));
@@ -1759,7 +1908,7 @@ public class MessengerActivity extends Activity {
                 break;
             }
             case "file": {
-                View card = FileCard.build(this, m.url, m.fileName, mine, C_TEXT, mine ? 0xFFA8C5BC : C_SUB,
+                View card = FileCard.build(this, m.url, m.fileName, mine, C_TEXT, mine ? 0xFFC3BEEA : C_SUB,
                     uri -> upload(uri, Cloud.meta(this, uri), false, 0));
                 card.setOnLongClickListener(v -> { msgMenu(m); return true; });
                 b.addView(card, new LinearLayout.LayoutParams(dp(240), WRAP));
@@ -1778,11 +1927,12 @@ public class MessengerActivity extends Activity {
         meta.setOrientation(LinearLayout.HORIZONTAL);
         meta.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         if (starred.contains(m.id)) meta.addView(Ui.tv(this, "⭐ ", 10.5f, C_SUB, false));
-        meta.addView(Ui.tv(this, timeFmt.format(new Date(m.ts)), 11, mine ? 0xFFA8C5BC : C_SUB, false));
+        meta.addView(Ui.tv(this, timeFmt.format(new Date(m.ts)), 11, mine ? 0xFFC3BEEA : C_SUB, false));
         if (mine) {
             boolean pend = pending.containsKey(m.id);
-            TextView tk = Ui.tv(this, pend ? " 🕓" : (m.read || m.dl) ? " ✓✓" : " ✓", 12, m.read ? C_TICK : 0xFFA8C5BC, false);
-            meta.addView(tk);
+            if (pend) meta.addView(Ui.tv(this, " 🕓", 12, 0xFFC3BEEA, false));
+            else meta.addView(icon(m.read || m.dl ? TelIcon.CHECK2 : TelIcon.CHECK, m.read ? C_TICK : 0xFFC3BEEA),
+                Ui.lpm(this, dp(16), dp(16), 3, 0, 0, 0));
         }
         b.addView(meta, new LinearLayout.LayoutParams(MATCH, WRAP));
         LinearLayout colw = new LinearLayout(this);
@@ -2109,16 +2259,23 @@ public class MessengerActivity extends Activity {
     }
 
     private void chatMenu(final Contact c) {
-        final boolean pinned = pins.contains(c.id);
-        final Ui.Modal d = new Ui.Modal(this, c.name, "");
-        d.col(pinned ? "📌  Unpin chat" : "📌  Pin chat to top", Ui.B_PRIMARY, v -> {
+        final boolean pinned = pins.contains(c.id), fav = favs.contains(c.id), arch = archived.contains(c.id);
+        final Ui.Modal d = new Ui.Modal(this, pretty(c.name), "");
+        d.col(pinned ? "Unpin chat" : "Pin chat to top", Ui.B_GHOST, v -> { d.dismiss(); toggle(pins, c.id); });
+        d.col(fav ? "Remove from favourites" : "Add to favourites", Ui.B_GHOST, v -> { d.dismiss(); toggle(favs, c.id); });
+        d.col(arch ? "Unarchive chat" : "Archive chat", Ui.B_GHOST, v -> {
             d.dismiss();
-            if (pinned) pins.remove(c.id); else pins.add(c.id);
-            saveLocalSets();
-            renderHomeList();
+            toggle(archived, c.id);
+            toast(arch ? "Chat unarchived" : "Chat archived");
         });
-        d.col("Cancel", Ui.B_GHOST, v -> d.dismiss());
+        d.col("Cancel", Ui.B_OUTLINE, v -> d.dismiss());
         d.show();
+    }
+
+    private void toggle(Set<String> set, String id) {
+        if (!set.remove(id)) set.add(id);
+        saveLocalSets();
+        renderHomeList();
     }
 
     private View fileRow(String icon, String name, final String url, int maxW) {
@@ -2151,7 +2308,7 @@ public class MessengerActivity extends Activity {
         String title = (video ? "Video call" : "Voice call");
         String sub = mine ? (m.ans == 2 ? "Declined" : m.ans == 1 ? "Answered" : m.ans == 3 ? "No answer" : "Outgoing") : (missed ? "Missed" : "Answered");
         t.addView(Ui.tv(this, title, 15, C_TEXT, true));
-        t.addView(Ui.tv(this, sub, 12.5f, mine ? 0xFFA8C5BC : C_SUB, false));
+        t.addView(Ui.tv(this, sub, 12.5f, mine ? 0xFFC3BEEA : C_SUB, false));
         r.addView(t);
         r.setMinimumWidth(dp(170));
         return r;
@@ -2171,7 +2328,7 @@ public class MessengerActivity extends Activity {
         line.setBackgroundColor(mine ? 0x66FFFFFF : 0x558696A0);
         r.addView(line, Ui.lpm(this, dp(110), dp(3), 6, 0, 8, 0));
         long s = m.dur / 1000;
-        r.addView(Ui.tv(this, m.dur > 0 ? String.format(Locale.US, "%d:%02d", s / 60, s % 60) : "🎤", 12.5f, mine ? 0xFFA8C5BC : C_SUB, false));
+        r.addView(Ui.tv(this, m.dur > 0 ? String.format(Locale.US, "%d:%02d", s / 60, s % 60) : "🎤", 12.5f, mine ? 0xFFC3BEEA : C_SUB, false));
         return r;
     }
 
