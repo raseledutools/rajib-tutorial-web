@@ -89,9 +89,21 @@ public class IncomingCallActivity extends Activity {
         if (ACT_DECLINE.equals(act)) { decline(); return; }
 
         setContentView(buildUi());
+        // The call notification (channel sound + vibration) already started ringing: silence it,
+        // otherwise the phone rings twice at once (notification ring + this screen's ring).
+        cancelNotification();
         startRing();
         h.postDelayed(this::timeout, RING_MS);
         h.postDelayed(watch, 2000);
+    }
+
+    @Override
+    protected void onNewIntent(Intent i) {
+        super.onNewIntent(i);
+        // Notification full-screen intent + direct startActivity deliver the same call twice: keep one ring
+        if (doc.equals(nz(i.getStringExtra(EXTRA_DOC))) && i.getStringExtra(EXTRA_ACTION) == null) return;
+        setIntent(i);
+        recreate();
     }
 
     private static String nz(String s) { return s == null ? "" : s; }
@@ -219,6 +231,7 @@ public class IncomingCallActivity extends Activity {
     }
 
     private void startRing() {
+        stopRing();
         try {
             ringtone = RingtoneManager.getRingtone(this, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE));
             if (ringtone != null) {

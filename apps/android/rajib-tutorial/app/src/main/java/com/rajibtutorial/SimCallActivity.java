@@ -115,7 +115,10 @@ public class SimCallActivity extends Activity {
             h.removeCallbacksAndMessages(null);
             h.postDelayed(giveUp, RING_MS);
             h.post(watch);
-            if (action == null) startRing();
+            if (action == null) {
+                cancelNotification();   // stop the notification's own ring so the phone does not ring twice
+                startRing();
+            }
         }
         if (ACT_ANSWER.equals(action)) receive();
         else if (ACT_CUT.equals(action)) cut();
