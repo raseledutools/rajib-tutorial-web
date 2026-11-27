@@ -55,35 +55,44 @@ html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-
     var f=await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
     var app=a.initializeApp(cfg,'call');return {f:f,db:f.getFirestore(app)};
   })();
-  var myDocs=[],seen={},running=false,startTs=0,leaveSent=false,timer=null,first=true;
+  var myDocs=[],seen={},running=false,leaveSent=false,timer=null,first=true,busy=false,fails=0;
   function post(to,kind,data){
     var ts=Date.now(),id=PREFIX+String(ts).padStart(13,'0')+'_'+Math.random().toString(36).slice(2,5);
     myDocs.push(id);
     return fbp.then(function(x){return x.f.setDoc(x.f.doc(x.db,'tutorial_courses',id),{appId:APP,room:ROOM,from:peerId,name:name,to:to||'',kind:kind,data:data||'',ts:ts})}).catch(function(){});
   }
   async function poll(){
-    if(!running)return;
+    if(!running||busy)return;busy=true;
     try{
       var x=await fbp,f=x.f;
-      var snap=await f.getDocs(f.query(f.collection(x.db,'tutorial_courses'),f.where(f.documentId(),'>=',PREFIX),f.where(f.documentId(),'<','_call`'),f.orderBy(f.documentId(),'desc'),f.limit(100)));
-      var docs=[];snap.forEach(function(d){docs.push({id:d.id,d:d.data()})});
-      if(first){first=false;var old=Date.now()-10*60*1000;docs.forEach(function(e){if(typeof e.d.ts==='number'&&e.d.ts<old)f.deleteDoc(f.doc(x.db,'tutorial_courses',e.id)).catch(function(){})})}
+      var snap=await f.getDocs(f.query(f.collection(x.db,'tutorial_courses'),f.where('room','==',ROOM)));
+      var docs=[];snap.forEach(function(d){if(d.id.indexOf(PREFIX)===0)docs.push({id:d.id,d:d.data()})});
+      fails=0;
+      if(first){
+        // Everything already there is old. Never compare timestamps of different devices: a PC clock that differs
+        // from the phone's made this page ignore the phone's offers (no audio / video).
+        first=false;var old=Date.now()-24*3600*1000;
+        docs.forEach(function(e){seen[e.id]=1;if(typeof e.d.ts==='number'&&e.d.ts<old)f.deleteDoc(f.doc(x.db,'tutorial_courses',e.id)).catch(function(){})});
+        if(window.onPollReady)window.onPollReady();   // only now announce 'join'
+        return;
+      }
       docs.sort(function(a,b){return a.id<b.id?-1:1});
       var out=[];
       docs.forEach(function(e){
         if(seen[e.id])return;seen[e.id]=1;
-        var d=e.d,ts=typeof d.ts==='number'?d.ts:0;if(ts<startTs)return;
+        var d=e.d,ts=typeof d.ts==='number'?d.ts:0;
         var from=d.from||'',to=d.to||'';
         if(from===peerId||d.room!==ROOM)return;if(to&&to!==peerId)return;
         out.push({from:from,name:d.name||'',kind:d.kind||'',data:d.data||'',ts:ts});
       });
-      if(out.length&&running&&window.onSignal)window.onSignal(out);
-    }catch(e){}
+      if(out.length&&running&&window.onSignal)await window.onSignal(out);
+    }catch(e){console.log('call poll',e);if(++fails===4&&window.toast)window.toast('Call connection problem: check your internet')}
+    finally{busy=false}
   }
   var recParts=[];
   window.AndroidCall={
     info:function(){return JSON.stringify({id:peerId,name:name,video:video})},
-    ready:function(){if(running)return;running=true;startTs=Date.now()-POLL;timer=setInterval(poll,POLL);poll()},
+    ready:function(){if(running)return;running=true;timer=setInterval(poll,POLL);poll()},
     send:function(to,kind,data){if(kind==='leave')leaveSent=true;post(to,kind,data)},
     leave:function(){
       running=false;clearInterval(timer);
@@ -111,6 +120,7 @@ const ICE=[
 ];
 const INFO=JSON.parse(AndroidCall.info());
 const me=INFO.id, myName=INFO.name||'Me';
+const newPage={};   // peers running this page version (they announce w:2)
 let local=null, peers={}, early={}, micOn=true, camOn=false, facing='user', joinTs=Date.now(), left=false;
 let sharing=false, recording=false, nativeRec=false, capOn=false, askPending=false, wantShare=false, wantRec=false, shareTrack=null, pump=null, pumping=false;
 let rec=null, recCtx=null, recDest=null, recQ=Promise.resolve(), recTimer=null, recT0=0, recDone=null, mixedIds=new Set(), pend={};
@@ -195,7 +205,17 @@ function newPeer(id,name){
   };
   pc.onconnectionstatechange=()=>{
     const s=pc.connectionState;
-    if(s==='failed'||s==='closed'){setTimeout(()=>{if(peers[id]&&peers[id].pc===pc&&pc.connectionState!=='connected')dropPeer(id)},4000)}
+    if(s==='connected')p.tries=0;
+    if(s==='failed'||s==='disconnected'){
+      // give the network a moment, then try an ICE restart (the side that offered renegotiates) before giving up
+      setTimeout(async()=>{
+        if(!peers[id]||peers[id].pc!==pc||pc.connectionState==='connected'||pc.connectionState==='closed')return;
+        p.tries=(p.tries||0)+1;
+        if(p.tries>3){dropPeer(id);return}
+        if(p.offerer){try{const o=await pc.createOffer({iceRestart:true});await pc.setLocalDescription(o);send(id,'offer',JSON.stringify(pc.localDescription))}catch(e){}}
+      },s==='failed'?500:4000);
+    }
+    if(s==='closed')dropPeer(id);
   };
   (early[id]||[]).forEach(c=>p.queue.push(c));delete early[id];
   return p;
@@ -206,7 +226,7 @@ function dropPeer(id){
 }
 async function flush(p){p.remoteSet=true;for(const c of p.queue){try{await p.pc.addIceCandidate(c)}catch(e){}}p.queue=[]}
 async function callPeer(id,name){
-  const p=newPeer(id,name);
+  const p=newPeer(id,name);p.offerer=true;
   const o=await p.pc.createOffer();await p.pc.setLocalDescription(o);
   send(id,'offer',JSON.stringify(p.pc.localDescription));
 }
@@ -217,17 +237,22 @@ window.onSignal=async function(arr){
       if(s.kind==='join'){
         if(sharing)send(from,'share',JSON.stringify({on:true}));
         if(recording)send(from,'rec',JSON.stringify({on:true}));
+        if(JSON.parse(s.data||'{}').w===2)newPage[from]=true;
         if(peers[from])continue;
-        const their=JSON.parse(s.data||'{}').ts||0;
-        // the one who was already in the call (earlier join) makes the offer
-        if(joinTs<their||(joinTs===their&&me<from))await callPeer(from,name);
+        // only those already in the call see this join, so they make the offer (device clocks are not compared)
+        await callPeer(from,name);
       }else if(s.kind==='offer'){
         const p=newPeer(from,name);
+        if(p.pc.signalingState==='have-local-offer'){
+          // both offered at once. App phones always give way; between two of these pages the smaller id keeps its offer.
+          if(!newPage[from]||me<from)continue;
+          await p.pc.setLocalDescription({type:'rollback'});p.offerer=false;
+        }
         await p.pc.setRemoteDescription(JSON.parse(s.data));await flush(p);
         const a=await p.pc.createAnswer();await p.pc.setLocalDescription(a);
         send(from,'answer',JSON.stringify(p.pc.localDescription));
       }else if(s.kind==='answer'){
-        const p=peers[from];if(p&&!p.remoteSet){await p.pc.setRemoteDescription(JSON.parse(s.data));await flush(p)}
+        const p=peers[from];if(p&&p.pc.signalingState==='have-local-offer'){await p.pc.setRemoteDescription(JSON.parse(s.data));await flush(p)}
       }else if(s.kind==='ice'){
         const c=JSON.parse(s.data),p=peers[from];
         if(!p){(early[from]=early[from]||[]).push(c)}
@@ -430,7 +455,11 @@ async function endRecord(){
 }
 (async function(){
   await startLocal();
-  AndroidCall.ready();                       // native side starts listening for signals
-  setTimeout(()=>send('','join',JSON.stringify({ts:joinTs})),300);
+  let joined=false;
+  // ts is deliberately huge: older app versions offer to whoever has the "later" join time, and the one joining is us
+  const doJoin=()=>{if(joined)return;joined=true;send('','join',JSON.stringify({ts:9000000000000000,w:2}))};
+  window.onPollReady=doJoin;
+  AndroidCall.ready();                       // starts listening for signals
+  setTimeout(doJoin,8000);                   // fallback if the first look is slow
 })();
 </script></body></html>

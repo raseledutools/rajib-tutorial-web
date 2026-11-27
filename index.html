@@ -7431,8 +7431,22 @@ function dPoll(m){
 async function dPost(type,text,url,fileName,extra){
   const ts=Date.now(),id=DISC_PREFIX+String(ts).padStart(13,"0")+"_"+Math.random().toString(36).slice(2,6);
   const d={appId:DISC_APP,name:dMyName(),mobile:dMyId(),role:adminIn?"admin":"member",type,text,url:url||"",fileName:fileName||"",ts,...(extra||{})};
-  try{await setDoc(doc(db,"tutorial_courses",id),d);dFetch(true);return true}
+  try{await setDoc(doc(db,"tutorial_courses",id),d);dFetch(true);dPush(d,id);return true}
   catch(e){showToast("Could not send: check your internet");return false}
+}
+/* Phone push for a Discussion message / call sent from the website or the exe (the APK sends its own).
+   Same data-only FCM message to topic "discussion" as AdminBridge.sendChatPush in the app. */
+async function dPush(m,id){
+  try{
+    const t=String(m.text||""),ty=m.type||"text";
+    let body=ty==="image"?"📷 Photo":ty==="video"?"🎬 Video":ty==="audio"?"🎵 Audio":ty==="file"?"📎 "+(m.fileName||"File"):ty==="call"?"📞 Started a group call — tap to join":ty==="poll"?"📊 Poll: "+t:t;
+    if(!["text","call","poll"].includes(ty)&&t)body+=": "+t;
+    if(body.length>180)body=body.slice(0,177)+"…";
+    const at=await fcmAccessToken();
+    const r=await fetch("https://fcm.googleapis.com/v1/projects/"+FCM_PROJECT+"/messages:send",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json","Authorization":"Bearer "+at},
+      body:JSON.stringify({message:{topic:"discussion",data:{title:m.name||"Member",body,kind:"chat",sender:m.mobile||"",id,time:String(Date.now())},android:{priority:"high",ttl:"3600s"}}})});
+    if(!r.ok)throw new Error("FCM HTTP "+r.status+" "+(await r.text().catch(()=>"")).slice(0,200));
+  }catch(e){console.warn("[Discussion push]",e)}
 }
 function dSendText(){
   if(dUp){showToast("Please wait for the current upload");return}
@@ -7548,7 +7562,9 @@ async function dSendVoice(blob,secs){
 }
 function dLaunchCall(video){
   const u="call.html?uid="+encodeURIComponent(dMyId())+"&name="+encodeURIComponent(dMyName())+"&video="+(video?1:0);
-  const w=window.open(u,"_blank");if(!w)location.href=u;
+  const w=window.open(u,"_blank");
+  // The exe opens the call in its own window and reports null here: going there in this window too would join the call twice.
+  if(!w&&!window.ElectronShell)location.href=u;
 }
 window.dCall=async function(video){
   const now=Date.now();
