@@ -26,7 +26,7 @@ html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-
 .btn.off{background:#fff;color:#111}.btn.end{background:#e8365d}
 #msg{position:fixed;left:50%;transform:translateX(-50%);bottom:110px;z-index:6;background:#000c;padding:8px 14px;border-radius:14px;font-size:13px;display:none;max-width:90%;text-align:center}
 #wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 40px;opacity:.7;font-size:15px;pointer-events:none}
-#bShare,#bRec{display:none!important}
+#bShare,#bRec{display:none!important}   /* callx.js shows the share button on computers */
 </style></head>
 <body>
 <div id="top"><b>Group call</b><span id="recInd">🔴 00:00</span><span id="count">1 in call</span></div>
@@ -90,6 +90,7 @@ html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-
     finally{busy=false}
   }
   var recParts=[];
+  window.__WEBCALL=true;
   window.AndroidCall={
     info:function(){return JSON.stringify({id:peerId,name:name,video:video})},
     ready:function(){if(running)return;running=true;timer=setInterval(poll,POLL);poll()},
@@ -109,7 +110,6 @@ html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-
     }
   };
   window.addEventListener('pagehide',function(){if(running&&!leaveSent){leaveSent=true;post('','leave','')}});
-  document.addEventListener('DOMContentLoaded',function(){var b=document.getElementById('bShare');if(b)b.style.display='none'});
 })();
 </script>
 <script>
@@ -462,4 +462,5 @@ async function endRecord(){
   AndroidCall.ready();                       // starts listening for signals
   setTimeout(doJoin,8000);                   // fallback if the first look is slow
 })();
-</script></body></html>
+</script>
+<script src="callx.js?v=1"></script></body></html>
