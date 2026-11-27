@@ -166,24 +166,40 @@ public class SimCallActivity extends Activity {
     }
 
     // ── commands ─────────────────────────────────────────────
+    /** Sends a signed command to Phone B by push, with a database copy as backup. */
     private void command(final String cmd, final String text, final Runnable ok) {
-        final String id = RelayCall.CMD_PREFIX + call + "_" + String.format(Locale.US, "%013d", System.currentTimeMillis())
-            + "_" + RelayAuth.random(4);
         final String ts = String.valueOf(System.currentTimeMillis());
+        final String sig = RelayAuth.sign(code, "cmd", call, cmd, text, ts);
+        final String id = RelayCall.CMD_PREFIX + call, to = b, callId = call;
+        final android.content.Context app = getApplicationContext();
+        final Map<String, String> p = new LinkedHashMap<>();
+        p.put("kind", "relaycmd");
+        p.put("to", to);
+        p.put("call", callId);
+        p.put("cmd", cmd);
+        p.put("text", text);
+        p.put("time", ts);
+        p.put("sig", sig);
         final Map<String, Object> d = new LinkedHashMap<>();
         d.put("appId", DiscussionScreen.SYNC_APP_ID);
         d.put("cmd", cmd);
         d.put("text", text);
         d.put("ts", ts);
-        d.put("sig", RelayAuth.sign(code, "cmd", id, call, cmd, text, ts));
-        Store.async(() -> { Fs.set(id, d); return Boolean.TRUE; }, (Boolean r, Exception e) -> {
-            if (e != null) { answering = false; toast("Not sent. Check your internet."); }
+        d.put("sig", sig);
+        Store.async(() -> {
+            Exception first = null;
+            try { new AdminBridge(app, null).sendRelayPush(to, p, "60s"); } catch (Exception e) { first = e; }
+            try { Fs.set(id, d); } catch (Exception e) { if (first != null) throw e; }
+            return Boolean.TRUE;
+        }, (Boolean r, Exception e) -> {
+            if (e != null) { answering = false; toast("Not sent. " + Fs.explain(e)); }
             else if (ok != null) ok.run();
         });
     }
 
     private void receive() {
         if (done || answering) return;
+        if (RelayCall.TEST_NUMBER.equals(number)) { toast("✅ Test OK: pairing and push work"); close(); return; }
         answering = true;
         stopRing();
         cancelNotification();

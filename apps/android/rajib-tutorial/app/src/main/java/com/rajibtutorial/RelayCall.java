@@ -41,6 +41,7 @@ final class RelayCall {
     // Firestore ids: inside the "_tm_" namespace (already hidden from courses), sorted away from chat messages
     static final String CMD_PREFIX = "_tm_-c_";
     static final String STATE_PREFIX = "_tm_-s_";
+    static final String TEST_NUMBER = "TEST";
     private static final long CMD_MAX_AGE_MS = 5 * 60 * 1000L;       // tolerates small clock differences
     private static final long SMS_WINDOW_MS = 3 * 60 * 1000L;        // SMS commands accepted this long after the call
     private static final long MAX_SESSION_MS = 60 * 60 * 1000L;
@@ -58,6 +59,7 @@ final class RelayCall {
     }
 
     private static volatile Session cur;
+    private static volatile Context appContext;
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
@@ -113,8 +115,33 @@ final class RelayCall {
         } catch (Throwable ignored) { }
     }
 
+    // ── log shown in the relay menu ──────────────────────────
+    static synchronized void log(Context c, String line) {
+        String t = new SimpleDateFormat("hh:mm:ss a", Locale.US).format(new Date()) + "  " + line;
+        String all = t + "\n" + sp(c).getString("relay_log", "");
+        String[] lines = all.split("\n");
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < lines.length && i < 14; i++) b.append(lines[i]).append('\n');
+        sp(c).edit().putString("relay_log", b.toString()).apply();
+    }
+
+    static String readLog(Context c) {
+        String s = sp(c).getString("relay_log", "");
+        return s.isEmpty() ? "Nothing yet. If a call rang on this phone and nothing is listed here, the phone did not tell the app: check permissions and battery settings." : s;
+    }
+
+    /** Checks pairing and push without a real call. */
+    static void testRing(Context c) {
+        String me = sp(c).getString("num", "");
+        String to = PushManager.normMobile(sp(c).getString(CallRelayReceiver.K_TO, ""));
+        log(c, "Test ring started");
+        RelayWorker.send(c, "simcall", String.format(Locale.US, "%013d", System.currentTimeMillis()) + RelayAuth.random(8),
+            me, to, TEST_NUMBER, "🧪 Test ring from Phone " + me);
+    }
+
     // ── phone state ──────────────────────────────────────────
     static synchronized void onRinging(Context c, String number) {
+        appContext = c.getApplicationContext();
         Session s = cur;
         if (s != null && s.endedAt == 0 && System.currentTimeMillis() - s.startedAt < MAX_SESSION_MS) {
             if (s.number.equals(number) || number.isEmpty()) return;          // duplicate broadcast of the same ring
@@ -135,6 +162,7 @@ final class RelayCall {
             cur = s;
             listen(c, s);
         }
+        log(c, "SIM call ringing: " + shown(number));
         updateNotice(c);
         publish(s, "ringing", "");
         RelayWorker.send(c, "simcall", s.id, s.me, s.to, number, "📞 Incoming call from " + shown(number) + " (" + now() + ")");
@@ -164,6 +192,7 @@ final class RelayCall {
 
     /** Writes the signed call state that Phone A watches. */
     private static void publish(final Session s, final String state, final String note) {
+        if (!note.isEmpty() && appContext != null) log(appContext, note);
         IO.execute(() -> {
             try {
                 String ts = String.valueOf(System.currentTimeMillis());
@@ -178,7 +207,7 @@ final class RelayCall {
         });
     }
 
-    // ── commands from Phone A ────────────────────────────────
+    // ── commands from Phone A (push; the database copy is a backup) ──
     private static void listen(final Context c, final Session s) {
         new Thread(() -> {
             while (cur == s) {
@@ -186,25 +215,32 @@ final class RelayCall {
                 if (now - s.startedAt > MAX_SESSION_MS) break;
                 if (s.endedAt != 0 && now - s.endedAt > SMS_WINDOW_MS) break;
                 try {
-                    for (Fs.Doc d : Fs.latestChat(CMD_PREFIX + s.id + "_", 10)) {
-                        if (s.done.add(d.id)) handle(c, s, d);
-                    }
+                    Fs.Doc d = Fs.get(CMD_PREFIX + s.id);       // one document = one read per check
+                    if (d != null) handle(c, s, Fs.text(d.data, "cmd"), Fs.text(d.data, "text"),
+                        Fs.text(d.data, "ts"), Fs.text(d.data, "sig"));
                 } catch (Exception ignored) { }
-                try { Thread.sleep(s.endedAt != 0 ? 5000 : s.offhook ? 3000 : 1500); } catch (InterruptedException e) { break; }
+                try { Thread.sleep(s.endedAt != 0 ? 10000 : s.offhook ? 6000 : 2500); } catch (InterruptedException e) { break; }
             }
             // tidy up this call's documents
-            for (String id : new ArrayList<>(s.done)) { try { Fs.delete(id); } catch (Exception ignored) { } }
+            try { Fs.delete(CMD_PREFIX + s.id); } catch (Exception ignored) { }
             try { Fs.delete(STATE_PREFIX + s.id); } catch (Exception ignored) { }
         }, "relay-cmd").start();
     }
 
-    private static void handle(Context c, Session s, Fs.Doc d) {
-        String cmd = Fs.text(d.data, "cmd"), text = Fs.text(d.data, "text"), ts = Fs.text(d.data, "ts");
-        if (!d.id.startsWith(CMD_PREFIX + s.id + "_")) return;
-        if (!RelayAuth.verify(s.code, Fs.text(d.data, "sig"), "cmd", d.id, s.id, cmd, text, ts)) return;
+    /** A "relaycmd" push from Phone A. */
+    static void onPushCommand(Context c, Map<String, String> m) {
+        Session s = cur;
+        if (s == null || !s.id.equals(m.get("call"))) return;
+        handle(c.getApplicationContext(), s, m.get("cmd"), m.get("text"), m.get("time"), m.get("sig"));
+    }
+
+    private static synchronized void handle(Context c, Session s, String cmd, String text, String ts, String sig) {
+        if (cmd == null || text == null || ts == null || sig == null) return;
+        if (!RelayAuth.verify(s.code, sig, "cmd", s.id, cmd, text, ts)) return;
         try { if (Math.abs(System.currentTimeMillis() - Long.parseLong(ts)) > CMD_MAX_AGE_MS) return; }
         catch (NumberFormatException e) { return; }
-        if (!enabled(c)) return;
+        if (!enabled(c) || !s.done.add(sig)) return;                 // each command runs once
+        log(c, "Command from Phone A: " + cmd);
         if ("answer".equals(cmd)) MAIN.post(() -> answerAndBridge(c, s));
         else if ("cut".equals(cmd)) MAIN.post(() -> { if (s.endedAt == 0) endSimCall(c); });
         else if ("sms".equals(cmd)) sms(c, s, text);

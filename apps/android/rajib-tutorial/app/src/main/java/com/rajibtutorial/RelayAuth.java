@@ -64,6 +64,23 @@ final class RelayAuth {
         sp(c).edit().putString(K_PAIR + b, norm(code)).apply();
     }
 
+    static java.util.List<String> paired(Context c) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String k : sp(c).getAll().keySet()) if (k.startsWith(K_PAIR)) out.add(k.substring(K_PAIR.length()));
+        java.util.Collections.sort(out);
+        return out;
+    }
+
+    static void unpair(Context c, String b) {
+        sp(c).edit().remove(K_PAIR + b).apply();
+    }
+
+    /** Last 4 characters, enough to compare with the code on the other phone. */
+    static String tail(String code) {
+        String s = norm(code);
+        return s.length() < 4 ? s : s.substring(s.length() - 4);
+    }
+
     /** Logout: forget my code and all pairings, switch the relay off. */
     static void clear(Context c) {
         SharedPreferences.Editor e = sp(c).edit();

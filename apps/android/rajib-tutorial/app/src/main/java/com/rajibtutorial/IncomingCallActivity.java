@@ -158,6 +158,7 @@ public class IncomingCallActivity extends Activity {
         Store.async(() -> {
             Map<String, Object> d = new LinkedHashMap<>();
             d.put("ans", Long.valueOf(ans));
+            d.put("up", Long.valueOf(System.currentTimeMillis()));
             Fs.update(doc, d);
             return Boolean.TRUE;
         }, null);

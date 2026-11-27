@@ -75,7 +75,7 @@ public class MessengerActivity extends Activity {
 
     private static final String PREFIX = "_tm_";      // Telephone messages (own namespace)
     private static final String USER_PREFIX = "_tel_";  // Telephone registered numbers
-    private static final long POLL_MS = 3000;
+    private static final long POLL_MS = 4000;
     private static final int REQ_PICK = 4101, REQ_MIC = 4102;
 
     private static final int S_HOME = 0, S_CHAT = 1, S_PICK = 2;
@@ -118,6 +118,9 @@ public class MessengerActivity extends Activity {
     private boolean searching = false;
     private boolean polling = false, fetching = false, released = false;
     private String lastSig = "";
+    private final Map<String, Fs.Doc> cache = new HashMap<>();
+    private long lastFull = 0, lastOk = 0, contactsAt = 0;
+    private String netError = "";
     private String lastOutCall = "", callMsgId = "";
 
     // views
@@ -143,7 +146,7 @@ public class MessengerActivity extends Activity {
         @Override public void run() {
             if (!polling || released) return;
             fetch();
-            h.postDelayed(this, Fs.queryBroken ? POLL_MS * 2 : POLL_MS);
+            h.postDelayed(this, screen == S_CHAT ? POLL_MS : POLL_MS * 2);
         }
     };
 
@@ -180,7 +183,7 @@ public class MessengerActivity extends Activity {
     private void startSession() {
         try { PushManager.setDm(getApplicationContext(), true, meId, meName); } catch (Throwable ignored) { }
         buildContacts();
-        loadContacts();
+        register();
         render();
         handlePeerIntent(getIntent());
         ensureCallPermissions();
@@ -191,10 +194,26 @@ public class MessengerActivity extends Activity {
 
     private final List<String> regUsers = new ArrayList<>();
 
+    /** Puts my number on the user list (every start, so a failed first attempt repairs itself). */
+    private void register() {
+        final Map<String, Object> d = new LinkedHashMap<>();
+        d.put("appId", DiscussionScreen.SYNC_APP_ID);
+        d.put("number", meId);
+        d.put("ts", Long.valueOf(System.currentTimeMillis()));
+        final String id = USER_PREFIX + meId;
+        Store.async(() -> { Fs.set(id, d); return Boolean.TRUE; }, (Boolean ok, Exception e) -> {
+            if (released) return;
+            if (e != null) setError(Fs.explain(e));
+            loadContacts();
+        });
+    }
+
     /** Numbers that have joined Telephone (documents "_tel_<number>"). */
     private void loadContacts() {
-        Store.async(() -> Fs.latestChat(USER_PREFIX, 500), (List<Fs.Doc> docs, Exception e) -> {
-            if (released || e != null || docs == null) return;
+        contactsAt = System.currentTimeMillis();
+        Store.async(() -> Fs.prefixAsc(USER_PREFIX, 500), (List<Fs.Doc> docs, Exception e) -> {
+            if (released) return;
+            if (e != null || docs == null) { setError(Fs.explain(e)); return; }
             regUsers.clear();
             for (Fs.Doc d : docs) {
                 String n = d.id.substring(USER_PREFIX.length());
@@ -202,10 +221,11 @@ public class MessengerActivity extends Activity {
             }
             buildContacts();
             if (screen == S_PICK) renderPickerList();
+            else if (screen == S_HOME) renderHomeList();
         });
     }
 
-    /** Number-only login: remembers the number and registers it so others can find / call it. */
+    /** Number-only login: remembers the number; {@link #register} lists it so others can find / call it. */
     private void doLogin(String raw) {
         final String num = PushManager.normMobile(raw);
         if (num.length() < 10) { toast("Enter a valid phone number"); return; }
@@ -213,13 +233,10 @@ public class MessengerActivity extends Activity {
         getSharedPreferences("rt_tel", MODE_PRIVATE).edit().putString("num", num).apply();
         meId = num;
         meName = num;
-        final Map<String, Object> d = new LinkedHashMap<>();
-        d.put("appId", DiscussionScreen.SYNC_APP_ID);
-        d.put("number", num);
-        d.put("ts", Long.valueOf(System.currentTimeMillis()));
-        Store.async(() -> { Fs.set(USER_PREFIX + num, d); return Boolean.TRUE; }, null);
         all = new ArrayList<>();
         pending.clear();
+        cache.clear();
+        lastFull = 0;
         screen = S_HOME;
         tab = 0;
         startSession();
@@ -239,6 +256,9 @@ public class MessengerActivity extends Activity {
         acked.clear();
         handledCalls.clear();
         regUsers.clear();
+        cache.clear();
+        lastFull = 0;
+        netError = "";
         buildContacts();
         screen = S_HOME;
         curPeer = "";
@@ -298,6 +318,7 @@ public class MessengerActivity extends Activity {
         ON_SCREEN = true;
         if (meId.isEmpty()) return;
         cancelUnansweredCall();
+        if (System.currentTimeMillis() - contactsAt > 60000) loadContacts();
         polling = true;
         h.removeCallbacks(pollTask);
         h.post(pollTask);
@@ -441,14 +462,52 @@ public class MessengerActivity extends Activity {
     }
 
     // ── data fetch ───────────────────────────────────────────
+    /**
+     * Reads as little as possible (the free server plan counts every document read): all of my messages once,
+     * afterwards only documents changed in the last three minutes ("up" = time of the last change).
+     */
     private void fetch() {
-        if (released || fetching) return;
+        if (released || fetching || meId.isEmpty()) return;
         fetching = true;
-        Store.async(() -> Fs.latestChat(PREFIX, 400), (List<Fs.Doc> docs, Exception e) -> {
+        final long now = System.currentTimeMillis();
+        final boolean full = lastFull == 0 || now - lastOk > 90000 || now - lastFull > 15 * 60 * 1000L;
+        final String who = meId;
+        Store.async(() -> {
+            List<Fs.Doc> out = new ArrayList<>();
+            if (full) {
+                out.addAll(Fs.query("tutorial_courses", "from", "EQUAL", who, null, false, 0));
+                out.addAll(Fs.query("tutorial_courses", "to", "EQUAL", who, null, false, 0));
+            } else {
+                out.addAll(Fs.query("tutorial_courses", "up", "GREATER_THAN", Long.valueOf(now - 180000), null, false, 0));
+            }
+            return out;
+        }, (List<Fs.Doc> docs, Exception e) -> {
             fetching = false;
-            if (released || e != null || docs == null) return;
-            applyDocs(docs);
+            if (released || !who.equals(meId)) return;
+            if (e != null || docs == null) { setError(Fs.explain(e)); return; }
+            if (full) { cache.clear(); lastFull = now; }
+            lastOk = now;
+            for (Fs.Doc d : docs) if (d.id.startsWith(PREFIX)) cache.put(d.id, d);
+            setError("");
+            applyDocs(new ArrayList<>(cache.values()));
         });
+    }
+
+    private void setError(String msg) {
+        if (msg.equals(netError)) return;
+        netError = msg;
+        if (screen == S_HOME) renderHomeList();
+        else if (screen == S_PICK) renderPickerList();
+        else if (!msg.isEmpty()) toast(msg);
+    }
+
+    private View errorBanner() {
+        TextView t = Ui.tv(this, "⚠️  " + netError, 13.5f, C_TEXT, false);
+        t.setBackground(Ui.bg(this, 0xFF5C2B29, 10, 0));
+        t.setPadding(dp(14), dp(10), dp(14), dp(10));
+        t.setOnClickListener(v -> { lastFull = 0; fetch(); loadContacts(); });
+        t.setLayoutParams(Ui.lpm(this, MATCH, WRAP, 12, 6, 12, 6));
+        return t;
     }
 
     private Msg toMsg(Fs.Doc d) {
@@ -518,6 +577,7 @@ public class MessengerActivity extends Activity {
             for (String[] t : todo) {
                 Map<String, Object> d = new LinkedHashMap<>();
                 d.put("dl", Long.valueOf(1));
+                d.put("up", Long.valueOf(System.currentTimeMillis()));
                 if ("r".equals(t[1])) d.put("read", Long.valueOf(1));
                 try { Fs.update(t[0], d); } catch (Exception ignored) { }
             }
@@ -543,6 +603,7 @@ public class MessengerActivity extends Activity {
         d.put("url", url);
         d.put("fileName", fileName);
         d.put("ts", Long.valueOf(ts));
+        d.put("up", Long.valueOf(ts));
         if (extra != null) d.putAll(extra);
 
         Msg pm = new Msg();
@@ -618,6 +679,7 @@ public class MessengerActivity extends Activity {
             if (d != null && Fs.num(d.data, "ans") == 0) {
                 Map<String, Object> u = new LinkedHashMap<>();
                 u.put("ans", Long.valueOf(3));
+                u.put("up", Long.valueOf(System.currentTimeMillis()));
                 Fs.update(id, u);
             }
             return Boolean.TRUE;
@@ -708,6 +770,7 @@ public class MessengerActivity extends Activity {
         Store.async(() -> {
             Map<String, Object> d = new LinkedHashMap<>();
             d.put("ans", Long.valueOf(ans));
+            d.put("up", Long.valueOf(System.currentTimeMillis()));
             Fs.update(m.id, d);
             return Boolean.TRUE;
         }, null);
@@ -867,7 +930,7 @@ public class MessengerActivity extends Activity {
     private void homeMenu() {
         final Ui.Modal m = new Ui.Modal(this, "Telephone", "Your number: " + meId);
         m.col("✉  New chat", Ui.B_GHOST, v -> { m.dismiss(); screen = S_PICK; query = ""; render(); });
-        m.col("🔄  Refresh", Ui.B_GHOST, v -> { m.dismiss(); lastSig = ""; fetch(); });
+        m.col("🔄  Refresh", Ui.B_GHOST, v -> { m.dismiss(); lastSig = ""; lastFull = 0; fetch(); loadContacts(); });
         m.col("🔗  Pair relay phone (Phone A)", Ui.B_GHOST, v -> { m.dismiss(); pairMenu(); });
         m.col("📲  Call relay setup (Phone B)", Ui.B_GHOST, v -> { m.dismiss(); relayMenu(); });
         m.col("🚪  Log out", Ui.B_RED, v -> { m.dismiss(); logout(); });
@@ -909,6 +972,18 @@ public class MessengerActivity extends Activity {
                 .setNegativeButton("Cancel", null)
                 .show();
         });
+        m.col("🧪  Send a test ring to Phone A", Ui.B_GHOST, v -> {
+            m.dismiss();
+            if (!RelayCall.enabled(this)) { toast("Turn the relay ON first"); relayMenu(); return; }
+            RelayCall.testRing(this);
+            toast("Sending… open this menu again to see the result");
+        });
+        m.col("📋  What happened (log)", Ui.B_GHOST, v -> {
+            m.dismiss();
+            final Ui.Modal lm = new Ui.Modal(this, "Relay log", RelayCall.readLog(this));
+            lm.col("Back", Ui.B_OUTLINE, x -> { lm.dismiss(); relayMenu(); });
+            lm.show();
+        });
         m.col("Close", Ui.B_OUTLINE, v -> m.dismiss());
         m.show();
     }
@@ -942,10 +1017,28 @@ public class MessengerActivity extends Activity {
         m.show();
     }
 
-    /** Phone A: remember the relay phone's number and code. */
+    /** Phone A: shows saved relay phones and adds / removes them. */
     private void pairMenu() {
-        final Ui.Modal md = new Ui.Modal(this, "Pair relay phone (this is Phone A)",
-            "Enter Phone B's Telephone number and the pairing code shown on Phone B.");
+        final List<String> saved = RelayAuth.paired(this);
+        final Ui.Modal m = new Ui.Modal(this, "Pair relay phone (this is Phone A)",
+            saved.isEmpty() ? "No relay phone is paired yet." : "Saved. Tap a phone to remove it.");
+        for (final String n : saved) {
+            m.col("✅  Paired: " + n + "   ·   code …" + RelayAuth.tail(RelayAuth.pairedCode(this, n)), Ui.B_GREEN, v -> {
+                m.dismiss();
+                new android.app.AlertDialog.Builder(this)
+                    .setTitle("Remove " + n + "?")
+                    .setPositiveButton("Remove", (d, w) -> { RelayAuth.unpair(this, n); pairMenu(); })
+                    .setNegativeButton("Keep", (d, w) -> pairMenu())
+                    .show();
+            });
+        }
+        m.col("➕  Add / change Phone B", Ui.B_PRIMARY, v -> { m.dismiss(); pairForm(); });
+        m.col("Close", Ui.B_OUTLINE, v -> m.dismiss());
+        m.show();
+    }
+
+    private void pairForm() {
+        final Ui.Modal md = new Ui.Modal(this, "Add Phone B", "Enter Phone B's Telephone number and the pairing code shown on Phone B.");
         final Ui.Field num = Ui.field(this, "Phone B number", "01XXXXXXXXX", InputType.TYPE_CLASS_PHONE);
         final Ui.Field code = Ui.field(this, "Pairing code", "XXXX-XXXX-XXXX-XXXX", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
         md.add(num.root);
@@ -954,11 +1047,11 @@ public class MessengerActivity extends Activity {
         md.addSpaced(err, 8);
         md.actions("Cancel", "Save", Ui.B_PRIMARY, () -> {
             String b = PushManager.normMobile(num.text());
-            if (b.length() < 10 || b.equals(meId)) { Ui.setErr(err, "Enter Phone B's number"); return; }
+            if (b.length() < 10 || b.equals(meId)) { Ui.setErr(err, "Enter Phone B's number (not this phone's)"); return; }
             if (RelayAuth.norm(code.text()).length() != 16) { Ui.setErr(err, "The code has 16 letters and digits"); return; }
             RelayAuth.pair(this, b, code.text());
             md.dismiss();
-            toast("Paired with " + b);
+            pairMenu();
         });
         md.show();
     }
@@ -1004,6 +1097,7 @@ public class MessengerActivity extends Activity {
     private void renderHomeList() {
         if (listBox == null) return;
         listBox.removeAllViews();
+        if (!netError.isEmpty()) listBox.addView(errorBanner());
         if (tab == 0) renderChatRows(); else renderCallRows();
     }
 
@@ -1031,12 +1125,41 @@ public class MessengerActivity extends Activity {
             listBox.addView(chatRow(c, last, unread));
             shown++;
         }
+        // everyone else who is on Telephone: tap to start a chat
+        boolean header = false;
+        for (final Contact c : contacts) {
+            if (by.containsKey(c.id) || (!q.isEmpty() && !c.name.toLowerCase(Locale.getDefault()).contains(q))) continue;
+            if (!header) {
+                header = true;
+                TextView t = Ui.tv(this, "Telephone users", 13, C_SUB, true);
+                t.setPadding(dp(16), dp(14), dp(16), dp(4));
+                listBox.addView(t);
+            }
+            listBox.addView(userRow(c));
+            shown++;
+        }
         if (shown == 0) {
-            TextView e = Ui.tv(this, q.isEmpty() ? "No chats yet.\nTap ✉ to start a conversation." : "No results", 15, C_SUB, false);
+            TextView e = Ui.tv(this, q.isEmpty() ? "No users yet.\nTap ✉ and type a phone number to start a chat." : "No results", 15, C_SUB, false);
             e.setGravity(Gravity.CENTER);
             e.setPadding(dp(24), dp(80), dp(24), 0);
             listBox.addView(e, new LinearLayout.LayoutParams(MATCH, WRAP));
         }
+    }
+
+    private View userRow(final Contact c) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(16), dp(9), dp(16), dp(9));
+        Ui.pressFx(row);
+        row.setOnClickListener(v -> openChat(c.id));
+        row.addView(avatar(c.name, c.id, 46, 18), Ui.lpm(this, dp(46), dp(46), 0, 0, 14, 0));
+        LinearLayout mid = new LinearLayout(this);
+        mid.setOrientation(LinearLayout.VERTICAL);
+        mid.addView(Ui.ellipsized(this, c.name, 16, C_TEXT, true, 1));
+        mid.addView(Ui.ellipsized(this, c.sub, 13, C_SUB, false, 1));
+        row.addView(mid, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        return row;
     }
 
     private View chatRow(final Contact c, Msg last, int unread) {
@@ -1162,6 +1285,7 @@ public class MessengerActivity extends Activity {
     private void renderPickerList() {
         if (listBox == null) return;
         listBox.removeAllViews();
+        if (!netError.isEmpty()) listBox.addView(errorBanner());
         String q = query.trim().toLowerCase(Locale.getDefault());
         int shown = 0;
         String digits = q.replaceAll("[^0-9]", "");

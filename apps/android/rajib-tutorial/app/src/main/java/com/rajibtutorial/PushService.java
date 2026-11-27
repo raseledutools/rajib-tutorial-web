@@ -160,7 +160,16 @@ public class PushService extends FirebaseMessagingService {
         String code = RelayAuth.pairedCode(this, from);
         boolean trusted = RelayAuth.verify(code, m.getData().get("sig"),
             "alert", nz(m.getData().get("kind")), from, to, call, number, time);
-        if (!trusted) { showDm(m); return; }           // not paired (or wrong code): ordinary message, no call buttons
+        if (!trusted) {                                  // not paired (or wrong code): no call buttons
+            final String why = code.isEmpty()
+                ? "Telephone: pair relay phone " + from + " to get the call screen"
+                : "Telephone: pairing code for " + from + " does not match";
+            final android.content.Context app = getApplicationContext();
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                android.widget.Toast.makeText(app, why, android.widget.Toast.LENGTH_LONG).show());
+            showDm(m);
+            return;
+        }
         PushManager.createChannel(this);
         int nid = 0x53000000 | (call.hashCode() & 0xFFFFFF);
         if (!ringing) {
@@ -265,6 +274,7 @@ public class PushService extends FirebaseMessagingService {
         String kind = m.getData().get("kind");
         if ("dm".equals(kind)) { showDm(m); return; }
         if ("dmcall".equals(kind)) { showCall(m); return; }
+        if ("relaycmd".equals(kind)) { RelayCall.onPushCommand(this, m.getData()); return; }
         if ("simcall".equals(kind) || "simmissed".equals(kind)) { showSimCall(m, "simcall".equals(kind)); return; }
         if ("chat".equals(kind)) { showChat(m); return; }
         if (title == null) title = m.getData().get("title");

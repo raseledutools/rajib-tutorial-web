@@ -428,9 +428,14 @@ public class GroupCallActivity extends AppCompatActivity {
 
     private void pollLoop() {
         boolean first = true;
+        int failures = 0;
+        final long began = System.currentTimeMillis();
         while (running) {
+            final long wait = System.currentTimeMillis() - began < 40000 ? POLL_MS : POLL_MS * 4;
             try {
-                List<Fs.Doc> docs = Fs.latestChat(PREFIX, 100);
+                // only this room's signals (reading the whole signal list every second used up the server quota)
+                List<Fs.Doc> docs = new ArrayList<>(Fs.query("tutorial_courses", "room", "EQUAL", ROOM, null, false, 0));
+                failures = 0;
                 if (first) {
                     // Everything that already exists is old: drop stale signals left by crashed calls and
                     // mark the rest as seen. (No timestamp comparison between phones: their clocks differ,
@@ -466,8 +471,13 @@ public class GroupCallActivity extends AppCompatActivity {
                     final String js = "window.onSignal && window.onSignal(" + out.toString() + ")";
                     runOnUiThread(() -> { if (wv != null) wv.evaluateJavascript(js, null); });
                 }
-            } catch (Exception ignored) { }
-            try { Thread.sleep(POLL_MS); } catch (InterruptedException e) { return; }
+            } catch (Exception e) {
+                if (++failures == 3) {
+                    final String why = Fs.explain(e);
+                    runOnUiThread(() -> Toast.makeText(this, why, Toast.LENGTH_LONG).show());
+                }
+            }
+            try { Thread.sleep(wait); } catch (InterruptedException e) { return; }
         }
     }
 

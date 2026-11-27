@@ -135,6 +135,35 @@ final class Fs {
         return out;
     }
 
+    /** Documents whose id starts with {@code prefix}, oldest id first (default order: works without any index). */
+    static List<Doc> prefixAsc(String prefix, int limit) throws Exception {
+        String root = "projects/mywebtools-f8d53/databases/(default)/documents/tutorial_courses/";
+        String hi = prefix.substring(0, prefix.length() - 1) + (char) (prefix.charAt(prefix.length() - 1) + 1);
+        JSONObject q = new JSONObject();
+        q.put("from", new JSONArray().put(new JSONObject().put("collectionId", "tutorial_courses")));
+        q.put("where", new JSONObject().put("compositeFilter", new JSONObject().put("op", "AND").put("filters", new JSONArray()
+            .put(nameFilter(root + prefix, "GREATER_THAN_OR_EQUAL"))
+            .put(nameFilter(root + hi, "LESS_THAN")))));
+        q.put("limit", limit);
+        String res = request("POST", DB + ":runQuery?key=" + KEY, new JSONObject().put("structuredQuery", q).toString());
+        JSONArray arr = new JSONArray(res);
+        List<Doc> out = new ArrayList<>();
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject o = arr.getJSONObject(i);
+            if (o.has("document")) out.add(parseDoc(o.getJSONObject("document")));
+        }
+        return out;
+    }
+
+    /** Short explanation of a server error for the screen. */
+    static String explain(Exception e) {
+        String m = e == null || e.getMessage() == null ? "" : e.getMessage();
+        if (m.startsWith("HTTP 429") || m.toLowerCase(java.util.Locale.US).contains("quota"))
+            return "Server-এর আজকের ফ্রি সীমা শেষ (quota)। বাংলাদেশ সময় দুপুর ২টার দিকে আবার চালু হবে।";
+        if (m.startsWith("HTTP ")) return "Server error: " + m;
+        return "Internet সংযোগ দেখো (" + (m.isEmpty() ? "no answer" : m) + ")";
+    }
+
     /** Set once the range query is rejected by the server (HTTP 4xx); chat then uses list() instead. */
     static volatile boolean queryBroken = false;
     static volatile String lastQueryError = "";
