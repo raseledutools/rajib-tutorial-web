@@ -3920,13 +3920,16 @@ window.openQB=async function(){
 };
 async function qbLoad(force){
   if(qbLoaded&&!force)return true;
+  if(!force&&!adminIn){try{const c=JSON.parse(localStorage.getItem("rt_qb_cache")||"null");if(c&&Array.isArray(c.l)&&c.l.length&&Date.now()-c.t<3600e3){qbAll=c.l;qbLoaded=true;return true}}catch(e){}}
   $("qbBody").innerHTML=`<div class="loader"><div class="spin"></div>Loading…</div>`;
   try{
     const snap=await getDocs(query(collection(db,QB_COL),orderBy("at","asc"),limit(3000)));
     qbAll=[];
     snap.forEach(d=>{const x=d.data();if(!Array.isArray(x.o)||x.o.length<2)return;
       qbAll.push({id:d.id,q:x.q||"",o:x.o.map(String),a:Number(x.a)||0,e:x.e||"",t:x.t||"",src:x.src||"",sub:x.sub||"",ttl:x.ttl||"",at:Number(x.at)||0})});
-    qbLoaded=true;return true;
+    qbLoaded=true;
+    if(!adminIn){try{localStorage.setItem("rt_qb_cache",JSON.stringify({t:Date.now(),l:qbAll}))}catch(e){try{localStorage.removeItem("rt_qb_cache")}catch(_){}}}
+    return true;
   }catch(e){
     qbAll=[];$("qbBody").innerHTML=`<div class="res-empty">Could not load questions.<br>${esc(e.message||"")}</div>`;return false;
   }
@@ -4467,9 +4470,20 @@ window.lxDel=function(id){
 // ─── Load courses ────────────────────────────────────────
 async function loadCourses(){
   try{
-    const snap=await getDocs(collection(db,"tutorial_courses"));
+    // Quota: read ONLY what this screen needs (courses, members, resources, live settings).
+    // Discussion messages (_disc_), calls, DMs, payment requests and feedback live in the same collection but are never fetched here.
+    const _C=collection(db,"tutorial_courses"),_R=(a,b)=>getDocs(query(_C,...(a?[where(documentId(),">=",a)]:[]),...(b?[where(documentId(),"<",b)]:[])));
+    const [r1,r2,r3,r4,r5]=await Promise.all([
+      _R("","_"),                        // ids starting with digits / A-Z
+      _R("`",""),                        // ids starting with a-z (course_xxx …)
+      _R("_member_","_member`"),
+      _R("_res_","_res`"),
+      getDoc(doc(db,"tutorial_courses",LIVE_DOC))
+    ]);
+    const _all=[];[r1,r2,r3,r4].forEach(x=>x.forEach(d=>_all.push(d)));
+    if(r5.exists())_all.push(r5);
     courses=[];members=[];resources=[];
-    snap.forEach(d=>{
+    _all.forEach(d=>{
       const data=d.data();
       if(d.id===LIVE_DOC){live={...live,...(data.live||{})};return}
       if(d.id.startsWith("_member_")){members.push({id:d.id,...data});return}
@@ -5045,7 +5059,7 @@ async function checkSessionAlive(){
       return;
     }
     // heartbeat: "last active" for the admin's device list (at most one write per 5 minutes)
-    if(d.devices&&d.devices[DEVICE_ID]&&Date.now()-_lastSeenW>300000){
+    if(d.devices&&d.devices[DEVICE_ID]&&Date.now()-_lastSeenW>900000){
       _lastSeenW=Date.now();
       updateDoc(doc(db,"tutorial_courses","_member_"+session.mobile),{["devices."+DEVICE_ID+".lastSeen"]:_lastSeenW}).catch(()=>{});
     }
@@ -5068,7 +5082,7 @@ function _forceLogoutUser(msg){
 function startSessionPoll(){
   stopSessionPoll();
   checkSessionAlive();// immediate first check
-  _sessionPollTimer=setInterval(checkSessionAlive,10000);// every 10s
+  _sessionPollTimer=setInterval(()=>{if(!document.hidden)checkSessionAlive()},60000);// every 60s (visible tab only)
 }
 function stopSessionPoll(){
   if(_sessionPollTimer){clearInterval(_sessionPollTimer);_sessionPollTimer=null;}
@@ -5186,8 +5200,8 @@ async function prLoad(){
   const box=$("ntPayReqs");if(!box)return;
   box.innerHTML='<span style="font-size:12.5px;color:var(--sub)">লোড হচ্ছে…</span>';
   try{
-    const snap=await getDocs(collection(db,"tutorial_courses")),list=[];
-    snap.forEach(d=>{if(d.id.startsWith("_payreq_"))list.push({id:d.id,...d.data()})});
+    const snap=await getDocs(query(collection(db,"tutorial_courses"),where(documentId(),">=","_payreq_"),where(documentId(),"<","_payreq`"))),list=[];
+    snap.forEach(d=>{list.push({id:d.id,...d.data()})});
     list.sort((x,y)=>(y.at||0)-(x.at||0));
     const rows=list.slice(0,60);
     box.innerHTML=rows.length?rows.map(r=>{
@@ -5370,7 +5384,7 @@ window.sendFeedback=async function(){
 };
 async function fbFetch(){
   const out=[];let ok=false;
-  try{const sn=await _getDocs(collection(db,"tutorial_feedback"));ok=true;sn.forEach(d=>out.push({id:d.id,src:"tutorial_feedback",...d.data()}))}catch(e){}
+  try{const sn=await _getDocs(query(collection(db,"tutorial_feedback"),limit(300)));ok=true;sn.forEach(d=>out.push({id:d.id,src:"tutorial_feedback",...d.data()}))}catch(e){}
   try{const sn=await _getDocs(query(collection(db,"tutorial_courses"),where(documentId(),">=","_fb_"),where(documentId(),"<","_fb`")));ok=true;sn.forEach(d=>out.push({id:d.id,src:"tutorial_courses",...d.data()}))}catch(e){}
   if(!ok)throw new Error("load failed");
   return out.sort((a,b)=>(b.at||0)-(a.at||0));
@@ -6854,9 +6868,9 @@ let _lastUnread=0;
 async function updateBell(check){
   const dot=$("bellDot");if(!dot)return;
   if(!check){dot.classList.add("hidden");return}
-  const now=Date.now();if(now-_lastUnread<15000)return;_lastUnread=now;
+  const now=Date.now();if(now-_lastUnread<120000)return;_lastUnread=now;
   try{
-    const snap=await getDocs(query(collection(db,"push_messages"),orderBy("at","desc"),limit(30)));
+    const snap=await getDocs(query(collection(db,"push_messages"),orderBy("at","desc"),limit(20)));
     const seen=seenGet();if(!seen){seenSet(now);return}
     let fresh=false;
     snap.forEach(d=>{const x=d.data(),at=Number(x.at)||0;if(at>seen&&notifForMe(x.target,x.mobile,x.batch))fresh=true});
@@ -6882,7 +6896,7 @@ async function inboxLoad(){
   }catch(e){box.innerHTML='<div class="ib-note">Could not load notifications.<br>Check your internet connection and open this page again.</div>'}
 }
 setTimeout(()=>updateBell(true),2500);
-setInterval(()=>updateBell(true),60000);
+setInterval(()=>{if(!document.hidden)updateBell(true)},300000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)updateBell(true)});
 
 // ── Web push (Firebase Cloud Messaging) — sent from Firebase Console, no server / admin key ──
@@ -7366,24 +7380,37 @@ function dBuildChat(){
   $("dzFile").addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";if(f)dUploadFile(f)});
   dMsgs=[];dFirst=true;dSig="";
 }
-function dStartPoll(){dStopPoll();dFetch(true);dTimer=setInterval(()=>dFetch(false),4000)}
-function dStopPoll(){if(dTimer){clearInterval(dTimer);dTimer=null}}
+let dUnsub=null;
+const dQuery=()=>query(collection(db,"tutorial_courses"),where(documentId(),">=",DISC_PREFIX),where(documentId(),"<","_disc`"),orderBy(documentId(),"desc"),limit(50));
+function dApplyDocs(docs,force){
+  if(dMode!==2)return;
+  const sig=docs.length+":"+docs.map(m=>m.id+JSON.stringify(Object.keys(m).filter(k=>k.startsWith("r_")||k.startsWith("v_")).map(k=>k+m[k]))).join("|");
+  if(force||sig!==dSig||dFirst){dSig=sig;dMsgs=docs;const s=$("dzSub");if(s)s.textContent=dSubText();dRenderMsgs()}
+}
+// Quota: ONE realtime listener (initial load once, then only changed docs are billed) instead of re-reading 80 docs every 4 s.
+function dStartPoll(){
+  dStopPoll();
+  const fallback=()=>{if(dUnsub){try{dUnsub()}catch(e){}dUnsub=null}if(!dTimer){dFetch(true);dTimer=setInterval(()=>{if(!document.hidden)dFetch(false)},20000)}};
+  try{
+    dUnsub=onSnapshot(dQuery(),snap=>{
+      const docs=[];snap.forEach(d=>docs.push({id:d.id,...d.data()}));docs.reverse();
+      dApplyDocs(docs,false);
+    },fallback);
+  }catch(e){fallback()}
+}
+function dStopPoll(){
+  if(dTimer){clearInterval(dTimer);dTimer=null}
+  if(dUnsub){try{dUnsub()}catch(e){}dUnsub=null}
+}
 async function dFetch(force){
+  // listener active → local state is already live: just re-render, no Firestore read
+  if(dUnsub){if(force&&dMode===2)dApplyDocs(dMsgs,true);return}
   if(dFetching){if(force)dPending=true;return}
   dFetching=true;
   try{
-    let docs=[];
-    try{
-      const q=query(collection(db,"tutorial_courses"),where(documentId(),">=",DISC_PREFIX),where(documentId(),"<","_disc`"),orderBy(documentId(),"desc"),limit(80));
-      const snap=await getDocs(q);snap.forEach(d=>docs.push({id:d.id,...d.data()}));docs.reverse();
-    }catch(e){
-      const snap=await getDocs(collection(db,"tutorial_courses"));
-      snap.forEach(d=>{if(d.id.startsWith(DISC_PREFIX))docs.push({id:d.id,...d.data()})});
-      docs.sort((a,b)=>a.id<b.id?-1:1);docs=docs.slice(-80);
-    }
-    if(dMode!==2)return;
-    const sig=docs.length+":"+docs.map(m=>m.id+JSON.stringify(Object.keys(m).filter(k=>k.startsWith("r_")||k.startsWith("v_")).map(k=>k+m[k]))).join("|");
-    if(force||sig!==dSig||dFirst){dSig=sig;dMsgs=docs;const s=$("dzSub");if(s)s.textContent=dSubText();dRenderMsgs()}
+    const docs=[];
+    const snap=await getDocs(dQuery());snap.forEach(d=>docs.push({id:d.id,...d.data()}));docs.reverse();
+    dApplyDocs(docs,force);
   }catch(e){
     if(!dMsgs.length&&$("dzList"))$("dzList").innerHTML='<div class="dz-note">Could not load messages. Retrying…</div>';
   }finally{dFetching=false;if(dPending){dPending=false;dFetch(true)}}
