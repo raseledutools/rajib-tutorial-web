@@ -1,9 +1,0 @@
-#rtLanding{position:absolute;left:0;right:0;bottom:0;top:32px;z-index:50;display:flex;align-items:center;justify-content:center;background:#e9ebee;font:14px "Segoe UI",system-ui,sans-serif;color:#1f2937}
-#rtLanding.rt-hide{display:none}
-#rtLanding .rt-box{width:min(460px,90%);padding:34px 28px;text-align:center;background:#fff;border:2px dashed #c3c8d0;border-radius:16px;box-shadow:0 8px 28px rgba(15,23,42,.08)}
-#rtLanding .rt-ico{width:64px;height:76px;margin:0 auto 14px;border-radius:8px;background:#d93025;color:#fff;font-weight:800;font-size:18px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:10px;box-sizing:border-box}
-#rtLanding h2{margin:0 0 6px;font-size:20px}
-#rtLanding p{margin:0 0 18px;color:#6b7280}
-#rtLanding button{padding:11px 26px;border:0;border-radius:10px;background:#d93025;color:#fff;font:700 14px "Segoe UI",system-ui,sans-serif;cursor:pointer}
-#rtLanding button:hover{background:#b9241b}
-#rtLanding.rt-drag .rt-box{border-color:#d93025;background:#fff5f4}

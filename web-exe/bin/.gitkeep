@@ -1,7 +1,0 @@
-# yt-dlp.exe এখানে রাখতে হবে (repo তে নেই, CI নিজে download করে)
-#
-# Dev mode এ চালাতে হলে:
-# https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
-# এই লিংক থেকে download করে web-exe/bin/yt-dlp.exe হিসেবে রাখো।
-#
-# CI (GitHub Actions) build এ এটা automatically download হয়।
