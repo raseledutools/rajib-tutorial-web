@@ -23,11 +23,18 @@ html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-
 .btn{width:48px;height:48px;border-radius:50%;border:0;background:#2b2f38;color:#fff;font-size:20px;display:flex;align-items:center;justify-content:center}
 .btn.on{background:#2563eb}
 .btn.off{background:#fff;color:#111}.btn.end{background:#e8365d}
+body.duo #grid{display:block;padding:0}
+body.duo .tile{position:absolute;inset:0;border-radius:0}
+body.duo .tile.me{inset:auto;right:12px;top:calc(env(safe-area-inset-top,0px) + 62px);width:96px;height:136px;border-radius:14px;z-index:3;box-shadow:0 2px 10px #0008}
+body.duo .tile .av{width:112px;height:112px;font-size:48px}
+body.duo .tile.me .av{width:44px;height:44px;font-size:20px}
+body.duo .tile.me .nm{display:none}
+body.duo .tile:not(.me) .nm{left:50%;transform:translateX(-50%);bottom:130px;font-size:16px;padding:5px 14px}
 #msg{position:fixed;left:50%;transform:translateX(-50%);bottom:110px;z-index:6;background:#000c;padding:8px 14px;border-radius:14px;font-size:13px;display:none;max-width:90%;text-align:center}
 #wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 40px;opacity:.7;font-size:15px;pointer-events:none}
 </style></head>
 <body>
-<div id="top"><b>Group call</b><span id="recInd">🔴 00:00</span><span id="count">1 in call</span></div>
+<div id="top"><b id="ttl">Group call</b><span id="recInd">🔴 00:00</span><span id="count">1 in call</span></div>
 <canvas id="cv" width="360" height="640" style="display:none"></canvas>
 <div id="grid"></div>
 <div id="wait">Waiting for others to join…<br>Everyone in the Discussion group has been notified.</div>
@@ -46,6 +53,8 @@ let ICE=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}
 try{const x=JSON.parse(AndroidCall.iceServers());if(x&&x.length)ICE=x}catch(e){}
 const INFO=JSON.parse(AndroidCall.info());
 const me=INFO.id, myName=INFO.name||'Me';
+const DUO=!!(INFO.solo||INFO.dm);   // 1:1 call (Telephone / SIM relay): not a group call
+if(DUO){document.body.classList.add('duo');document.getElementById('ttl').textContent=INFO.video?'Video call':'Voice call';document.getElementById('wait').innerHTML='Calling…'}
 let local=null, peers={}, early={}, micOn=true, camOn=false, facing='user', joinTs=Date.now(), left=false;
 let sharing=false, recording=false, nativeRec=false, capOn=false, askPending=false, wantShare=false, wantRec=false, shareTrack=null, pump=null, pumping=false;
 let rec=null, recCtx=null, recDest=null, recQ=Promise.resolve(), recTimer=null, recT0=0, recDone=null, mixedIds=new Set(), pend={};
@@ -56,15 +65,16 @@ function toast(t){const m=document.getElementById('msg');m.textContent=t;m.style
 function layout(){
   const n=grid.children.length;
   const cols=n<=1?1:(n<=4?2:3);
-  grid.style.gridTemplateColumns='repeat('+cols+',1fr)';
+  if(!DUO)grid.style.gridTemplateColumns='repeat('+cols+',1fr)';
   grid.style.gridAutoRows=(n<=2&&cols===1)?'1fr':'1fr';
   const names=[...grid.children].map(t=>t.dataset.name||'').filter(Boolean);
-  document.getElementById('count').textContent=n+' in call · '+names.join(', ');
+  document.getElementById('count').textContent=DUO?names.filter(x=>x!=='You').join(', '):n+' in call · '+names.join(', ');
   document.getElementById('wait').style.display=n<=1?'flex':'none';
+  if(DUO)document.getElementById('bShare')&&['bShare','bRec'].forEach(i=>{const e=document.getElementById(i);if(e)e.style.display='none'});
 }
 function makeTile(id,name,isLocal){
   let t=document.getElementById('t_'+id); if(t) return t;
-  t=document.createElement('div');t.className='tile';t.id='t_'+id;t.dataset.name=isLocal?'You':(name||'Member');
+  t=document.createElement('div');t.className='tile'+(isLocal?' me':'');t.id='t_'+id;t.dataset.name=isLocal?'You':(name||'Member');
   const v=document.createElement('video');v.autoplay=true;v.playsInline=true;if(isLocal){v.muted=true;if(facing==='user')v.style.transform='scaleX(-1)'}
   const av=document.createElement('div');av.className='av';av.style.background=colorOf(id);av.textContent=(name||'?').trim().charAt(0).toUpperCase();
   const nm=document.createElement('div');nm.className='nm';nm.textContent=isLocal?name+' (You)':name;
@@ -146,11 +156,11 @@ function newPeer(id,name){
   (early[id]||[]).forEach(c=>p.queue.push(c));delete early[id];
   return p;
 }
-function dropPeer(id){
+function dropPeer(id,now){
   const p=peers[id];if(p){try{p.pc.close()}catch(e){}delete peers[id]}
   const t=document.getElementById('t_'+id);if(t)t.remove();layout();
   // relay call (two phones only): once the other side is gone for good, close the call
-  if(INFO.solo&&p&&!left&&!Object.keys(peers).length)setTimeout(()=>{if(!Object.keys(peers).length)leaveCall()},4000);
+  if(DUO&&p&&!left&&!Object.keys(peers).length)setTimeout(()=>{if(!Object.keys(peers).length)leaveCall()},now?300:4000);
 }
 async function flush(p){p.remoteSet=true;for(const c of p.queue){try{await p.pc.addIceCandidate(c)}catch(e){}}p.queue=[]}
 async function callPeer(id,name){
@@ -193,7 +203,7 @@ window.onSignal=async function(arr){
         const on=!!JSON.parse(s.data||'{}').on,rb=document.getElementById('rec_'+from);
         if(rb)rb.style.display=on?'block':'none';else pend[from]=Object.assign(pend[from]||{},{rec:on});
         if(on)toast('🔴 '+name+' is recording this call');
-      }else if(s.kind==='leave'){dropPeer(from)}
+      }else if(s.kind==='leave'){dropPeer(from,true)}
     }catch(e){console.log('signal error',e)}
   }
 };
@@ -221,12 +231,14 @@ async function flipCam(){
 }
 async function leaveCall(){
   if(left)return;left=true;
-  if(recording){try{await endRecord()}catch(e){}}
-  if(sharing)endShare();
-  send('','leave','');
-  Object.keys(peers).forEach(dropPeer);
-  if(local)local.getTracks().forEach(t=>t.stop());
-  setTimeout(()=>AndroidCall.leave(),500);
+  // whatever fails below, the screen must close: hard fallback
+  setTimeout(()=>{try{AndroidCall.leave()}catch(e){}},1500);
+  try{send('','leave','')}catch(e){}
+  try{if(sharing)endShare()}catch(e){}
+  try{if(recording)await endRecord()}catch(e){}
+  try{Object.keys(peers).forEach(k=>dropPeer(k))}catch(e){}
+  try{if(local)local.getTracks().forEach(t=>t.stop())}catch(e){}
+  setTimeout(()=>{try{AndroidCall.leave()}catch(e){}},300);
 }
 
 // ───────── Screen share + screen record (saved on this phone only) ─────────

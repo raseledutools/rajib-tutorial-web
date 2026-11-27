@@ -216,7 +216,7 @@ public class GroupCallActivity extends AppCompatActivity {
         public String info() {
             try {
                 return new JSONObject().put("id", peerId).put("name", name).put("video", wantVideo)
-                    .put("solo", !key.isEmpty()).put("bridge", bridge).toString();
+                    .put("solo", !key.isEmpty()).put("dm", ROOM.startsWith("dm_")).put("bridge", bridge).toString();
             } catch (Exception e) { return "{}"; }
         }
 

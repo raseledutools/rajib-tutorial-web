@@ -71,6 +71,7 @@ public class PushService extends FirebaseMessagingService {
         String me = PushManager.dmMe(this);
         String to = nz(m.getData().get("to"));
         if (me.isEmpty() || from.isEmpty() || from.equals(me) || (!to.isEmpty() && !to.equals(me))) return;
+        if (MessengerActivity.ON_SCREEN) MessengerActivity.poke();                 // open: show it right now
         if (MessengerActivity.ON_SCREEN && (MessengerActivity.CUR_PEER.isEmpty() || MessengerActivity.CUR_PEER.equals(from))) return;
         String name = nz(m.getData().get("senderName"));
         if (name.isEmpty()) name = from;
@@ -107,7 +108,7 @@ public class PushService extends FirebaseMessagingService {
         String room = nz(m.getData().get("room"));
         if (me.isEmpty() || from.isEmpty() || from.equals(me) || room.isEmpty() || (!to.isEmpty() && !to.equals(me))) return;
         if (ageMs(m) > 40000) return;                                            // stale: the caller already gave up
-        if (MessengerActivity.ON_SCREEN) return;                                  // Telephone is open: it rings in-app
+        if (MessengerActivity.ON_SCREEN) { MessengerActivity.poke(); return; }    // Telephone is open: it rings in-app
         String name = nz(m.getData().get("senderName"));
         if (name.isEmpty()) name = from;
         boolean video = "1".equals(m.getData().get("video"));

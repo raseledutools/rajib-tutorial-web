@@ -70,6 +70,15 @@ public class MessengerActivity extends Activity {
 
     /** Read by PushService: Telephone is on screen (it polls & rings by itself) and which chat is open. */
     static volatile boolean ON_SCREEN = false;
+    private static volatile MessengerActivity LIVE;
+
+    /** FCM says something new arrived: fetch now instead of waiting for the next poll. */
+    static void poke() {
+        final MessengerActivity a = LIVE;
+        if (a == null) return;
+        a.h.post(a::fetch);
+        a.h.postDelayed(a::fetch, 700);        // in case the first fetch was already running
+    }
     static volatile String CUR_PEER = "";
     static final String EXTRA_PEER = "peer";
 
@@ -276,10 +285,10 @@ public class MessengerActivity extends Activity {
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 4103);
             }
-            if (android.os.Build.VERSION.SDK_INT >= 34 && !sp.getBoolean("dm_fsi_asked", false)) {
+            if (android.os.Build.VERSION.SDK_INT >= 34 && System.currentTimeMillis() - sp.getLong("dm_fsi_ts", 0) > 24L * 3600 * 1000) {
                 android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
                 if (nm != null && !nm.canUseFullScreenIntent()) {
-                    sp.edit().putBoolean("dm_fsi_asked", true).apply();
+                    sp.edit().putLong("dm_fsi_ts", System.currentTimeMillis()).apply();
                     final Ui.Modal m = new Ui.Modal(this, "Show calls on lock screen",
                         "Allow “Full-screen notifications” so incoming calls open the call screen even when the phone is locked.");
                     m.col("Open settings", Ui.B_PRIMARY, v -> {
@@ -316,6 +325,7 @@ public class MessengerActivity extends Activity {
     protected void onResume() {
         super.onResume();
         ON_SCREEN = true;
+        LIVE = this;
         if (meId.isEmpty()) return;
         cancelUnansweredCall();
         if (System.currentTimeMillis() - contactsAt > 60000) loadContacts();
@@ -328,6 +338,7 @@ public class MessengerActivity extends Activity {
     protected void onPause() {
         super.onPause();
         ON_SCREEN = false;
+        if (LIVE == this) LIVE = null;
         polling = false;
         h.removeCallbacks(pollTask);
         stopPlayer();
@@ -337,6 +348,7 @@ public class MessengerActivity extends Activity {
     @Override
     protected void onDestroy() {
         ON_SCREEN = false;
+        if (LIVE == this) LIVE = null;
         CUR_PEER = "";
         released = true;
         h.removeCallbacksAndMessages(null);
