@@ -158,6 +158,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Telephone: WhatsApp-style messenger (chat + calls) -->
+        <activity
+            android:name=".MessengerActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.RajibTutorial" />
+
         <!-- Discussion group voice/video call (WebRTC in a WebView) -->
         <activity
             android:name=".GroupCallActivity"

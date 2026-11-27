@@ -50,9 +50,10 @@ import java.util.concurrent.Executors;
  * Firestore collection as the chat, with "_call_" document ids; this class is the bridge.
  */
 public class GroupCallActivity extends AppCompatActivity {
-    static final String EXTRA_UID = "uid", EXTRA_NAME = "name", EXTRA_VIDEO = "video";
+    static final String EXTRA_UID = "uid", EXTRA_NAME = "name", EXTRA_VIDEO = "video", EXTRA_ROOM = "room";
     private static final String PREFIX = "_call_";
-    private static final String ROOM = "discussion";
+    private static final String DEFAULT_ROOM = "discussion";
+    private String ROOM = DEFAULT_ROOM;
     private static final long POLL_MS = 1000;
 
     private WebView wv;
@@ -79,6 +80,8 @@ public class GroupCallActivity extends AppCompatActivity {
         uid = getIntent().getStringExtra(EXTRA_UID);
         name = getIntent().getStringExtra(EXTRA_NAME);
         wantVideo = getIntent().getBooleanExtra(EXTRA_VIDEO, false);
+        String rr = getIntent().getStringExtra(EXTRA_ROOM);
+        if (rr != null && !rr.isEmpty()) ROOM = rr;
         if (uid == null) uid = "";
         if (name == null || name.isEmpty()) name = "Member";
         peerId = (uid.isEmpty() ? "u" : uid) + "_" + Integer.toString(new Random().nextInt(1679616) + 1679616, 36).substring(1);

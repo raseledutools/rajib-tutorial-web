@@ -152,6 +152,10 @@ public class MainActivity extends AppCompatActivity {
             homeScreen.closeDrawers();
             PhoneMode.showSetup(this);
         });
+        findViewById(R.id.drawerTelephone).setOnClickListener(v -> {
+            homeScreen.closeDrawers();
+            startActivity(new Intent(this, MessengerActivity.class));
+        });
         findViewById(R.id.drawerUpdate).setOnClickListener(v -> {
             homeScreen.closeDrawers();
             checkUpdateManually();

@@ -767,6 +767,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         nav.addView(navItem("🎥  Live Class", currentView == V_LIVE && !liveExam, cOn, () -> openLive(false)));
         nav.addView(navItem("📝  Live Exam", currentView == V_LIVE && liveExam, eOn, () -> openLive(true)));
         nav.addView(navItem("💬  Discussion", currentView == V_DISCUSS, false, this::openDiscussion));
+        nav.addView(navItem("☎️  Telephone", false, false, () -> { closeDrawer(); startActivity(new Intent(this, MessengerActivity.class)); }));
         nav.addView(navItem("🔔  Notifications", currentView == V_INBOX, false, this::openInbox));
         nav.addView(navItem("📥  Offline Lessons", currentView == V_OFFLINE, false, this::openOffline));
         nav.addView(navItem("📢  Current Circular", currentView == V_RES && Store.R_CIRCULAR.equals(resType), false, () -> openResources(Store.R_CIRCULAR)));
