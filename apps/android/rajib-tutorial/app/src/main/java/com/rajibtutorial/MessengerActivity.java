@@ -104,7 +104,8 @@ public class MessengerActivity extends Activity {
         String id = "", from = "", fromName = "", to = "", toName = "", type = "text";
         String text = "", url = "", fileName = "", room = "";
         long ts = 0, dur = 0;
-        boolean read = false, dl = false;
+        boolean read = false, dl = false, del = false;
+        String rt = "", rn = "";   // reply quote: text + sender name
         int ans = 0;     // calls: 0 = unanswered, 1 = accepted, 2 = declined
     }
 
@@ -128,6 +129,12 @@ public class MessengerActivity extends Activity {
     private boolean polling = false, fetching = false, released = false;
     private String lastSig = "";
     private final Map<String, Fs.Doc> cache = new HashMap<>();
+    private final Set<String> hidden = new HashSet<>();   // "delete for me" (this phone only)
+    private final Set<String> pins = new HashSet<>();     // pinned chats (this phone only)
+    private Msg replyTo = null;
+    private LinearLayout replyBar;
+    private TextView replyTv;
+    private boolean saveQueued = false;
     private long lastFull = 0, lastOk = 0, contactsAt = 0;
     private String netError = "";
     private String lastOutCall = "", callMsgId = "";
@@ -191,7 +198,10 @@ public class MessengerActivity extends Activity {
 
     private void startSession() {
         try { PushManager.setDm(getApplicationContext(), true, meId, meName); } catch (Throwable ignored) { }
+        loadLocalSets();
+        loadDiskCache();          // chat list is shown at once from the copy saved on this phone, then refreshed online
         buildContacts();
+        applyCached();
         register();
         render();
         handlePeerIntent(getIntent());
@@ -229,9 +239,108 @@ public class MessengerActivity extends Activity {
                 if (!n.isEmpty() && !regUsers.contains(n)) regUsers.add(n);
             }
             buildContacts();
+            scheduleSave();
             if (screen == S_PICK) renderPickerList();
             else if (screen == S_HOME) renderHomeList();
         });
+    }
+
+    // ── local copy (WhatsApp-style: the list never waits for the network) ──
+    private java.io.File cacheFile() { return new java.io.File(getFilesDir(), "tel_cache_" + meId + ".json"); }
+
+    private void loadLocalSets() {
+        android.content.SharedPreferences sp = getSharedPreferences("rt_tel", MODE_PRIVATE);
+        pins.clear();
+        pins.addAll(sp.getStringSet("pins_" + meId, new HashSet<String>()));
+        hidden.clear();
+        hidden.addAll(sp.getStringSet("hidden_" + meId, new HashSet<String>()));
+    }
+
+    private void saveLocalSets() {
+        getSharedPreferences("rt_tel", MODE_PRIVATE).edit()
+            .putStringSet("pins_" + meId, new HashSet<>(pins))
+            .putStringSet("hidden_" + meId, new HashSet<>(hidden)).apply();
+    }
+
+    private void loadDiskCache() {
+        try {
+            java.io.File f = cacheFile();
+            if (!f.exists() || f.length() == 0) return;
+            byte[] b = new byte[(int) f.length()];
+            java.io.FileInputStream in = new java.io.FileInputStream(f);
+            try {
+                int o = 0;
+                while (o < b.length) { int r = in.read(b, o, b.length - o); if (r < 0) break; o += r; }
+            } finally { in.close(); }
+            org.json.JSONObject j = new org.json.JSONObject(new String(b, "UTF-8"));
+            org.json.JSONArray us = j.optJSONArray("users");
+            if (us != null) for (int i = 0; i < us.length(); i++) {
+                String n = us.optString(i);
+                if (!n.isEmpty() && !regUsers.contains(n)) regUsers.add(n);
+            }
+            org.json.JSONArray ds = j.optJSONArray("docs");
+            if (ds != null) for (int i = 0; i < ds.length(); i++) {
+                org.json.JSONObject o = ds.optJSONObject(i);
+                if (o == null) continue;
+                String id = o.optString("id");
+                org.json.JSONObject dj = o.optJSONObject("data");
+                if (id.isEmpty() || dj == null) continue;
+                Map<String, Object> m = new LinkedHashMap<>();
+                java.util.Iterator<String> it = dj.keys();
+                while (it.hasNext()) {
+                    String k = it.next();
+                    Object v = dj.opt(k);
+                    if (v instanceof String || v instanceof Number || v instanceof Boolean) m.put(k, v);
+                }
+                cache.put(id, new Fs.Doc(id, m));
+            }
+        } catch (Throwable ignored) { }
+    }
+
+    /** Messages from the saved copy, so the very first screen already has the chat list. */
+    private void applyCached() {
+        List<Msg> list = new ArrayList<>();
+        for (Fs.Doc d : cache.values()) {
+            if (!d.id.startsWith(PREFIX)) continue;
+            Msg m = toMsg(d);
+            if (!m.from.equals(meId) && !m.to.equals(meId)) continue;
+            if (hidden.contains(m.id)) continue;
+            list.add(m);
+        }
+        Collections.sort(list, (x, y) -> x.id.compareTo(y.id));
+        all = list;
+    }
+
+    private void scheduleSave() {
+        if (saveQueued) return;
+        saveQueued = true;
+        h.postDelayed(() -> { saveQueued = false; saveDiskCache(); }, 1500);
+    }
+
+    private void saveDiskCache() {
+        if (meId.isEmpty()) return;
+        final List<Fs.Doc> docs = new ArrayList<>(cache.values());
+        final List<String> us = new ArrayList<>(regUsers);
+        final java.io.File f = cacheFile();
+        new Thread(() -> {
+            try {
+                Collections.sort(docs, (a, b2) -> Long.compare(num(b2.data, "ts"), num(a.data, "ts")));
+                org.json.JSONArray ds = new org.json.JSONArray();
+                for (int i = 0; i < docs.size() && i < 800; i++) {
+                    org.json.JSONObject dj = new org.json.JSONObject();
+                    for (Map.Entry<String, Object> en : docs.get(i).data.entrySet()) {
+                        Object v = en.getValue();
+                        if (v instanceof String || v instanceof Number || v instanceof Boolean) dj.put(en.getKey(), v);
+                    }
+                    ds.put(new org.json.JSONObject().put("id", docs.get(i).id).put("data", dj));
+                }
+                org.json.JSONObject j = new org.json.JSONObject().put("users", new org.json.JSONArray(us)).put("docs", ds);
+                java.io.File tmp = new java.io.File(f.getPath() + ".tmp");
+                java.io.FileOutputStream out = new java.io.FileOutputStream(tmp);
+                try { out.write(j.toString().getBytes("UTF-8")); } finally { out.close(); }
+                if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f); }
+            } catch (Throwable ignored) { }
+        }, "tel-cache").start();
     }
 
     /** Number-only login: remembers the number; {@link #register} lists it so others can find / call it. */
@@ -339,6 +448,7 @@ public class MessengerActivity extends Activity {
         super.onPause();
         ON_SCREEN = false;
         if (LIVE == this) LIVE = null;
+        if (!meId.isEmpty()) saveDiskCache();
         polling = false;
         h.removeCallbacks(pollTask);
         stopPlayer();
@@ -440,6 +550,7 @@ public class MessengerActivity extends Activity {
     }
 
     private String preview(Msg m) {
+        if (m.del) return "🚫 This message was deleted";
         switch (m.type) {
             case "image": return "📷 Photo";
             case "video": return "🎬 Video";
@@ -499,7 +610,13 @@ public class MessengerActivity extends Activity {
             if (e != null || docs == null) { setError(Fs.explain(e)); return; }
             if (full) { cache.clear(); lastFull = now; }
             lastOk = now;
-            for (Fs.Doc d : docs) if (d.id.startsWith(PREFIX)) cache.put(d.id, d);
+            boolean dirty = full;
+            for (Fs.Doc d : docs) {
+                if (!d.id.startsWith(PREFIX)) continue;
+                Fs.Doc old = cache.put(d.id, d);
+                if (old == null || num(old.data, "up") != num(d.data, "up")) dirty = true;
+            }
+            if (dirty) scheduleSave();
             setError("");
             applyDocs(new ArrayList<>(cache.values()));
         });
@@ -540,6 +657,9 @@ public class MessengerActivity extends Activity {
         m.read = num(d.data, "read") == 1;
         m.dl = num(d.data, "dl") == 1;
         m.ans = (int) num(d.data, "ans");
+        m.del = num(d.data, "del") == 1;
+        m.rt = str(d.data, "rt");
+        m.rn = str(d.data, "rn");
         return m;
     }
 
@@ -550,6 +670,7 @@ public class MessengerActivity extends Activity {
             if (!d.id.startsWith(PREFIX)) continue;
             Msg m = toMsg(d);
             if (!m.from.equals(meId) && !m.to.equals(meId)) continue;
+            if (hidden.contains(m.id)) continue;
             list.add(m);
             ids.add(m.id);
         }
@@ -565,7 +686,7 @@ public class MessengerActivity extends Activity {
 
         StringBuilder sb = new StringBuilder();
         sb.append(screen).append('|').append(tab).append('|').append(curPeer).append('|').append(list.size());
-        for (Msg m : list) sb.append(m.read ? 'r' : m.dl ? 'd' : 's').append(m.ans);
+        for (Msg m : list) sb.append(m.read ? 'r' : m.dl ? 'd' : 's').append(m.ans).append(m.del ? 'x' : '-');
         if (!sb.toString().equals(lastSig)) {
             lastSig = sb.toString();
             if (screen == S_HOME) renderHomeList();
@@ -622,6 +743,8 @@ public class MessengerActivity extends Activity {
         pm.id = id; pm.from = meId; pm.fromName = meName; pm.to = curPeer; pm.type = type;
         pm.text = text; pm.url = url; pm.fileName = fileName; pm.ts = ts;
         pm.room = extra != null && extra.get("room") instanceof String ? (String) extra.get("room") : "";
+        pm.rt = extra != null && extra.get("rt") instanceof String ? (String) extra.get("rt") : "";
+        pm.rn = extra != null && extra.get("rn") instanceof String ? (String) extra.get("rn") : "";
         pm.dur = extra != null && extra.get("dur") instanceof Number ? ((Number) extra.get("dur")).longValue() : 0;
         pending.put(id, pm);
         all.add(pm);
@@ -653,7 +776,15 @@ public class MessengerActivity extends Activity {
         String t = input.getText().toString().trim();
         if (t.isEmpty()) return;
         input.setText("");
-        send("text", t, "", "", null);
+        Map<String, Object> ex = null;
+        if (replyTo != null) {
+            ex = new LinkedHashMap<>();
+            String pv = preview(replyTo);
+            ex.put("rt", pv.length() > 120 ? pv.substring(0, 120) : pv);
+            ex.put("rn", replyTo.from.equals(meId) ? "You" : contactOf(replyTo.from, replyTo.fromName).name);
+            setReply(null);
+        }
+        send("text", t, "", "", ex);
     }
 
     // ── calls ────────────────────────────────────────────────
@@ -805,6 +936,8 @@ public class MessengerActivity extends Activity {
         hideKeyboardSafe();
         body.removeAllViews();
         input = null; searchEt = null; msgBox = null; msgScroll = null; listBox = null;
+        replyBar = null; replyTv = null;
+        if (screen != S_CHAT) replyTo = null;
         lastSig = "";
         CUR_PEER = screen == S_CHAT ? curPeer : "";
         if (screen == S_CHAT) body.addView(buildChat(), new FrameLayout.LayoutParams(MATCH, MATCH));
@@ -1123,7 +1256,11 @@ public class MessengerActivity extends Activity {
             l.add(m);
         }
         List<String> peers = new ArrayList<>(by.keySet());
-        Collections.sort(peers, (x, y) -> Long.compare(by.get(y).get(by.get(y).size() - 1).ts, by.get(x).get(by.get(x).size() - 1).ts));
+        Collections.sort(peers, (x, y) -> {
+            boolean px = pins.contains(x), py = pins.contains(y);
+            if (px != py) return px ? -1 : 1;                       // pinned chats stay on top
+            return Long.compare(by.get(y).get(by.get(y).size() - 1).ts, by.get(x).get(by.get(x).size() - 1).ts);
+        });
         String q = query.trim().toLowerCase(Locale.getDefault());
         int shown = 0;
         for (final String p : peers) {
@@ -1181,6 +1318,7 @@ public class MessengerActivity extends Activity {
         row.setPadding(dp(16), dp(10), dp(16), dp(10));
         Ui.pressFx(row);
         row.setOnClickListener(v -> openChat(c.id));
+        row.setOnLongClickListener(v -> { chatMenu(c); return true; });
         row.addView(avatar(c.name, c.id, 52, 20), Ui.lpm(this, dp(52), dp(52), 0, 0, 14, 0));
 
         LinearLayout mid = new LinearLayout(this);
@@ -1201,6 +1339,7 @@ public class MessengerActivity extends Activity {
         right.setOrientation(LinearLayout.VERTICAL);
         right.setGravity(Gravity.END);
         right.addView(Ui.tv(this, listTime(last.ts), 12, unread > 0 ? C_GREEN : C_SUB, false));
+        if (pins.contains(c.id)) right.addView(Ui.tv(this, "📌", 12, C_SUB, false));
         if (unread > 0) {
             TextView bd = Ui.tv(this, String.valueOf(unread), 12, C_BG, true);
             bd.setGravity(Gravity.CENTER);
@@ -1398,6 +1537,18 @@ public class MessengerActivity extends Activity {
         upWrap.setVisibility(View.GONE);
         root.addView(upWrap, new LinearLayout.LayoutParams(MATCH, WRAP));
 
+        replyBar = new LinearLayout(this);
+        replyBar.setOrientation(LinearLayout.HORIZONTAL);
+        replyBar.setGravity(Gravity.CENTER_VERTICAL);
+        replyBar.setBackgroundColor(C_BAR);
+        replyBar.setPadding(dp(14), dp(6), dp(6), dp(6));
+        replyTv = Ui.tv(this, "", 13, C_SUB, false);
+        replyTv.setMaxLines(2);
+        replyBar.addView(replyTv, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        replyBar.addView(iconBtn("✕", v -> setReply(null)), new LinearLayout.LayoutParams(dp(40), dp(40)));
+        replyBar.setVisibility(View.GONE);
+        root.addView(replyBar, new LinearLayout.LayoutParams(MATCH, WRAP));
+
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.BOTTOM);
@@ -1443,6 +1594,7 @@ public class MessengerActivity extends Activity {
         });
         inputBar = bar;
         root.addView(bar, new LinearLayout.LayoutParams(MATCH, WRAP));
+        setReply(replyTo);
 
         recRow = new LinearLayout(this);
         recRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -1515,8 +1667,23 @@ public class MessengerActivity extends Activity {
         g.setCornerRadii(mine ? new float[]{r, r, s, s, r, r, r, r} : new float[]{s, s, r, r, r, r, r, r});
         b.setBackground(g);
         b.setPadding(dp(9), dp(6), dp(9), dp(5));
+        b.setOnLongClickListener(v -> { msgMenu(m); return true; });
 
-        switch (m.type) {
+        if (!m.rt.isEmpty() && !m.del) {                       // quoted reply
+            LinearLayout q = new LinearLayout(this);
+            q.setOrientation(LinearLayout.VERTICAL);
+            q.setBackground(Ui.bg(this, 0x33000000, 6, 0));
+            q.setPadding(dp(8), dp(4), dp(8), dp(4));
+            q.addView(Ui.ellipsized(this, m.rn, 12.5f, C_GREEN, true, 1));
+            q.addView(Ui.ellipsized(this, m.rt, 13, C_SUB, false, 2));
+            b.addView(q, Ui.lpm(this, MATCH, WRAP, 0, 0, 0, 4));
+        }
+
+        switch (m.del ? "deleted" : m.type) {
+            case "deleted": {
+                b.addView(Ui.tv(this, "🚫 This message was deleted", 14.5f, C_SUB, false));
+                break;
+            }
             case "image": {
                 final ImageView iv = new ImageView(this);
                 iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -1525,6 +1692,7 @@ public class MessengerActivity extends Activity {
                 b.addView(iv, new LinearLayout.LayoutParams(w, (int) (w * 1.0f)));
                 loadBitmap(thumb(m.url), iv);
                 iv.setOnClickListener(v -> openUrl(m.url));
+                iv.setOnLongClickListener(v -> { msgMenu(m); return true; });
                 break;
             }
             case "audio": b.addView(audioRow(m, mine)); break;
@@ -1551,6 +1719,76 @@ public class MessengerActivity extends Activity {
         b.addView(meta, new LinearLayout.LayoutParams(MATCH, WRAP));
         row.addView(b, new LinearLayout.LayoutParams(WRAP, WRAP));
         return row;
+    }
+
+    // ── message / chat actions ───────────────────────────────
+    private void setReply(Msg m) {
+        replyTo = m;
+        if (replyBar == null || replyTv == null) return;
+        if (m == null) { replyBar.setVisibility(View.GONE); return; }
+        String who = m.from.equals(meId) ? "You" : contactOf(m.from, m.fromName).name;
+        replyTv.setText("↩ " + who + ": " + preview(m));
+        replyBar.setVisibility(View.VISIBLE);
+        if (input != null) input.requestFocus();
+    }
+
+    private void msgMenu(final Msg m) {
+        if (m.del || pending.containsKey(m.id) || "call".equals(m.type)) return;
+        String pv = preview(m);
+        final Ui.Modal d = new Ui.Modal(this, "Message", pv.length() > 80 ? pv.substring(0, 80) + "…" : pv);
+        d.col("↩  Reply", Ui.B_PRIMARY, v -> { d.dismiss(); setReply(m); });
+        if ("text".equals(m.type)) d.col("⧉  Copy", Ui.B_OUTLINE, v -> { d.dismiss(); copyText(m.text); });
+        d.col("🗑  Delete for me", Ui.B_OUTLINE, v -> { d.dismiss(); hideMsg(m); });
+        if (m.from.equals(meId)) d.col("🚫  Delete for everyone", Ui.B_RED, v -> { d.dismiss(); deleteForAll(m); });
+        d.col("Cancel", Ui.B_GHOST, v -> d.dismiss());
+        d.show();
+    }
+
+    private void copyText(String t) {
+        try {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("message", t));
+            toast("Copied");
+        } catch (Throwable e) { toast("Could not copy"); }
+    }
+
+    private void hideMsg(Msg m) {
+        hidden.add(m.id);
+        saveLocalSets();
+        all.remove(m);
+        lastSig = "";
+        if (screen == S_CHAT) renderMessages(false); else if (screen == S_HOME) renderHomeList();
+    }
+
+    private void deleteForAll(final Msg m) {
+        final Map<String, Object> u = new LinkedHashMap<>();
+        u.put("del", Long.valueOf(1));
+        u.put("text", "");
+        u.put("url", "");
+        u.put("fileName", "");
+        u.put("rt", "");
+        u.put("up", Long.valueOf(System.currentTimeMillis()));
+        Store.async(() -> { Fs.update(m.id, u); return Boolean.TRUE; }, (Boolean ok, Exception e) -> {
+            if (released) return;
+            if (e != null) { toast("Could not delete: " + Fs.explain(e)); return; }
+            m.del = true; m.text = ""; m.url = ""; m.fileName = ""; m.rt = "";
+            lastSig = "";
+            if (screen == S_CHAT) renderMessages(false);
+            fetch();
+        });
+    }
+
+    private void chatMenu(final Contact c) {
+        final boolean pinned = pins.contains(c.id);
+        final Ui.Modal d = new Ui.Modal(this, c.name, "");
+        d.col(pinned ? "📌  Unpin chat" : "📌  Pin chat to top", Ui.B_PRIMARY, v -> {
+            d.dismiss();
+            if (pinned) pins.remove(c.id); else pins.add(c.id);
+            saveLocalSets();
+            renderHomeList();
+        });
+        d.col("Cancel", Ui.B_GHOST, v -> d.dismiss());
+        d.show();
     }
 
     private View fileRow(String icon, String name, final String url, int maxW) {
