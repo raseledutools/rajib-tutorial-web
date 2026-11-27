@@ -115,6 +115,7 @@ public class GroupCallActivity extends AppCompatActivity {
         }
 
         setVolumeControlStream(android.media.AudioManager.STREAM_VOICE_CALL);
+        if (bridge) bridgeAudioCheck();
         if (!bridge) routeAudio(true);       // during a SIM call the phone owns the audio route
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON | WindowManager.LayoutParams.FLAG_SECURE);
@@ -252,6 +253,12 @@ public class GroupCallActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
+        public void note(String s) {
+            try { RelayCall.log(getApplicationContext(), s == null ? "" : (s.length() > 200 ? s.substring(0, 200) : s)); }
+            catch (Throwable ignored) { }
+        }
+
+        @JavascriptInterface
         public void speaker(final boolean on) { runOnUiThread(() -> setSpeaker(on)); }
 
         @JavascriptInterface
@@ -303,6 +310,25 @@ public class GroupCallActivity extends AppCompatActivity {
                 am.setSpeakerphoneOn(prevSpeaker);
                 am.setMode(prevAudioMode);
             }
+        } catch (Throwable ignored) { }
+    }
+
+    /** Phone B: make sure the mic is not muted and the SIM call is on loudspeaker; write the audio state to the relay log. */
+    @SuppressWarnings("deprecation")
+    private void bridgeAudioCheck() {
+        try {
+            final android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+            if (am == null) return;
+            if (am.isMicrophoneMute()) am.setMicrophoneMute(false);
+            final android.content.Context app = getApplicationContext();
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                try {
+                    RelayCall.log(app, "Phone B audio: mode " + am.getMode() + ", speaker " + am.isSpeakerphoneOn()
+                        + ", mic muted " + am.isMicrophoneMute()
+                        + ", call volume " + am.getStreamVolume(android.media.AudioManager.STREAM_VOICE_CALL)
+                        + "/" + am.getStreamMaxVolume(android.media.AudioManager.STREAM_VOICE_CALL));
+                } catch (Throwable ignored) { }
+            }, 2000);
         } catch (Throwable ignored) { }
     }
 

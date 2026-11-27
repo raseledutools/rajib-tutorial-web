@@ -400,8 +400,26 @@ async function endRecord(){
   refreshBtns();maybeStopCapture();
   try{await Promise.race([recDone,new Promise(r=>setTimeout(r,12000))])}catch(e){}
 }
+// Relay call only: write mic/remote audio levels to the Telephone "Relay log" so a silent direction can be found
+function probeAudio(){
+  if(!INFO.solo)return;
+  let ctx;try{ctx=new (window.AudioContext||window.webkitAudioContext)();ctx.resume&&ctx.resume()}catch(e){return}
+  const an={},mx={mic:0,remote:0};let n=0;
+  const lvl=a=>{const d=new Uint8Array(a.fftSize);a.getByteTimeDomainData(d);let m=0;for(const v of d)m=Math.max(m,Math.abs(v-128));return Math.round(m/1.28)};
+  const att=(k,st)=>{if(!st||(an[k]&&an[k].st===st)||!st.getAudioTracks().length)return;try{const a=ctx.createAnalyser();a.fftSize=512;ctx.createMediaStreamSource(st).connect(a);an[k]={a,st}}catch(e){}};
+  const t=setInterval(()=>{
+    n++;if(left){clearInterval(t);return}
+    att('mic',local);const p=Object.values(peers)[0];if(p)att('remote',p.stream);
+    for(const k of ['mic','remote'])if(an[k])mx[k]=Math.max(mx[k],lvl(an[k].a));
+    if(n===10||n===30){
+      try{AndroidCall.note((INFO.bridge?'Phone B':'Phone A')+' audio after '+n+'s: mic peak '+mx.mic+'%, incoming peak '+mx.remote+'%, link '+(p?p.pc.connectionState:'none'))}catch(e){}
+      if(n===30)clearInterval(t);
+    }
+  },1000);
+}
 (async function(){
   await startLocal();
+  probeAudio();
   let joined=false;
   const doJoin=()=>{if(joined)return;joined=true;send('','join',JSON.stringify({ts:joinTs}))};
   window.onPollReady=doJoin;                 // native side finished its first look at the signalling room
