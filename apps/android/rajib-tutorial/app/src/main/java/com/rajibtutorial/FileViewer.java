@@ -68,6 +68,8 @@ final class FileViewer {
         TooLarge(long size) { super("File is too large to preview"); this.size = size; }
     }
 
+    static void say(Context c, String s) { android.widget.Toast.makeText(c, s, android.widget.Toast.LENGTH_SHORT).show(); }
+
     static String ext(String name, String url) {
         String s = (name != null && name.contains(".")) ? name : url;
         if (s == null) return "";
@@ -85,9 +87,9 @@ final class FileViewer {
         return "📎";
     }
 
-    static void open(NativeHomeActivity a, String url, String name) { open(a, url, name, null); }
+    static void open(android.app.Activity a, String url, String name) { open(a, url, name, null); }
 
-    static void open(NativeHomeActivity a, String url, String name, Reshare rs) {
+    static void open(android.app.Activity a, String url, String name, Reshare rs) {
         String e = ext(name, url);
         String title = (name == null || name.isEmpty()) ? "File" : name;
         if (e.equals("pdf")) pdf(a, url, title);
@@ -193,7 +195,7 @@ final class FileViewer {
     }
 
     // ── PDF (pinch-to-zoom, drag, double-tap) ───────────────
-    private static void pdf(final NativeHomeActivity a, final String url, final String title) {
+    private static void pdf(final android.app.Activity a, final String url, final String title) {
         final FrameLayout body = new FrameLayout(a);
         body.setBackgroundColor(PAPER);
         final TextView pageInd = Ui.tv(a, "", 12.5f, Ui.SUB, true);
@@ -272,9 +274,9 @@ final class FileViewer {
         }
     }
 
-    private static void edit(final NativeHomeActivity a, final String url, final String title, final String ext,
+    private static void edit(final android.app.Activity a, final String url, final String title, final String ext,
                              final File[] editFile, final long[] stamp, final TextView sendBtn, final Reshare rs) {
-        a.toast("Preparing file for editing…");
+        say(a, "Preparing file for editing…");
         Store.async(() -> {
             File src = download(a.getCacheDir(), url, ext, 100L * 1024 * 1024, null);
             File dir = new File(a.getCacheDir(), "edit");
@@ -283,7 +285,7 @@ final class FileViewer {
             copy(src, dst);
             return dst;
         }, (File f, Exception e) -> {
-            if (e != null || f == null) { a.toast("Could not prepare the file. Check your internet connection."); return; }
+            if (e != null || f == null) { say(a, "Could not prepare the file. Check your internet connection."); return; }
             editFile[0] = f;
             stamp[0] = f.lastModified();
             Uri u = androidx.core.content.FileProvider.getUriForFile(a, a.getPackageName() + ".provider", f);
@@ -297,14 +299,14 @@ final class FileViewer {
                 try { a.startActivity(i); started = true; break; } catch (Exception ignored) { }
             }
             if (!started) {
-                a.toast("No editor found. Install WPS Office, Microsoft Office or Google Docs/Sheets/Slides.");
+                say(a, "No editor found. Install WPS Office, Microsoft Office or Google Docs/Sheets/Slides.");
                 return;
             }
             if (rs != null) sendBtn.setVisibility(View.VISIBLE);
         });
     }
 
-    private static void office(final NativeHomeActivity a, final String url, final String title, final Reshare rs) {
+    private static void office(final android.app.Activity a, final String url, final String title, final Reshare rs) {
         final String ext = ext(title, url);
         final FrameLayout body = new FrameLayout(a);
         body.setBackgroundColor(Ui.BG);
@@ -338,7 +340,7 @@ final class FileViewer {
             if (f == null || rs == null) return;
             if (f.lastModified() == stamp[0] && !warned[0]) {
                 warned[0] = true;
-                a.toast("No changes saved yet. Save in the editor first, then tap Send. Tap again to send as is.");
+                say(a, "No changes saved yet. Save in the editor first, then tap Send. Tap again to send as is.");
                 return;
             }
             try {
@@ -351,7 +353,7 @@ final class FileViewer {
                 if (dref[0] != null) dref[0].dismiss();
                 rs.send(u);
             } catch (Exception ex) {
-                a.toast("Could not send the edited file.");
+                say(a, "Could not send the edited file.");
             }
         });
         final TextView editBtn = Ui.smallBtn(a, "✏️ Edit", Ui.TEXT, v -> edit(a, url, title, ext, editFile, stamp, sendBtn, rs));
@@ -371,7 +373,7 @@ final class FileViewer {
     }
 
     // ── Plain text ──────────────────────────────────────────
-    private static void text(final NativeHomeActivity a, final String url, String title) {
+    private static void text(final android.app.Activity a, final String url, String title) {
         final FrameLayout body = new FrameLayout(a);
         body.setBackgroundColor(Ui.BG);
         final TextView label = Ui.tv(a, "Loading…", 13.5f, Ui.SUB, false);

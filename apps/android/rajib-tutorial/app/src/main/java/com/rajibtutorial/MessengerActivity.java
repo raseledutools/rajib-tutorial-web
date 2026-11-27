@@ -113,6 +113,8 @@ public class MessengerActivity extends Activity {
         long ts = 0, dur = 0;
         boolean read = false, dl = false, del = false;
         String rt = "", rn = "";   // reply quote: text + sender name
+        boolean fw = false;        // forwarded
+        Map<String, String> reacts = new LinkedHashMap<>();   // person -> emoji
         int ans = 0;     // calls: 0 = unanswered, 1 = accepted, 2 = declined
     }
 
@@ -138,6 +140,7 @@ public class MessengerActivity extends Activity {
     private final Map<String, Fs.Doc> cache = new HashMap<>();
     private final Set<String> hidden = new HashSet<>();   // "delete for me" (this phone only)
     private final Set<String> pins = new HashSet<>();     // pinned chats (this phone only)
+    private final Set<String> starred = new HashSet<>();  // starred messages (this phone only)
     private Msg replyTo = null;
     private LinearLayout replyBar;
     private TextView replyTv;
@@ -268,12 +271,15 @@ public class MessengerActivity extends Activity {
         pins.addAll(sp.getStringSet("pins_" + meId, new HashSet<String>()));
         hidden.clear();
         hidden.addAll(sp.getStringSet("hidden_" + meId, new HashSet<String>()));
+        starred.clear();
+        starred.addAll(sp.getStringSet("stars_" + meId, new HashSet<String>()));
     }
 
     private void saveLocalSets() {
         getSharedPreferences("rt_tel", MODE_PRIVATE).edit()
             .putStringSet("pins_" + meId, new HashSet<>(pins))
-            .putStringSet("hidden_" + meId, new HashSet<>(hidden)).apply();
+            .putStringSet("hidden_" + meId, new HashSet<>(hidden))
+            .putStringSet("stars_" + meId, new HashSet<>(starred)).apply();
     }
 
     private void loadDiskCache() {
@@ -674,6 +680,12 @@ public class MessengerActivity extends Activity {
         m.del = num(d.data, "del") == 1;
         m.rt = str(d.data, "rt");
         m.rn = str(d.data, "rn");
+        m.fw = num(d.data, "fw") == 1;
+        for (Map.Entry<String, Object> en : d.data.entrySet()) {
+            if (en.getKey().startsWith("r_") && en.getValue() instanceof String && !((String) en.getValue()).isEmpty()) {
+                m.reacts.put(en.getKey().substring(2), (String) en.getValue());
+            }
+        }
         return m;
     }
 
@@ -700,7 +712,7 @@ public class MessengerActivity extends Activity {
 
         StringBuilder sb = new StringBuilder();
         sb.append(screen).append('|').append(tab).append('|').append(curPeer).append('|').append(list.size());
-        for (Msg m : list) sb.append(m.read ? 'r' : m.dl ? 'd' : 's').append(m.ans).append(m.del ? 'x' : '-');
+        for (Msg m : list) sb.append(m.read ? 'r' : m.dl ? 'd' : 's').append(m.ans).append(m.del ? 'x' : '-').append(m.reacts.hashCode());
         if (!sb.toString().equals(lastSig)) {
             lastSig = sb.toString();
             if (screen == S_HOME) renderHomeList();
@@ -761,6 +773,7 @@ public class MessengerActivity extends Activity {
         pm.room = extra != null && extra.get("room") instanceof String ? (String) extra.get("room") : "";
         pm.rt = extra != null && extra.get("rt") instanceof String ? (String) extra.get("rt") : "";
         pm.rn = extra != null && extra.get("rn") instanceof String ? (String) extra.get("rn") : "";
+        pm.fw = extra != null && extra.get("fw") instanceof Number;
         pm.dur = extra != null && extra.get("dur") instanceof Number ? ((Number) extra.get("dur")).longValue() : 0;
         pending.put(id, pm);
         all.add(pm);
@@ -1091,6 +1104,7 @@ public class MessengerActivity extends Activity {
     private void homeMenu() {
         final Ui.Modal m = new Ui.Modal(this, "Telephone", "Your number: " + meId);
         m.col("✉  New chat", Ui.B_GHOST, v -> { m.dismiss(); screen = S_PICK; query = ""; render(); });
+        m.col("⭐  Starred messages", Ui.B_GHOST, v -> { m.dismiss(); starredMenu(); });
         m.col("🔄  Refresh", Ui.B_GHOST, v -> { m.dismiss(); lastSig = ""; lastFull = 0; fetch(); loadContacts(); });
         m.col("🔗  Pair relay phone (Phone A)", Ui.B_GHOST, v -> { m.dismiss(); pairMenu(); });
         m.col("📲  Call relay setup (Phone B)", Ui.B_GHOST, v -> { m.dismiss(); relayMenu(); });
@@ -1699,6 +1713,8 @@ public class MessengerActivity extends Activity {
         b.setPadding(dp(9), dp(6), dp(9), dp(5));
         b.setOnLongClickListener(v -> { msgMenu(m); return true; });
 
+        if (m.fw && !m.del) b.addView(Ui.tv(this, "↪ Forwarded", 12, C_SUB, false));
+
         if (!m.rt.isEmpty() && !m.del) {                       // quoted reply
             LinearLayout q = new LinearLayout(this);
             q.setOrientation(LinearLayout.VERTICAL);
@@ -1721,13 +1737,34 @@ public class MessengerActivity extends Activity {
                 int w = Math.min(maxW - dp(18), dp(240));
                 b.addView(iv, new LinearLayout.LayoutParams(w, (int) (w * 1.0f)));
                 loadBitmap(thumb(m.url), iv);
-                iv.setOnClickListener(v -> openUrl(m.url));
+                iv.setOnClickListener(v -> showImage(m.url));
                 iv.setOnLongClickListener(v -> { msgMenu(m); return true; });
                 break;
             }
             case "audio": b.addView(audioRow(m, mine)); break;
-            case "video": b.addView(fileRow("🎬", m.fileName.isEmpty() ? "Video" : m.fileName, m.url, maxW)); break;
-            case "file": b.addView(fileRow("📎", m.fileName.isEmpty() ? "File" : m.fileName, m.url, maxW)); break;
+            case "video": {
+                android.widget.FrameLayout fl = new android.widget.FrameLayout(this);
+                fl.setBackground(Ui.bg(this, 0xFF000000, 10, 0));
+                final ImageView pv = new ImageView(this);
+                pv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                fl.addView(pv, new android.widget.FrameLayout.LayoutParams(MATCH, MATCH));
+                TextView play = Ui.tv(this, "▶", 22, Color.WHITE, true);
+                play.setGravity(Gravity.CENTER);
+                play.setBackground(Ui.circle(0x99000000));
+                fl.addView(play, new android.widget.FrameLayout.LayoutParams(dp(52), dp(52), Gravity.CENTER));
+                b.addView(fl, new LinearLayout.LayoutParams(Math.min(maxW - dp(18), dp(240)), dp(150)));
+                loadBitmap(cdn(m.url, "so_0,w_600,f_jpg", true), pv);
+                fl.setOnClickListener(v -> showPlayer(m.url, m.fileName, false));
+                fl.setOnLongClickListener(v -> { msgMenu(m); return true; });
+                break;
+            }
+            case "file": {
+                View card = FileCard.build(this, m.url, m.fileName, mine, C_TEXT, mine ? 0xFFA8C5BC : C_SUB,
+                    uri -> upload(uri, Cloud.meta(this, uri), false, 0));
+                card.setOnLongClickListener(v -> { msgMenu(m); return true; });
+                b.addView(card, new LinearLayout.LayoutParams(dp(240), WRAP));
+                break;
+            }
             case "call": b.addView(callRow(m, mine)); break;
             default: {
                 TextView t = Ui.tv(this, m.text, 15.5f, C_TEXT, false);
@@ -1740,6 +1777,7 @@ public class MessengerActivity extends Activity {
         LinearLayout meta = new LinearLayout(this);
         meta.setOrientation(LinearLayout.HORIZONTAL);
         meta.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        if (starred.contains(m.id)) meta.addView(Ui.tv(this, "⭐ ", 10.5f, C_SUB, false));
         meta.addView(Ui.tv(this, timeFmt.format(new Date(m.ts)), 11, mine ? 0xFFA8C5BC : C_SUB, false));
         if (mine) {
             boolean pend = pending.containsKey(m.id);
@@ -1747,7 +1785,15 @@ public class MessengerActivity extends Activity {
             meta.addView(tk);
         }
         b.addView(meta, new LinearLayout.LayoutParams(MATCH, WRAP));
-        row.addView(b, new LinearLayout.LayoutParams(WRAP, WRAP));
+        LinearLayout colw = new LinearLayout(this);
+        colw.setOrientation(LinearLayout.VERTICAL);
+        colw.addView(b, new LinearLayout.LayoutParams(WRAP, WRAP));
+        if (!m.reacts.isEmpty() && !m.del) {
+            LinearLayout.LayoutParams pp = Ui.lpm(this, WRAP, WRAP, 8, -9, 8, 0);
+            pp.gravity = mine ? Gravity.END : Gravity.START;
+            colw.addView(reactPill(m), pp);
+        }
+        row.addView(colw, new LinearLayout.LayoutParams(WRAP, WRAP));
         return row;
     }
 
@@ -1847,12 +1893,184 @@ public class MessengerActivity extends Activity {
         if (m.del || pending.containsKey(m.id) || "call".equals(m.type)) return;
         String pv = preview(m);
         final Ui.Modal d = new Ui.Modal(this, "Message", pv.length() > 80 ? pv.substring(0, 80) + "…" : pv);
+        LinearLayout er = new LinearLayout(this);
+        er.setOrientation(LinearLayout.HORIZONTAL);
+        er.setGravity(Gravity.CENTER);
+        for (final String em : new String[]{"👍", "❤️", "😂", "😮", "😢", "🙏"}) {
+            TextView t = Ui.tv(this, em, 26, C_TEXT, false);
+            t.setPadding(dp(9), dp(6), dp(9), dp(6));
+            Ui.pressFx(t);
+            t.setOnClickListener(v -> { d.dismiss(); react(m, em); });
+            er.addView(t);
+        }
+        d.add(er);
         d.col("↩  Reply", Ui.B_PRIMARY, v -> { d.dismiss(); setReply(m); });
         if ("text".equals(m.type)) d.col("⧉  Copy", Ui.B_OUTLINE, v -> { d.dismiss(); copyText(m.text); });
+        d.col("➡  Forward", Ui.B_OUTLINE, v -> { d.dismiss(); forwardPicker(m); });
+        d.col(starred.contains(m.id) ? "☆  Unstar" : "⭐  Star", Ui.B_OUTLINE, v -> { d.dismiss(); toggleStar(m); });
         d.col("🗑  Delete for me", Ui.B_OUTLINE, v -> { d.dismiss(); hideMsg(m); });
         if (m.from.equals(meId)) d.col("🚫  Delete for everyone", Ui.B_RED, v -> { d.dismiss(); deleteForAll(m); });
         d.col("Cancel", Ui.B_GHOST, v -> d.dismiss());
         d.show();
+    }
+
+    // ── reactions (one field per person, like the Discussion: r_<number>) ──
+    private void react(final Msg m, String emoji) {
+        final String em = emoji.equals(m.reacts.get(meId)) ? "" : emoji;     // same emoji again removes it
+        if (em.isEmpty()) m.reacts.remove(meId); else m.reacts.put(meId, em);
+        lastSig = "";
+        if (screen == S_CHAT) renderMessages(false);
+        final Map<String, Object> d = new LinkedHashMap<>();
+        d.put("r_" + meId, em);
+        d.put("up", Long.valueOf(System.currentTimeMillis()));
+        Store.async(() -> { Fs.update(m.id, d); return Boolean.TRUE; }, (Boolean ok, Exception e) -> {
+            if (released) return;
+            if (e != null) { toast("Could not react. Try again."); return; }
+            pushSig(m.from.equals(meId) ? m.to : m.from, "upd");
+        });
+    }
+
+    private View reactPill(final Msg m) {
+        Map<String, Integer> cnt = new LinkedHashMap<>();
+        for (String e : m.reacts.values()) cnt.put(e, cnt.containsKey(e) ? cnt.get(e) + 1 : 1);
+        StringBuilder sb = new StringBuilder();
+        for (String e : cnt.keySet()) sb.append(e);
+        int total = m.reacts.size();
+        TextView t = Ui.tv(this, sb.toString() + (total > 1 ? " " + total : ""), 12.5f, C_TEXT, false);
+        t.setPadding(dp(7), dp(2), dp(7), dp(2));
+        t.setBackground(Ui.bg(this, C_BAR, 12, C_BG));
+        t.setOnClickListener(v -> msgMenu(m));
+        return t;
+    }
+
+    // ── star ──
+    private void toggleStar(Msg m) {
+        if (!starred.remove(m.id)) starred.add(m.id);
+        saveLocalSets();
+        lastSig = "";
+        if (screen == S_CHAT) renderMessages(false);
+    }
+
+    private void starredMenu() {
+        final Ui.Modal d = new Ui.Modal(this, "⭐ Starred messages", "");
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int n = 0;
+        for (int i = all.size() - 1; i >= 0 && n < 100; i--) {
+            final Msg m = all.get(i);
+            if (!starred.contains(m.id)) continue;
+            n++;
+            String who = m.from.equals(meId) ? "You" : contactOf(m.from, m.fromName).name;
+            LinearLayout r = new LinearLayout(this);
+            r.setOrientation(LinearLayout.VERTICAL);
+            r.setPadding(dp(8), dp(8), dp(8), dp(8));
+            r.addView(Ui.ellipsized(this, who + " · " + listTime(m.ts), 12, C_GREEN, true, 1));
+            r.addView(Ui.ellipsized(this, preview(m), 14, C_TEXT, false, 2));
+            Ui.pressFx(r);
+            r.setOnClickListener(v -> { d.dismiss(); openChat(peerOf(m)); });
+            box.addView(r);
+            box.addView(divider());
+        }
+        if (n == 0) box.addView(Ui.tv(this, "No starred messages.\nPress and hold a message → Star.", 14, C_SUB, false));
+        sv.addView(box);
+        d.add(sv);
+        sv.setLayoutParams(new LinearLayout.LayoutParams(MATCH, Math.min(dp(380), dp(70) * Math.max(1, n) + dp(40))));
+        d.col("Close", Ui.B_OUTLINE, v -> d.dismiss());
+        d.show();
+    }
+
+    // ── forward ──
+    private void forwardPicker(final Msg m) {
+        final Ui.Modal d = new Ui.Modal(this, "Forward to…", "");
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        LinkedHashMap<String, Long> recent = new LinkedHashMap<>();
+        for (Msg x : all) { String p = peerOf(x); if (!p.isEmpty()) recent.put(p, x.ts); }
+        List<String> order = new ArrayList<>(recent.keySet());
+        Collections.sort(order, (x, y) -> Long.compare(recent.get(y), recent.get(x)));
+        for (Contact c : contacts) if (!recent.containsKey(c.id)) order.add(c.id);
+        for (final String p : order) {
+            final Contact c = contactOf(p, "");
+            LinearLayout r = new LinearLayout(this);
+            r.setOrientation(LinearLayout.HORIZONTAL);
+            r.setGravity(Gravity.CENTER_VERTICAL);
+            r.setPadding(dp(4), dp(8), dp(4), dp(8));
+            r.addView(avatar(c.name, c.id, 40, 16), Ui.lpm(this, dp(40), dp(40), 0, 0, 12, 0));
+            r.addView(Ui.ellipsized(this, c.name, 15.5f, C_TEXT, false, 1), new LinearLayout.LayoutParams(0, WRAP, 1f));
+            Ui.pressFx(r);
+            r.setOnClickListener(v -> { d.dismiss(); forwardTo(p, m); });
+            box.addView(r);
+        }
+        if (order.isEmpty()) box.addView(Ui.tv(this, "No one to forward to yet.", 14, C_SUB, false));
+        sv.addView(box);
+        d.add(sv);
+        sv.setLayoutParams(new LinearLayout.LayoutParams(MATCH, dp(340)));
+        d.col("Cancel", Ui.B_OUTLINE, v -> d.dismiss());
+        d.show();
+    }
+
+    private void forwardTo(String peer, Msg m) {
+        final String keep = curPeer;
+        curPeer = peer;
+        Map<String, Object> ex = new LinkedHashMap<>();
+        ex.put("fw", Long.valueOf(1));
+        if (m.dur > 0) ex.put("dur", Long.valueOf(m.dur));
+        send(m.type, m.text, m.url, m.fileName, ex);
+        curPeer = keep;
+        toast("Forwarded to " + contactOf(peer, "").name);
+    }
+
+    // ── full-screen photo and video / audio player (same as the Discussion) ──
+    private static String cdn(String url, String tr, boolean swapExtToJpg) {
+        if (url == null || !url.contains("res.cloudinary.com") || !url.contains("/upload/")) return url;
+        String u = url.replace("/upload/", "/upload/" + tr + "/");
+        if (swapExtToJpg) u = u.replaceAll("\\.[A-Za-z0-9]{2,5}$", ".jpg");
+        return u;
+    }
+
+    private void showImage(String url) {
+        final Dialog d = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        android.widget.FrameLayout fl = new android.widget.FrameLayout(this);
+        fl.setBackgroundColor(Color.BLACK);
+        ImageView iv = new ImageView(this);
+        iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        fl.addView(iv, new android.widget.FrameLayout.LayoutParams(MATCH, MATCH));
+        TextView close = Ui.tv(this, "✕", 22, Color.WHITE, true);
+        close.setPadding(dp(18), dp(14), dp(18), dp(14));
+        fl.addView(close, new android.widget.FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP | Gravity.END));
+        fl.setOnClickListener(v -> d.dismiss());
+        d.setContentView(fl);
+        d.show();
+        loadBitmap(cdn(url, "w_1600,q_auto,f_jpg", false), iv);
+    }
+
+    private void showPlayer(String url, String fileName, boolean audio) {
+        final Dialog d = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        android.widget.FrameLayout fl = new android.widget.FrameLayout(this);
+        fl.setBackgroundColor(Color.BLACK);
+        if (audio) {
+            TextView t = Ui.tv(this, "🎵\n" + (fileName.isEmpty() ? "Audio" : fileName), 18, Color.WHITE, true);
+            t.setGravity(Gravity.CENTER);
+            t.setPadding(dp(24), 0, dp(24), dp(60));
+            fl.addView(t, new android.widget.FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER));
+        }
+        final android.widget.VideoView vv = new android.widget.VideoView(this);
+        fl.addView(vv, new android.widget.FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER));
+        android.widget.MediaController mc = new android.widget.MediaController(this);
+        mc.setAnchorView(vv);
+        vv.setMediaController(mc);
+        vv.setOnPreparedListener(mp -> mp.start());
+        vv.setOnErrorListener((mp, what, extra) -> { toast("Cannot play this file"); return true; });
+        TextView close = Ui.tv(this, "✕", 22, Color.WHITE, true);
+        close.setPadding(dp(18), dp(14), dp(18), dp(14));
+        close.setOnClickListener(v -> d.dismiss());
+        fl.addView(close, new android.widget.FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP | Gravity.END));
+        d.setOnDismissListener(x -> { try { vv.stopPlayback(); } catch (Exception ignored) { } });
+        d.setContentView(fl);
+        d.show();
+        vv.setVideoURI(Uri.parse(url));
     }
 
     private void copyText(String t) {

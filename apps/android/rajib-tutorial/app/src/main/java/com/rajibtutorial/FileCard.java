@@ -136,7 +136,7 @@ final class FileCard {
         }
     }
 
-    static View build(final NativeHomeActivity a, final String url, final String name,
+    static View build(final android.app.Activity a, final String url, final String name,
                       boolean mine, int fg, int sub, final FileViewer.Reshare reshare) {
         final String ext = FileViewer.ext(name, url);
         final String shown = (name == null || name.isEmpty()) ? "File" : name;
@@ -209,7 +209,7 @@ final class FileCard {
     }
 
     // ── Loading ─────────────────────────────────────────────
-    private static void load(final NativeHomeActivity a, final String url, final String ext, final Views v) {
+    private static void load(final android.app.Activity a, final String url, final String ext, final Views v) {
         final boolean pdf = ext.equals("pdf");
         final boolean off = isOffice(ext);
         final boolean txt = isText(ext);
