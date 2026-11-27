@@ -50,10 +50,47 @@ html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-
   var peerId=(uid||'u')+'_'+Math.random().toString(36).slice(2,5);
   var ROOM='discussion',PREFIX='_call_',APP='rasel-mia-universal-sync',POLL=1500;
   var cfg={apiKey:'AIzaSyDGd3KAo45UuqmeGFALziz_oKm3htEASHY',authDomain:'mywebtools-f8d53.firebaseapp.com',projectId:'mywebtools-f8d53'};
+  // Failover: project A (primary) -> project B (backup) on quota exhaustion. Shares the "fb_failover_until" flag
+  // with index.html (same origin), so the call page follows the main app's choice.
+  var cfgB={apiKey:'AIzaSyBYAgr_vJjKdsmjhFgvh89GM03QBMJ72Is',authDomain:'rajib-tutorial-2.firebaseapp.com',projectId:'rajib-tutorial-2',storageBucket:'rajib-tutorial-2.firebasestorage.app',messagingSenderId:'26864788359',appId:'1:26864788359:web:1e37dd698d54831f842922'};
+  var FO='fb_failover_until';
   var fbp=(async function(){
     var a=await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
     var f=await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-    var app=a.initializeApp(cfg,'call');return {f:f,db:f.getFirestore(app)};
+    var dbA=f.getFirestore(a.initializeApp(cfg,'call')),dbB=null;
+    try{dbB=f.getFirestore(a.initializeApp(cfgB,'callB'))}catch(e){}
+    var cur=dbA;
+    try{if(dbB&&Number(localStorage.getItem(FO)||0)>Date.now())cur=dbB}catch(e){}
+    function isQuota(e){return !!e&&(e.code==='resource-exhausted'||/quota|resource[-_ ]?exhausted/i.test(String(e.message||'')))}
+    function failover(){
+      if(!dbB||cur===dbB)return false;
+      cur=dbB;
+      try{var d=new Date();d.setUTCHours(8,0,0,0);if(d.getTime()<=Date.now())d.setUTCDate(d.getUTCDate()+1);localStorage.setItem(FO,String(d.getTime()))}catch(e){}
+      return true;
+    }
+    // Rebuild a ref/query that belongs to project A so it targets the current project.
+    function remap(x){
+      if(!x||x.firestore===cur)return x;
+      if(x.__fo)return F.query.apply(null,[remap(x.__fo.base)].concat(x.__fo.cons));
+      if(x.type==='document')return f.doc(cur,x.path);
+      if(x.type==='collection')return f.collection(cur,x.path);
+      return x;
+    }
+    async function run(fn,x){
+      x=remap(x);
+      try{return await fn(x)}
+      catch(e){if(!isQuota(e)||!failover())throw e;return fn(remap(x))}
+    }
+    var F={
+      doc:function(d,col,id){return f.doc(cur,col,id)},
+      collection:function(d,name){return f.collection(cur,name)},
+      where:f.where,
+      query:function(base){var cons=[].slice.call(arguments,1),q=f.query.apply(null,[base].concat(cons));try{q.__fo={base:base,cons:cons}}catch(e){}return q},
+      getDocs:function(q){return run(f.getDocs,q)},
+      setDoc:function(r,data){return run(function(x){return f.setDoc(x,data)},r)},
+      deleteDoc:function(r){return run(f.deleteDoc,r)}
+    };
+    return {f:F,get db(){return cur}};
   })();
   var myDocs=[],seen={},running=false,leaveSent=false,timer=null,first=true,busy=false,fails=0;
   function post(to,kind,data){

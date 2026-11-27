@@ -31,6 +31,55 @@ final class Fs {
         "https://firestore.googleapis.com/v1/projects/mywebtools-f8d53/databases/(default)/documents/tutorial_courses";
     static final String REFERER = "https://raseledutools.github.io/rajib-tutorial-web/";
 
+    // ── Failover: project A (primary) -> project B (backup) when A's free quota is exhausted ──
+    // Same behaviour as the web/EXE index.html: on HTTP 429 / RESOURCE_EXHAUSTED switch to B and retry,
+    // stay on B until the next 08:00 UTC (Spark quota reset), then try A again.
+    private static final String PROJ_A = "mywebtools-f8d53";
+    private static final String PROJ_B = "rajib-tutorial-2";
+    private static final String KEY_B  = "AIzaSyBYAgr_vJjKdsmjhFgvh89GM03QBMJ72Is";
+    private static final String PREF = "fs_failover";
+    private static final String PREF_UNTIL = "until";
+    private static volatile long failoverUntil = 0;
+    private static volatile android.content.SharedPreferences foPrefs;
+
+    /** Call once from Application.onCreate so the failover state survives app restarts. */
+    static void init(android.content.Context c) {
+        try {
+            foPrefs = c.getApplicationContext().getSharedPreferences(PREF, android.content.Context.MODE_PRIVATE);
+            failoverUntil = foPrefs.getLong(PREF_UNTIL, 0);
+        } catch (Throwable ignored) { }
+    }
+
+    private static boolean onBackup() { return failoverUntil > System.currentTimeMillis(); }
+
+    private static long nextReset() {
+        java.util.Calendar c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+        c.set(java.util.Calendar.HOUR_OF_DAY, 8);
+        c.set(java.util.Calendar.MINUTE, 0);
+        c.set(java.util.Calendar.SECOND, 0);
+        c.set(java.util.Calendar.MILLISECOND, 0);
+        if (c.getTimeInMillis() <= System.currentTimeMillis()) c.add(java.util.Calendar.DAY_OF_MONTH, 1);
+        return c.getTimeInMillis();
+    }
+
+    private static void startFailover() {
+        failoverUntil = nextReset();
+        try {
+            if (foPrefs != null) foPrefs.edit().putLong(PREF_UNTIL, failoverUntil).apply();
+        } catch (Throwable ignored) { }
+    }
+
+    private static boolean isQuota(IOException e) {
+        String m = e.getMessage() == null ? "" : e.getMessage();
+        String l = m.toLowerCase(java.util.Locale.US);
+        return m.startsWith("HTTP 429") || l.contains("resource_exhausted") || l.contains("quota");
+    }
+
+    /** Rewrite a project-A URL / JSON body so it targets the backup project. */
+    private static String toBackup(String x) {
+        return x == null ? null : x.replace(PROJ_A, PROJ_B).replace(KEY, KEY_B);
+    }
+
     static final class Doc {
         final String id;
         final Map<String, Object> data;
@@ -292,6 +341,17 @@ final class Fs {
     }
 
     private static String request(String method, String url, String json) throws IOException {
+        if (onBackup()) return doRequest(method, toBackup(url), toBackup(json));
+        try {
+            return doRequest(method, url, json);
+        } catch (IOException e) {
+            if (!isQuota(e)) throw e;
+            startFailover();
+            return doRequest(method, toBackup(url), toBackup(json));
+        }
+    }
+
+    private static String doRequest(String method, String url, String json) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
         try {
             c.setConnectTimeout(15000);
