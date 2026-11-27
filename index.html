@@ -3134,33 +3134,55 @@ try{
 const FO_KEY = "fb_failover_until";
 // Spark quota resets at midnight Pacific (07:00/08:00 UTC): stay on B until the next 08:00 UTC, then try A again.
 const _nextReset = () => { const d=new Date(); d.setUTCHours(8,0,0,0); if(d.getTime()<=Date.now()) d.setUTCDate(d.getUTCDate()+1); return d.getTime(); };
-try{ if(dbB && Number(localStorage.getItem(FO_KEY)||0) > Date.now()) db = dbB; }catch(e){}
+// If project B is not provisioned (no Firestore database → 404, or rules deny → permission-denied) we must NOT stay on it:
+// fall back to A and don't try B again for 30 minutes (BAD_KEY), instead of breaking every request.
+const BAD_KEY = "fb_backup_bad_until";
+const _backupBadNow = () => { try{ return Number(localStorage.getItem(BAD_KEY)||0) > Date.now() }catch(e){ return false } };
+try{ if(dbB && !_backupBadNow() && Number(localStorage.getItem(FO_KEY)||0) > Date.now()) db = dbB; }catch(e){}
 const _isQuota = e => !!e && (e.code==="resource-exhausted" || /quota|resource[-_ ]?exhausted/i.test(String(e.message||"")));
+const _isBackupBad = e => !!e && (e.code==="permission-denied" || e.code==="not-found" || e.code==="unauthenticated" ||
+  /missing or insufficient permissions|does not exist|not[-_ ]found/i.test(String(e.message||"")));
+function _backupBad(e){
+  db = dbA;
+  try{ localStorage.removeItem(FO_KEY); localStorage.setItem(BAD_KEY,String(Date.now()+30*60*1000)); }catch(_){}
+  console.error("[firebase] backup project 'rajib-tutorial-2' is NOT ready ("+((e&&e.code)||e)+"): create the Firestore database, publish rules and copy the data there. Staying on primary.");
+}
+let _toastedB = false;
+function _backupOk(){
+  if(_toastedB) return; _toastedB = true;
+  setTimeout(()=>{ try{ window.showToast&&window.showToast("Server busy — backup server চালু হয়েছে") }catch(e){} },0);
+}
 function _failover(){
-  if(!dbB || db===dbB) return false;
+  if(!dbB || db===dbB || _backupBadNow()) return false;
   db = dbB;
   try{ localStorage.setItem(FO_KEY,String(_nextReset())) }catch(e){}
   console.warn("[firebase] primary quota exhausted → switched to backup project");
-  setTimeout(()=>{ try{ window.showToast&&window.showToast("Server busy — backup server চালু হয়েছে") }catch(e){} },0);
   return true;
 }
-// Rebuild a ref/query that belongs to project A so it targets project B.
-const _remap = x => {
-  if(!dbB || !x || x.firestore===dbB) return x;
-  if(x.__fo) return _rQuery(_remap(x.__fo.base), ...x.__fo.cons);
-  if(x.type==="document") return doc(dbB, x.path);
-  if(x.type==="collection") return collection(dbB, x.path);
+// Rebuild a ref/query so it targets the given Firestore instance (B by default, A to roll back).
+const _to = (x, target) => {
+  if(!target || !x || x.firestore===target) return x;
+  if(x.__fo) return _rQuery(_to(x.__fo.base,target), ...x.__fo.cons);
+  if(x.type==="document") return doc(target, x.path);
+  if(x.type==="collection") return collection(target, x.path);
   return x;
 };
+const _remap = x => _to(x, dbB);
 // query() wrapper remembers its parts so the query can be rebuilt on B.
 const query = (base, ...cons) => { const q=_rQuery(base,...cons); try{ q.__fo={base,cons}; }catch(e){} return q; };
 const _run = async (fn, x, ...rest) => {
   if(dbB && db===dbB) x = _remap(x);
-  try{ return await fn(x,...rest); }
+  try{
+    const r = await fn(x,...rest);
+    if(dbB && x.firestore===dbB) _backupOk();
+    return r;
+  }
   catch(e){
+    if(dbB && x.firestore===dbB && _isBackupBad(e)){ _backupBad(e); return fn(_to(x,dbA),...rest); }   // B unusable → back to A
     if(!_isQuota(e) || !dbB || x.firestore===dbB) throw e;
-    _failover();
-    return fn(_remap(x),...rest);
+    if(!_failover()) throw e;
+    try{ const r = await fn(_remap(x),...rest); _backupOk(); return r; }
+    catch(e2){ if(_isBackupBad(e2)){ _backupBad(e2); throw e; } throw e2; }   // B not ready → report A's original quota error
   }
 };
 const _getDocs = q => _run(_rGetDocs,q);
@@ -3170,20 +3192,19 @@ const updateDoc= (r,...a) => _run((x,...y)=>_rUpdateDoc(x,...y), r, ...a);
 const deleteDoc= r => _run(_rDeleteDoc,r);
 const getCountFromServer = q => _run(_rCount,q);
 const writeBatch = d => {
-  const ops=[]; let b=_rWriteBatch(dbB&&db===dbB?dbB:d);
-  const fix = r => (dbB&&db===dbB)?_remap(r):r;
+  const ops=[]; const first=(dbB&&db===dbB)?dbB:d; const b=_rWriteBatch(first);
+  const build = target => { const nb=_rWriteBatch(target); ops.forEach(([k,r,a])=>nb[k](_to(r,target),...a)); return nb; };
   const w={
-    set:(r,...a)=>{ops.push(["set",r,a]);b.set(fix(r),...a);return w},
-    update:(r,...a)=>{ops.push(["update",r,a]);b.update(fix(r),...a);return w},
-    delete:r=>{ops.push(["delete",r,[]]);b.delete(fix(r));return w},
+    set:(r,...a)=>{ops.push(["set",r,a]);b.set(_to(r,first),...a);return w},
+    update:(r,...a)=>{ops.push(["update",r,a]);b.update(_to(r,first),...a);return w},
+    delete:r=>{ops.push(["delete",r,[]]);b.delete(_to(r,first));return w},
     commit:async()=>{
-      try{ return await b.commit(); }
+      try{ const r=await b.commit(); if(dbB&&first===dbB) _backupOk(); return r; }
       catch(e){
-        if(!_isQuota(e)||!dbB) throw e;
-        _failover();
-        const nb=_rWriteBatch(dbB);
-        ops.forEach(([k,r,a])=>nb[k](_remap(r),...a));
-        return nb.commit();
+        if(dbB && first===dbB && _isBackupBad(e)){ _backupBad(e); return build(dbA).commit(); }
+        if(!dbB || first===dbB || !_isQuota(e) || !_failover()) throw e;
+        try{ const r=await build(dbB).commit(); _backupOk(); return r; }
+        catch(e2){ if(_isBackupBad(e2)){ _backupBad(e2); throw e; } throw e2; }
       }
     }
   };
@@ -3191,13 +3212,17 @@ const writeBatch = d => {
 };
 const onSnapshot = (q,next,err) => {
   let un=()=>{}, dead=false;
-  const start=(qq,canRetry)=>{
+  const start=(qq,left)=>{
     un=_rOnSnapshot(qq,next,e=>{
-      if(canRetry && dbB && _isQuota(e)){ _failover(); if(!dead) start(_remap(qq),false); return; }
+      if(dead) return;
+      if(left>0 && dbB){
+        if(qq.firestore===dbB && _isBackupBad(e)){ _backupBad(e); start(_to(qq,dbA),left-1); return; }
+        if(qq.firestore!==dbB && _isQuota(e) && _failover()){ start(_remap(qq),left-1); return; }
+      }
       if(err) err(e);
     });
   };
-  start(dbB&&db===dbB?_remap(q):q,true);
+  start(dbB&&db===dbB?_remap(q):q,2);
   return ()=>{ dead=true; un(); };
 };
 

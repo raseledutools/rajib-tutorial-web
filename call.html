@@ -60,10 +60,15 @@ html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-
     var dbA=f.getFirestore(a.initializeApp(cfg,'call')),dbB=null;
     try{dbB=f.getFirestore(a.initializeApp(cfgB,'callB'))}catch(e){}
     var cur=dbA;
-    try{if(dbB&&Number(localStorage.getItem(FO)||0)>Date.now())cur=dbB}catch(e){}
+    // If B isn't provisioned (no database -> not-found, rules deny -> permission-denied) go back to A and skip B for 30 min.
+    var BAD='fb_backup_bad_until';
+    function badNow(){try{return Number(localStorage.getItem(BAD)||0)>Date.now()}catch(e){return false}}
+    try{if(dbB&&!badNow()&&Number(localStorage.getItem(FO)||0)>Date.now())cur=dbB}catch(e){}
     function isQuota(e){return !!e&&(e.code==='resource-exhausted'||/quota|resource[-_ ]?exhausted/i.test(String(e.message||'')))}
+    function isBad(e){return !!e&&(e.code==='permission-denied'||e.code==='not-found'||e.code==='unauthenticated'||/missing or insufficient permissions|does not exist|not[-_ ]found/i.test(String(e.message||'')))}
+    function badBackup(){cur=dbA;try{localStorage.removeItem(FO);localStorage.setItem(BAD,String(Date.now()+18e5))}catch(e){}}
     function failover(){
-      if(!dbB||cur===dbB)return false;
+      if(!dbB||cur===dbB||badNow())return false;
       cur=dbB;
       try{var d=new Date();d.setUTCHours(8,0,0,0);if(d.getTime()<=Date.now())d.setUTCDate(d.getUTCDate()+1);localStorage.setItem(FO,String(d.getTime()))}catch(e){}
       return true;
@@ -79,7 +84,12 @@ html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-
     async function run(fn,x){
       x=remap(x);
       try{return await fn(x)}
-      catch(e){if(!isQuota(e)||!failover())throw e;return fn(remap(x))}
+      catch(e){
+        if(cur===dbB&&isBad(e)){badBackup();return fn(remap(x))}
+        if(!isQuota(e)||!failover())throw e;
+        try{return await fn(remap(x))}
+        catch(e2){if(isBad(e2)){badBackup();throw e}throw e2}
+      }
     }
     var F={
       doc:function(d,col,id){return f.doc(cur,col,id)},
