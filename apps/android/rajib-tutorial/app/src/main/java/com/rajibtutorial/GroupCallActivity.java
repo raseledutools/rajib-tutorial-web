@@ -15,6 +15,7 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.util.Rational;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
@@ -203,8 +204,17 @@ public class GroupCallActivity extends AppCompatActivity {
             int n;
             while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
             in.close();
+            String page = out.toString("UTF-8");
+            // meeting extras (full screen, zoom, chat, reactions…): web/callx.js, copied into the assets by the build
+            try {
+                java.io.InputStream x = getAssets().open("callx.js");
+                java.io.ByteArrayOutputStream xs = new java.io.ByteArrayOutputStream();
+                while ((n = x.read(buf)) > 0) xs.write(buf, 0, n);
+                x.close();
+                page = page.replace("</body>", "<script>" + xs.toString("UTF-8") + "</script></body>");
+            } catch (java.io.IOException ignored) { }     // the call still works without the extras
             // https base URL => secure context, which getUserMedia / WebRTC require
-            wv.loadDataWithBaseURL(Store.EMBED_ORIGIN, out.toString("UTF-8"), "text/html", "utf-8", null);
+            wv.loadDataWithBaseURL(Store.EMBED_ORIGIN, page, "text/html", "utf-8", null);
         } catch (Exception e) {
             Toast.makeText(this, "Could not start the call", Toast.LENGTH_LONG).show();
             finish();
@@ -261,6 +271,10 @@ public class GroupCallActivity extends AppCompatActivity {
         @JavascriptInterface
         public void speaker(final boolean on) { runOnUiThread(() -> setSpeaker(on)); }
 
+        /** A shared screen / participant is shown full screen: allow rotating the phone and hide the system bars. */
+        @JavascriptInterface
+        public void fullScreen(final boolean on) { runOnUiThread(() -> setFullScreen(on)); }
+
         @JavascriptInterface
         public void leave() { runOnUiThread(GroupCallActivity.this::finish); }
 
@@ -288,6 +302,15 @@ public class GroupCallActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String recStop() { return closeRec(); }
+    }
+
+    @SuppressWarnings("deprecation")
+    private void setFullScreen(boolean on) {
+        if (isFinishing()) return;
+        setRequestedOrientation(on ? ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        getWindow().getDecorView().setSystemUiVisibility(on
+            ? View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            : View.SYSTEM_UI_FLAG_VISIBLE);
     }
 
     private int prevAudioMode = -1;

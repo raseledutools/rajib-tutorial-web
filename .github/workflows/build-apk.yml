@@ -7,6 +7,7 @@ on:
     paths:
       - 'apps/android/rajib-tutorial/**'
       - 'web/index.html'
+      - 'web/callx.js'
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
@@ -24,6 +25,7 @@ jobs:
         run: |
           mkdir -p apps/android/rajib-tutorial/app/src/main/assets
           cp web/index.html apps/android/rajib-tutorial/app/src/main/assets/index.html
+          cp web/callx.js apps/android/rajib-tutorial/app/src/main/assets/callx.js
           echo "Bundled index.html: $(wc -c < apps/android/rajib-tutorial/app/src/main/assets/index.html) bytes"
 
       - name: Set up JDK 17

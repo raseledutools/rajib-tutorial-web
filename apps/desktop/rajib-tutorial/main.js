@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Menu, Tray, nativeImage, session, shell, clipboard, globalShortcut, ipcMain, Notification, protocol, net, safeStorage, dialog, screen, webFrameMain } = require('electron');
+const { app, BrowserWindow, Menu, Tray, nativeImage, session, shell, clipboard, globalShortcut, ipcMain, Notification, protocol, net, safeStorage, dialog, screen, webFrameMain, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -232,6 +232,43 @@ function guard(wc) {
   wc.on('context-menu', (e) => e.preventDefault());
 }
 
+const isCallPage = (u) => String(u || '').startsWith(SITE + 'call.html');
+
+/* Screen sharing inside a call: Windows has no built-in picker in Electron, so the call page shows a small list of
+   screens / windows. Only our own call page may capture. (Screen protection keeps this app's windows black.) */
+function allowScreenShare(ses) {
+  ses.setDisplayMediaRequestHandler(async (request, callback) => {
+    const deny = () => { try { callback({}); } catch (_) {} };
+    try {
+      const frame = request.frame;
+      if (!frame || !isCallPage(frame.url)) return deny();
+      const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 320, height: 180 } });
+      const list = sources.filter((s) => !s.thumbnail.isEmpty()).slice(0, 24)
+        .map((s) => ({ id: s.id, name: s.name, img: s.thumbnail.toDataURL() }));
+      if (!list.length) return deny();
+      const id = await frame.executeJavaScript(`new Promise((done) => {
+        const list = ${JSON.stringify(list)};
+        const o = document.createElement('div');
+        o.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#000d;display:flex;flex-direction:column;align-items:center;overflow:auto;padding:24px;color:#fff;font-family:Segoe UI,sans-serif';
+        const h = document.createElement('h3'); h.textContent = 'Choose what to share'; o.appendChild(h);
+        const g = document.createElement('div'); g.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;justify-content:center'; o.appendChild(g);
+        const end = (v) => { o.remove(); done(v); };
+        list.forEach((s) => {
+          const b = document.createElement('button'); b.style.cssText = 'width:240px;border:2px solid #333;border-radius:12px;background:#1b1e25;color:#fff;padding:8px;cursor:pointer';
+          const i = document.createElement('img'); i.src = s.img; i.style.cssText = 'width:100%;border-radius:6px';
+          const n = document.createElement('div'); n.textContent = s.name; n.style.cssText = 'margin-top:6px;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+          b.append(i, n); b.onclick = () => end(s.id); g.appendChild(b);
+        });
+        const c = document.createElement('button'); c.textContent = 'Cancel'; c.style.cssText = 'margin-top:18px;border:0;border-radius:18px;background:#e8365d;color:#fff;padding:9px 26px;cursor:pointer';
+        c.onclick = () => end(''); o.appendChild(c); document.body.appendChild(o);
+      })`);
+      const chosen = sources.find((s) => s.id === id);
+      if (!chosen) return deny();
+      callback({ video: chosen });
+    } catch (e) { console.error('screen share', e); deny(); }
+  });
+}
+
 /* Open a URL in a child window (inside the app, not the system browser).
    Used for YouTube, Google, YouTube Studio and any external https link. */
 function openChild(url, title, opts) {
@@ -263,6 +300,7 @@ function openChild(url, title, opts) {
 
   // Top bar with Back / Forward / Close — injected after every navigation
   child.webContents.on('did-finish-load', () => {
+    if (isCallPage(child.webContents.getURL())) return;   // the call page has its own buttons; the bar would cover them
     child.webContents.executeJavaScript(`
       (function() {
         if (document.getElementById('__rt_child_bar')) return;
@@ -295,6 +333,7 @@ function openChild(url, title, opts) {
   });
 
   child.loadURL(url);
+  if (isCallPage(url)) child.maximize();
 
   // Links inside the child that open new windows → load in same child
   child.webContents.setWindowOpenHandler(({ url: u }) => {
@@ -842,6 +881,8 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   osk.init({ BrowserWindow, ipcMain, screen, globalShortcut, webFrameMain, getWin: () => win, readPrefs });
   setupBrowserSession(session.fromPartition(EXT_PARTITION), true);
+  allowScreenShare(session.fromPartition(EXT_PARTITION));
+  allowScreenShare(session.defaultSession);
   session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) =>
     cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));
   session.defaultSession.webRequest.onBeforeSendHeaders(
