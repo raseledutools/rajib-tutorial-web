@@ -15,6 +15,10 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Telephone relay (Phone B): tell the owner who is calling on the SIM -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <!-- Telephone: incoming call screen over the lock screen (like WhatsApp) -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -160,6 +164,14 @@
                 <data android:mimeType="application/vnd.ms-excel" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".CallRelayReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PHONE_STATE" />
+            </intent-filter>
+        </receiver>
 
         <!-- Telephone: WhatsApp-style messenger (chat + calls) -->
         <activity

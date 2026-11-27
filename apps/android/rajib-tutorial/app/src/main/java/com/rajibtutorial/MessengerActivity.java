@@ -866,9 +866,64 @@ public class MessengerActivity extends Activity {
         final Ui.Modal m = new Ui.Modal(this, "Telephone", "Your number: " + meId);
         m.col("✉  New chat", Ui.B_GHOST, v -> { m.dismiss(); screen = S_PICK; query = ""; render(); });
         m.col("🔄  Refresh", Ui.B_GHOST, v -> { m.dismiss(); lastSig = ""; fetch(); });
+        m.col("📲  Call alert relay (Phone B)", Ui.B_GHOST, v -> { m.dismiss(); relayMenu(); });
         m.col("🚪  Log out", Ui.B_RED, v -> { m.dismiss(); logout(); });
         m.col("Close", Ui.B_OUTLINE, v -> m.dismiss());
         m.show();
+    }
+
+    // ── Call alert relay: this phone forwards "who is calling" to another phone ──
+    private void relayMenu() {
+        final android.content.SharedPreferences sp = getSharedPreferences(CallRelayReceiver.PREFS, MODE_PRIVATE);
+        final boolean on = sp.getBoolean(CallRelayReceiver.K_ON, false);
+        final boolean auto = sp.getBoolean(CallRelayReceiver.K_AUTO, false);
+        final String to = sp.getString(CallRelayReceiver.K_TO, "");
+        final Ui.Modal m = new Ui.Modal(this, "Call alert relay",
+            "Use this on Phone B (the phone your SIM calls are forwarded to). When a call rings here, the caller's number is sent to the alert number below.");
+        m.col(on ? "✅  Relay is ON (tap to turn off)" : "⭕  Relay is OFF (tap to turn on)", on ? Ui.B_GREEN : Ui.B_PRIMARY, v -> {
+            m.dismiss();
+            if (!on && to.isEmpty()) { toast("Set the alert number first"); relayMenu(); return; }
+            sp.edit().putBoolean(CallRelayReceiver.K_ON, !on).apply();
+            if (!on) askRelayPermissions();
+            relayMenu();
+        });
+        m.col("📞  Alert number: " + (to.isEmpty() ? "not set" : to), Ui.B_GHOST, v -> { m.dismiss(); askRelayNumber(sp); });
+        m.col(auto ? "🤖  Auto-answer: ON" : "🤖  Auto-answer: OFF", Ui.B_GHOST, v -> {
+            m.dismiss();
+            sp.edit().putBoolean(CallRelayReceiver.K_AUTO, !auto).apply();
+            if (!auto) askRelayPermissions();
+            relayMenu();
+        });
+        m.col("Close", Ui.B_OUTLINE, v -> m.dismiss());
+        m.show();
+    }
+
+    private void askRelayNumber(final android.content.SharedPreferences sp) {
+        final EditText et = new EditText(this);
+        et.setInputType(InputType.TYPE_CLASS_PHONE);
+        et.setHint("Phone A's Telephone number");
+        et.setText(sp.getString(CallRelayReceiver.K_TO, ""));
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Alert number")
+            .setMessage("The number you log in with on Phone A.")
+            .setView(et)
+            .setPositiveButton("Save", (d, w) -> {
+                String n = PushManager.normMobile(et.getText().toString());
+                if (n.length() < 10) toast("Enter a valid number");
+                else sp.edit().putString(CallRelayReceiver.K_TO, n).apply();
+                relayMenu();
+            })
+            .setNegativeButton("Cancel", (d, w) -> relayMenu())
+            .show();
+    }
+
+    private void askRelayPermissions() {
+        List<String> need = new ArrayList<>();
+        String[] perms = android.os.Build.VERSION.SDK_INT >= 26
+            ? new String[]{Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_CALL_LOG, Manifest.permission.ANSWER_PHONE_CALLS}
+            : new String[]{Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_CALL_LOG};
+        for (String p : perms) if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) need.add(p);
+        if (!need.isEmpty()) requestPermissions(need.toArray(new String[0]), 4104);
     }
 
     private void renderHomeList() {
