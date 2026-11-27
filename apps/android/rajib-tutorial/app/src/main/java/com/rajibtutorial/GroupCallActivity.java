@@ -252,6 +252,9 @@ public class GroupCallActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
+        public void speaker(final boolean on) { runOnUiThread(() -> setSpeaker(on)); }
+
+        @JavascriptInterface
         public void leave() { runOnUiThread(GroupCallActivity.this::finish); }
 
         @JavascriptInterface
@@ -293,16 +296,51 @@ public class GroupCallActivity extends AppCompatActivity {
                 prevAudioMode = am.getMode();
                 prevSpeaker = am.isSpeakerphoneOn();
                 am.setMode(android.media.AudioManager.MODE_IN_COMMUNICATION);
-                am.setSpeakerphoneOn(true);
-                if (Build.VERSION.SDK_INT >= 31) {
-                    for (android.media.AudioDeviceInfo d : am.getAvailableCommunicationDevices()) {
-                        if (d.getType() == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) { am.setCommunicationDevice(d); break; }
-                    }
-                }
+                setSpeaker(true);
             } else if (prevAudioMode >= 0) {
+                proximity(false);
                 if (Build.VERSION.SDK_INT >= 31) am.clearCommunicationDevice();
                 am.setSpeakerphoneOn(prevSpeaker);
                 am.setMode(prevAudioMode);
+            }
+        } catch (Throwable ignored) { }
+    }
+
+    private boolean speakerOn = true;
+    private android.os.PowerManager.WakeLock proxLock;
+
+    /** true = loudspeaker, false = earpiece (hold the phone to your ear; screen turns off near the face on voice calls). */
+    @SuppressWarnings("deprecation")
+    private void setSpeaker(boolean on) {
+        speakerOn = on;
+        try {
+            android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+            if (am != null) {
+                am.setSpeakerphoneOn(on);
+                if (Build.VERSION.SDK_INT >= 31) {
+                    int want = on ? android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER : android.media.AudioDeviceInfo.TYPE_BUILTIN_EARPIECE;
+                    boolean ok = false;
+                    for (android.media.AudioDeviceInfo d : am.getAvailableCommunicationDevices()) {
+                        if (d.getType() == want) { am.setCommunicationDevice(d); ok = true; break; }
+                    }
+                    if (!ok) am.clearCommunicationDevice();
+                }
+            }
+        } catch (Throwable ignored) { }
+        proximity(!on && !wantVideo);
+    }
+
+    private void proximity(boolean on) {
+        try {
+            if (on) {
+                android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
+                if (proxLock == null && pm != null
+                    && pm.isWakeLockLevelSupported(android.os.PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
+                    proxLock = pm.newWakeLock(android.os.PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "rt:callprox");
+                }
+                if (proxLock != null && !proxLock.isHeld()) proxLock.acquire(2 * 60 * 60 * 1000L);
+            } else if (proxLock != null && proxLock.isHeld()) {
+                proxLock.release();
             }
         } catch (Throwable ignored) { }
     }

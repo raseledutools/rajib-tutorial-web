@@ -142,8 +142,8 @@ public class PushService extends FirebaseMessagingService {
             .setVibrate(new long[]{0, 800, 600, 800, 600, 800})
             .setFullScreenIntent(fullPi, true)
             .setContentIntent(fullPi)
-            .addAction(0, "Decline", decPi)
-            .addAction(0, "Accept", accPi);
+            .addAction(new NotificationCompat.Action.Builder(0, "Decline", decPi).setAuthenticationRequired(false).build())
+            .addAction(new NotificationCompat.Action.Builder(0, "Accept", accPi).setAuthenticationRequired(false).build());
         try { NotificationManagerCompat.from(this).notify(nid, b.build()); } catch (SecurityException ignored) { }
         // Also start the screen directly when the system allows it (app was in the foreground state)
         try { startActivity(full); } catch (Throwable ignored) { }
@@ -203,8 +203,8 @@ public class PushService extends FirebaseMessagingService {
             .setVibrate(new long[]{0, 800, 600, 800, 600, 800})
             .setFullScreenIntent(fullPi, true)
             .setContentIntent(fullPi)
-            .addAction(0, "Cut", cutPi)
-            .addAction(0, "Receive", accPi);
+            .addAction(new NotificationCompat.Action.Builder(0, "Cut", cutPi).setAuthenticationRequired(false).build())
+            .addAction(new NotificationCompat.Action.Builder(0, "Receive", accPi).setAuthenticationRequired(false).build());
         try { NotificationManagerCompat.from(this).notify(nid, b.build()); } catch (SecurityException ignored) { }
         try { startActivity(full); } catch (Throwable ignored) { }
     }

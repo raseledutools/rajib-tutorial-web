@@ -68,8 +68,7 @@ public class IncomingCallActivity extends Activity {
         }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
             | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-            | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+            | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);   // no DISMISS_KEYGUARD: calls work without unlocking
         getWindow().setStatusBarColor(0xFF0F1B21);
         getWindow().setNavigationBarColor(0xFF0F1B21);
 

@@ -40,6 +40,7 @@ body.duo .tile:not(.me) .nm{left:50%;transform:translateX(-50%);bottom:130px;fon
 <div id="wait">Waiting for others to join…<br>Everyone in the Discussion group has been notified.</div>
 <div id="msg"></div>
 <div id="bar">
+  <button class="btn on" id="bSpk" onclick="toggleSpk()" title="Loudspeaker / earpiece">🔊</button>
   <button class="btn" id="bMic" onclick="toggleMic()">🎤</button>
   <button class="btn" id="bCam" onclick="toggleCam()">📹</button>
   <button class="btn" id="bFlip" onclick="flipCam()">🔄</button>
@@ -229,6 +230,13 @@ async function flipCam(){
     const v=document.getElementById('t_'+me).querySelector('video');v.srcObject=local;v.style.transform=facing==='user'?'scaleX(-1)':'none';
   }catch(e){toast('Could not switch camera')}
 }
+let spk=true;
+function toggleSpk(){
+  spk=!spk;try{AndroidCall.speaker(spk)}catch(e){}
+  const b=document.getElementById('bSpk');b.textContent=spk?'🔊':'📱';b.classList.toggle('on',spk);
+  toast(spk?'Loudspeaker':'Earpiece: hold the phone to your ear');
+}
+if(INFO.bridge)document.getElementById('bSpk').style.display='none';   // SIM bridge: the phone owns the audio route
 async function leaveCall(){
   if(left)return;left=true;
   // whatever fails below, the screen must close: hard fallback
