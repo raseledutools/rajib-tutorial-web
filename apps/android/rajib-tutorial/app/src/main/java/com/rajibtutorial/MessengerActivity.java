@@ -68,6 +68,11 @@ public class MessengerActivity extends Activity {
     private static final int C_TEXT = 0xFFE9EDEF, C_SUB = 0xFF8696A0, C_GREEN = 0xFF00A884, C_TICK = 0xFF53BDEB;
     private static final int C_DIV = 0xFF1B262D, C_RED = 0xFFF15C6D, C_CHIP = 0xFF182229;
 
+    /** Read by PushService: Telephone is on screen (it polls & rings by itself) and which chat is open. */
+    static volatile boolean ON_SCREEN = false;
+    static volatile String CUR_PEER = "";
+    static final String EXTRA_PEER = "peer";
+
     private static final String PREFIX = "_dm_";
     private static final long POLL_MS = 3000;
     private static final int REQ_PICK = 4101, REQ_MIC = 4102;
@@ -112,6 +117,7 @@ public class MessengerActivity extends Activity {
     private boolean searching = false;
     private boolean polling = false, fetching = false, released = false;
     private String lastSig = "";
+    private String lastOutCall = "", callMsgId = "";
 
     // views
     private FrameLayout body;
@@ -171,6 +177,7 @@ public class MessengerActivity extends Activity {
 
         if (meId.isEmpty()) { renderLoginNeeded(); return; }
 
+        try { PushManager.setDm(getApplicationContext(), true, meId, meName); } catch (Throwable ignored) { }
         buildContacts();
         if (Store.members.isEmpty()) {
             Store.loadAll((Boolean ok, Exception e) -> {
@@ -180,12 +187,60 @@ public class MessengerActivity extends Activity {
             });
         }
         render();
+        handlePeerIntent(getIntent());
+        ensureCallPermissions();
+    }
+
+    /** Once per install: allow notifications + the full-screen call screen so calls ring with the phone locked. */
+    private void ensureCallPermissions() {
+        try {
+            android.content.SharedPreferences sp = getSharedPreferences("rt_native", MODE_PRIVATE);
+            if (android.os.Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 4103);
+            }
+            if (android.os.Build.VERSION.SDK_INT >= 34 && !sp.getBoolean("dm_fsi_asked", false)) {
+                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                if (nm != null && !nm.canUseFullScreenIntent()) {
+                    sp.edit().putBoolean("dm_fsi_asked", true).apply();
+                    final Ui.Modal m = new Ui.Modal(this, "Show calls on lock screen",
+                        "Allow “Full-screen notifications” so incoming calls open the call screen even when the phone is locked.");
+                    m.col("Open settings", Ui.B_PRIMARY, v -> {
+                        m.dismiss();
+                        try {
+                            startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                                Uri.parse("package:" + getPackageName())));
+                        } catch (Exception e) { toast("Open Settings → Apps → Special access"); }
+                    });
+                    m.col("Later", Ui.B_OUTLINE, v -> m.dismiss());
+                    m.show();
+                }
+            }
+        } catch (Throwable ignored) { }
+    }
+
+    @Override
+    protected void onNewIntent(Intent i) {
+        super.onNewIntent(i);
+        setIntent(i);
+        handlePeerIntent(i);
+    }
+
+    private void handlePeerIntent(Intent i) {
+        if (i == null || meId.isEmpty()) return;
+        String peer = i.getStringExtra(EXTRA_PEER);
+        if (peer != null && !peer.isEmpty() && !peer.equals(meId)) {
+            i.removeExtra(EXTRA_PEER);
+            openChat(peer);
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        ON_SCREEN = true;
         if (meId.isEmpty()) return;
+        cancelUnansweredCall();
         polling = true;
         h.removeCallbacks(pollTask);
         h.post(pollTask);
@@ -194,6 +249,7 @@ public class MessengerActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        ON_SCREEN = false;
         polling = false;
         h.removeCallbacks(pollTask);
         stopPlayer();
@@ -202,6 +258,8 @@ public class MessengerActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        ON_SCREEN = false;
+        CUR_PEER = "";
         released = true;
         h.removeCallbacksAndMessages(null);
         stopRing();
@@ -414,8 +472,9 @@ public class MessengerActivity extends Activity {
     }
 
     // ── sending ──────────────────────────────────────────────
-    private void send(String type, String text, String url, String fileName, Map<String, Object> extra) {
-        if (curPeer.isEmpty()) return;
+    private String send(String type, String text, String url, String fileName, Map<String, Object> extra) {
+        if (curPeer.isEmpty()) return "";
+        final String peer = curPeer;
         final long ts = System.currentTimeMillis();
         final String id = PREFIX + keyOf(meId, curPeer) + "_" + String.format(Locale.US, "%013d", ts) + "_"
             + Integer.toString(new Random().nextInt(1679616) + 1679616, 36).substring(1);
@@ -452,8 +511,14 @@ public class MessengerActivity extends Activity {
                 toast("Could not send: " + (e.getMessage() == null ? "check your internet" : e.getMessage()));
             } else {
                 fetch();
+                boolean call = "call".equals(pm.type);
+                try {
+                    new AdminBridge(getApplicationContext(), null).sendDmPush(peer, call ? "dmcall" : "dm", meId, meName,
+                        preview(pm), id, pm.room, "video".equals(pm.text));
+                } catch (Throwable ignored) { }
             }
         });
+        return id;
     }
 
     private void sendText() {
@@ -470,7 +535,7 @@ public class MessengerActivity extends Activity {
         String room = "dm_" + keyOf(meId, curPeer) + "_" + Long.toString(System.currentTimeMillis(), 36);
         Map<String, Object> ex = new LinkedHashMap<>();
         ex.put("room", room);
-        send("call", video ? "video" : "voice", "", "", ex);
+        lastOutCall = send("call", video ? "video" : "voice", "", "", ex);
         launchCall(room, video);
     }
 
@@ -489,8 +554,29 @@ public class MessengerActivity extends Activity {
         startActivity(i);
     }
 
+    /** Back from a call screen: if the other side never answered, tell them the call was cancelled (stops their ringing). */
+    private void cancelUnansweredCall() {
+        final String id = lastOutCall;
+        if (id.isEmpty()) return;
+        lastOutCall = "";
+        Store.async(() -> {
+            Fs.Doc d = Fs.get(id);
+            if (d != null && Fs.num(d.data, "ans") == 0) {
+                Map<String, Object> u = new LinkedHashMap<>();
+                u.put("ans", Long.valueOf(3));
+                Fs.update(id, u);
+            }
+            return Boolean.TRUE;
+        }, null);
+    }
+
     private void checkIncomingCall() {
-        if (callDlg != null && callDlg.isShowing()) return;
+        if (callDlg != null && callDlg.isShowing()) {
+            for (Msg m : all) {
+                if (m.id.equals(callMsgId) && m.ans != 0) { stopRing(); callDlg.dismiss(); break; }
+            }
+            return;
+        }
         long now = System.currentTimeMillis();
         for (Msg m : all) {
             if (!"call".equals(m.type) || m.from.equals(meId) || m.ans != 0 || m.room.isEmpty()) continue;
@@ -506,6 +592,7 @@ public class MessengerActivity extends Activity {
         final Contact c = contactOf(m.from, m.fromName);
         final Dialog d = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         callDlg = d;
+        callMsgId = m.id;
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -590,6 +677,7 @@ public class MessengerActivity extends Activity {
         body.removeAllViews();
         input = null; searchEt = null; msgBox = null; msgScroll = null; listBox = null;
         lastSig = "";
+        CUR_PEER = screen == S_CHAT ? curPeer : "";
         if (screen == S_CHAT) body.addView(buildChat(), new FrameLayout.LayoutParams(MATCH, MATCH));
         else if (screen == S_PICK) body.addView(buildPicker(), new FrameLayout.LayoutParams(MATCH, MATCH));
         else body.addView(buildHome(), new FrameLayout.LayoutParams(MATCH, MATCH));
@@ -1141,7 +1229,7 @@ public class MessengerActivity extends Activity {
         LinearLayout t = new LinearLayout(this);
         t.setOrientation(LinearLayout.VERTICAL);
         String title = (video ? "Video call" : "Voice call");
-        String sub = mine ? (m.ans == 2 ? "Declined" : m.ans == 1 ? "Answered" : "Outgoing") : (missed ? "Missed" : "Answered");
+        String sub = mine ? (m.ans == 2 ? "Declined" : m.ans == 1 ? "Answered" : m.ans == 3 ? "No answer" : "Outgoing") : (missed ? "Missed" : "Answered");
         t.addView(Ui.tv(this, title, 15, C_TEXT, true));
         t.addView(Ui.tv(this, sub, 12.5f, mine ? 0xFFA8C5BC : C_SUB, false));
         r.addView(t);

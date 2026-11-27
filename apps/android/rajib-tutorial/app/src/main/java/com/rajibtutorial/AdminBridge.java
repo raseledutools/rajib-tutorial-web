@@ -216,6 +216,40 @@ public class AdminBridge {
         }).start();
     }
 
+    /**
+     * Telephone push to ONE person: FCM topic "dm_<toId>" (every device that person is signed in on).
+     * kind = "dm" (chat message) or "dmcall" (incoming call → full-screen ring, even when the phone is locked).
+     * Data-only + high priority so PushService runs even if the app is closed. Fire-and-forget.
+     */
+    public void sendDmPush(final String toId, final String kind, final String fromId, final String fromName,
+                           final String body, final String docId, final String room, final boolean video) {
+        new Thread(() -> {
+            try {
+                String at = getAccessToken();
+                if (at == null) return;
+                boolean call = "dmcall".equals(kind);
+                JSONObject data = new JSONObject();
+                data.put("kind", kind);
+                data.put("sender", fromId);
+                data.put("senderName", fromName);
+                data.put("to", toId);
+                data.put("body", body);
+                data.put("id", docId);
+                data.put("room", room == null ? "" : room);
+                data.put("video", video ? "1" : "0");
+                data.put("time", String.valueOf(System.currentTimeMillis()));
+                JSONObject android = new JSONObject();
+                android.put("priority", "high");
+                android.put("ttl", call ? "45s" : "86400s");
+                JSONObject msg = new JSONObject();
+                msg.put("topic", "dm_" + toId.replaceAll("[^A-Za-z0-9]", ""));
+                msg.put("data", data);
+                msg.put("android", android);
+                sendFcm(at, new JSONObject().put("message", msg));
+            } catch (Throwable ignored) { }
+        }).start();
+    }
+
     /** Push to every signed-in admin device (topic "admins"). Fire-and-forget, safe to call from any thread. */
     public void notifyAdmins(final String title, final String body) {
         new Thread(() -> {

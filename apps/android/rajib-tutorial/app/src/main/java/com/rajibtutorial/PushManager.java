@@ -31,6 +31,10 @@ final class PushManager {
     static final String TOPIC_DISCUSSION = "discussion";
     static final String TOPIC_ADMINS = "admins";
     static final String CHAT_CHANNEL = "rt_chat_v1";
+    /** Telephone (1:1 messenger): messages + incoming calls. Each member listens on topic "dm_<id>". */
+    static final String DM_CHANNEL = "rt_dm_v1";
+    static final String CALL_CHANNEL = "rt_call_v1";
+    private static final String K_DM_ME = "dm_me", K_DM_NAME = "dm_name";
     private static final String K_DISC_ME = "disc_me";
 
     private static final String PREFS    = "PushPrefs";
@@ -98,6 +102,29 @@ final class PushManager {
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
             nm.createNotificationChannel(chat);
+
+            NotificationChannel dm = new NotificationChannel(
+                DM_CHANNEL, "Telephone messages", NotificationManager.IMPORTANCE_HIGH);
+            dm.setDescription("New chat messages in Telephone");
+            dm.enableVibration(true);
+            dm.setVibrationPattern(VIBE);
+            dm.setShowBadge(true);
+            dm.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+            dm.setSound(snd, new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+            nm.createNotificationChannel(dm);
+
+            NotificationChannel call = new NotificationChannel(
+                CALL_CHANNEL, "Telephone calls", NotificationManager.IMPORTANCE_HIGH);
+            call.setDescription("Incoming voice and video calls");
+            call.enableVibration(true);
+            call.setVibrationPattern(new long[]{0, 800, 600, 800, 600, 800});
+            call.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+            call.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+            nm.createNotificationChannel(call);
         } catch (Exception ignored) {}
     }
 
@@ -111,6 +138,8 @@ final class PushManager {
             FirebaseMessaging fm = FirebaseMessaging.getInstance();
             fm.subscribeToTopic(TOPIC_ALL);
             fm.subscribeToTopic(TOPIC_UPDATE);
+            String dmMe = dmMe(app);
+            if (!dmMe.isEmpty()) fm.subscribeToTopic("dm_" + dmMe);   // keep receiving Telephone pushes after app restart / reboot
             fm.getToken().addOnSuccessListener(t -> onToken(app, t));
         } catch (Throwable ignored) {}
     }
@@ -143,6 +172,22 @@ final class PushManager {
             else FirebaseMessaging.getInstance().unsubscribeFromTopic(TOPIC_DISCUSSION);
         } catch (Throwable ignored) { }
     }
+
+    /** Telephone: join / leave my personal push topic "dm_<id>" (messages + calls reach me with the app closed). */
+    static void setDm(Context c, boolean on, String myId, String myName) {
+        String old = dmMe(c);
+        String id = myId == null ? "" : myId.replaceAll("[^A-Za-z0-9]", "");
+        p(c).edit().putString(K_DM_ME, on ? id : "").putString(K_DM_NAME, myName == null ? "" : myName).apply();
+        try {
+            if (FirebaseApp.getApps(c).isEmpty()) return;
+            FirebaseMessaging fm = FirebaseMessaging.getInstance();
+            if (!old.isEmpty() && (!on || !old.equals(id))) fm.unsubscribeFromTopic("dm_" + old);
+            if (on && !id.isEmpty()) fm.subscribeToTopic("dm_" + id);
+        } catch (Throwable ignored) { }
+    }
+
+    static String dmMe(Context c) { return p(c).getString(K_DM_ME, ""); }
+    static String dmName(Context c) { return p(c).getString(K_DM_NAME, ""); }
 
     // ── Local copy of received admin messages (fallback for the notification inbox) ──
     private static final String K_INBOX = "inbox";

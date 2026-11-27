@@ -1,6 +1,7 @@
 package com.rajibtutorial;
 
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.media.RingtoneManager;
 
@@ -55,6 +56,139 @@ public class PushService extends FirebaseMessagingService {
         } catch (SecurityException ignored) { }
     }
 
+    // ── Telephone (1:1 messenger) ───────────────────────────
+    private static long ageMs(RemoteMessage m) {
+        try {
+            String t = m.getData().get("time");
+            if (t != null && !t.isEmpty()) return System.currentTimeMillis() - Long.parseLong(t);
+        } catch (NumberFormatException ignored) { }
+        return 0;
+    }
+
+    /** Chat message for me: tap opens that conversation. Skipped when Telephone is on screen (it polls by itself). */
+    private void showDm(RemoteMessage m) {
+        String from = nz(m.getData().get("sender"));
+        String me = PushManager.dmMe(this);
+        String to = nz(m.getData().get("to"));
+        if (me.isEmpty() || from.isEmpty() || from.equals(me) || (!to.isEmpty() && !to.equals(me))) return;
+        if (MessengerActivity.ON_SCREEN && (MessengerActivity.CUR_PEER.isEmpty() || MessengerActivity.CUR_PEER.equals(from))) return;
+        String name = nz(m.getData().get("senderName"));
+        if (name.isEmpty()) name = from;
+        String body = nz(m.getData().get("body"));
+        PushManager.createChannel(this);
+        int nid = 0x4D000000 | (from.hashCode() & 0xFFFFFF);
+        Intent open = new Intent(this, MessengerActivity.class)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            .putExtra(MessengerActivity.EXTRA_PEER, from);
+        PendingIntent pi = PendingIntent.getActivity(this, nid, open,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, PushManager.DM_CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_push)
+            .setColor(0xFF00A884)
+            .setContentTitle(name)
+            .setContentText(body)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+            .setSubText("Telephone")
+            .setWhen(System.currentTimeMillis())
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setAutoCancel(true)
+            .setContentIntent(pi);
+        try { NotificationManagerCompat.from(this).notify(nid, b.build()); } catch (SecurityException ignored) { }
+    }
+
+    /** Incoming call: full-screen intent → IncomingCallActivity over the lock screen (like WhatsApp). */
+    private void showCall(RemoteMessage m) {
+        String from = nz(m.getData().get("sender"));
+        String me = PushManager.dmMe(this);
+        String to = nz(m.getData().get("to"));
+        String room = nz(m.getData().get("room"));
+        if (me.isEmpty() || from.isEmpty() || from.equals(me) || room.isEmpty() || (!to.isEmpty() && !to.equals(me))) return;
+        if (ageMs(m) > 40000) return;                                            // stale: the caller already gave up
+        if (MessengerActivity.ON_SCREEN) return;                                  // Telephone is open: it rings in-app
+        String name = nz(m.getData().get("senderName"));
+        if (name.isEmpty()) name = from;
+        boolean video = "1".equals(m.getData().get("video"));
+        String doc = nz(m.getData().get("id"));
+        PushManager.createChannel(this);
+        int nid = 0x43000000 | (doc.hashCode() & 0xFFFFFF);
+
+        Intent full = callIntent(this, doc, from, name, room, video, me, nid, null);
+        PendingIntent fullPi = PendingIntent.getActivity(this, nid, full,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent accPi = PendingIntent.getActivity(this, nid + 1,
+            callIntent(this, doc, from, name, room, video, me, nid, IncomingCallActivity.ACT_ACCEPT),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent decPi = PendingIntent.getActivity(this, nid + 2,
+            callIntent(this, doc, from, name, room, video, me, nid, IncomingCallActivity.ACT_DECLINE),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, PushManager.CALL_CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_push)
+            .setColor(0xFF00A884)
+            .setContentTitle(name)
+            .setContentText(video ? "Incoming video call" : "Incoming voice call")
+            .setSubText("Telephone")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setTimeoutAfter(40000)
+            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))
+            .setVibrate(new long[]{0, 800, 600, 800, 600, 800})
+            .setFullScreenIntent(fullPi, true)
+            .setContentIntent(fullPi)
+            .addAction(0, "Decline", decPi)
+            .addAction(0, "Accept", accPi);
+        try { NotificationManagerCompat.from(this).notify(nid, b.build()); } catch (SecurityException ignored) { }
+        // Also start the screen directly when the system allows it (app was in the foreground state)
+        try { startActivity(full); } catch (Throwable ignored) { }
+    }
+
+    private static Intent callIntent(Context c, String doc, String from, String name, String room,
+                                     boolean video, String me, int nid, String action) {
+        Intent i = new Intent(c, IncomingCallActivity.class)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_USER_ACTION | Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            .putExtra(IncomingCallActivity.EXTRA_DOC, doc)
+            .putExtra(IncomingCallActivity.EXTRA_FROM, from)
+            .putExtra(IncomingCallActivity.EXTRA_NAME, name)
+            .putExtra(IncomingCallActivity.EXTRA_ROOM, room)
+            .putExtra(IncomingCallActivity.EXTRA_VIDEO, video)
+            .putExtra(IncomingCallActivity.EXTRA_TO, me)
+            .putExtra(IncomingCallActivity.EXTRA_NID, nid);
+        if (action != null) i.putExtra(IncomingCallActivity.EXTRA_ACTION, action);
+        return i;
+    }
+
+    /** "Missed voice call" notification (call rang out without being answered). */
+    static void notifyMissed(Context c, String from, String name, boolean video) {
+        try {
+            PushManager.createChannel(c);
+            int nid = 0x4D000000 | (from.hashCode() & 0xFFFFFF);
+            Intent open = new Intent(c, MessengerActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra(MessengerActivity.EXTRA_PEER, from);
+            PendingIntent pi = PendingIntent.getActivity(c, nid, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            NotificationCompat.Builder b = new NotificationCompat.Builder(c, PushManager.DM_CHANNEL)
+                .setSmallIcon(R.drawable.ic_stat_push)
+                .setColor(0xFFF15C6D)
+                .setContentTitle(name)
+                .setContentText(video ? "Missed video call" : "Missed voice call")
+                .setSubText("Telephone")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
+                .setAutoCancel(true)
+                .setContentIntent(pi);
+            NotificationManagerCompat.from(c).notify(nid, b.build());
+        } catch (Throwable ignored) { }
+    }
+
+    private static String nz(String s) { return s == null ? "" : s; }
+
     @Override
     public void onNewToken(String token) {
         PushManager.onToken(this, token);
@@ -77,7 +211,10 @@ public class PushService extends FirebaseMessagingService {
             title = m.getNotification().getTitle();
             body = m.getNotification().getBody();
         }
-        if ("chat".equals(m.getData().get("kind"))) { showChat(m); return; }
+        String kind = m.getData().get("kind");
+        if ("dm".equals(kind)) { showDm(m); return; }
+        if ("dmcall".equals(kind)) { showCall(m); return; }
+        if ("chat".equals(kind)) { showChat(m); return; }
         if (title == null) title = m.getData().get("title");
         if (body == null) body = m.getData().get("body");
         if (title == null || title.isEmpty()) title = "Rajib Tutorial";

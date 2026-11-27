@@ -261,8 +261,27 @@ public class NativeHomeActivity extends AppCompatActivity {
         try { PushManager.setDiscussion(getApplicationContext(), on, me); } catch (Throwable ignored) { }
     }
 
+    private String dmSynced = null;
+
+    /** Every signed-in member (and the admin) can use Telephone: personal topic for background messages + calls. */
+    private void syncDmTopic() {
+        if (loading && Store.sessionMobile != null) return;
+        boolean on = Store.adminIn || Store.sessionMobile != null;
+        String me = Store.adminIn ? "admin" : (Store.sessionMobile == null ? "" : Store.sessionMobile.replaceAll("[^A-Za-z0-9]", ""));
+        String name = "Admin";
+        if (!Store.adminIn) {
+            Store.Member m = Store.curMember();
+            name = (m == null || m.name.isEmpty()) ? (Store.sessionMobile == null ? "Member" : Store.sessionMobile) : m.name;
+        }
+        String key = on + ":" + me + ":" + name;
+        if (key.equals(dmSynced)) return;
+        dmSynced = key;
+        try { PushManager.setDm(getApplicationContext(), on, me, name); } catch (Throwable ignored) { }
+    }
+
     private void syncPushUser() {
         syncDiscussionTopic();
+        syncDmTopic();
         if (loading && Store.sessionMobile != null) return;   // members not loaded yet — wait
         String m = Store.sessionMobile != null ? Store.sessionMobile : "";   // admin phone logged in as member must register too
         if (m.equals(pushUserSynced)) return;
