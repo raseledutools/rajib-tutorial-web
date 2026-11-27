@@ -234,6 +234,12 @@ function guard(wc) {
 
 const isCallPage = (u) => String(u || '').startsWith(SITE + 'call.html');
 
+/* What pages may do. Screen capture ("display-capture") is allowed to our own call page only. */
+function mayUse(wc, perm, details) {
+  if (['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)) return true;
+  return perm === 'display-capture' && isCallPage((details && details.requestingUrl) || (wc && wc.getURL()));
+}
+
 /* Screen sharing inside a call: Windows has no built-in picker in Electron, so the call page shows a small list of
    screens / windows. Only our own call page may capture. (Screen protection keeps this app's windows black.) */
 function allowScreenShare(ses) {
@@ -873,8 +879,8 @@ function setupBrowserSession(ext, persistent) {
       }
       cb({ requestHeaders: h });
     });
-    ext.setPermissionRequestHandler((_wc, perm, cb) =>
-      cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));
+    ext.setPermissionRequestHandler((wc, perm, cb, details) =>
+      cb(mayUse(wc, perm, details)));
 }
 
 app.whenReady().then(() => {
@@ -883,8 +889,8 @@ app.whenReady().then(() => {
   setupBrowserSession(session.fromPartition(EXT_PARTITION), true);
   allowScreenShare(session.fromPartition(EXT_PARTITION));
   allowScreenShare(session.defaultSession);
-  session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) =>
-    cb(['media', 'fullscreen', 'clipboard-sanitized-write', 'notifications'].includes(perm)));
+  session.defaultSession.setPermissionRequestHandler((wc, perm, cb, details) =>
+    cb(mayUse(wc, perm, details)));
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ['https://www.youtube.com/embed/*', 'https://www.youtube-nocookie.com/embed/*'] },
     (d, cb) => { d.requestHeaders['Referer'] = SITE; cb({ requestHeaders: d.requestHeaders }); });
