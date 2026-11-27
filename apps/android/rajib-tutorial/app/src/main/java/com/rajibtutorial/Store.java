@@ -324,7 +324,7 @@ final class Store {
                 }
                 if (d.id.startsWith("_member_")) { r.members.add(parseMember(d)); continue; }
                 if (d.id.startsWith("_res_")) { r.resources.add(parseResource(d)); continue; }
-                if (d.id.startsWith("_disc_") || d.id.startsWith("_call_") || d.id.startsWith("_dm_") || d.id.startsWith("_payreq_")) continue;   // Discussion chat / call signalling — not courses
+                if (d.id.startsWith("_disc_") || d.id.startsWith("_call_") || d.id.startsWith("_dm_") || d.id.startsWith("_tm_") || d.id.startsWith("_tel_") || d.id.startsWith("_payreq_")) continue;   // Discussion chat / call signalling — not courses
                 Course c = new Course();
                 c.id = d.id;
                 c.courseName = str(d.data, "courseName");

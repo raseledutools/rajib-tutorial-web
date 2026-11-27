@@ -73,7 +73,8 @@ public class MessengerActivity extends Activity {
     static volatile String CUR_PEER = "";
     static final String EXTRA_PEER = "peer";
 
-    private static final String PREFIX = "_dm_";
+    private static final String PREFIX = "_tm_";      // Telephone messages (own namespace)
+    private static final String USER_PREFIX = "_tel_";  // Telephone registered numbers
     private static final long POLL_MS = 3000;
     private static final int REQ_PICK = 4101, REQ_MIC = 4102;
 
@@ -164,31 +165,85 @@ public class MessengerActivity extends Activity {
         getWindow().setNavigationBarColor(C_BAR);
         getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 
-        meId = Store.adminIn ? "admin" : san(Store.sessionMobile == null ? "" : Store.sessionMobile);
-        if (Store.adminIn) meName = "Admin";
-        else {
-            Store.Member m = Store.curMember();
-            meName = (m == null || m.name.isEmpty()) ? (Store.sessionMobile == null ? "Member" : Store.sessionMobile) : m.name;
-        }
+        // Telephone has its OWN login: just a phone number (no Rajib Tutorial member account involved)
+        meId = getSharedPreferences("rt_tel", MODE_PRIVATE).getString("num", "");
+        meName = meId;
 
         body = new FrameLayout(this);
         body.setBackgroundColor(C_BG);
         setContentView(body);
 
-        if (meId.isEmpty()) { renderLoginNeeded(); return; }
+        if (meId.isEmpty()) { renderLogin(); return; }
+        startSession();
+    }
 
+    private void startSession() {
         try { PushManager.setDm(getApplicationContext(), true, meId, meName); } catch (Throwable ignored) { }
         buildContacts();
-        if (Store.members.isEmpty()) {
-            Store.loadAll((Boolean ok, Exception e) -> {
-                if (released) return;
-                buildContacts();
-                render();
-            });
-        }
+        loadContacts();
         render();
         handlePeerIntent(getIntent());
         ensureCallPermissions();
+        polling = true;
+        h.removeCallbacks(pollTask);
+        h.post(pollTask);
+    }
+
+    private final List<String> regUsers = new ArrayList<>();
+
+    /** Numbers that have joined Telephone (documents "_tel_<number>"). */
+    private void loadContacts() {
+        Store.async(() -> Fs.latestChat(USER_PREFIX, 500), (List<Fs.Doc> docs, Exception e) -> {
+            if (released || e != null || docs == null) return;
+            regUsers.clear();
+            for (Fs.Doc d : docs) {
+                String n = d.id.substring(USER_PREFIX.length());
+                if (!n.isEmpty() && !regUsers.contains(n)) regUsers.add(n);
+            }
+            buildContacts();
+            if (screen == S_PICK) renderPickerList();
+        });
+    }
+
+    /** Number-only login: remembers the number and registers it so others can find / call it. */
+    private void doLogin(String raw) {
+        final String num = PushManager.normMobile(raw);
+        if (num.length() < 10) { toast("Enter a valid phone number"); return; }
+        hideKeyboard();
+        getSharedPreferences("rt_tel", MODE_PRIVATE).edit().putString("num", num).apply();
+        meId = num;
+        meName = num;
+        final Map<String, Object> d = new LinkedHashMap<>();
+        d.put("appId", DiscussionScreen.SYNC_APP_ID);
+        d.put("number", num);
+        d.put("ts", Long.valueOf(System.currentTimeMillis()));
+        Store.async(() -> { Fs.set(USER_PREFIX + num, d); return Boolean.TRUE; }, null);
+        all = new ArrayList<>();
+        pending.clear();
+        screen = S_HOME;
+        tab = 0;
+        startSession();
+    }
+
+    private void logout() {
+        try { PushManager.setDm(getApplicationContext(), false, "", ""); } catch (Throwable ignored) { }
+        getSharedPreferences("rt_tel", MODE_PRIVATE).edit().remove("num").apply();
+        polling = false;
+        h.removeCallbacks(pollTask);
+        meId = "";
+        meName = "";
+        all = new ArrayList<>();
+        pending.clear();
+        acked.clear();
+        handledCalls.clear();
+        regUsers.clear();
+        buildContacts();
+        screen = S_HOME;
+        curPeer = "";
+        CUR_PEER = "";
+        lastSig = "";
+        body.removeAllViews();
+        renderLogin();
     }
 
     /** Once per install: allow notifications + the full-screen call screen so calls ring with the phone locked. */
@@ -315,14 +370,11 @@ public class MessengerActivity extends Activity {
     private void buildContacts() {
         contacts.clear();
         byId.clear();
-        if (!"admin".equals(meId)) add(new Contact("admin", "Admin", "Course admin"));
-        for (Store.Member m : Store.members) {
-            String raw = m.id != null && m.id.startsWith("_member_") ? m.id.substring(8) : m.mobile;
-            String id = san(raw);
-            if (id.isEmpty() || id.equals(meId) || byId.containsKey(id)) continue;
-            add(new Contact(id, (m.name == null || m.name.isEmpty()) ? raw : m.name, raw));
+        for (String n : regUsers) {
+            if (n.isEmpty() || n.equals(meId) || byId.containsKey(n)) continue;
+            add(new Contact(n, n, "On Telephone"));
         }
-        Collections.sort(contacts, (x, y) -> x.name.compareToIgnoreCase(y.name));
+        Collections.sort(contacts, (x, y) -> x.name.compareTo(y.name));
     }
 
     private void add(Contact c) { contacts.add(c); byId.put(c.id, c); }
@@ -685,27 +737,40 @@ public class MessengerActivity extends Activity {
 
     private void hideKeyboardSafe() { if (body != null && body.getChildCount() > 0) hideKeyboard(); }
 
-    private void renderLoginNeeded() {
+    private void renderLogin() {
+        body.removeAllViews();
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
-        c.setGravity(Gravity.CENTER);
-        c.setPadding(dp(32), 0, dp(32), 0);
+        c.setGravity(Gravity.CENTER_HORIZONTAL);
+        c.setPadding(dp(32), dp(90), dp(32), 0);
         TextView e = Ui.tv(this, "💬", 56, C_TEXT, false);
         e.setGravity(Gravity.CENTER);
         c.addView(e);
-        TextView t = Ui.tv(this, "Telephone", 24, C_TEXT, true);
+        TextView t = Ui.tv(this, "Welcome to Telephone", 24, C_TEXT, true);
         t.setGravity(Gravity.CENTER);
-        c.addView(t, Ui.lpm(this, WRAP, WRAP, 0, 12, 0, 6));
-        TextView s = Ui.tv(this, "Please log in to your Rajib Tutorial account first (Native app → Login), then open Telephone again.", 14, C_SUB, false);
+        c.addView(t, Ui.lpm(this, WRAP, WRAP, 0, 14, 0, 8));
+        TextView s = Ui.tv(this, "Enter your phone number to start chatting and calling.", 14, C_SUB, false);
         s.setGravity(Gravity.CENTER);
         c.addView(s);
-        TextView b = Ui.tv(this, "Go back", 15, Color.WHITE, true);
+        final EditText num = new EditText(this);
+        num.setHint("Phone number");
+        num.setHintTextColor(C_SUB);
+        num.setTextColor(C_TEXT);
+        num.setTextSize(20);
+        num.setSingleLine(true);
+        num.setInputType(InputType.TYPE_CLASS_PHONE);
+        num.setGravity(Gravity.CENTER);
+        num.setBackground(Ui.bg(this, C_BAR, 14, 0));
+        num.setPadding(dp(16), dp(14), dp(16), dp(14));
+        c.addView(num, Ui.lpm(this, MATCH, WRAP, 0, 32, 0, 0));
+        TextView b = Ui.tv(this, "Next", 16, Color.WHITE, true);
         b.setGravity(Gravity.CENTER);
-        b.setBackground(Ui.bg(this, C_GREEN, 24, 0));
-        b.setPadding(dp(28), dp(12), dp(28), dp(12));
+        b.setBackground(Ui.bg(this, C_GREEN, 26, 0));
+        b.setPadding(dp(28), dp(14), dp(28), dp(14));
         Ui.pressFx(b);
-        b.setOnClickListener(v -> finish());
-        c.addView(b, Ui.lpm(this, WRAP, WRAP, 0, 24, 0, 0));
+        b.setOnClickListener(v -> doLogin(num.getText().toString()));
+        c.addView(b, Ui.lpm(this, MATCH, WRAP, 0, 22, 0, 0));
+        num.setOnEditorActionListener((v, a, ev) -> { doLogin(num.getText().toString()); return true; });
         body.addView(c, new FrameLayout.LayoutParams(MATCH, MATCH));
     }
 
@@ -798,9 +863,10 @@ public class MessengerActivity extends Activity {
     }
 
     private void homeMenu() {
-        final Ui.Modal m = new Ui.Modal(this, "Telephone", "Chats & calls with Rajib Tutorial members.");
+        final Ui.Modal m = new Ui.Modal(this, "Telephone", "Your number: " + meId);
         m.col("✉  New chat", Ui.B_GHOST, v -> { m.dismiss(); screen = S_PICK; query = ""; render(); });
         m.col("🔄  Refresh", Ui.B_GHOST, v -> { m.dismiss(); lastSig = ""; fetch(); });
+        m.col("🚪  Log out", Ui.B_RED, v -> { m.dismiss(); logout(); });
         m.col("Close", Ui.B_OUTLINE, v -> m.dismiss());
         m.show();
     }
@@ -939,7 +1005,8 @@ public class MessengerActivity extends Activity {
         root.addView(top, new LinearLayout.LayoutParams(MATCH, WRAP));
 
         searchEt = new EditText(this);
-        searchEt.setHint("Search name or number");
+        searchEt.setHint("Search or type a phone number");
+        searchEt.setInputType(InputType.TYPE_CLASS_TEXT);
         searchEt.setHintTextColor(C_SUB);
         searchEt.setTextColor(C_TEXT);
         searchEt.setTextSize(15);
@@ -967,6 +1034,25 @@ public class MessengerActivity extends Activity {
         listBox.removeAllViews();
         String q = query.trim().toLowerCase(Locale.getDefault());
         int shown = 0;
+        String digits = q.replaceAll("[^0-9]", "");
+        if (digits.length() >= 10) {
+            final String target = PushManager.normMobile(digits);
+            if (!target.equals(meId)) {
+                LinearLayout nr = new LinearLayout(this);
+                nr.setOrientation(LinearLayout.HORIZONTAL);
+                nr.setGravity(Gravity.CENTER_VERTICAL);
+                nr.setPadding(dp(16), dp(10), dp(16), dp(10));
+                Ui.pressFx(nr);
+                nr.setOnClickListener(v -> openChat(target));
+                TextView ic = Ui.tv(this, "💬", 20, Color.WHITE, false);
+                ic.setGravity(Gravity.CENTER);
+                ic.setBackground(Ui.circle(C_GREEN));
+                nr.addView(ic, Ui.lpm(this, dp(46), dp(46), 0, 0, 14, 0));
+                nr.addView(Ui.tv(this, "Chat with " + target, 16, C_TEXT, true));
+                listBox.addView(nr);
+                shown++;
+            }
+        }
         for (final Contact c : contacts) {
             if (!q.isEmpty() && !c.name.toLowerCase(Locale.getDefault()).contains(q) && !c.sub.toLowerCase(Locale.getDefault()).contains(q)) continue;
             LinearLayout row = new LinearLayout(this);
@@ -989,7 +1075,7 @@ public class MessengerActivity extends Activity {
             shown++;
         }
         if (shown == 0) {
-            TextView e = Ui.tv(this, contacts.isEmpty() ? "No contacts loaded yet.\nOpen the Native app once, then try again." : "No results", 15, C_SUB, false);
+            TextView e = Ui.tv(this, contacts.isEmpty() ? "No one has joined yet.\nType a phone number above to start a chat." : "No results", 15, C_SUB, false);
             e.setGravity(Gravity.CENTER);
             e.setPadding(dp(24), dp(60), dp(24), 0);
             listBox.addView(e, new LinearLayout.LayoutParams(MATCH, WRAP));
