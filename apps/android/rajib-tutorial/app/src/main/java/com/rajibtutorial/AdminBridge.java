@@ -241,7 +241,7 @@ public class AdminBridge {
                 data.put("time", String.valueOf(System.currentTimeMillis()));
                 JSONObject android = new JSONObject();
                 android.put("priority", "high");
-                android.put("ttl", call ? "45s" : "86400s");
+                android.put("ttl", call ? "45s" : "tsig".equals(kind) ? "20s" : "86400s");
                 JSONObject msg = new JSONObject();
                 msg.put("topic", "dm_" + toId.replaceAll("[^A-Za-z0-9]", ""));
                 msg.put("data", data);

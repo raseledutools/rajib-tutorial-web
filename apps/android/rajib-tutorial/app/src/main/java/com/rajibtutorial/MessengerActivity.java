@@ -76,8 +76,15 @@ public class MessengerActivity extends Activity {
     static void poke() {
         final MessengerActivity a = LIVE;
         if (a == null) return;
-        a.h.post(a::fetch);
+        a.h.post(() -> { a.typingFrom = ""; a.refreshTyping(); a.fetch(); });
         a.h.postDelayed(a::fetch, 700);        // in case the first fetch was already running
+    }
+
+    /** Live signal from the other phone (FCM): "typing", or "read" / "upd" = something changed on the server. */
+    static void onSignal(final String sender, final String what) {
+        final MessengerActivity a = LIVE;
+        if (a == null) return;
+        a.h.post(() -> a.gotSignal(sender, what));
     }
     static volatile String CUR_PEER = "";
     static final String EXTRA_PEER = "peer";
@@ -135,6 +142,10 @@ public class MessengerActivity extends Activity {
     private LinearLayout replyBar;
     private TextView replyTv;
     private boolean saveQueued = false;
+    private long lastBeat = 0, presFetchAt = 0, peerSeenTs = 0, typingAt = 0, typingSentAt = 0;
+    private boolean peerOn = false;
+    private String typingFrom = "";
+    private TextView peerSub;
     private long lastFull = 0, lastOk = 0, contactsAt = 0;
     private String netError = "";
     private String lastOutCall = "", callMsgId = "";
@@ -161,6 +172,9 @@ public class MessengerActivity extends Activity {
     private final Runnable pollTask = new Runnable() {
         @Override public void run() {
             if (!polling || released) return;
+            long nowMs = System.currentTimeMillis();
+            if (nowMs - lastBeat > 45000) { lastBeat = nowMs; beat(true); }
+            if (screen == S_CHAT && nowMs - presFetchAt > 15000) loadPeerPresence();
             fetch();
             h.postDelayed(this, screen == S_CHAT ? POLL_MS : POLL_MS * 2);
         }
@@ -448,7 +462,7 @@ public class MessengerActivity extends Activity {
         super.onPause();
         ON_SCREEN = false;
         if (LIVE == this) LIVE = null;
-        if (!meId.isEmpty()) saveDiskCache();
+        if (!meId.isEmpty()) { saveDiskCache(); beat(false); lastBeat = 0; }
         polling = false;
         h.removeCallbacks(pollTask);
         stopPlayer();
@@ -706,6 +720,8 @@ public class MessengerActivity extends Activity {
             else if (!open && !m.dl && !m.read && acked.add(m.id + "d")) todo.add(new String[]{m.id, "d"});
         }
         if (todo.isEmpty()) return;
+        final Set<String> senders = new HashSet<>();
+        for (Msg m : all) for (String[] t : todo) if (t[0].equals(m.id)) senders.add(m.from);
         Store.async(() -> {
             for (String[] t : todo) {
                 Map<String, Object> d = new LinkedHashMap<>();
@@ -715,7 +731,7 @@ public class MessengerActivity extends Activity {
                 try { Fs.update(t[0], d); } catch (Exception ignored) { }
             }
             return Boolean.TRUE;
-        }, null);
+        }, (Boolean ok, Exception e) -> { for (String sdr : senders) pushSig(sdr, "read"); });
     }
 
     // ── sending ──────────────────────────────────────────────
@@ -936,7 +952,7 @@ public class MessengerActivity extends Activity {
         hideKeyboardSafe();
         body.removeAllViews();
         input = null; searchEt = null; msgBox = null; msgScroll = null; listBox = null;
-        replyBar = null; replyTv = null;
+        replyBar = null; replyTv = null; peerSub = null;
         if (screen != S_CHAT) replyTo = null;
         lastSig = "";
         CUR_PEER = screen == S_CHAT ? curPeer : "";
@@ -1078,6 +1094,12 @@ public class MessengerActivity extends Activity {
         m.col("🔄  Refresh", Ui.B_GHOST, v -> { m.dismiss(); lastSig = ""; lastFull = 0; fetch(); loadContacts(); });
         m.col("🔗  Pair relay phone (Phone A)", Ui.B_GHOST, v -> { m.dismiss(); pairMenu(); });
         m.col("📲  Call relay setup (Phone B)", Ui.B_GHOST, v -> { m.dismiss(); relayMenu(); });
+        m.col(hideSeen() ? "👁  Show my online & last seen" : "🙈  Hide my online & last seen", Ui.B_GHOST, v -> {
+            m.dismiss();
+            getSharedPreferences("rt_tel", MODE_PRIVATE).edit().putBoolean("hide_seen", !hideSeen()).apply();
+            beat(true);
+            toast(hideSeen() ? "Others can no longer see when you are online" : "Others can see when you are online");
+        });
         m.col("🚪  Log out", Ui.B_RED, v -> { m.dismiss(); logout(); });
         m.col("Close", Ui.B_OUTLINE, v -> m.dismiss());
         m.show();
@@ -1331,7 +1353,8 @@ public class MessengerActivity extends Activity {
             TextView tk = Ui.tv(this, last.read ? "✓✓ " : last.dl ? "✓✓ " : "✓ ", 13, last.read ? C_TICK : C_SUB, false);
             sub.addView(tk);
         }
-        sub.addView(Ui.ellipsized(this, preview(last), 14, unread > 0 ? C_TEXT : C_SUB, false, 1), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        boolean ty = isTyping(c.id);
+        sub.addView(Ui.ellipsized(this, ty ? "typing…" : preview(last), 14, ty ? C_GREEN : (unread > 0 ? C_TEXT : C_SUB), false, 1), new LinearLayout.LayoutParams(0, WRAP, 1f));
         mid.addView(sub, Ui.lpm(this, MATCH, WRAP, 0, 3, 0, 0));
         row.addView(mid, new LinearLayout.LayoutParams(0, WRAP, 1f));
 
@@ -1492,9 +1515,11 @@ public class MessengerActivity extends Activity {
         screen = S_CHAT;
         searching = false;
         query = "";
+        peerSeenTs = 0; peerOn = false; typingFrom = ""; presFetchAt = 0;
         render();
         renderMessages(true);
         fetch();
+        loadPeerPresence();
     }
 
     // ── rendering: chat ──────────────────────────────────────
@@ -1514,7 +1539,8 @@ public class MessengerActivity extends Activity {
         LinearLayout meta = new LinearLayout(this);
         meta.setOrientation(LinearLayout.VERTICAL);
         meta.addView(Ui.ellipsized(this, c.name, 16.5f, C_TEXT, true, 1));
-        meta.addView(Ui.ellipsized(this, c.sub, 12, C_SUB, false, 1));
+        peerSub = Ui.ellipsized(this, c.sub, 12, C_SUB, false, 1);
+        meta.addView(peerSub);
         head.addView(meta, new LinearLayout.LayoutParams(0, WRAP, 1f));
         head.addView(iconBtn("🎥", v -> startCall(true)), new LinearLayout.LayoutParams(dp(42), dp(42)));
         head.addView(iconBtn("📞", v -> startCall(false)), new LinearLayout.LayoutParams(dp(42), dp(42)));
@@ -1590,11 +1616,15 @@ public class MessengerActivity extends Activity {
         input.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence c0, int s0, int c1, int a0) { }
             @Override public void onTextChanged(CharSequence c0, int s0, int b0, int c1) { }
-            @Override public void afterTextChanged(Editable e) { sendBtn.setText(e.toString().trim().isEmpty() ? "🎤" : "➤"); }
+            @Override public void afterTextChanged(Editable e) {
+                sendBtn.setText(e.toString().trim().isEmpty() ? "🎤" : "➤");
+                if (!e.toString().trim().isEmpty()) sendTyping();
+            }
         });
         inputBar = bar;
         root.addView(bar, new LinearLayout.LayoutParams(MATCH, WRAP));
         setReply(replyTo);
+        refreshHeaderSub();
 
         recRow = new LinearLayout(this);
         recRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -1721,6 +1751,87 @@ public class MessengerActivity extends Activity {
         return row;
     }
 
+    // ── live signals: typing, online / last seen ─────────────
+    private void pushSig(String peer, String what) {
+        if (peer == null || peer.isEmpty() || peer.startsWith("g_")) return;
+        try { new AdminBridge(getApplicationContext(), null).sendDmPush(peer, "tsig", meId, meName, what, "", "", false); }
+        catch (Throwable ignored) { }
+    }
+
+    private void sendTyping() {
+        if (curPeer.isEmpty() || curPeer.startsWith("g_")) return;
+        long now = System.currentTimeMillis();
+        if (now - typingSentAt < 3000) return;
+        typingSentAt = now;
+        pushSig(curPeer, "typing");
+    }
+
+    private void gotSignal(String sender, String what) {
+        if (released) return;
+        long now = System.currentTimeMillis();
+        if ("typing".equals(what)) {
+            typingFrom = sender;
+            typingAt = now;
+            if (sender.equals(curPeer)) { peerOn = true; peerSeenTs = now; }
+            refreshTyping();
+            h.postDelayed(this::refreshTyping, 5200);
+        } else {                                              // "read" / "upd": the server data changed
+            fetch();
+            h.postDelayed(this::fetch, 700);
+        }
+    }
+
+    private boolean isTyping(String peer) {
+        return !typingFrom.isEmpty() && typingFrom.equals(peer) && System.currentTimeMillis() - typingAt < 5000;
+    }
+
+    private void refreshTyping() {
+        if (released) return;
+        if (screen == S_CHAT) refreshHeaderSub();
+        else if (screen == S_HOME && tab == 0) renderHomeList();
+    }
+
+    private void refreshHeaderSub() {
+        if (peerSub == null || screen != S_CHAT) return;
+        long now = System.currentTimeMillis();
+        String t;
+        int col = C_SUB;
+        if (isTyping(curPeer)) { t = "typing…"; col = C_GREEN; }
+        else if (peerOn && now - peerSeenTs < 100000) { t = "online"; col = C_GREEN; }
+        else if (peerSeenTs > 0) {
+            String dl = dayLabel(peerSeenTs);
+            t = "last seen " + ("Today".equals(dl) ? "today" : dl) + " at " + timeFmt.format(new Date(peerSeenTs));
+        } else t = contactOf(curPeer, "").sub;
+        peerSub.setText(t);
+        peerSub.setTextColor(col);
+    }
+
+    private boolean hideSeen() { return getSharedPreferences("rt_tel", MODE_PRIVATE).getBoolean("hide_seen", false); }
+
+    /** My presence document (online now / last seen); written while Telephone is open. */
+    private void beat(final boolean on) {
+        if (meId.isEmpty()) return;
+        final boolean hide = hideSeen();
+        final Map<String, Object> d = new LinkedHashMap<>();
+        d.put("appId", DiscussionScreen.SYNC_APP_ID);
+        d.put("ts", Long.valueOf(hide ? 0 : System.currentTimeMillis()));
+        d.put("on", Long.valueOf(on && !hide ? 1 : 0));
+        final String id = "_pr_" + meId;
+        Store.async(() -> { Fs.set(id, d); return Boolean.TRUE; }, null);
+    }
+
+    private void loadPeerPresence() {
+        if (curPeer.isEmpty() || curPeer.startsWith("g_")) return;
+        presFetchAt = System.currentTimeMillis();
+        final String peer = curPeer;
+        Store.async(() -> Fs.get("_pr_" + peer), (Fs.Doc d, Exception e) -> {
+            if (released || e != null || !peer.equals(curPeer) || screen != S_CHAT) return;
+            if (d == null) { peerSeenTs = 0; peerOn = false; }
+            else { peerSeenTs = num(d.data, "ts"); peerOn = num(d.data, "on") == 1; }
+            refreshHeaderSub();
+        });
+    }
+
     // ── message / chat actions ───────────────────────────────
     private void setReply(Msg m) {
         replyTo = m;
@@ -1772,6 +1883,7 @@ public class MessengerActivity extends Activity {
             if (released) return;
             if (e != null) { toast("Could not delete: " + Fs.explain(e)); return; }
             m.del = true; m.text = ""; m.url = ""; m.fileName = ""; m.rt = "";
+            pushSig(m.to, "upd");
             lastSig = "";
             if (screen == S_CHAT) renderMessages(false);
             fetch();

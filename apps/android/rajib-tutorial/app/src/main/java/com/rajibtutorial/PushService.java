@@ -273,6 +273,13 @@ public class PushService extends FirebaseMessagingService {
             body = m.getNotification().getBody();
         }
         String kind = m.getData().get("kind");
+        if ("tsig".equals(kind)) {                      // live signal: typing, read tick, reaction, delete…
+            String sfrom = nz(m.getData().get("sender")), sto = nz(m.getData().get("to"));
+            if (ageMs(m) <= 20000 && !sto.isEmpty() && sto.equals(PushManager.dmMe(this)) && MessengerActivity.ON_SCREEN) {
+                MessengerActivity.onSignal(sfrom, nz(m.getData().get("body")));
+            }
+            return;
+        }
         if ("dm".equals(kind)) { showDm(m); return; }
         if ("dmcall".equals(kind)) { showCall(m); return; }
         if ("relaycmd".equals(kind)) { RelayCall.onPushCommand(this, m.getData()); return; }
