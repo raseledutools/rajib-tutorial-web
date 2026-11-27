@@ -51,6 +51,26 @@ import java.util.concurrent.Executors;
  */
 public class GroupCallActivity extends AppCompatActivity {
     static final String EXTRA_UID = "uid", EXTRA_NAME = "name", EXTRA_VIDEO = "video", EXTRA_ROOM = "room";
+    /** Call relay: pairing code that every signalling message must be signed with (private 1:1 room). */
+    static final String EXTRA_KEY = "key";
+    /** Call relay, Phone B: this call carries a SIM call (loudspeaker bridge). */
+    static final String EXTRA_BRIDGE = "bridge";
+    private String key = "";
+    private boolean bridge = false;
+    private static volatile GroupCallActivity bridgeScreen;
+
+    static boolean bridgeOpen() { return bridgeScreen != null; }
+
+    /** The SIM call ended: leave the internet call too. */
+    static void endBridge() {
+        final GroupCallActivity a = bridgeScreen;
+        if (a == null) return;
+        a.runOnUiThread(() -> {
+            if (a.wv != null && a.running) a.wv.evaluateJavascript("leaveCall()", null);
+            if (a.wv != null) a.wv.postDelayed(() -> { if (!a.isFinishing()) a.finish(); }, 2000);
+            else a.finish();
+        });
+    }
     private static final String PREFIX = "_call_";
     private static final String DEFAULT_ROOM = "discussion";
     private String ROOM = DEFAULT_ROOM;
@@ -86,8 +106,16 @@ public class GroupCallActivity extends AppCompatActivity {
         if (name == null || name.isEmpty()) name = "Member";
         peerId = (uid.isEmpty() ? "u" : uid) + "_" + Integer.toString(new Random().nextInt(1679616) + 1679616, 36).substring(1);
 
+        key = getIntent().getStringExtra(EXTRA_KEY);
+        if (key == null) key = "";
+        bridge = getIntent().getBooleanExtra(EXTRA_BRIDGE, false);
+        if (bridge) {
+            bridgeScreen = this;
+            if (Build.VERSION.SDK_INT >= 27) { setShowWhenLocked(true); setTurnScreenOn(true); }
+        }
+
         setVolumeControlStream(android.media.AudioManager.STREAM_VOICE_CALL);
-        routeAudio(true);
+        if (!bridge) routeAudio(true);       // during a SIM call the phone owns the audio route
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON | WindowManager.LayoutParams.FLAG_SECURE);
         getWindow().setStatusBarColor(Color.BLACK);
@@ -187,7 +215,8 @@ public class GroupCallActivity extends AppCompatActivity {
         @JavascriptInterface
         public String info() {
             try {
-                return new JSONObject().put("id", peerId).put("name", name).put("video", wantVideo).toString();
+                return new JSONObject().put("id", peerId).put("name", name).put("video", wantVideo)
+                    .put("solo", !key.isEmpty()).put("bridge", bridge).toString();
             } catch (Exception e) { return "{}"; }
         }
 
@@ -316,7 +345,7 @@ public class GroupCallActivity extends AppCompatActivity {
     @Override
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
-        if (!running || capturePrompt || Build.VERSION.SDK_INT < 26) return;
+        if (bridge || !running || capturePrompt || Build.VERSION.SDK_INT < 26) return;
         try {
             enterPictureInPictureMode(new PictureInPictureParams.Builder()
                 .setAspectRatio(new Rational(9, 16)).build());
@@ -388,6 +417,8 @@ public class GroupCallActivity extends AppCompatActivity {
         d.put("kind", kind);
         d.put("data", data == null ? "" : data);
         d.put("ts", Long.valueOf(ts));
+        if (!key.isEmpty()) d.put("sig", RelayAuth.sign(key, "sig", ROOM, peerId, name, to == null ? "" : to,
+            kind, data == null ? "" : data, String.valueOf(ts)));
         try {
             sendEx.execute(() -> {
                 try { Fs.set(id, d); myDocs.add(id); } catch (Exception ignored) { }
@@ -426,6 +457,8 @@ public class GroupCallActivity extends AppCompatActivity {
                     String from = str(d, "from"), to = str(d, "to");
                     if (from.equals(peerId) || !ROOM.equals(str(d, "room"))) continue;
                     if (!to.isEmpty() && !to.equals(peerId)) continue;
+                    if (!key.isEmpty() && !RelayAuth.verify(key, str(d, "sig"), "sig", ROOM, from, str(d, "name"), to,
+                        str(d, "kind"), str(d, "data"), String.valueOf(ts))) continue;   // only the paired phone gets in
                     out.put(new JSONObject().put("from", from).put("name", str(d, "name"))
                         .put("kind", str(d, "kind")).put("data", str(d, "data")).put("ts", ts));
                 }
@@ -454,6 +487,10 @@ public class GroupCallActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         running = false;
+        if (bridge) {
+            if (bridgeScreen == this) bridgeScreen = null;
+            if (isFinishing()) RelayCall.bridgeClosed(getApplicationContext(), ROOM);
+        }
         routeAudio(false);
         ScreenCaptureService.cb = null;
         ScreenCaptureService.stop(this);

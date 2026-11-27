@@ -8,6 +8,7 @@ public class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context ctx, Intent intent) {
         String act = intent.getAction();
+        if (Intent.ACTION_BOOT_COMPLETED.equals(act) || Intent.ACTION_MY_PACKAGE_REPLACED.equals(act)) RelayCall.updateNotice(ctx);
         if (Intent.ACTION_MY_PACKAGE_REPLACED.equals(act)) {   // after an app update: re-arm background checks
             UpdateWorker.schedule(ctx);
             PushManager.init(ctx);

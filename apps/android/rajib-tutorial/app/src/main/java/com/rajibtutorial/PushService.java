@@ -148,6 +148,57 @@ public class PushService extends FirebaseMessagingService {
         try { startActivity(full); } catch (Throwable ignored) { }
     }
 
+    /** Call relay: a SIM call is ringing (or was missed) on my paired Phone B. */
+    private void showSimCall(RemoteMessage m, boolean ringing) {
+        String from = nz(m.getData().get("sender"));
+        String me = PushManager.dmMe(this);
+        String to = nz(m.getData().get("to"));
+        String call = nz(m.getData().get("call"));
+        String number = nz(m.getData().get("number"));
+        String time = nz(m.getData().get("time"));
+        if (me.isEmpty() || from.isEmpty() || !to.equals(me) || call.isEmpty()) return;
+        String code = RelayAuth.pairedCode(this, from);
+        boolean trusted = RelayAuth.verify(code, m.getData().get("sig"),
+            "alert", nz(m.getData().get("kind")), from, to, call, number, time);
+        if (!trusted) { showDm(m); return; }           // not paired (or wrong code): ordinary message, no call buttons
+        PushManager.createChannel(this);
+        int nid = 0x53000000 | (call.hashCode() & 0xFFFFFF);
+        if (!ringing) {
+            NotificationManagerCompat.from(this).cancel(nid);
+            showDm(m);
+            return;
+        }
+        if (ageMs(m) > 5 * 60 * 1000L) return;
+        Intent full = SimCallActivity.intent(this, from, call, number, nid, null);
+        PendingIntent fullPi = PendingIntent.getActivity(this, nid, full,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent accPi = PendingIntent.getActivity(this, nid + 1,
+            SimCallActivity.intent(this, from, call, number, nid, SimCallActivity.ACT_ANSWER),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent cutPi = PendingIntent.getActivity(this, nid + 2,
+            SimCallActivity.intent(this, from, call, number, nid, SimCallActivity.ACT_CUT),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, PushManager.CALL_CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_push)
+            .setColor(0xFF00A884)
+            .setContentTitle(number.isEmpty() ? "Unknown number" : number)
+            .setContentText("SIM call on Phone " + from)
+            .setSubText("Telephone")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .setTimeoutAfter(60000)
+            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))
+            .setVibrate(new long[]{0, 800, 600, 800, 600, 800})
+            .setFullScreenIntent(fullPi, true)
+            .setContentIntent(fullPi)
+            .addAction(0, "Cut", cutPi)
+            .addAction(0, "Receive", accPi);
+        try { NotificationManagerCompat.from(this).notify(nid, b.build()); } catch (SecurityException ignored) { }
+        try { startActivity(full); } catch (Throwable ignored) { }
+    }
+
     private static Intent callIntent(Context c, String doc, String from, String name, String room,
                                      boolean video, String me, int nid, String action) {
         Intent i = new Intent(c, IncomingCallActivity.class)
@@ -214,6 +265,7 @@ public class PushService extends FirebaseMessagingService {
         String kind = m.getData().get("kind");
         if ("dm".equals(kind)) { showDm(m); return; }
         if ("dmcall".equals(kind)) { showCall(m); return; }
+        if ("simcall".equals(kind) || "simmissed".equals(kind)) { showSimCall(m, "simcall".equals(kind)); return; }
         if ("chat".equals(kind)) { showChat(m); return; }
         if (title == null) title = m.getData().get("title");
         if (body == null) body = m.getData().get("body");

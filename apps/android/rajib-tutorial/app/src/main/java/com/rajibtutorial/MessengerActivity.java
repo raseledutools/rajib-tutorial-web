@@ -227,7 +227,9 @@ public class MessengerActivity extends Activity {
 
     private void logout() {
         try { PushManager.setDm(getApplicationContext(), false, "", ""); } catch (Throwable ignored) { }
+        RelayAuth.clear(this);
         getSharedPreferences("rt_tel", MODE_PRIVATE).edit().remove("num").apply();
+        RelayCall.updateNotice(this);
         polling = false;
         h.removeCallbacks(pollTask);
         meId = "";
@@ -866,36 +868,99 @@ public class MessengerActivity extends Activity {
         final Ui.Modal m = new Ui.Modal(this, "Telephone", "Your number: " + meId);
         m.col("✉  New chat", Ui.B_GHOST, v -> { m.dismiss(); screen = S_PICK; query = ""; render(); });
         m.col("🔄  Refresh", Ui.B_GHOST, v -> { m.dismiss(); lastSig = ""; fetch(); });
-        m.col("📲  Call alert relay (Phone B)", Ui.B_GHOST, v -> { m.dismiss(); relayMenu(); });
+        m.col("🔗  Pair relay phone (Phone A)", Ui.B_GHOST, v -> { m.dismiss(); pairMenu(); });
+        m.col("📲  Call relay setup (Phone B)", Ui.B_GHOST, v -> { m.dismiss(); relayMenu(); });
         m.col("🚪  Log out", Ui.B_RED, v -> { m.dismiss(); logout(); });
         m.col("Close", Ui.B_OUTLINE, v -> m.dismiss());
         m.show();
     }
 
-    // ── Call alert relay: this phone forwards "who is calling" to another phone ──
+    // ── Call relay: Phone B shares its SIM calls with the paired Phone A ──
     private void relayMenu() {
         final android.content.SharedPreferences sp = getSharedPreferences(CallRelayReceiver.PREFS, MODE_PRIVATE);
         final boolean on = sp.getBoolean(CallRelayReceiver.K_ON, false);
-        final boolean auto = sp.getBoolean(CallRelayReceiver.K_AUTO, false);
         final String to = sp.getString(CallRelayReceiver.K_TO, "");
-        final Ui.Modal m = new Ui.Modal(this, "Call alert relay",
-            "Use this on Phone B (the phone your SIM calls are forwarded to). When a call rings here, the caller's number is sent to the alert number below.");
+        final boolean acc = accessibilityOn();
+        final Ui.Modal m = new Ui.Modal(this, "Call relay (this is Phone B)",
+            "When a SIM call rings here, Phone A rings with the caller's number. Phone A can receive it (experimental loudspeaker bridge), cut it, or send an SMS. "
+            + "Keep this phone charged and online.");
+        m.col("1.  Alert number (Phone A): " + (to.isEmpty() ? "not set" : to), Ui.B_GHOST, v -> { m.dismiss(); askRelayNumber(sp); });
+        m.col("2.  Pairing code: " + RelayAuth.pretty(RelayAuth.myCode(this)), Ui.B_GHOST, v -> { m.dismiss(); codeMenu(); });
+        m.col("3.  Allow permissions" + (relayPermsMissing().isEmpty() ? "  ✅" : ""), Ui.B_GHOST, v -> { m.dismiss(); askRelayPermissions(); });
+        m.col("4.  Accessibility service" + (acc ? "  ✅" : "  (off)"), Ui.B_GHOST, v -> {
+            m.dismiss();
+            openSettings(new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            toast("Turn on “Rajib Tutorial — Telephone call bridge”");
+        });
+        m.col("5.  Battery: allow in background", Ui.B_GHOST, v -> {
+            m.dismiss();
+            openSettings(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
+            toast("Battery → Unrestricted");
+        });
         m.col(on ? "✅  Relay is ON (tap to turn off)" : "⭕  Relay is OFF (tap to turn on)", on ? Ui.B_GREEN : Ui.B_PRIMARY, v -> {
             m.dismiss();
-            if (!on && to.isEmpty()) { toast("Set the alert number first"); relayMenu(); return; }
-            sp.edit().putBoolean(CallRelayReceiver.K_ON, !on).apply();
-            if (!on) askRelayPermissions();
-            relayMenu();
-        });
-        m.col("📞  Alert number: " + (to.isEmpty() ? "not set" : to), Ui.B_GHOST, v -> { m.dismiss(); askRelayNumber(sp); });
-        m.col(auto ? "🤖  Auto-answer: ON" : "🤖  Auto-answer: OFF", Ui.B_GHOST, v -> {
-            m.dismiss();
-            sp.edit().putBoolean(CallRelayReceiver.K_AUTO, !auto).apply();
-            if (!auto) askRelayPermissions();
-            relayMenu();
+            if (on) { setRelay(false); relayMenu(); return; }
+            if (to.isEmpty()) { toast("Set the alert number first"); relayMenu(); return; }
+            new android.app.AlertDialog.Builder(this)
+                .setTitle("Share this phone's calls?")
+                .setMessage("Every caller on this phone will be sent to " + to + ". The paired phone can answer and hear those calls, end them and send SMS to the caller. "
+                    + "Only turn this on for your own phones.")
+                .setPositiveButton("Turn on", (d, w) -> { setRelay(true); askRelayPermissions(); })
+                .setNegativeButton("Cancel", null)
+                .show();
         });
         m.col("Close", Ui.B_OUTLINE, v -> m.dismiss());
         m.show();
+    }
+
+    private void setRelay(boolean on) {
+        getSharedPreferences(CallRelayReceiver.PREFS, MODE_PRIVATE).edit().putBoolean(CallRelayReceiver.K_ON, on).apply();
+        RelayCall.updateNotice(this);
+    }
+
+    private void openSettings(Intent i) {
+        try { startActivity(i); } catch (Exception e) { toast("Open the phone's Settings app"); }
+    }
+
+    private boolean accessibilityOn() {
+        if (TelBridgeService.get() != null) return true;
+        String list = android.provider.Settings.Secure.getString(getContentResolver(),
+            android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        return list != null && list.contains(TelBridgeService.class.getSimpleName());
+    }
+
+    private void codeMenu() {
+        final String code = RelayAuth.pretty(RelayAuth.myCode(this));
+        final Ui.Modal m = new Ui.Modal(this, "Pairing code", code + "\n\nOn Phone A: Telephone ⋮ → Pair relay phone. Enter this phone's number (" + meId + ") and this code. Do not share it with anyone else.");
+        m.col("📋  Copy", Ui.B_GHOST, v -> {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("pairing code", code));
+            toast("Copied");
+        });
+        m.col("🔄  New code (old pairing stops working)", Ui.B_GHOST, v -> { m.dismiss(); RelayAuth.newCode(this); codeMenu(); });
+        m.col("Back", Ui.B_OUTLINE, v -> { m.dismiss(); relayMenu(); });
+        m.show();
+    }
+
+    /** Phone A: remember the relay phone's number and code. */
+    private void pairMenu() {
+        final Ui.Modal md = new Ui.Modal(this, "Pair relay phone (this is Phone A)",
+            "Enter Phone B's Telephone number and the pairing code shown on Phone B.");
+        final Ui.Field num = Ui.field(this, "Phone B number", "01XXXXXXXXX", InputType.TYPE_CLASS_PHONE);
+        final Ui.Field code = Ui.field(this, "Pairing code", "XXXX-XXXX-XXXX-XXXX", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        md.add(num.root);
+        md.add(code.root);
+        final TextView err = md.errorView();
+        md.addSpaced(err, 8);
+        md.actions("Cancel", "Save", Ui.B_PRIMARY, () -> {
+            String b = PushManager.normMobile(num.text());
+            if (b.length() < 10 || b.equals(meId)) { Ui.setErr(err, "Enter Phone B's number"); return; }
+            if (RelayAuth.norm(code.text()).length() != 16) { Ui.setErr(err, "The code has 16 letters and digits"); return; }
+            RelayAuth.pair(this, b, code.text());
+            md.dismiss();
+            toast("Paired with " + b);
+        });
+        md.show();
     }
 
     private void askRelayNumber(final android.content.SharedPreferences sp) {
@@ -909,21 +974,31 @@ public class MessengerActivity extends Activity {
             .setView(et)
             .setPositiveButton("Save", (d, w) -> {
                 String n = PushManager.normMobile(et.getText().toString());
-                if (n.length() < 10) toast("Enter a valid number");
-                else sp.edit().putString(CallRelayReceiver.K_TO, n).apply();
+                if (n.length() < 10 || n.equals(meId)) toast("Enter Phone A's number");
+                else { sp.edit().putString(CallRelayReceiver.K_TO, n).apply(); RelayCall.updateNotice(this); }
                 relayMenu();
             })
             .setNegativeButton("Cancel", (d, w) -> relayMenu())
             .show();
     }
 
-    private void askRelayPermissions() {
+    private List<String> relayPermsMissing() {
+        List<String> all = new ArrayList<>();
+        all.add(Manifest.permission.READ_PHONE_STATE);
+        all.add(Manifest.permission.READ_CALL_LOG);
+        all.add(Manifest.permission.RECORD_AUDIO);
+        all.add(Manifest.permission.SEND_SMS);
+        if (android.os.Build.VERSION.SDK_INT >= 26) all.add(Manifest.permission.ANSWER_PHONE_CALLS);
+        if (android.os.Build.VERSION.SDK_INT >= 33) all.add(Manifest.permission.POST_NOTIFICATIONS);
         List<String> need = new ArrayList<>();
-        String[] perms = android.os.Build.VERSION.SDK_INT >= 26
-            ? new String[]{Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_CALL_LOG, Manifest.permission.ANSWER_PHONE_CALLS}
-            : new String[]{Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_CALL_LOG};
-        for (String p : perms) if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) need.add(p);
-        if (!need.isEmpty()) requestPermissions(need.toArray(new String[0]), 4104);
+        for (String p : all) if (!RelayCall.has(this, p)) need.add(p);
+        return need;
+    }
+
+    private void askRelayPermissions() {
+        List<String> need = relayPermsMissing();
+        if (need.isEmpty()) toast("All permissions are allowed");
+        else requestPermissions(need.toArray(new String[0]), 4104);
     }
 
     private void renderHomeList() {

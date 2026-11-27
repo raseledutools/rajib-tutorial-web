@@ -92,7 +92,7 @@ function setStream(id,stream){
 }
 async function startLocal(){
   try{
-    local=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:INFO.video?{facingMode:'user',width:{ideal:640},height:{ideal:480},frameRate:{ideal:24}}:false});
+    local=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:!INFO.bridge,noiseSuppression:!INFO.bridge,autoGainControl:true},video:INFO.video?{facingMode:'user',width:{ideal:640},height:{ideal:480},frameRate:{ideal:24}}:false});
   }catch(e){
     try{local=await navigator.mediaDevices.getUserMedia({audio:true});toast('Camera unavailable – joined with audio only')}
     catch(e2){local=null;toast('Microphone unavailable – you can listen only')}
@@ -149,6 +149,8 @@ function newPeer(id,name){
 function dropPeer(id){
   const p=peers[id];if(p){try{p.pc.close()}catch(e){}delete peers[id]}
   const t=document.getElementById('t_'+id);if(t)t.remove();layout();
+  // relay call (two phones only): once the other side is gone for good, close the call
+  if(INFO.solo&&p&&!left&&!Object.keys(peers).length)setTimeout(()=>{if(!Object.keys(peers).length)leaveCall()},4000);
 }
 async function flush(p){p.remoteSet=true;for(const c of p.queue){try{await p.pc.addIceCandidate(c)}catch(e){}}p.queue=[]}
 async function callPeer(id,name){
@@ -167,8 +169,11 @@ window.onSignal=async function(arr){
         if(peers[from])continue;
         const their=JSON.parse(s.data||'{}').ts||0;
         // the one who was already in the call (earlier join) makes the offer
-        if(joinTs<their||(joinTs===their&&me<from))await callPeer(from,name);
+        // relay call: only the phone that was already waiting sees this join, so it offers (no clock comparison)
+        if(INFO.solo||joinTs<their||(joinTs===their&&me<from))await callPeer(from,name);
       }else if(s.kind==='offer'){
+        // relay call, both sides offered at once: Phone B keeps its own offer
+        if(INFO.solo&&INFO.bridge&&peers[from]&&peers[from].pc.signalingState==='have-local-offer')continue;
         const p=newPeer(from,name);
         await p.pc.setRemoteDescription(JSON.parse(s.data));await flush(p);
         const a=await p.pc.createAnswer();await p.pc.setLocalDescription(a);
@@ -380,7 +385,11 @@ async function endRecord(){
   let joined=false;
   const doJoin=()=>{if(joined)return;joined=true;send('','join',JSON.stringify({ts:joinTs}))};
   window.onPollReady=doJoin;                 // native side finished its first look at the signalling room
+  // relay call carries an outside caller: no recording or screen share
+  if(INFO.solo)['bShare','bRec'].forEach(i=>document.getElementById(i).style.display='none');
   AndroidCall.ready();                       // native side starts listening for signals
+  // relay call: give up if the other phone never connects
+  if(INFO.solo)setTimeout(()=>{if(!Object.values(peers).some(p=>p.pc.connectionState==='connected'))leaveCall()},45000);
   setTimeout(doJoin,6000);                   // fallback if the first poll is slow
 })();
 </script></body></html>

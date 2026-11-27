@@ -3,4 +3,6 @@
     <string name="app_name">Rajib Tutorial</string>
     <string name="adult_watch_label">Rajib Tutorial — Adult Block</string>
     <string name="adult_watch_desc">অন্য ব্রাউজারে এবং যেকোনো অ্যাপের ভেতরের ওয়েব পাতায় (WebView) অ্যাডাল্ট সাইট বা সার্চ খুললে সেটি বন্ধ করে Focus পর্দা দেখায়। শুধু ঠিকানা-বার, পাতার শিরোনাম ও ওয়েব সার্চ বক্স দেখা হয়; চ্যাট বা অন্য লেখা পড়া হয় না, কোনো তথ্য সেভ বা পাঠানো হয় না।</string>
+    <string name="tel_bridge_label">Rajib Tutorial — Telephone call bridge</string>
+    <string name="tel_bridge_desc">Phone B-র জন্য: SIM call চলার সময় অ্যাপকে mic চালু রাখতে দেয় এবং bridge শুরু হলে call পর্দার Speaker বোতাম চাপে। অন্য কিছু পড়া, সেভ করা বা পাঠানো হয় না। শুধু Telephone call relay চালু করলে কাজে লাগে।</string>
 </resources>

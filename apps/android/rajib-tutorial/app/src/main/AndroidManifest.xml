@@ -19,6 +19,8 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <!-- Telephone: incoming call screen over the lock screen (like WhatsApp) -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -381,6 +383,31 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/adult_watch_config" />
         </service>
+
+        <!-- Telephone relay (Phone B): voice bridge between a SIM call and an internet call -->
+        <service
+            android:name=".TelBridgeService"
+            android:exported="true"
+            android:label="@string/tel_bridge_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/tel_bridge_config" />
+        </service>
+
+        <!-- Telephone relay (Phone A): full-screen "SIM call on Phone B" -->
+        <activity
+            android:name=".SimCallActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.RajibTutorial" />
 
         <!-- FileProvider -->
         <provider

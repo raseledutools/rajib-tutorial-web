@@ -7,6 +7,7 @@ import android.webkit.WebView;
 
 import org.json.JSONObject;
 
+import java.util.Map;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -248,6 +249,22 @@ public class AdminBridge {
                 sendFcm(at, new JSONObject().put("message", msg));
             } catch (Throwable ignored) { }
         }).start();
+    }
+
+    /** Call relay between two paired Telephone phones. Blocking; throws when the push could not be sent. */
+    void sendRelayPush(String toId, Map<String, String> fields, String ttl) throws Exception {
+        String at = getAccessToken();
+        if (at == null) throw new Exception("no access token");
+        JSONObject data = new JSONObject();
+        for (Map.Entry<String, String> f : fields.entrySet()) data.put(f.getKey(), f.getValue());
+        JSONObject android = new JSONObject();
+        android.put("priority", "high");
+        android.put("ttl", ttl);
+        JSONObject msg = new JSONObject();
+        msg.put("topic", "dm_" + toId.replaceAll("[^A-Za-z0-9]", ""));
+        msg.put("data", data);
+        msg.put("android", android);
+        sendFcm(at, new JSONObject().put("message", msg));
     }
 
     /** Push to every signed-in admin device (topic "admins"). Fire-and-forget, safe to call from any thread. */
