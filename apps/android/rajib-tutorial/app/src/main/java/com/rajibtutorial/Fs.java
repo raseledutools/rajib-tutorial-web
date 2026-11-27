@@ -47,10 +47,31 @@ final class Fs {
         try {
             foPrefs = c.getApplicationContext().getSharedPreferences(PREF, android.content.Context.MODE_PRIVATE);
             failoverUntil = foPrefs.getLong(PREF_UNTIL, 0);
+            backupBadUntil = foPrefs.getLong(PREF_BAD, 0);
         } catch (Throwable ignored) { }
     }
 
-    private static boolean onBackup() { return failoverUntil > System.currentTimeMillis(); }
+    // If B is not provisioned (database missing -> 404, rules deny -> 401/403) don't stay on it: go back to A
+    // and don't try B again for 30 minutes.
+    private static final String PREF_BAD = "bad_until";
+    private static volatile long backupBadUntil = 0;
+
+    private static boolean backupBadNow() { return backupBadUntil > System.currentTimeMillis(); }
+
+    private static boolean onBackup() { return failoverUntil > System.currentTimeMillis() && !backupBadNow(); }
+
+    private static boolean isBackupBad(IOException e) {
+        String m = e.getMessage() == null ? "" : e.getMessage();
+        return m.startsWith("HTTP 403") || m.startsWith("HTTP 401") || m.contains("DATABASE_NOT_FOUND");
+    }
+
+    private static void stopFailover() {
+        failoverUntil = 0;
+        backupBadUntil = System.currentTimeMillis() + 30L * 60L * 1000L;
+        try {
+            if (foPrefs != null) foPrefs.edit().putLong(PREF_UNTIL, 0).putLong(PREF_BAD, backupBadUntil).apply();
+        } catch (Throwable ignored) { }
+    }
 
     private static long nextReset() {
         java.util.Calendar c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
@@ -341,13 +362,26 @@ final class Fs {
     }
 
     private static String request(String method, String url, String json) throws IOException {
-        if (onBackup()) return doRequest(method, toBackup(url), toBackup(json));
+        if (onBackup()) {
+            try {
+                return doRequest(method, toBackup(url), toBackup(json));
+            } catch (IOException e) {
+                if (!isBackupBad(e)) throw e;
+                stopFailover();                       // backup not ready -> back to the primary project
+                return doRequest(method, url, json);
+            }
+        }
         try {
             return doRequest(method, url, json);
         } catch (IOException e) {
-            if (!isQuota(e)) throw e;
+            if (!isQuota(e) || backupBadNow()) throw e;
             startFailover();
-            return doRequest(method, toBackup(url), toBackup(json));
+            try {
+                return doRequest(method, toBackup(url), toBackup(json));
+            } catch (IOException e2) {
+                if (isBackupBad(e2)) { stopFailover(); throw e; }   // report the primary's original quota error
+                throw e2;
+            }
         }
     }
 
@@ -380,7 +414,13 @@ final class Fs {
             int code = c.getResponseCode();
             InputStream is = code >= 400 ? c.getErrorStream() : c.getInputStream();
             String text = is == null ? "" : readAll(is);
-            if (code == 404) throw new NotFound();
+            if (code == 404) {
+                // "database/project does not exist" is a setup problem, not a missing document.
+                String lt = text.toLowerCase(java.util.Locale.US);
+                if (lt.contains("does not exist") && (lt.contains("database") || lt.contains("project")))
+                    throw new IOException("HTTP 404 DATABASE_NOT_FOUND " + shortErr(text));
+                throw new NotFound();
+            }
             if (code >= 400) throw new IOException("HTTP " + code + " " + shortErr(text));
             return text;
         } finally {
