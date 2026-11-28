@@ -1,0 +1,30 @@
+name: Usage snapshot (Firestore quota)
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'     # every 30 minutes; the Android "Server Control" screen shows this
+  workflow_dispatch:
+
+concurrency:
+  group: usage-snapshot
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install deps
+        run: npm install --no-save --no-package-lock --prefix scripts firebase-admin@12.7.0 google-auth-library@9.14.1
+      - name: Publish usage
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_SERVICE_ACCOUNT_BACKUP: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BACKUP }}
+        run: node scripts/usage_snapshot.js

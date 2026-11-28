@@ -48,7 +48,114 @@ final class Fs {
             foPrefs = c.getApplicationContext().getSharedPreferences(PREF, android.content.Context.MODE_PRIVATE);
             failoverUntil = foPrefs.getLong(PREF_UNTIL, 0);
             backupBadUntil = foPrefs.getLong(PREF_BAD, 0);
+            mode = foPrefs.getInt(PREF_MODE, MODE_AUTO);
+            synchronized (USAGE_LOCK) {
+                usageDay = foPrefs.getString("u_day", "");
+                rA = foPrefs.getLong("u_ra", 0); wA = foPrefs.getLong("u_wa", 0);
+                rB = foPrefs.getLong("u_rb", 0); wB = foPrefs.getLong("u_wb", 0);
+                rolloverLocked();
+            }
         } catch (Throwable ignored) { }
+    }
+
+    // ── Manual server selection (admin "Server Control" screen) ──
+    // AUTO = A, switch to B on quota exhaustion (default). MODE_A / MODE_B = stay on that project, no automatic switching.
+    static final int MODE_AUTO = 0, MODE_A = 1, MODE_B = 2;
+    private static final String PREF_MODE = "mode";
+    private static volatile int mode = MODE_AUTO;
+
+    static int mode() { return mode; }
+
+    static void setMode(int m) {
+        mode = m;
+        if (m == MODE_AUTO) { failoverUntil = 0; backupBadUntil = 0; }   // start again from A
+        try {
+            if (foPrefs != null) {
+                android.content.SharedPreferences.Editor e = foPrefs.edit().putInt(PREF_MODE, m);
+                if (m == MODE_AUTO) e.putLong(PREF_UNTIL, 0).putLong(PREF_BAD, 0);
+                e.apply();
+            }
+        } catch (Throwable ignored) { }
+    }
+
+    /** True while requests go to project B. */
+    static boolean usingBackup() { return onBackup(); }
+
+    /** When the automatic failover to B ends (ms since epoch), 0 if not failed over. */
+    static long failoverUntilMs() { return failoverUntil > System.currentTimeMillis() ? failoverUntil : 0; }
+
+    // ── Usage counters of THIS phone (reads ~ documents returned, writes = PATCH/DELETE), reset at the daily quota reset ──
+    private static final Object USAGE_LOCK = new Object();
+    private static String usageDay = "";
+    private static long rA, wA, rB, wB;
+
+    private static String quotaDay() {
+        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+        f.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        return f.format(new java.util.Date(System.currentTimeMillis() - 8L * 3600L * 1000L));
+    }
+
+    private static void rolloverLocked() {
+        String d = quotaDay();
+        if (!d.equals(usageDay)) { usageDay = d; rA = 0; wA = 0; rB = 0; wB = 0; }
+    }
+
+    private static void count(String method, String url, String text) {
+        try {
+            boolean b = url.contains("/projects/" + PROJ_B + "/");
+            boolean write = "PATCH".equals(method) || "DELETE".equals(method);
+            long n = 1;
+            if (!write && text != null) {
+                int c = 0, i = 0;
+                while ((i = text.indexOf("\"name\": \"projects/", i)) >= 0) { c++; i += 18; }
+                n = Math.max(1, c);
+            }
+            synchronized (USAGE_LOCK) {
+                rolloverLocked();
+                if (write) { if (b) wB += n; else wA += n; } else { if (b) rB += n; else rA += n; }
+                if (foPrefs != null) {
+                    foPrefs.edit().putString("u_day", usageDay).putLong("u_ra", rA).putLong("u_wa", wA)
+                        .putLong("u_rb", rB).putLong("u_wb", wB).apply();
+                }
+            }
+        } catch (Throwable ignored) { }
+    }
+
+    /** {readsA, writesA, readsB, writesB} counted on this phone today. */
+    static long[] deviceUsage() {
+        synchronized (USAGE_LOCK) {
+            rolloverLocked();
+            return new long[] { rA, wA, rB, wB };
+        }
+    }
+
+    /** Cheap health check of one project: OK / QUOTA / NOT_READY / OFFLINE / "ERR ...". Never throws. */
+    static String probe(boolean backup) {
+        String u = DB + "/_ping/x?key=" + KEY;
+        try {
+            doRequest("GET", backup ? toBackup(u) : u, null);
+            return "OK";
+        } catch (NotFound e) {
+            return "OK";
+        } catch (IOException e) {
+            String m = e.getMessage() == null ? "" : e.getMessage();
+            if (isQuota(e)) return "QUOTA";
+            if (isBackupBad(e) || m.contains("DATABASE_NOT_FOUND")) return "NOT_READY";
+            if (e instanceof java.net.UnknownHostException || e instanceof java.net.SocketTimeoutException
+                || e instanceof java.net.ConnectException) return "OFFLINE";
+            return "ERR " + m;
+        } catch (Throwable t) {
+            return "ERR";
+        }
+    }
+
+    /** One document of any top-level collection; null if it does not exist. */
+    static Doc getIn(String col, String id) throws Exception {
+        try {
+            return parseDoc(new JSONObject(request("GET", colDocUrl(col, id), null)));
+        } catch (NotFound e) {
+            return null;
+        }
     }
 
     // If B is not provisioned (database missing -> 404, rules deny -> 401/403) don't stay on it: go back to A
@@ -58,7 +165,11 @@ final class Fs {
 
     private static boolean backupBadNow() { return backupBadUntil > System.currentTimeMillis(); }
 
-    private static boolean onBackup() { return failoverUntil > System.currentTimeMillis() && !backupBadNow(); }
+    private static boolean onBackup() {
+        if (mode == MODE_A) return false;
+        if (mode == MODE_B) return true;
+        return failoverUntil > System.currentTimeMillis() && !backupBadNow();
+    }
 
     private static boolean isBackupBad(IOException e) {
         String m = e.getMessage() == null ? "" : e.getMessage();
@@ -403,6 +514,8 @@ final class Fs {
     }
 
     private static String requestCore(String method, String url, String json) throws IOException {
+        if (mode == MODE_A) return doRequest(method, url, json);                                   // manual: always A
+        if (mode == MODE_B) return doRequest(method, toBackup(url), toBackup(json));               // manual: always B
         if (onBackup()) {
             try {
                 return doRequest(method, toBackup(url), toBackup(json));
@@ -463,6 +576,7 @@ final class Fs {
                 throw new NotFound();
             }
             if (code >= 400) throw new IOException("HTTP " + code + " " + shortErr(text));
+            count(method, url, text);
             return text;
         } finally {
             c.disconnect();

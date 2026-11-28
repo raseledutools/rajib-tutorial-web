@@ -31,7 +31,7 @@ public class NativeHomeActivity extends AppCompatActivity {
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
 
     static final String EXTRA_OPEN = "open";
-    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6, V_INBOX = 7, V_RES = 8, V_OFFLINE = 9, V_QB = 10, V_FEEDBACK = 11, V_SETTINGS = 12;
+    static final int V_HOME = 0, V_COURSE = 1, V_LIVE = 2, V_MANAGE = 3, V_MEMBERS = 4, V_NOTIFY = 5, V_DISCUSS = 6, V_INBOX = 7, V_RES = 8, V_OFFLINE = 9, V_QB = 10, V_FEEDBACK = 11, V_SETTINGS = 12, V_SERVER = 13;
     String resType = "";
 
     // state shared with screens / dialogs
@@ -509,6 +509,12 @@ public class NativeHomeActivity extends AppCompatActivity {
         closeDrawer();
     }
 
+    void openServer() {
+        if (!Store.adminIn) return;
+        show(new ServerScreen(this), V_SERVER, "Server Control");
+        closeDrawer();
+    }
+
     void openQb() {
         show(new QbScreen(this), V_QB, "MCQ Practice");
         closeDrawer();
@@ -818,6 +824,7 @@ public class NativeHomeActivity extends AppCompatActivity {
             adm.addView(adminBtn("🔍  Google", false, () -> openWeb("https://www.google.com/", "Google", false, true)));
             adm.addView(adminBtn("🎬  YouTube Studio", false, () -> openWeb("https://studio.youtube.com/", "YouTube Studio", true, false)));
             adm.addView(adminBtn("⚙️  Live & Premium Settings", false, () -> { closeDrawer(); dialogs.liveSettings(); }));
+            adm.addView(adminBtn("🖥  Server A / B Control", false, this::openServer));
             adm.addView(adminBtn("⎋  Logout", true, () -> { closeDrawer(); adminLogout(); }));
             ScrollView asv = new ScrollView(this);
             asv.addView(adm, new ScrollView.LayoutParams(MATCH, WRAP));
