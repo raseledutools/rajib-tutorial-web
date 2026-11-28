@@ -3187,23 +3187,53 @@ const _run = async (fn, x, ...rest) => {
 };
 const _getDocs = q => _run(_rGetDocs,q);
 const _getDoc  = r => _run(_rGetDoc,r);
-const setDoc   = (r,...a) => _run((x,...y)=>_rSetDoc(x,...y), r, ...a);
-const updateDoc= (r,...a) => _run((x,...y)=>_rUpdateDoc(x,...y), r, ...a);
-const deleteDoc= r => _run(_rDeleteDoc,r);
+// ─── Write-through mirror: every successful write is replayed (best-effort, in the background) on the OTHER project,
+// so A and B hold the same data while both still have quota. Once A's quota is gone nothing can be copied from it any more.
+// Never blocks or fails the user's write; if the other side is over quota / not ready it backs off for 10 minutes
+// (the daily GitHub "Sync Firestore" job then reconciles whatever was missed).
+const _MIRROR_SKIP = /^_call_/;                 // temporary call-signalling docs: not worth mirroring
+let _mirrorOffUntil = 0;
+const _mirrorOn = () => !!dbB && !_backupBadNow() && Date.now() >= _mirrorOffUntil;
+const _mirrorErr = e => { if(_isQuota(e) || _isBackupBad(e)) _mirrorOffUntil = Date.now() + 10*60*1000; };
+function _mirror(fn, x, rest){
+  try{
+    if(!_mirrorOn() || _MIRROR_SKIP.test(String((x&&x.id)||""))) return;
+    const t = _to(x, db===dbB ? dbA : dbB);          // `db` = project the write just succeeded on
+    if(!t || t===x) return;
+    Promise.resolve().then(()=>fn(t,...rest)).catch(_mirrorErr);
+  }catch(e){}
+}
+const setDoc   = async (r,...a) => { const res = await _run((x,...y)=>_rSetDoc(x,...y), r, ...a); _mirror(_rSetDoc, r, a); return res; };
+const updateDoc= async (r,...a) => { const res = await _run((x,...y)=>_rUpdateDoc(x,...y), r, ...a); _mirror(_rUpdateDoc, r, a); return res; };
+const deleteDoc= async r => { const res = await _run(_rDeleteDoc,r); _mirror(_rDeleteDoc, r, []); return res; };
 const getCountFromServer = q => _run(_rCount,q);
 const writeBatch = d => {
   const ops=[]; const first=(dbB&&db===dbB)?dbB:d; const b=_rWriteBatch(first);
-  const build = target => { const nb=_rWriteBatch(target); ops.forEach(([k,r,a])=>nb[k](_to(r,target),...a)); return nb; };
+  const build = (target,list=ops) => { const nb=_rWriteBatch(target); list.forEach(([k,r,a])=>nb[k](_to(r,target),...a)); return nb; };
+  const mirrorBatch = () => {
+    try{
+      if(!_mirrorOn()) return;
+      const list = ops.filter(o=>!_MIRROR_SKIP.test(String((o[1]&&o[1].id)||"")));
+      if(!list.length) return;
+      const other = db===dbB ? dbA : dbB;
+      Promise.resolve().then(()=>build(other,list).commit()).catch(e=>{
+        _mirrorErr(e);
+        if(_isQuota(e) || _isBackupBad(e)) return;
+        // atomic batch refused (e.g. an update on a doc the other side doesn't have yet): replay op by op, ignoring failures
+        list.forEach(([k,r,a])=>{ const t=_to(r,other); const f=k==="set"?_rSetDoc:k==="update"?_rUpdateDoc:_rDeleteDoc; Promise.resolve().then(()=>f(t,...a)).catch(_mirrorErr); });
+      });
+    }catch(e){}
+  };
   const w={
     set:(r,...a)=>{ops.push(["set",r,a]);b.set(_to(r,first),...a);return w},
     update:(r,...a)=>{ops.push(["update",r,a]);b.update(_to(r,first),...a);return w},
     delete:r=>{ops.push(["delete",r,[]]);b.delete(_to(r,first));return w},
     commit:async()=>{
-      try{ const r=await b.commit(); if(dbB&&first===dbB) _backupOk(); return r; }
+      try{ const r=await b.commit(); if(dbB&&first===dbB) _backupOk(); mirrorBatch(); return r; }
       catch(e){
-        if(dbB && first===dbB && _isBackupBad(e)){ _backupBad(e); return build(dbA).commit(); }
+        if(dbB && first===dbB && _isBackupBad(e)){ _backupBad(e); const r=await build(dbA).commit(); mirrorBatch(); return r; }
         if(!dbB || first===dbB || !_isQuota(e) || !_failover()) throw e;
-        try{ const r=await build(dbB).commit(); _backupOk(); return r; }
+        try{ const r=await build(dbB).commit(); _backupOk(); mirrorBatch(); return r; }
         catch(e2){ if(_isBackupBad(e2)){ _backupBad(e2); throw e; } throw e2; }
       }
     }
