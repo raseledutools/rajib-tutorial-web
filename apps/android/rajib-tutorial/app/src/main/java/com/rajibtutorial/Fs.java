@@ -49,6 +49,7 @@ final class Fs {
             failoverUntil = foPrefs.getLong(PREF_UNTIL, 0);
             backupBadUntil = foPrefs.getLong(PREF_BAD, 0);
             mode = foPrefs.getInt(PREF_MODE, MODE_AUTO);
+            pollServerMode();
             synchronized (USAGE_LOCK) {
                 usageDay = foPrefs.getString("u_day", "");
                 rA = foPrefs.getLong("u_ra", 0); wA = foPrefs.getLong("u_wa", 0);
@@ -76,6 +77,47 @@ final class Fs {
                 e.apply();
             }
         } catch (Throwable ignored) { }
+    }
+
+    // ── Global switch: the admin picks auto / A / B once (Server Control screen) and APK, Web and EXE all follow ──
+    // It is a tiny file on GitHub (no Firebase quota used). Polled at start and then at most every 2 minutes, in the background.
+    private static final String SRV_URL =
+        "https://raw.githubusercontent.com/raseledutools/rajib-tutorial-web/server-config/server.json";
+    private static volatile long srvPolledAt = 0;
+    private static final java.util.concurrent.atomic.AtomicBoolean srvBusy = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+    static void pollServerMode() {
+        final long now = System.currentTimeMillis();
+        if (now - srvPolledAt < 120000L) return;
+        if (!srvBusy.compareAndSet(false, true)) return;
+        srvPolledAt = now;
+        new Thread(new Runnable() {
+            @Override public void run() {
+                HttpURLConnection c = null;
+                try {
+                    c = (HttpURLConnection) new URL(SRV_URL + "?t=" + (now / 60000L)).openConnection();
+                    c.setConnectTimeout(8000);
+                    c.setReadTimeout(8000);
+                    c.setUseCaches(false);
+                    if (c.getResponseCode() == 200) {
+                        InputStream is = c.getInputStream();
+                        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                        byte[] buf = new byte[1024];
+                        int n;
+                        while ((n = is.read(buf)) > 0) bos.write(buf, 0, n);
+                        is.close();
+                        String m = new JSONObject(bos.toString("UTF-8")).optString("mode", "auto");
+                        int nm = "A".equals(m) ? MODE_A : "B".equals(m) ? MODE_B : "auto".equals(m) ? MODE_AUTO : -1;
+                        if (nm >= 0 && nm != mode) setMode(nm);
+                    }
+                } catch (Throwable ignored) {
+                    // offline / GitHub unreachable: keep the last known mode
+                } finally {
+                    if (c != null) c.disconnect();
+                    srvBusy.set(false);
+                }
+            }
+        }, "fs-srvmode").start();
     }
 
     /** True while requests go to project B. */
@@ -473,6 +515,7 @@ final class Fs {
     }
 
     private static String request(String method, String url, String json) throws IOException {
+        pollServerMode();
         String r = requestCore(method, url, json);
         mirror(method, url, json);
         return r;

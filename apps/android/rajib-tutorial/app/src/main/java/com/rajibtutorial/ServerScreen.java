@@ -52,6 +52,7 @@ final class ServerScreen extends Screen {
     private String syncStatus = "";
     private String syncResult = "";
     private boolean syncBusy = false;
+    private boolean modeBusy = false;
 
     ServerScreen(NativeHomeActivity host) { a = host; }
 
@@ -142,13 +143,56 @@ final class ServerScreen extends Screen {
         });
     }
 
-    // ── manual mode ──────────────────────────────────────────
-    private void setMode(int m) {
-        Fs.setMode(m);
-        if (m == Fs.MODE_B && "NOT_READY".equals(probeB)) toast("B server এখনো ready না, তবু B তে সেট হলো");
-        else toast(m == Fs.MODE_AUTO ? "Auto চালু: A দিয়ে শুরু" : "শুধু " + (m == Fs.MODE_A ? "A" : "B") + " ব্যবহার হবে");
+    // ── global switch (APK + Web + EXE) ──────────────────────
+    // Written to server.json on the "server-config" branch of the repo (no Firebase quota used); every client polls it.
+    private void setMode(final int m) {
+        if (modeBusy) return;
+        final String tok = ghToken();
+        if (tok.isEmpty()) {
+            toast("সব জায়গায় বদলাতে GitHub token লাগবে — আগে GitHub screen এ দিন");
+            return;
+        }
+        modeBusy = true;
         render();
-        a.refreshAll();
+        final String name = m == Fs.MODE_A ? "A" : m == Fs.MODE_B ? "B" : "auto";
+        io.execute(new Runnable() {
+            @Override public void run() {
+                String err = null;
+                try {
+                    String path = "/repos/" + REPO + "/contents/server.json";
+                    String sha = "";
+                    try {
+                        sha = new JSONObject(gh(tok, "GET", path + "?ref=server-config", null)).optString("sha");
+                    } catch (IOException e) {
+                        if (e.getMessage() == null || !e.getMessage().startsWith("HTTP 404")) throw e;
+                    }
+                    String content = "{\"mode\":\"" + name + "\",\"by\":\"admin-app\",\"at\":" + System.currentTimeMillis() + "}\n";
+                    JSONObject body = new JSONObject();
+                    body.put("message", "server: " + name + " [skip ci]");
+                    body.put("content", android.util.Base64.encodeToString(content.getBytes("UTF-8"), android.util.Base64.NO_WRAP));
+                    body.put("branch", "server-config");
+                    if (!sha.isEmpty()) body.put("sha", sha);
+                    gh(tok, "PUT", path, body.toString());
+                } catch (Exception e) {
+                    err = shortMsg(e);
+                }
+                final String fe = err;
+                post(new Runnable() {
+                    @Override public void run() {
+                        modeBusy = false;
+                        if (fe != null) {
+                            toast("বদলানো যায়নি: " + fe);
+                        } else {
+                            Fs.setMode(m);                       // this phone follows immediately, the rest within ~2 minutes
+                            toast(m == Fs.MODE_AUTO ? "Auto: সব জায়গায় (A দিয়ে শুরু)" : "সব জায়গায় শুধু Server " + name);
+                            a.refreshAll();
+                            reload();
+                        }
+                        render();
+                    }
+                });
+            }
+        });
     }
 
     // ── sync via GitHub Actions ──────────────────────────────
@@ -314,7 +358,7 @@ final class ServerScreen extends Screen {
         sv.addView(root, new ScrollView.LayoutParams(MATCH, WRAP));
 
         root.addView(Ui.tv(a, "Server Control", 20, Ui.TEXT, true), Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 2));
-        root.addView(Ui.tv(a, "Firebase A / B বদলানো, data sync ও usage", 12.5f, Ui.SUB, false), Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 14));
+        root.addView(Ui.tv(a, "একবার বদলালে APK, Web, EXE সব জায়গায় (সব ইউজারের) বদলে যায়", 12.5f, Ui.SUB, false), Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 14));
 
         // ── active server + mode ──
         boolean onB = Fs.usingBackup();
@@ -323,10 +367,10 @@ final class ServerScreen extends Screen {
         c1.addView(Ui.tv(a, "এখন চালু আছে", 12, Ui.SUB, false));
         c1.addView(Ui.tv(a, onB ? "Server B" : "Server A", 26, onB ? Ui.RED : Ui.GREEN, true));
         String modeTxt;
-        if (mode == Fs.MODE_A) modeTxt = "Manual — সবসময় A (auto switch বন্ধ)";
-        else if (mode == Fs.MODE_B) modeTxt = "Manual — সবসময় B (auto switch বন্ধ)";
+        if (mode == Fs.MODE_A) modeTxt = "সবার জন্য সবসময় A (auto switch বন্ধ)";
+        else if (mode == Fs.MODE_B) modeTxt = "সবার জন্য সবসময় B (auto switch বন্ধ)";
         else {
-            modeTxt = "Auto — A চলে, quota শেষ হলে নিজে B তে যায়";
+            modeTxt = "Auto — A চলে, quota শেষ হলে প্রত্যেকে নিজে B তে যায়";
             long until = Fs.failoverUntilMs();
             if (onB && until > 0) {
                 modeTxt += "\nB চলছে, আবার A চেষ্টা হবে ~ "
@@ -351,6 +395,8 @@ final class ServerScreen extends Screen {
             lp.weight = 1f;
         }
         c1.addView(row, new LinearLayout.LayoutParams(MATCH, WRAP));
+        c1.addView(Ui.tv(a, modeBusy ? "সবার জন্য বদলানো হচ্ছে…" : "বদলালে এই ফোনে সাথে সাথে, বাকি সবার কাছে ~২ মিনিটে পৌঁছায়। যাদের পাতা খোলা আছে তারা পরের navigation / reconnect এ পাবে।",
+            11.5f, Ui.SUB, false), Ui.lpm(a, MATCH, WRAP, 0, 8, 0, 0));
         root.addView(c1, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 10));
 
         // ── A / B cards ──
@@ -387,7 +433,7 @@ final class ServerScreen extends Screen {
         }
         root.addView(c3, Ui.lpm(a, MATCH, WRAP, 0, 0, 0, 10));
 
-        root.addView(Ui.tv(a, "Auto সবচেয়ে নিরাপদ। A বা B জোর করে ধরলে quota শেষ হলেও আর অন্যটায় যাবে না, তাই কাজ শেষে Auto তে ফিরুন।",
+        root.addView(Ui.tv(a, "Auto সবচেয়ে নিরাপদ। A বা B জোর করে ধরলে সবার জন্য quota শেষ হলেও আর অন্যটায় যাবে না (ওই server এ error আসবে), তাই কাজ শেষে Auto তে ফিরুন।",
             11.5f, Ui.SUB, false), Ui.lpm(a, MATCH, WRAP, 4, 4, 4, 0));
     }
 

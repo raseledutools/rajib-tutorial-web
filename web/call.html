@@ -64,11 +64,13 @@ html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-
     var BAD='fb_backup_bad_until';
     function badNow(){try{return Number(localStorage.getItem(BAD)||0)>Date.now()}catch(e){return false}}
     try{if(dbB&&!badNow()&&Number(localStorage.getItem(FO)||0)>Date.now())cur=dbB}catch(e){}
+    // Admin's global server switch (same "srv_mode" key index.html keeps): pinned A/B turns the automatic failover off.
+    var forced=null;try{var sm=localStorage.getItem('srv_mode');if(sm==='A'){forced='A';cur=dbA}else if(sm==='B'&&dbB){forced='B';cur=dbB}}catch(e){}
     function isQuota(e){return !!e&&(e.code==='resource-exhausted'||/quota|resource[-_ ]?exhausted/i.test(String(e.message||'')))}
     function isBad(e){return !!e&&(e.code==='permission-denied'||e.code==='not-found'||e.code==='unauthenticated'||/missing or insufficient permissions|does not exist|not[-_ ]found/i.test(String(e.message||'')))}
     function badBackup(){cur=dbA;try{localStorage.removeItem(FO);localStorage.setItem(BAD,String(Date.now()+18e5))}catch(e){}}
     function failover(){
-      if(!dbB||cur===dbB||badNow())return false;
+      if(forced||!dbB||cur===dbB||badNow())return false;
       cur=dbB;
       try{var d=new Date();d.setUTCHours(8,0,0,0);if(d.getTime()<=Date.now())d.setUTCDate(d.getUTCDate()+1);localStorage.setItem(FO,String(d.getTime()))}catch(e){}
       return true;
@@ -85,7 +87,7 @@ html,body{margin:0;height:100%;background:#0f1115;color:#fff;font-family:-apple-
       x=remap(x);
       try{return await fn(x)}
       catch(e){
-        if(cur===dbB&&isBad(e)){badBackup();return fn(remap(x))}
+        if(!forced&&cur===dbB&&isBad(e)){badBackup();return fn(remap(x))}
         if(!isQuota(e)||!failover())throw e;
         try{return await fn(remap(x))}
         catch(e2){if(isBad(e2)){badBackup();throw e}throw e2}

@@ -3139,6 +3139,19 @@ const _nextReset = () => { const d=new Date(); d.setUTCHours(8,0,0,0); if(d.getT
 const BAD_KEY = "fb_backup_bad_until";
 const _backupBadNow = () => { try{ return Number(localStorage.getItem(BAD_KEY)||0) > Date.now() }catch(e){ return false } };
 try{ if(dbB && !_backupBadNow() && Number(localStorage.getItem(FO_KEY)||0) > Date.now()) db = dbB; }catch(e){}
+// ─── Admin-controlled server switch: ONE switch for APK, Web and EXE (mode "auto" | "A" | "B") ───
+// The admin sets it in the Android app (sidebar → Server A / B Control). It lives in a tiny file on GitHub (uses no Firebase
+// quota) that every client polls. "A"/"B" pin that project and turn the automatic failover off; "auto" = A, and B once A's quota is gone.
+const SRV_URL = "https://raw.githubusercontent.com/raseledutools/rajib-tutorial-web/server-config/server.json";
+const SRV_KEY = "srv_mode";
+let _forced = null;                                   // "A" | "B" | null (auto)
+function _applyMode(m, live){
+  _forced = (m==="A" || m==="B") ? m : null;
+  if(_forced==="A") db = dbA;
+  else if(_forced==="B" && dbB) db = dbB;
+  else if(live) db = dbA;                             // switched back to auto while running: start again from A
+}
+try{ _applyMode(localStorage.getItem(SRV_KEY) || "auto", false); }catch(e){}
 const _isQuota = e => !!e && (e.code==="resource-exhausted" || /quota|resource[-_ ]?exhausted/i.test(String(e.message||"")));
 const _isBackupBad = e => !!e && (e.code==="permission-denied" || e.code==="not-found" || e.code==="unauthenticated" ||
   /missing or insufficient permissions|does not exist|not[-_ ]found/i.test(String(e.message||"")));
@@ -3149,11 +3162,11 @@ function _backupBad(e){
 }
 let _toastedB = false;
 function _backupOk(){
-  if(_toastedB) return; _toastedB = true;
+  if(_toastedB || _forced) return; _toastedB = true;
   setTimeout(()=>{ try{ window.showToast&&window.showToast("Server busy — backup server চালু হয়েছে") }catch(e){} },0);
 }
 function _failover(){
-  if(!dbB || db===dbB || _backupBadNow()) return false;
+  if(_forced || !dbB || db===dbB || _backupBadNow()) return false;
   db = dbB;
   try{ localStorage.setItem(FO_KEY,String(_nextReset())) }catch(e){}
   console.warn("[firebase] primary quota exhausted → switched to backup project");
@@ -3178,7 +3191,7 @@ const _run = async (fn, x, ...rest) => {
     return r;
   }
   catch(e){
-    if(dbB && x.firestore===dbB && _isBackupBad(e)){ _backupBad(e); return fn(_to(x,dbA),...rest); }   // B unusable → back to A
+    if(!_forced && dbB && x.firestore===dbB && _isBackupBad(e)){ _backupBad(e); return fn(_to(x,dbA),...rest); }   // B unusable → back to A
     if(!_isQuota(e) || !dbB || x.firestore===dbB) throw e;
     if(!_failover()) throw e;
     try{ const r = await fn(_remap(x),...rest); _backupOk(); return r; }
@@ -3187,6 +3200,26 @@ const _run = async (fn, x, ...rest) => {
 };
 const _getDocs = q => _run(_rGetDocs,q);
 const _getDoc  = r => _run(_rGetDoc,r);
+// Poll the global switch (at start, every 2 min while the page is visible). A change applies at once to new requests; pages that
+// are already open follow on their next navigation / reconnect.
+async function _srvPoll(){
+  try{
+    const r = await fetch(SRV_URL + "?t=" + Math.floor(Date.now()/60000), { cache:"no-store" });
+    if(!r.ok) return;
+    const m = String((await r.json()).mode || "auto");
+    if(m!=="auto" && m!=="A" && m!=="B") return;
+    let cur = "auto"; try{ cur = localStorage.getItem(SRV_KEY) || "auto"; }catch(e){}
+    if(m===cur) return;
+    try{
+      localStorage.setItem(SRV_KEY, m);
+      if(m==="auto"){ localStorage.removeItem(FO_KEY); localStorage.removeItem(BAD_KEY); }
+    }catch(e){}
+    _applyMode(m, true);
+    try{ window.showToast && window.showToast("Server বদলানো হয়েছে: " + (m==="auto" ? "Auto" : "Server " + m)); }catch(e){}
+  }catch(e){}
+}
+setTimeout(_srvPoll, 1500);
+setInterval(()=>{ if(!document.hidden) _srvPoll(); }, 120000);
 // ─── Write-through mirror: every successful write is replayed (best-effort, in the background) on the OTHER project,
 // so A and B hold the same data while both still have quota. Once A's quota is gone nothing can be copied from it any more.
 // Never blocks or fails the user's write; if the other side is over quota / not ready it backs off for 10 minutes
@@ -3231,7 +3264,7 @@ const writeBatch = d => {
     commit:async()=>{
       try{ const r=await b.commit(); if(dbB&&first===dbB) _backupOk(); mirrorBatch(); return r; }
       catch(e){
-        if(dbB && first===dbB && _isBackupBad(e)){ _backupBad(e); const r=await build(dbA).commit(); mirrorBatch(); return r; }
+        if(!_forced && dbB && first===dbB && _isBackupBad(e)){ _backupBad(e); const r=await build(dbA).commit(); mirrorBatch(); return r; }
         if(!dbB || first===dbB || !_isQuota(e) || !_failover()) throw e;
         try{ const r=await build(dbB).commit(); _backupOk(); mirrorBatch(); return r; }
         catch(e2){ if(_isBackupBad(e2)){ _backupBad(e2); throw e; } throw e2; }
@@ -3246,7 +3279,7 @@ const onSnapshot = (q,next,err) => {
     un=_rOnSnapshot(qq,next,e=>{
       if(dead) return;
       if(left>0 && dbB){
-        if(qq.firestore===dbB && _isBackupBad(e)){ _backupBad(e); start(_to(qq,dbA),left-1); return; }
+        if(!_forced && qq.firestore===dbB && _isBackupBad(e)){ _backupBad(e); start(_to(qq,dbA),left-1); return; }
         if(qq.firestore!==dbB && _isQuota(e) && _failover()){ start(_remap(qq),left-1); return; }
       }
       if(err) err(e);
