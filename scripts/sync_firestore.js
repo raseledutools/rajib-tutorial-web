@@ -134,6 +134,7 @@ async function main() {
   if (newerPaths.length) lines.push('', 'Backup-newer docs (first 50):', ...newerPaths.map(p => `- \`${p}\``));
   if (truncated) lines.push('', `**Stopped at MAX_DOCS=${MAX_DOCS}** - raise MAX_DOCS to copy the rest.`);
   console.log(lines.join('\n'));
+  console.log('::notice title=Firestore sync result::' + lines.join('\n').replace(/%/g,'%25').replace(/\n/g,'%0A'));
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
 
   if (stats.errors) fail(`${stats.errors} write(s) failed.`);
