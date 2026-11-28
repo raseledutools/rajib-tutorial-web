@@ -231,6 +231,20 @@ svg{display:block;flex-shrink:0}
 .manage-hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:24px}
 .manage-hdr h2{font-size:22px;font-weight:700;letter-spacing:-.02em}
 .manage-hdr .grp{display:flex;gap:10px;flex-wrap:wrap}
+/* Admin → Server A / B Control */
+.sv-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px}
+.sv-card h3{font-size:15px;font-weight:700;margin-bottom:4px}
+.sv-big{font-size:28px;font-weight:800;line-height:1.2}
+.sv-sub{font-size:12px;color:var(--sub);line-height:1.5}
+.sv-good{color:#17915A}.sv-bad{color:var(--accent2)}
+.sv-row{display:flex;gap:8px;margin-top:10px}
+.sv-seg{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-weight:700;font-size:14px;cursor:pointer}
+.sv-seg.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sv-seg:disabled{opacity:.55;cursor:default}
+.sv-pre{white-space:pre-wrap;font:11.5px/1.5 ui-monospace,Menlo,Consolas,monospace;color:var(--sub);margin-top:8px}
+.sv-tok{width:100%;padding:9px 10px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:8px}
+.sv-line{font-size:12.5px;margin:2px 0}
+.sv-act{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
 .btn-add,.btn-add-sm,.btn-ok,.btn-cancel,.btn-secondary{border-radius:10px;font-size:13px;font-weight:700;padding:10px 18px;transition:.15s}
 .btn-add,.btn-ok{background:var(--accent);color:#fff}
 .btn-add:hover,.btn-ok:hover{background:#C9633F}
@@ -2176,6 +2190,7 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 6.5 7 .9-5.2 4.8 1.4 7L12 17.8 5.8 21.2l1.4-7L2 9.4l7-.9z"/></svg> Premium Members
     </button>
     <button class="btn-admin-action" onclick="openFeedbackAdmin();closeSidebar()">💬 Feedback<span class="nav-cnt hidden" id="fbCnt"></span></button>
+    <button class="btn-admin-action" onclick="openServerCtl();closeSidebar()">🖥 Server A / B Control</button>
     <button class="btn-admin-action" onclick="openNotify();closeSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg> Notification Center
     </button>
@@ -2471,6 +2486,8 @@ html.bt-fs #viewBrowser.active{position:fixed;inset:0;z-index:2147483647;width:1
     </div>
   </div>
   <!-- PREMIUM MEMBERS (admin) -->
+  <!-- SERVER A / B CONTROL (admin) -->
+  <div class="view" id="viewServer"><div class="manage-wrap" id="svWrap"></div></div>
   <div class="view" id="viewMembers">
     <div class="manage-wrap">
       <div class="manage-hdr">
@@ -3767,7 +3784,7 @@ window.goView=function(id, _fromPop){
   if(id==="viewHome") $("navHome").classList.add("active");
   if(id==="viewFocus"){try{focusEnsure();$("navFocus").classList.add("active")}catch(e){}}
   if(id==="viewPdf"){try{pdfEnsure();$("navPdf").classList.add("active")}catch(e){}}
-  const titles={viewFocus:"Focus Mode",viewPdf:"Office Reader",viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewOffline:"Offline Lessons",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewQB:"MCQ Practice",viewMembers:"Premium Members",viewFeedback:"Feedback",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class",viewBrowser:"Safe Browser",viewStudy:"Study Tools"};
+  const titles={viewFocus:"Focus Mode",viewPdf:"Office Reader",viewHome:"Rajib Tutorial",viewDisc:"Discussion",viewInbox:"Notifications",viewOffline:"Offline Lessons",viewCourse:curCourse?.title||"Course",viewManage:"Manage Courses",viewQB:"MCQ Practice",viewMembers:"Premium Members",viewServer:"Server Control",viewFeedback:"Feedback",viewNotify:"Notification Center",viewRes:(RES_META[resType]||{}).name||"Resources",viewLive:liveType==="exam"?"Live Exam":"Live Class",viewBrowser:"Safe Browser",viewStudy:"Study Tools"};
   $("topbarTitle").textContent=titles[id]||"Rajib Tutorial";
   try{if(id!=="viewDisc")dLeave();if(id==="viewInbox")inboxLoad();if(id==="viewOffline")offRender()}catch(e){}
 
@@ -5597,6 +5614,163 @@ window.fbDelete=function(id,src){
 
 // ─── Admin: members ──────────────────────────────────────
 window.openMembers=function(){renderMembers();goView("viewMembers")};
+
+// ─── Admin → Server A / B Control ───────────────────────────────────────────────
+// Same panel as the Android app (the Windows exe loads this page too). Switch Auto / A / B for EVERY app at once (stored in
+// server.json on the "server-config" branch), run the A ⇄ B data sync (GitHub Actions), see each server's status and usage.
+// The GitHub token (repo + workflow scope) is typed once and kept only in this browser's localStorage.
+const SV_REPO="raseledutools/rajib-tutorial-web", SV_SYNC="sync-firestore.yml", SV_TOKEN_KEY="gh_admin_token";
+const SV_LIM={read:50000,write:20000,delete:20000};      // Spark (free) daily limits per project
+const svS={probeA:null,probeB:null,usage:null,usageNote:"",syncStatus:"",syncResult:"",syncBusy:false,modeBusy:false,probing:false};
+const svTok=()=>{try{return localStorage.getItem(SV_TOKEN_KEY)||""}catch(e){return ""}};
+const svEsc=t=>String(t==null?"":t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const svFmt=n=>Number(n||0).toLocaleString("en-US");
+const svSleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function svGh(method,path,body){
+  const r=await fetch("https://api.github.com"+path,{method,headers:Object.assign({Authorization:"Bearer "+svTok(),Accept:"application/vnd.github+json"},body?{"Content-Type":"application/json"}:{}),body:body?JSON.stringify(body):undefined});
+  const t=await r.text(); let j=null; try{j=t?JSON.parse(t):null}catch(e){}
+  if(!r.ok) throw new Error("HTTP "+r.status+" "+String((j&&j.message)||t).slice(0,140));
+  return j;
+}
+async function svProbe(target){          // cheap read: OK / QUOTA / NOT_READY / OFFLINE / ERR
+  if(!target) return "NOT_READY";
+  try{ await _rGetDoc(doc(target,"_ping","x")); return "OK"; }
+  catch(e){
+    if(_isQuota(e)) return "QUOTA";
+    if(_isBackupBad(e)) return "NOT_READY";
+    if(e&&e.code==="unavailable") return "OFFLINE";
+    return "ERR "+String((e&&e.message)||e).slice(0,80);
+  }
+}
+function svRender(){
+  const w=$("svWrap"); if(!w) return;
+  const keep=($("svTokIn")||{}).value||"";
+  const onB=!!dbB&&db===dbB, mode=_forced||"auto";
+  let modeTxt;
+  if(mode==="A") modeTxt="সবার জন্য সবসময় A (auto switch বন্ধ)";
+  else if(mode==="B") modeTxt="সবার জন্য সবসময় B (auto switch বন্ধ)";
+  else{
+    modeTxt="Auto — A চলে, quota শেষ হলে প্রত্যেকে নিজে B তে যায়";
+    try{const u=Number(localStorage.getItem(FO_KEY)||0); if(onB&&u>Date.now()) modeTxt+="<br>B চলছে, আবার A চেষ্টা হবে ~ "+svEsc(new Date(u).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}));}catch(e){}
+  }
+  const seg=(m,label)=>`<button class="sv-seg${mode===m?" on":""}" ${svS.modeBusy?"disabled":""} onclick="svSetMode('${m}')">${label}</button>`;
+  const status=p=>p===null?['যাচাই হচ্ছে…','']:p==="OK"?['✔ চালু — quota আছে','sv-good']:p==="QUOTA"?['⛔ আজকের free quota শেষ','sv-bad']:p==="NOT_READY"?['⚠ database / rules ready না','sv-bad']:p==="OFFLINE"?['ইন্টারনেট নেই','sv-bad']:['সমস্যা: '+svEsc(p),'sv-bad'];
+  const usageLine=(label,used,lim)=>{const left=Math.max(0,lim-used),pct=Math.min(100,Math.round(used*100/lim));return `<div class="sv-line${pct>=90?" sv-bad":""}"${pct>=90?' style="font-weight:700"':''}>${label}: ${svFmt(used)} / ${svFmt(lim)} &nbsp;(বাকি ${svFmt(left)} · ${pct}% ব্যবহার)</div>`};
+  const card=(title,pid,key,active,probe)=>{
+    const [st,cls]=status(probe); const u=svS.usage; let usage="";
+    if(u){
+      if(u.error) usage=`<div class="sv-sub" style="margin-top:6px">সবার মোট usage আনা যায়নি: ${svEsc(u.error)}<br>(Google Cloud IAM এ service account কে “Monitoring Viewer” role দিলে এখানে সংখ্যা আসবে)</div>`;
+      else{
+        const mins=Math.max(0,Math.round((Date.now()-Number(u.atMs||0))/60000));
+        usage=usageLine("পড়া (read)",u[key+"_read"],SV_LIM.read)+usageLine("লেখা (write)",u[key+"_write"],SV_LIM.write)+usageLine("মোছা (delete)",u[key+"_delete"],SV_LIM.delete)
+          +`<div class="sv-sub">সব ইউজার মিলিয়ে, আজ পর্যন্ত · ${mins<90?mins+" মিনিট":Math.round(mins/60)+" ঘণ্টা"} আগের সংখ্যা</div>`;
+      }
+    }
+    return `<div class="sv-card"><h3>${title}${active?' <span class="sv-good" style="font-size:12px">● চালু</span>':''}</h3><div class="sv-sub">${pid}</div>
+      <div class="sv-line ${cls}" style="font-weight:700;margin:6px 0">${st}</div>${usage}
+      <div class="sv-act"><button class="btn-secondary" onclick="window.open('https://console.firebase.google.com/project/${pid}/firestore/databases/-default-/usage','_blank')">📊 Firebase Console এ usage</button></div></div>`;
+  };
+  const hasTok=!!svTok();
+  w.innerHTML=`<div class="manage-hdr"><h2>Server Control</h2></div>
+    <div class="sv-sub" style="margin:-14px 0 14px">একবার বদলালে APK, Web, EXE সব জায়গায় (সব ইউজারের) বদলে যায়</div>
+    <div class="sv-card"><div class="sv-sub">এখন চালু আছে (এই ডিভাইসে)</div>
+      <div class="sv-big ${onB?"sv-bad":"sv-good"}">${onB?"Server B":"Server A"}</div>
+      <div class="sv-sub" style="margin-top:2px">${modeTxt}</div>
+      <div class="sv-row">${seg("auto","Auto")}${seg("A","A")}${seg("B","B")}</div>
+      <div class="sv-sub" style="margin-top:8px">${svS.modeBusy?"সবার জন্য বদলানো হচ্ছে…":"বদলালে এই ডিভাইসে সাথে সাথে, বাকি সবার কাছে ~২ মিনিটে পৌঁছায়। যাদের পাতা খোলা আছে তারা পরের navigation / reconnect এ পাবে।"}</div></div>
+    ${card("Server A","mywebtools-f8d53","A",!onB,svS.probeA)}
+    ${card("Server B","rajib-tutorial-2","B",onB,svS.probeB)}
+    ${svS.usageNote?`<div class="sv-sub" style="margin:0 4px 10px">${svEsc(svS.usageNote)}</div>`:""}
+    <div class="sv-act" style="margin:0 0 12px"><button class="btn-secondary" ${svS.probing?"disabled":""} onclick="svReload()">${svS.probing?"যাচাই হচ্ছে…":"🔄 Status ও Usage আবার দেখুন"}</button></div>
+    <div class="sv-card"><h3>Data Sync (A ⇄ B)</h3>
+      <div class="sv-sub">দুই server এর data মিলিয়ে দেয়: যা শুধু একটাতে আছে তা অন্যটায় যায়, আলাদা হলে নতুনটা জেতে। কিছু মোছে না। GitHub এ চলে, তাই এক-দুই মিনিট লাগে। আজকের quota শেষ থাকলে A থেকে কিছু পড়া যায় না (ফলাফলে “INCOMPLETE (quota)” আসে)।</div>
+      <div class="sv-act"><button class="btn-ok" ${svS.syncBusy||!hasTok?"disabled":""} onclick="svStartSync()">${svS.syncBusy?"Sync চলছে…":"⇄ এখনই Sync করুন"}</button></div>
+      ${svS.syncStatus?`<div class="sv-line" style="font-weight:700;margin-top:10px">${svEsc(svS.syncStatus)}</div>`:""}
+      ${svS.syncResult?`<div class="sv-pre">${svEsc(svS.syncResult)}</div>`:""}</div>
+    <div class="sv-card"><h3>GitHub token</h3>
+      <div class="sv-sub">${hasTok?"✔ এই ডিভাইসে সেভ করা আছে (শুধু এই browser/app এ থাকে)।":"সুইচ বদলাতে ও Sync চালাতে লাগে। GitHub → Settings → Developer settings → Personal access token (scope: repo + workflow)।"}</div>
+      <input class="sv-tok" id="svTokIn" type="password" autocomplete="off" placeholder="ghp_… (নতুন token বসাতে এখানে পেস্ট করুন)">
+      <div class="sv-act"><button class="btn-ok" onclick="svSaveTok()">সেভ করুন</button>${hasTok?'<button class="btn-secondary" onclick="svClearTok()">মুছে ফেলুন</button>':""}</div></div>
+    <div class="sv-sub" style="margin:0 4px">Auto সবচেয়ে নিরাপদ। A বা B জোর করে ধরলে সবার জন্য quota শেষ হলেও আর অন্যটায় যাবে না (ওই server এ error আসবে), তাই কাজ শেষে Auto তে ফিরুন।</div>`;
+  const ti=$("svTokIn"); if(ti&&keep) ti.value=keep;
+}
+async function svReload(){
+  if(svS.probing) return;
+  svS.probing=true; svS.probeA=svS.probeB=null; svRender();
+  const r=await Promise.all([svProbe(dbA),svProbe(dbB)]); svS.probeA=r[0]; svS.probeB=r[1];
+  try{
+    const d=await getDoc(doc(db,"_sync_meta","usage"));
+    svS.usage=d.exists()?d.data():null; svS.usageNote=d.exists()?"":"Usage snapshot এখনো তৈরি হয়নি (প্রতি ৩০ মিনিটে GitHub থেকে আসে)।";
+  }catch(e){ svS.usage=null; svS.usageNote="Usage পড়া যায়নি: "+String((e&&e.message)||e).slice(0,100); }
+  svS.probing=false; svRender(); svLastSync();
+}
+async function svSetMode(m){
+  if(svS.modeBusy) return;
+  if(!svTok()){ showToast("সব জায়গায় বদলাতে GitHub token লাগবে — নিচে token বসান"); return; }
+  svS.modeBusy=true; svRender();
+  try{
+    const path="/repos/"+SV_REPO+"/contents/server.json";
+    let sha=""; try{ sha=(await svGh("GET",path+"?ref=server-config")).sha||""; }catch(e){ if(!/HTTP 404/.test(e.message)) throw e; }
+    const body={message:"server: "+m+" [skip ci]",content:btoa(JSON.stringify({mode:m,by:"admin-web",at:Date.now()})+"\n"),branch:"server-config"};
+    if(sha) body.sha=sha;
+    await svGh("PUT",path,body);
+    try{ localStorage.setItem(SRV_KEY,m); if(m==="auto"){ localStorage.removeItem(FO_KEY); localStorage.removeItem(BAD_KEY); } }catch(e){}
+    _applyMode(m,true);
+    showToast(m==="auto"?"Auto: সব জায়গায় (A দিয়ে শুরু)":"সব জায়গায় শুধু Server "+m);
+  }catch(e){ showToast("বদলানো যায়নি: "+String(e.message||e).slice(0,100)); }
+  svS.modeBusy=false; svRender(); svReload();
+}
+async function svLatestRun(){ const j=await svGh("GET","/repos/"+SV_REPO+"/actions/workflows/"+SV_SYNC+"/runs?per_page=3"); return j.workflow_runs||[]; }
+async function svResultOf(runId){        // the sync job publishes its summary as an annotation titled "Firestore sync result"
+  try{
+    const jobs=await svGh("GET","/repos/"+SV_REPO+"/actions/runs/"+runId+"/jobs"); if(!jobs.jobs||!jobs.jobs.length) return "";
+    const an=await svGh("GET","/repos/"+SV_REPO+"/check-runs/"+jobs.jobs[0].id+"/annotations"); let out="";
+    for(const o of an){ const t=o.title||""; if(t.indexOf("Firestore sync")===0){ if(t==="Firestore sync result") return o.message; out=out?out+"\n"+o.message:o.message; } }
+    return out;
+  }catch(e){ return ""; }
+}
+async function svLastSync(){
+  if(!svTok()||svS.syncBusy) return;
+  try{
+    const r=(await svLatestRun())[0]; if(!r||svS.syncBusy) return;
+    svS.syncStatus="শেষ run: "+r.status+(r.conclusion?" / "+r.conclusion:"")+"  ·  "+String(r.created_at).replace("T"," ").replace("Z"," UTC");
+    if(r.status==="completed"){ const res=await svResultOf(r.id); if(res) svS.syncResult=res; }
+    svRender();
+  }catch(e){}
+}
+async function svStartSync(){
+  if(svS.syncBusy) return;
+  if(!svTok()){ showToast("আগে GitHub token বসান"); return; }
+  svS.syncBusy=true; svS.syncStatus="Sync শুরু হচ্ছে…"; svS.syncResult=""; svRender();
+  try{
+    const before=((await svLatestRun())[0]||{}).id||0;
+    await svGh("POST","/repos/"+SV_REPO+"/actions/workflows/"+SV_SYNC+"/dispatches",{ref:"main",inputs:{dry_run:"false"}});
+    svS.syncStatus="Workflow চালু করা হয়েছে, run খোঁজা হচ্ছে…"; svRender();
+    let found=false;
+    for(let i=0;i<60;i++){
+      await svSleep(5000);
+      const run=(await svLatestRun()).find(x=>x.id>before); if(!run) continue;
+      found=true;
+      if(run.status==="completed"){
+        const res=await svResultOf(run.id);
+        svS.syncStatus=run.conclusion==="success"?"✔ Sync শেষ":"⚠ Sync শেষ: "+run.conclusion;
+        svS.syncResult=res||"(ফলাফল আনা যায়নি — GitHub → Actions এ দেখুন)"; break;
+      }
+      svS.syncStatus="Sync চলছে… ("+run.status+")"; svRender();
+    }
+    if(!found) svS.syncStatus="Run পাওয়া যায়নি — GitHub → Actions এ দেখুন";
+  }catch(e){ svS.syncStatus="✖ Sync হয়নি: "+String(e.message||e).slice(0,140); }
+  svS.syncBusy=false; svRender(); svReload();
+}
+window.svSetMode=svSetMode; window.svReload=svReload; window.svStartSync=svStartSync;
+window.svSaveTok=function(){
+  const v=(($("svTokIn")||{}).value||"").trim();
+  if(!v){ showToast("Token খালি"); return; }
+  try{ localStorage.setItem(SV_TOKEN_KEY,v); }catch(e){ showToast("সেভ হয়নি"); return; }
+  if($("svTokIn")) $("svTokIn").value=""; showToast("Token সেভ হয়েছে"); svRender(); svLastSync();
+};
+window.svClearTok=function(){ try{ localStorage.removeItem(SV_TOKEN_KEY); }catch(e){} showToast("Token মুছে ফেলা হয়েছে"); svRender(); };
+window.openServerCtl=function(){ svRender(); goView("viewServer"); svReload(); };
 
 // ─── Notification Center — via Android Bridge (Java → FCM) ───────────────────
 // Admin panel থেকে JS → AndroidAdmin.sendNotification() → Java → FCM REST API
