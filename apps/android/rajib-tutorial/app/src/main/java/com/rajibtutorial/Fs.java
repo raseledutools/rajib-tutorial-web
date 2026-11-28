@@ -362,6 +362,47 @@ final class Fs {
     }
 
     private static String request(String method, String url, String json) throws IOException {
+        String r = requestCore(method, url, json);
+        mirror(method, url, json);
+        return r;
+    }
+
+    // ── Write-through mirror ──
+    // Every successful write (PATCH / DELETE) is replayed, best effort and in the background, on the OTHER project, so A and B
+    // hold the same data while both still have quota (nothing can be copied from A once its quota is gone). It never blocks or
+    // fails the caller; if the other side is over quota / not ready it backs off for 10 minutes. The daily GitHub
+    // "Sync Firestore" job reconciles whatever was missed.
+    private static volatile long mirrorOffUntil = 0;
+    private static final java.util.concurrent.ExecutorService MIRROR =
+        java.util.concurrent.Executors.newSingleThreadExecutor(new java.util.concurrent.ThreadFactory() {
+            @Override public Thread newThread(Runnable r) {
+                Thread t = new Thread(r, "fs-mirror");
+                t.setDaemon(true);
+                return t;
+            }
+        });
+
+    private static void mirror(final String method, final String url, final String json) {
+        if (!"PATCH".equals(method) && !"DELETE".equals(method)) return;
+        if (backupBadNow() || System.currentTimeMillis() < mirrorOffUntil) return;
+        if (url.contains("/_call_")) return;                 // temporary call-signalling docs
+        final boolean toA = onBackup();                      // the write just landed on B -> copy it to A, otherwise to B
+        try {
+            MIRROR.execute(new Runnable() {
+                @Override public void run() {
+                    try {
+                        doRequest(method, toA ? url : toBackup(url), toA ? json : toBackup(json));
+                    } catch (NotFound ignored) {
+                        // doc missing on the other side: the daily sync creates it
+                    } catch (IOException e) {
+                        if (isQuota(e) || isBackupBad(e)) mirrorOffUntil = System.currentTimeMillis() + 10L * 60L * 1000L;
+                    } catch (Throwable ignored) { }
+                }
+            });
+        } catch (Throwable ignored) { }
+    }
+
+    private static String requestCore(String method, String url, String json) throws IOException {
         if (onBackup()) {
             try {
                 return doRequest(method, toBackup(url), toBackup(json));

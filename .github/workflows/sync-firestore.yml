@@ -1,18 +1,14 @@
-name: Sync Firestore (primary → backup)
+name: Sync Firestore (primary ⇄ backup)
 
 on:
   schedule:
-    # Once a day, after the Spark quota reset (07:00/08:00 UTC) so the reads don't eat the day's quota early.
-    # 09:30 UTC = 15:30 Bangladesh time. Edit the cron to change how often it runs.
-    - cron: '30 9 * * *'
+    # Runs right AFTER the daily Spark quota reset (07:00 UTC summer / 08:00 UTC winter), while the primary project can still be
+    # read: 08:30 UTC = 14:30 Bangladesh time. (Once a project's quota is gone nothing can be copied from it any more.)
+    - cron: '30 8 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
         description: 'Dry run (count only, write nothing)'
-        type: boolean
-        default: false
-      force:
-        description: 'Force overwrite backup docs even if changed after the last sync'
         type: boolean
         default: false
 
@@ -37,10 +33,9 @@ jobs:
       - name: Install firebase-admin
         run: npm install --no-save --no-package-lock --prefix scripts firebase-admin@12.7.0
 
-      - name: Copy primary → backup
+      - name: Reconcile primary ⇄ backup
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FIREBASE_SERVICE_ACCOUNT_BACKUP: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BACKUP }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
-          FORCE: ${{ inputs.force && '1' || '0' }}
         run: node scripts/sync_firestore.js

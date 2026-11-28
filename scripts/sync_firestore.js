@@ -1,42 +1,40 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * Copies Firestore data from the PRIMARY project (mywebtools-f8d53) to the BACKUP project
- * (rajib-tutorial-2) so the app's client-side failover has real data to read.
+ * Two-way reconcile between the PRIMARY project (A, mywebtools-f8d53) and the BACKUP project (B, rajib-tutorial-2).
+ *
+ * The apps already mirror every write to both projects (write-through). This job is the safety net + the first full copy:
+ *   - doc only in A                  -> copied to B
+ *   - doc only in B (new in B since the last sync, or no sync yet) -> copied to A   (writes made while A's quota was gone)
+ *   - doc in both but different      -> the copy with the newer updateTime wins and is written to the other side
+ *   - identical docs                 -> untouched
+ * It never deletes anything. Run it right after the daily quota reset, while A can still be read.
  *
  * Env:
- *   FIREBASE_SERVICE_ACCOUNT         service-account JSON of the PRIMARY project (already used by send_update_push.py)
- *   FIREBASE_SERVICE_ACCOUNT_BACKUP  service-account JSON of the BACKUP project  (new secret)
- *   DRY_RUN=1            count only, write nothing
- *   FORCE=1              overwrite backup docs even if they were changed in the backup after the last sync
- *   SUBCOLLECTIONS=1     also copy sub-collections (costs 1 extra read per doc; the app uses root collections only)
- *   SKIP_COLLECTIONS     comma list of root collections to skip   (default: push_messages)
- *   SKIP_ID_PREFIXES     comma list of doc-id prefixes to skip    (default: _call_  = temporary call signalling)
- *   MAX_DOCS             safety cap on docs read per run          (default: 15000)
- *
- * Overwrite protection: while the app runs on the backup (failover), users can write data there that the
- * primary does not have. After every run we store `_sync_meta/state.finishedAt` in the backup. On the next run a
- * backup doc whose updateTime is newer than that was changed *after* the last sync, so it is NOT overwritten
- * (listed in the summary instead). Without a previous sync, docs that already exist in the backup are left alone.
+ *   FIREBASE_SERVICE_ACCOUNT         service-account JSON of project A
+ *   FIREBASE_SERVICE_ACCOUNT_BACKUP  service-account JSON of project B
+ *   DRY_RUN=1            compare and report only, write nothing
+ *   SKIP_COLLECTIONS     comma list of root collections to skip  (default: push_messages)
+ *   SKIP_ID_PREFIXES     comma list of doc-id prefixes to skip   (default: _call_  = temporary call signalling)
+ *   MAX_DOCS             safety cap on docs read per project per run (default: 15000)
+ * Only root collections are handled (that is all the apps use).
  */
 const fs = require('fs');
+const { isDeepStrictEqual } = require('util');
 const admin = require('firebase-admin');
 
 const env = (k, d = '') => String(process.env[k] === undefined ? d : process.env[k]).trim();
 const flag = k => ['1', 'true', 'yes'].includes(env(k).toLowerCase());
 const list = s => s.split(',').map(x => x.trim()).filter(Boolean);
+const enc = m => String(m).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 
 const DRY = flag('DRY_RUN');
-const FORCE = flag('FORCE');
-const SUBS = flag('SUBCOLLECTIONS');
 const MAX_DOCS = parseInt(env('MAX_DOCS', '15000'), 10) || 15000;
 const SKIP_COLS = new Set(list(env('SKIP_COLLECTIONS', 'push_messages')));
 const SKIP_PREFIXES = list(env('SKIP_ID_PREFIXES', '_call_'));
 const META_PATH = '_sync_meta/state';
-const CHUNK = 200;
 
-function fail(msg) { console.log(`::error title=Firestore sync::${msg}`); process.exit(1); }
-
+function fail(msg) { console.log(`::error title=Firestore sync::${enc(msg)}`); process.exit(1); }
 function parseSA(name) {
   const raw = env(name);
   if (!raw) fail(`${name} secret is not set (repo Settings > Secrets and variables > Actions).`);
@@ -45,100 +43,107 @@ function parseSA(name) {
 
 const saA = parseSA('FIREBASE_SERVICE_ACCOUNT');
 const saB = parseSA('FIREBASE_SERVICE_ACCOUNT_BACKUP');
-if (saA.project_id === saB.project_id) fail('Primary and backup service accounts belong to the same project - refusing to copy a project onto itself.');
+if (saA.project_id === saB.project_id) fail('Primary and backup service accounts belong to the same project - refusing to sync a project with itself.');
 
-const src = admin.initializeApp({ credential: admin.credential.cert(saA) }, 'primary').firestore();
-const dst = admin.initializeApp({ credential: admin.credential.cert(saB) }, 'backup').firestore();
+const dbA = admin.initializeApp({ credential: admin.credential.cert(saA) }, 'primary').firestore();
+const dbB = admin.initializeApp({ credential: admin.credential.cert(saB) }, 'backup').firestore();
 
-const stats = { read: 0, created: 0, updated: 0, skippedFilter: 0, skippedExisting: 0, skippedNewer: 0, errors: 0 };
-const newerPaths = [];
-let truncated = false;
-let lastDone = null; // Timestamp of the previous finished sync
-let writer = null;
-let pending = [];
+const st = { readA: 0, readB: 0, equal: 0, toB_new: 0, toB_upd: 0, toA_new: 0, toA_upd: 0, conflicts: 0, bOnlyOld: 0, filtered: 0, errors: 0 };
+const conflictPaths = [];
+let truncated = false, lastDone = null, wA = null, wB = null;
 
-async function flush() {
-  if (!pending.length) return;
-  const batch = pending; pending = [];
-  const snaps = await dst.getAll(...batch.map(b => b.dstRef));
-  snaps.forEach((s, i) => {
-    const { dstRef, data } = batch[i];
-    let action;
-    if (!s.exists) action = 'create';
-    else if (FORCE) action = 'update';
-    else if (!lastDone) { stats.skippedExisting++; return; }
-    else if (s.updateTime.toMillis() > lastDone.toMillis()) {
-      stats.skippedNewer++; if (newerPaths.length < 50) newerPaths.push(dstRef.path); return;
-    } else action = 'update';
-    if (action === 'create') stats.created++; else stats.updated++;
-    if (!DRY) writer.set(dstRef, data).catch(e => { stats.errors++; console.log(`write failed ${dstRef.path}: ${e.message}`); });
-  });
+const skipDoc = id => SKIP_PREFIXES.some(p => id.startsWith(p));
+const ms = ts => (ts ? ts.toMillis() : 0);
+
+async function load(col, side) {
+  const m = new Map();
+  for await (const s of col.stream()) {
+    if (st.readA + st.readB >= MAX_DOCS * 2) { truncated = true; break; }
+    side === 'A' ? st.readA++ : st.readB++;
+    if (skipDoc(s.id)) { st.filtered++; continue; }
+    m.set(s.id, s);
+  }
+  return m;
 }
 
-async function copyCollection(srcCol, isRoot) {
-  if (isRoot && (SKIP_COLS.has(srcCol.id) || srcCol.id.startsWith('_sync_'))) { console.log(`skip collection ${srcCol.id}`); return; }
-  for await (const snap of srcCol.stream()) {
-    if (stats.read >= MAX_DOCS) { truncated = true; return; }
-    stats.read++;
-    if (SKIP_PREFIXES.some(p => snap.id.startsWith(p))) { stats.skippedFilter++; continue; }
-    pending.push({ dstRef: dst.doc(snap.ref.path), data: snap.data() });
-    if (pending.length >= CHUNK) await flush();
-    if (SUBS) {
-      const subs = await snap.ref.listCollections();
-      for (const sc of subs) { await flush(); await copyCollection(sc, false); if (truncated) return; }
+function put(writer, db, snap, tag) {
+  if (DRY) return;
+  try {
+    writer.set(db.doc(snap.ref.path), snap.data()).catch(e => { st.errors++; console.log(`write failed (${tag}) ${snap.ref.path}: ${e.message}`); });
+  } catch (e) { st.errors++; console.log(`write failed (${tag}) ${snap.ref.path}: ${e.message}`); }
+}
+
+async function syncCollection(id) {
+  const [a, b] = [await load(dbA.collection(id), 'A'), await load(dbB.collection(id), 'B')];
+  for (const [docId, sa] of a) {
+    const sb = b.get(docId);
+    if (!sb) { st.toB_new++; put(wB, dbB, sa, 'A->B'); continue; }
+    if (isDeepStrictEqual(sa.data(), sb.data())) { st.equal++; continue; }
+    const ta = ms(sa.updateTime), tb = ms(sb.updateTime);
+    if (lastDone && ta > lastDone && tb > lastDone) {   // changed on both sides since the last sync
+      st.conflicts++; if (conflictPaths.length < 30) conflictPaths.push(`${sa.ref.path} (${ta >= tb ? 'A' : 'B'} kept)`);
     }
+    if (ta >= tb) { st.toB_upd++; put(wB, dbB, sa, 'A->B'); }
+    else { st.toA_upd++; put(wA, dbA, sb, 'B->A'); }
+  }
+  for (const [docId, sb] of b) {
+    if (a.has(docId)) continue;
+    // Only in B. Created in B since the last sync (or never synced) -> it belongs to A too. Older than the last sync -> it was
+    // deleted in A; leave it alone (we never delete).
+    if (!lastDone || ms(sb.createTime) > lastDone) { st.toA_new++; put(wA, dbA, sb, 'B->A'); }
+    else st.bOnlyOld++;
   }
 }
 
 async function main() {
-  console.log(`primary=${saA.project_id} -> backup=${saB.project_id}  dry=${DRY} force=${FORCE} subs=${SUBS}`);
-
+  console.log(`A=${saA.project_id} <-> B=${saB.project_id}  dry=${DRY}`);
   try {
-    const meta = await dst.doc(META_PATH).get();
-    if (meta.exists) lastDone = meta.get('finishedAt') || null;
+    const meta = await dbB.doc(META_PATH).get();
+    if (meta.exists && meta.get('finishedAt')) lastDone = meta.get('finishedAt').toMillis();
   } catch (e) {
-    if (e.code === 5 || e.code === 7) fail(`Cannot use the backup Firestore (${e.code}): create the Firestore database in project ${saB.project_id} and make sure the service account has the "Cloud Datastore User" role.`);
+    if (e.code === 5 || e.code === 7) fail(`Cannot use the backup Firestore (${e.code}): create the Firestore database in project ${saB.project_id} and give the service account the "Cloud Datastore User" role.`);
     throw e;
   }
-  console.log(lastDone ? `previous sync finished at ${lastDone.toDate().toISOString()}` : 'no previous sync recorded - existing backup docs will be left untouched');
+  console.log(lastDone ? `previous sync finished ${new Date(lastDone).toISOString()}` : 'no previous sync recorded');
 
-  writer = dst.bulkWriter();
-  let quotaHit = false;
+  wA = dbA.bulkWriter(); wB = dbB.bulkWriter();
+  let incomplete = false;
   try {
-    const roots = await src.listCollections();
-    console.log('root collections: ' + roots.map(c => c.id).join(', '));
-    for (const col of roots) { await copyCollection(col, true); await flush(); if (truncated) break; }
+    const ids = new Set([...(await dbA.listCollections()).map(c => c.id), ...(await dbB.listCollections()).map(c => c.id)]);
+    for (const id of [...ids].sort()) {
+      if (SKIP_COLS.has(id) || id.startsWith('_sync_')) { console.log(`skip collection ${id}`); continue; }
+      console.log(`collection ${id}`);
+      await syncCollection(id);
+      if (truncated) break;
+    }
   } catch (e) {
-    if (e.code === 8) { quotaHit = true; console.log(`::warning title=Firestore sync::Primary quota exhausted while reading (${e.message}). Partial copy; will retry next run.`); }
-    else throw e;
+    if (e.code === 8) {
+      incomplete = true;
+      console.log(`::warning title=Firestore sync::${enc(`Quota exhausted while reading (${e.message}). Nothing more can be compared today; the next run (after the daily reset) continues.`)}`);
+    } else throw e;
   }
-  await flush();
-  await writer.close();
+  await wA.close(); await wB.close();
 
-  if (!DRY) {
-    await dst.doc(META_PATH).set({
-      finishedAt: admin.firestore.FieldValue.serverTimestamp(),
-      source: saA.project_id,
-      stats, truncated, quotaHit,
-    });
+  if (!DRY && !incomplete && !truncated) {
+    await dbB.doc(META_PATH).set({ finishedAt: admin.firestore.FieldValue.serverTimestamp(), stats: st });
   }
 
   const lines = [
-    `### Firestore sync ${saA.project_id} -> ${saB.project_id}${DRY ? ' (dry run)' : ''}`,
-    `- docs read from primary: **${stats.read}**`,
-    `- created in backup: **${stats.created}**, updated: **${stats.updated}**`,
-    `- skipped by filter: ${stats.skippedFilter}, already in backup (no previous sync): ${stats.skippedExisting}`,
-    `- skipped because the backup copy is newer (changed during failover): **${stats.skippedNewer}**`,
-    `- write errors: **${stats.errors}**`,
+    `Firestore sync ${saA.project_id} <-> ${saB.project_id}${DRY ? ' (dry run)' : ''}${incomplete ? ' - INCOMPLETE (quota)' : ''}`,
+    `docs read: A ${st.readA}, B ${st.readB}; identical: ${st.equal}`,
+    `A -> B: ${st.toB_new} new, ${st.toB_upd} updated`,
+    `B -> A: ${st.toA_new} new, ${st.toA_upd} updated`,
+    `changed on both sides since last sync (newer kept): ${st.conflicts}`,
+    `only in B but older than last sync (left alone): ${st.bOnlyOld}; skipped by filter: ${st.filtered}; write errors: ${st.errors}`,
   ];
-  if (newerPaths.length) lines.push('', 'Backup-newer docs (first 50):', ...newerPaths.map(p => `- \`${p}\``));
-  if (truncated) lines.push('', `**Stopped at MAX_DOCS=${MAX_DOCS}** - raise MAX_DOCS to copy the rest.`);
+  if (conflictPaths.length) lines.push('conflicts:', ...conflictPaths.map(p => '  ' + p));
+  if (truncated) lines.push(`STOPPED at MAX_DOCS=${MAX_DOCS} - raise MAX_DOCS to cover everything.`);
   console.log(lines.join('\n'));
-  console.log('::notice title=Firestore sync result::' + lines.join('\n').replace(/%/g,'%25').replace(/\n/g,'%0A'));
-  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+  console.log(`::notice title=Firestore sync result::${enc(lines.join('\n'))}`);
+  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '```\n' + lines.join('\n') + '\n```\n');
 
-  if (stats.errors) fail(`${stats.errors} write(s) failed.`);
-  if (truncated) fail(`Stopped at MAX_DOCS=${MAX_DOCS}; the remaining docs were not copied.`);
+  if (st.errors) fail(`${st.errors} write(s) failed.`);
+  if (truncated) fail(`Stopped at MAX_DOCS=${MAX_DOCS}; the remaining docs were not compared.`);
 }
 
 main().catch(e => fail(`${e.code || ''} ${e.message}`));
